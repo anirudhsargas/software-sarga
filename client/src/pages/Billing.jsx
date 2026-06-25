@@ -902,12 +902,12 @@ const Billing = () => {
         {/* Branch selector / display */}
         {!['admin', 'super_admin'].includes(user?.role?.toLowerCase()) ? (
           <div className="billing-summary-bar__item">
-            <Building2 size={14} />
+            <Building2 size={14} aria-hidden="true" />
             <span>{branches.find(b => String(b.id) === String(selectedBranchId || user?.branch_id))?.name || user?.branch_short_name || 'Branch'}</span>
           </div>
         ) : (
           <div className={`billing-summary-bar__item${branchRequiresAttention ? ' billing-summary-bar__item--branch-required' : ''}`}>
-            <Building2 size={14} />
+            <Building2 size={14} aria-hidden="true" />
             <select
               value={selectedBranchId || ''}
               onChange={e => setSelectedBranchId(e.target.value || null)}
@@ -921,10 +921,10 @@ const Billing = () => {
         )}
 
         <div className="billing-summary-bar__item">
-          <Calendar size={14} /><span>{new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+          <Calendar size={14} aria-hidden="true" /><span>{new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
         </div>
         <div className="billing-summary-bar__item">
-          <UserCheck size={14} /><span>{user?.name || 'Staff'}</span>
+          <UserCheck size={14} aria-hidden="true" /><span>{user?.name || 'Staff'}</span>
         </div>
         <div className="billing-summary-bar__spacer" />
         <div className="billing-summary-bar__item billing-summary-bar__item--total">
@@ -934,7 +934,7 @@ const Billing = () => {
       </div>
 
       {/* ERROR */}
-      {error && <div className="billing-error"><AlertCircle size={16} /> {error}</div>}
+      {error && <div className="billing-error"><AlertCircle size={16} aria-hidden="true" /> {error}</div>}
 
       {/* TABS NAVIGATION */}
       <div className="billing-tabs">
@@ -956,7 +956,7 @@ const Billing = () => {
 
       {/* CUSTOMER SECTION */}
       <div className="billing-section billing-section--customer" style={{ display: activeTab === 'customer' ? 'flex' : 'none' }}>
-        <div className="billing-section__header"><User size={16} /> <h2>Customer</h2></div>
+        <div className="billing-section__header"><User size={16} aria-hidden="true" /> <h2>Customer</h2></div>
 
 
 
@@ -999,7 +999,7 @@ const Billing = () => {
                   >
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                       <span className="font-medium" style={{ fontSize: 13 }}>{c.name}</span>
-                      <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>{c.mobile || c.phone || '—'}</span>
+                      <span className="text-muted" style={{ fontSize: 11, fontFamily: 'monospace' }}>{c.mobile || c.phone || '—'}</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       {c.type && <span className="badge badge--sm">{c.type}</span>}
@@ -1032,9 +1032,9 @@ const Billing = () => {
               <button className="btn btn-ghost btn-xs" onClick={handleChangeCustomer} style={{ marginLeft: 'auto' }} aria-label="Clear customer selection"><X size={14} aria-hidden="true" /></button>
             </div>
             <div className="billing-customer-card__details">
-              <span><Phone size={12} /> {form.mobile}</span>
-              {form.gst && <span><FileText size={12} /> {form.gst}</span>}
-              {form.address && <span><MapPin size={12} /> {form.address}</span>}
+              <span><Phone size={12} aria-hidden="true" /> {form.mobile}</span>
+              {form.gst && <span><FileText size={12} aria-hidden="true" /> {form.gst}</span>}
+              {form.address && <span><MapPin size={12} aria-hidden="true" /> {form.address}</span>}
             </div>
           </div>
         ) : (
@@ -1099,7 +1099,7 @@ const Billing = () => {
 
       {/* PRODUCTS SECTION */}
       <div className="billing-section billing-section--products" style={{ display: activeTab === 'products' ? 'flex' : 'none' }}>
-        <div className="billing-section__header"><ShoppingCart size={16} /> <h2>Add Products</h2></div>
+        <div className="billing-section__header"><ShoppingCart size={16} aria-hidden="true" /> <h2>Add Products</h2></div>
 
         {/* Search + Quick Actions */}
         <div className="billing-product-top">
@@ -1145,7 +1145,7 @@ const Billing = () => {
                     <div className="billing-product-suggestions__name">{s.product.name || s.product.title}</div>
                     <div className="billing-product-suggestions__meta">
                       {(() => { const p = resolveProductUnitPrice(s.product); return <span>{p > 0 ? `₹${p.toLocaleString()}` : 'Custom pricing'}</span>; })()}
-                      {s.catName && <span className="muted">{s.catName}{s.subName ? ` / ${s.subName}` : ''}</span>}
+                      {s.catName && <span className="text-muted">{s.catName}{s.subName ? ` / ${s.subName}` : ''}</span>}
                     </div>
                   </div>
                 ))}
@@ -1288,7 +1288,7 @@ const Billing = () => {
                       </td>
                       <td>
                         <div className="billing-qty-adjust">
-                          <button className="btn btn-ghost btn-icon btn-xs" onClick={() => updateLine(line.id, 'quantity', Math.max(1, (Number(line.quantity) || 1) - 1))} aria-label="Decrease quantity"><Minus size={12} /></button>
+                          <button className="btn btn-ghost btn-icon btn-xs" onClick={() => updateLine(line.id, 'quantity', Math.max(1, (Number(line.quantity) || 1) - 1))} aria-label="Decrease quantity"><Minus size={12} aria-hidden="true" /></button>
                           <input
                             type="text"
                             inputMode="numeric"
@@ -1301,7 +1301,7 @@ const Billing = () => {
                             }}
                             className="billing-qty-input"
                           />
-                          <button className="btn btn-ghost btn-icon btn-xs" onClick={() => updateLine(line.id, 'quantity', (Number(line.quantity) || 1) + 1)} aria-label="Increase quantity"><Plus size={12} /></button>
+                          <button className="btn btn-ghost btn-icon btn-xs" onClick={() => updateLine(line.id, 'quantity', (Number(line.quantity) || 1) + 1)} aria-label="Increase quantity"><Plus size={12} aria-hidden="true" /></button>
                         </div>
                       </td>
                       <td>
@@ -1310,8 +1310,8 @@ const Billing = () => {
                       <td className="font-bold">₹{Number(line.total_amount).toLocaleString()}</td>
                       <td style={{ whiteSpace: 'nowrap' }}>
                         <div style={{ display: 'flex', gap: '4px', alignItems: 'center', justifyContent: 'flex-end' }}>
-                          <button className="btn btn-ghost btn-icon btn-xs" onClick={() => duplicateLine(line)} title="Duplicate"><Copy size={12} /></button>
-                          <button className="btn btn-ghost btn-icon btn-xs text-error" onClick={() => handleRemoveWithUndo(line)} title="Remove"><Trash2 size={12} /></button>
+                          <button className="btn btn-ghost btn-icon btn-xs" onClick={() => duplicateLine(line)} title="Duplicate"><Copy size={12} aria-hidden="true" /></button>
+                          <button className="btn btn-ghost btn-icon btn-xs text-error" onClick={() => handleRemoveWithUndo(line)} title="Remove"><Trash2 size={12} aria-hidden="true" /></button>
                         </div>
                       </td>
                     </tr>
@@ -1326,7 +1326,7 @@ const Billing = () => {
                 <div className="billing-summary-side__row"><span>Subtotal</span><span>₹{totals.subtotal.toFixed(2)}</span></div>
                 {totals.discountAmount > 0 && <div className="billing-summary-side__row billing-summary-side__row--discount"><span>Discount</span><span>-₹{totals.discountAmount.toFixed(2)}</span></div>}
                 <div className="billing-summary-side__row">
-                  <span style={{ fontSize: 10, color: 'var(--muted)', fontStyle: 'italic' }}>GST incl. in price</span>
+                  <span className="text-muted" style={{ fontSize: 10, fontStyle: 'italic' }}>GST incl. in price</span>
                 </div>
                 <div className="billing-summary-side__divider" />
                 <div className="billing-summary-side__row billing-summary-side__row--grand"><span>Grand Total</span><span>₹{totals.gross.toFixed(2)}</span></div>
@@ -1385,7 +1385,7 @@ const Billing = () => {
                 </div>
                 {discountError && (
                   <div className="billing-discount-error">
-                    <AlertCircle size={12} />
+                    <AlertCircle size={12} aria-hidden="true" />
                     <span>{discountError}</span>
                   </div>
                 )}
@@ -1411,7 +1411,7 @@ const Billing = () => {
 
       {/* PAYMENT SECTION */}
       <div className="billing-section billing-section--payment" style={{ display: activeTab === 'payment' ? 'flex' : 'none' }}>
-        <div className="billing-section__header"><CreditCard size={16} /> <h2>Payment</h2></div>
+        <div className="billing-section__header"><CreditCard size={16} aria-hidden="true" /> <h2>Payment</h2></div>
 
         {/* Amount received display */}
         <div className="billing-payment-amount">
@@ -1447,7 +1447,7 @@ const Billing = () => {
                 aria-label={`${m} amount`}
                 autoComplete="off"
               />
-              <span className="text-xs muted">{m}</span>
+              <span className="text-xs text-muted">{m}</span>
             </div>
           ))}
           {payment.selectedMethods.length > 1 && (
@@ -1462,8 +1462,8 @@ const Billing = () => {
         {payment.selectedMethods.includes('UPI') && (
           <div>
             {!branchUpiId && (
-              <div style={{ fontSize: 12, color: 'var(--muted)', padding: '8px 0', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <AlertCircle size={13} style={{ color: 'var(--destructive)' }} />
+              <div style={{ fontSize: 12, padding: '8px 0', display: 'flex', alignItems: 'center', gap: 6 }} className="text-muted">
+                <AlertCircle size={13} aria-hidden="true" style={{ color: 'var(--destructive)' }} />
                 Select a branch with a UPI ID to enable QR generation.
               </div>
             )}
@@ -1532,7 +1532,7 @@ const Billing = () => {
 
       {/* SUMMARY SECTION */}
       <div className="billing-section billing-section--summary" style={{ display: activeTab === 'summary' ? 'flex' : 'none' }}>
-        <div className="billing-section__header"><FileText size={16} /> <h2>Summary</h2></div>
+        <div className="billing-section__header"><FileText size={16} aria-hidden="true" /> <h2>Summary</h2></div>
 
         {/* Totals breakdown */}
         <div className="billing-summary-final">
@@ -1547,7 +1547,7 @@ const Billing = () => {
             </div>
           )}
           <div className="billing-summary-final__row">
-            <span style={{ fontSize: 11, color: 'var(--muted)', fontStyle: 'italic' }}>GST included in price</span>
+            <span className="text-muted" style={{ fontSize: 11, fontStyle: 'italic' }}>GST included in price</span>
             <span />
           </div>
           <div className="billing-summary-final__divider" />
@@ -1569,7 +1569,7 @@ const Billing = () => {
 
         {/* Order Description Details */}
         <div className="billing-summary-details" style={{ marginTop: 16, padding: '12px', border: '1px solid var(--border)', borderRadius: 8 }}>
-          <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, color: 'var(--text-muted)' }}>Job Details</div>
+          <div className="text-muted" style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>Job Details</div>
           {orderLines.map((line, idx) => (
             <div key={line.id} style={{ marginBottom: idx < orderLines.length - 1 ? 8 : 0, padding: 8, background: 'var(--surface-2)', borderRadius: 6 }}>
               <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 4 }}>{line.product_name}</div>
@@ -1647,7 +1647,7 @@ const Billing = () => {
           <div className="modal modal--lg" onClick={e => e.stopPropagation()}>
             <div className="modal__header">
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <Check size={20} style={{ color: 'var(--success)' }} />
+                <Check size={20} aria-hidden="true" style={{ color: 'var(--success)' }} />
                 <h3 id="post-bill-title">Invoice Created!</h3>
               </div>
               <button className="modal-close" aria-label="Close" onClick={() => setShowPostBillOptions(false)}><X size={18} aria-hidden="true" /></button>
@@ -1666,7 +1666,7 @@ const Billing = () => {
               {/* Staff Assignment Panel */}
               <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                  <Users size={16} style={{ color: 'var(--accent)' }} />
+                  <Users size={16} aria-hidden="true" style={{ color: 'var(--accent)' }} />
                   <span style={{ fontWeight: 600, fontSize: 14 }}>Assign Work to Staff</span>
                 </div>
 
@@ -1680,7 +1680,7 @@ const Billing = () => {
                       <div key={job.id} className="billing-assign-row">
                         <div className="billing-assign-row__name" title={job.job_number || job.id}>
                           {job.job_number || `Job #${job.id}`}
-                          {job.product_name && <span style={{ color: 'var(--muted)', marginLeft: 6, fontSize: 11 }}>· {job.product_name}</span>}
+                          {job.product_name && <span className="text-muted" style={{ marginLeft: 6, fontSize: 11 }}>· {job.product_name}</span>}
                         </div>
                         <select
                           className="billing-assign-row__select"
@@ -1702,7 +1702,7 @@ const Billing = () => {
 
                     {assignError && (
                       <div className="billing-error" style={{ fontSize: 12 }}>
-                        <AlertCircle size={14} /> {assignError}
+                        <AlertCircle size={14} aria-hidden="true" /> {assignError}
                       </div>
                     )}
 
@@ -1712,7 +1712,7 @@ const Billing = () => {
                         onClick={handleAssignStaff}
                         disabled={assignLoading}
                       >
-                        {assignLoading ? <><Loader2 size={14} className="animate-spin" /> Assigning...</> : <><Check size={14} /> Assign & Close</>}
+                        {assignLoading ? <><Loader2 size={14} className="animate-spin" aria-hidden="true" /> Assigning...</> : <><Check size={14} aria-hidden="true" /> Assign & Close</>}
                       </button>
                       <button className="btn btn-ghost btn-sm" onClick={() => setShowPostBillOptions(false)}>
                         Skip for now
@@ -1753,7 +1753,7 @@ const Billing = () => {
                     }}>
                       <div>
                         <div className="font-semibold">{b.customer_name || b.customerName || 'Walk-in Customer'}</div>
-                        <div className="text-xs muted">{b.customer_mobile || b.customerMobile || 'No mobile'} • {b.payment_date || b.paymentDate || b.created_at ? new Date(b.payment_date || b.paymentDate || b.created_at).toLocaleDateString() : '—'}</div>
+                        <div className="text-xs text-muted">{b.customer_mobile || b.customerMobile || 'No mobile'} • {b.payment_date || b.paymentDate || b.created_at ? new Date(b.payment_date || b.paymentDate || b.created_at).toLocaleDateString() : '—'}</div>
                         <div className="text-xs" style={{ marginTop: 4 }}>
                           {b.isOffline ? (
                             <span style={{ color: 'var(--warning)' }}>Unsynced (Offline)</span>
@@ -1764,7 +1764,7 @@ const Billing = () => {
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                         <div className="font-bold">₹{Number(b.net_amount || b.netAmount || b.total_amount || b.totalAmount || 0).toFixed(2)}</div>
-                        <button className="btn btn-ghost btn-xs btn-icon" onClick={() => handlePrintRecent(b)} title="Print invoice"><Printer size={14} /></button>
+                        <button className="btn btn-ghost btn-xs btn-icon" onClick={() => handlePrintRecent(b)} title="Print invoice" aria-label="Print invoice"><Printer size={14} aria-hidden="true" /></button>
                       </div>
                     </div>
                   ))}

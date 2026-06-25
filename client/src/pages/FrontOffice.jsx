@@ -500,8 +500,8 @@ const FrontOffice = () => {
             <span className="fo-date">{serverNow().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
           </div>
           <div className="fo-header__actions">
-            <button className="fo-header-btn" onClick={() => loadDashboard()}>
-              <RefreshCw size={14} />
+            <button className="fo-header-btn" aria-label="Refresh dashboard" onClick={() => loadDashboard()}>
+              <RefreshCw size={14} aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -511,7 +511,7 @@ const FrontOffice = () => {
             <AlertTriangle size={14} />
             <span>Attendance pending for {attendanceReminder.missing_count} staff</span>
             <button className="btn btn-primary btn-sm" onClick={() => navigate('/dashboard/daily-report')}>
-              Add Attendance
+              <AlertTriangle size={14} aria-hidden="true" /> Add Attendance
             </button>
           </div>
         )}
@@ -546,7 +546,7 @@ const FrontOffice = () => {
                   <div className="fo-search-empty">
                     <p>No results found</p>
                     <button className="btn btn-primary btn-sm" onClick={() => navigate('/dashboard/customers/new')}>
-                      <UserPlus size={14} /> Add New Customer
+                      <UserPlus size={14} aria-hidden="true" /> Add New Customer
                     </button>
                   </div>
                 ) : (
@@ -578,7 +578,7 @@ const FrontOffice = () => {
             )}
           </div>
           <button className="fo-primary-btn" onClick={() => navigate('/dashboard/sales/invoices', { state: { action: 'create' } })}>
-            <Plus size={16} />
+            <Plus size={16} aria-hidden="true" />
             <span>New Order</span>
             <span className="fo-primary-btn__kbd">Alt+N</span>
           </button>
@@ -593,58 +593,59 @@ const FrontOffice = () => {
             <SkeletonLoader type="cards" count={8} />
           ) : (
             <>
+              {/* Fix 3: role=group + aria-label groups value+label for screen readers */}
               <div className="fo-kpi fo-kpi--blue">
-                <div className="fo-kpi__icon"><ShoppingBag size={16} /></div>
-                <div className="fo-kpi__body">
+                <div className="fo-kpi__icon" aria-hidden="true"><ShoppingBag size={16} /></div>
+                <div className="fo-kpi__body" role="group" aria-label="Orders Today">
                   <span className="fo-kpi__value">{stats?.today_orders ?? 0}</span>
                   <span className="fo-kpi__label">Orders Today</span>
                 </div>
               </div>
               <div className="fo-kpi fo-kpi--amber">
-                <div className="fo-kpi__icon"><Clock size={16} /></div>
-                <div className="fo-kpi__body">
+                <div className="fo-kpi__icon" aria-hidden="true"><Clock size={16} /></div>
+                <div className="fo-kpi__body" role="group" aria-label="Active Jobs">
                   <span className="fo-kpi__value">{stats?.in_progress ?? 0}</span>
                   <span className="fo-kpi__label">Active Jobs</span>
                 </div>
               </div>
               <div className="fo-kpi fo-kpi--green">
-                <div className="fo-kpi__icon"><CheckCircle2 size={16} /></div>
-                <div className="fo-kpi__body">
+                <div className="fo-kpi__icon" aria-hidden="true"><CheckCircle2 size={16} /></div>
+                <div className="fo-kpi__body" role="group" aria-label="Ready Pickup">
                   <span className="fo-kpi__value">{stats?.ready_pickup ?? 0}</span>
                   <span className="fo-kpi__label">Ready Pickup</span>
                 </div>
               </div>
               <div className="fo-kpi fo-kpi--red">
-                <div className="fo-kpi__icon"><IndianRupee size={16} /></div>
-                <div className="fo-kpi__body">
+                <div className="fo-kpi__icon" aria-hidden="true"><IndianRupee size={16} /></div>
+                <div className="fo-kpi__body" role="group" aria-label="Due Collection">
                   <span className="fo-kpi__value">{fmt(stats?.total_due)}</span>
                   <span className="fo-kpi__label">Due Collection</span>
                 </div>
               </div>
               <div className="fo-kpi fo-kpi--teal">
-                <div className="fo-kpi__icon"><TrendingUp size={16} /></div>
-                <div className="fo-kpi__body">
+                <div className="fo-kpi__icon" aria-hidden="true"><TrendingUp size={16} /></div>
+                <div className="fo-kpi__body" role="group" aria-label="Today Collection">
                   <span className="fo-kpi__value">{fmt(stats?.today_collections)}</span>
                   <span className="fo-kpi__label">Today Collection</span>
                 </div>
               </div>
               <div className="fo-kpi fo-kpi--purple">
-                <div className="fo-kpi__icon"><Truck size={16} /></div>
-                <div className="fo-kpi__body">
+                <div className="fo-kpi__icon" aria-hidden="true"><Truck size={16} /></div>
+                <div className="fo-kpi__body" role="group" aria-label="Delivered Today">
                   <span className="fo-kpi__value">{stats?.delivered_today ?? 0}</span>
                   <span className="fo-kpi__label">Delivered Today</span>
                 </div>
               </div>
               <div className="fo-kpi fo-kpi--pink">
-                <div className="fo-kpi__icon"><Timer size={16} /></div>
-                <div className="fo-kpi__body">
+                <div className="fo-kpi__icon" aria-hidden="true"><Timer size={16} /></div>
+                <div className="fo-kpi__body" role="group" aria-label="Pending Approval">
                   <span className="fo-kpi__value">{stats?.pending_approval ?? 0}</span>
                   <span className="fo-kpi__label">Pending Approval</span>
                 </div>
               </div>
               <div className="fo-kpi fo-kpi--cyan">
-                <div className="fo-kpi__icon"><BarChart3 size={16} /></div>
-                <div className="fo-kpi__body">
+                <div className="fo-kpi__icon" aria-hidden="true"><BarChart3 size={16} /></div>
+                <div className="fo-kpi__body" role="group" aria-label="Avg Processing">
                   <span className="fo-kpi__value">{stats?.avg_processing_time ?? '—'}</span>
                   <span className="fo-kpi__label">Avg Processing</span>
                 </div>
@@ -656,22 +657,22 @@ const FrontOffice = () => {
         {/* ── Tabs ── */}
         <div className="fo-tabs">
           <button className={`fo-tab ${activeTab === 'queue' ? 'fo-tab--active' : ''}`} onClick={() => setActiveTab('queue')}>
-            <Package size={14} /> Active Jobs{activeTotal > 0 && <span className="fo-tab-count">{activeTotal}</span>}
+            <Package size={14} aria-hidden="true" /> Active Jobs{activeTotal > 0 && <span className="fo-tab-count">{activeTotal}</span>}
           </button>
           <button className={`fo-tab ${activeTab === 'dues' ? 'fo-tab--active' : ''}`} onClick={() => setActiveTab('dues')}>
-            <IndianRupee size={14} /> Due Collection{dueTotal > 0 && <span className="fo-tab-count">{dueTotal}</span>}
+            <IndianRupee size={14} aria-hidden="true" /> Due Collection{dueTotal > 0 && <span className="fo-tab-count">{dueTotal}</span>}
           </button>
           <button className={`fo-tab ${activeTab === 'overdue' ? 'fo-tab--active' : ''}`} onClick={() => setActiveTab('overdue')}>
-            <AlertTriangle size={14} /> Overdue{overdueTotal > 0 && <span className="fo-tab-count fo-tab-count--red">{overdueTotal}</span>}
+            <AlertTriangle size={14} aria-hidden="true" /> Overdue{overdueTotal > 0 && <span className="fo-tab-count fo-tab-count--red">{overdueTotal}</span>}
           </button>
           <button className={`fo-tab ${activeTab === 'completed' ? 'fo-tab--active' : ''}`} onClick={() => setActiveTab('completed')}>
-            <CheckCircle2 size={14} /> Completed
+            <CheckCircle2 size={14} aria-hidden="true" /> Completed
           </button>
           <button className={`fo-tab ${activeTab === 'payments' ? 'fo-tab--active' : ''}`} onClick={() => setActiveTab('payments')}>
-            <Receipt size={14} /> Payments
+            <Receipt size={14} aria-hidden="true" /> Payments
           </button>
           <button className={`fo-tab ${activeTab === 'delivered' ? 'fo-tab--active' : ''}`} onClick={() => setActiveTab('delivered')}>
-            <Truck size={14} /> Delivered
+            <Truck size={14} aria-hidden="true" /> Delivered
           </button>
         </div>
 
@@ -704,10 +705,10 @@ const FrontOffice = () => {
                         {((activePage - 1) * PAGE_SIZE) + 1}–{Math.min(activePage * PAGE_SIZE, activeTotal)} of {activeTotal.toLocaleString()}
                       </span>
                     )}
-                    <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setActivePage(p => Math.max(1, p - 1))} disabled={activePage <= 1 || activeLoading}><ChevronLeft size={14} /></button>
-                    <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setActivePage(p => Math.min(activeTotalPages, p + 1))} disabled={activePage >= activeTotalPages || activeLoading}><ChevronRight size={14} /></button>
-                    <button className="btn btn-ghost btn-sm" onClick={() => fetchActiveJobs(activePage)} disabled={activeLoading}>
-                      {activeLoading ? <Loader2 size={12} className="spin" /> : <RefreshCw size={12} />}
+                    <button className="btn btn-ghost btn-icon btn-sm" aria-label="Previous page" onClick={() => setActivePage(p => Math.max(1, p - 1))} disabled={activePage <= 1 || activeLoading}><ChevronLeft size={14} aria-hidden="true" /></button>
+                    <button className="btn btn-ghost btn-icon btn-sm" aria-label="Next page" onClick={() => setActivePage(p => Math.min(activeTotalPages, p + 1))} disabled={activePage >= activeTotalPages || activeLoading}><ChevronRight size={14} aria-hidden="true" /></button>
+                    <button className="btn btn-ghost btn-sm" aria-label="Refresh active jobs" onClick={() => fetchActiveJobs(activePage)} disabled={activeLoading}>
+                      {activeLoading ? <Loader2 size={12} className="spin" aria-hidden="true" /> : <RefreshCw size={12} aria-hidden="true" />}
                     </button>
                   </div>
                 </div>
@@ -726,20 +727,20 @@ const FrontOffice = () => {
               ) : (() => {
                 const filteredJobs = activeQueueJobs.filter(job => matchesCategory(job.category));
                 return filteredJobs.length === 0 ? (
-                  <div className="fo-empty"><Package size={32} /><p>{activeJobFilter !== 'all' ? 'No jobs in this category' : 'No active jobs right now'}</p></div>
+                  <div className="fo-empty"><Package size={32} aria-hidden="true" /><p>{activeJobFilter !== 'all' ? 'No jobs in this category' : 'No active jobs right now'}</p></div>
                 ) : (
                   <div className="fo-table-wrap">
                     <table className="fo-table">
                       <thead>
                         <tr>
-                          <th>Job</th>
-                          <th>Customer</th>
-                          <th>Status</th>
-                          <th>Progress</th>
-                          <th>Amount</th>
-                          <th>Due</th>
-                          <th>Delivery</th>
-                          <th></th>
+                          <th scope="col">Job</th>
+                          <th scope="col">Customer</th>
+                          <th scope="col">Status</th>
+                          <th scope="col">Progress</th>
+                          <th scope="col">Amount</th>
+                          <th scope="col">Due</th>
+                          <th scope="col">Delivery</th>
+                          <th scope="col"><span className="sr-only">Actions</span></th>
                         </tr>
                       </thead>
                       <tbody>
@@ -771,12 +772,12 @@ const FrontOffice = () => {
                               <td>
                                 <div className="fo-status-group">
                                   <span className={`fo-badge ${getStatusBadge(job.status)}`}>{job.status}</span>
-                                  {priority && <span className={`fo-priority-dot ${priority}`} />}
+                                  {priority && <span className={`fo-priority-dot ${priority}`} aria-hidden="true" />}
                                 </div>
                               </td>
                               <td>
                                 <div className="fo-progress-bar">
-                                  <div className="fo-progress-fill" style={{ width: `${progress}%` }} />
+                                  <div className="fo-progress-fill" style={{ width: `${progress}%` }} aria-hidden="true" />
                                   <span className="fo-progress-text">{progress}%</span>
                                 </div>
                               </td>
@@ -785,7 +786,7 @@ const FrontOffice = () => {
                                 {balance > 0 ? (
                                   <span className="fo-due-amount">{fmt(balance)}</span>
                                 ) : (
-                                  <span className="fo-paid-tag"><CheckCircle2 size={12} /> Paid</span>
+                                  <span className="fo-paid-tag"><CheckCircle2 size={12} aria-hidden="true" /> Paid</span>
                                 )}
                               </td>
                               <td>
@@ -805,27 +806,27 @@ const FrontOffice = () => {
                                   {balance > 0 && (
                                     <button
                                       className="fo-action-btn fo-action-btn--pay"
+                                      aria-label="Quick payment"
                                       onClick={(e) => { e.stopPropagation(); navigate(`/dashboard/sales/payments?job=${job.id}`); }}
-                                      title="Quick Payment"
                                     >
-                                      <CreditCard size={13} />
+                                      <CreditCard size={13} aria-hidden="true" />
                                     </button>
                                   )}
                                   {job.status !== 'Completed' && (
                                     <button
                                       className="fo-action-btn fo-action-btn--complete"
+                                      aria-label="Mark as complete"
                                       onClick={(e) => { e.stopPropagation(); /* mark complete */ }}
-                                      title="Quick Complete"
                                     >
-                                      <CheckCircle2 size={13} />
+                                      <CheckCircle2 size={13} aria-hidden="true" />
                                     </button>
                                   )}
                                   <button
                                     className="fo-action-btn fo-action-btn--view"
+                                    aria-label="View job"
                                     onClick={(e) => { e.stopPropagation(); navigate(`/dashboard/jobs/${job.id}`); }}
-                                    title="View"
                                   >
-                                    <Eye size={13} />
+                                    <Eye size={13} aria-hidden="true" />
                                   </button>
                                 </div>
                               </td>
@@ -844,14 +845,14 @@ const FrontOffice = () => {
           {activeTab === 'dues' && (
             <div className="fo-panel">
               <div className="fo-panel__header">
-                <div className="fo-panel__title-row"><IndianRupee size={14} /><span>Due Collection</span></div>
+                <div className="fo-panel__title-row"><IndianRupee size={14} aria-hidden="true" /><span>Due Collection</span></div>
                 <div className="fo-panel__header-right">
                   <div className="fo-panel__nav">
                     {dueTotal > 0 && <span className="fo-panel__total">{((duePage - 1) * PAGE_SIZE) + 1}–{Math.min(duePage * PAGE_SIZE, dueTotal)} of {dueTotal.toLocaleString()}</span>}
-                    <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setDuePage(p => Math.max(1, p - 1))} disabled={duePage <= 1 || dueLoading}><ChevronLeft size={14} /></button>
-                    <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setDuePage(p => Math.min(dueTotalPages, p + 1))} disabled={duePage >= dueTotalPages || dueLoading}><ChevronRight size={14} /></button>
-                    <button className="btn btn-ghost btn-sm" onClick={() => fetchDueCustomers(duePage)} disabled={dueLoading}>
-                      {dueLoading ? <Loader2 size={12} className="spin" /> : <RefreshCw size={12} />}
+                    <button className="btn btn-ghost btn-icon btn-sm" aria-label="Previous page" onClick={() => setDuePage(p => Math.max(1, p - 1))} disabled={duePage <= 1 || dueLoading}><ChevronLeft size={14} aria-hidden="true" /></button>
+                    <button className="btn btn-ghost btn-icon btn-sm" aria-label="Next page" onClick={() => setDuePage(p => Math.min(dueTotalPages, p + 1))} disabled={duePage >= dueTotalPages || dueLoading}><ChevronRight size={14} aria-hidden="true" /></button>
+                    <button className="btn btn-ghost btn-sm" aria-label="Refresh due customers" onClick={() => fetchDueCustomers(duePage)} disabled={dueLoading}>
+                      {dueLoading ? <Loader2 size={12} className="spin" aria-hidden="true" /> : <RefreshCw size={12} aria-hidden="true" />}
                     </button>
                   </div>
                 </div>
@@ -865,14 +866,14 @@ const FrontOffice = () => {
                   { header: 'Actions', width: '2fr' }
                 ]} />
               ) : (!dueCustomers || dueCustomers.length === 0) ? (
-                <div className="fo-empty"><CheckCircle2 size={32} /><p>No pending dues — all clear!</p></div>
+                <div className="fo-empty"><CheckCircle2 size={32} aria-hidden="true" /><p>No pending dues — all clear!</p></div>
               ) : (
                 <div className="fo-due-list">
                   {dueCustomers.map(c => (
                     <div key={c.id} className="fo-due-card">
                       <div className="fo-due-card__info">
                         <span className="fo-due-card__name">{c.name}</span>
-                        <span className="fo-due-card__mobile"><Phone size={12} /> {c.mobile}</span>
+                        <span className="fo-due-card__mobile"><Phone size={12} aria-hidden="true" /> {c.mobile}</span>
                         <span className="fo-due-card__jobs">{c.job_count} job{c.job_count > 1 ? 's' : ''}</span>
                       </div>
                       <div className="fo-due-card__amounts">
@@ -882,16 +883,16 @@ const FrontOffice = () => {
                       </div>
                       <div className="fo-due-card__actions">
                         <button className="btn btn-primary btn-sm" onClick={() => navigate(`/dashboard/customer-payments?customer=${c.id}`)}>
-                          <CreditCard size={13} /> Collect
+                          <CreditCard size={13} aria-hidden="true" /> Collect
                         </button>
                         <button className="btn btn-ghost btn-sm" onClick={() => navigate(`/dashboard/customers/${c.id}`)}>
-                          <Eye size={13} /> View
+                          <Eye size={13} aria-hidden="true" /> View
                         </button>
                         {c.mobile && (
                           <>
-                            <a href={`tel:${c.mobile}`} className="btn btn-ghost btn-sm btn-icon" title="Call"><Phone size={13} /></a>
-                            <a href={whatsappUrl(c.mobile, dueCollectionMessage({ customerName: c.name, totalDue: c.due_amount, jobCount: c.job_count }))} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm btn-icon" title="WhatsApp" style={{ color: 'var(--success)' }}>
-                              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                            <a href={`tel:${c.mobile}`} className="btn btn-ghost btn-sm btn-icon" aria-label={`Call ${c.name}`}><Phone size={13} aria-hidden="true" /></a>
+                            <a href={whatsappUrl(c.mobile, dueCollectionMessage({ customerName: c.name, totalDue: c.due_amount, jobCount: c.job_count }))} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm btn-icon" aria-label={`WhatsApp ${c.name}`} style={{ color: 'var(--success)' }}>
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
                             </a>
                           </>
                         )}
@@ -907,14 +908,14 @@ const FrontOffice = () => {
           {activeTab === 'overdue' && (
             <div className="fo-panel">
               <div className="fo-panel__header">
-                <div className="fo-panel__title-row"><AlertTriangle size={14} /><span>Overdue</span></div>
+                <div className="fo-panel__title-row"><AlertTriangle size={14} aria-hidden="true" /><span>Overdue</span></div>
                 <div className="fo-panel__header-right">
                   <div className="fo-panel__nav">
                     {overdueTotal > 0 && <span className="fo-panel__total">{((overduePage - 1) * PAGE_SIZE) + 1}–{Math.min(overduePage * PAGE_SIZE, overdueTotal)} of {overdueTotal.toLocaleString()}</span>}
-                    <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setOverduePage(p => Math.max(1, p - 1))} disabled={overduePage <= 1 || overdueLoading}><ChevronLeft size={14} /></button>
-                    <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setOverduePage(p => Math.min(overdueTotalPages, p + 1))} disabled={overduePage >= overdueTotalPages || overdueLoading}><ChevronRight size={14} /></button>
-                    <button className="btn btn-ghost btn-sm" onClick={() => fetchOverdueJobs(overduePage)} disabled={overdueLoading}>
-                      {overdueLoading ? <Loader2 size={12} className="spin" /> : <RefreshCw size={12} />}
+                    <button className="btn btn-ghost btn-icon btn-sm" aria-label="Previous page" onClick={() => setOverduePage(p => Math.max(1, p - 1))} disabled={overduePage <= 1 || overdueLoading}><ChevronLeft size={14} aria-hidden="true" /></button>
+                    <button className="btn btn-ghost btn-icon btn-sm" aria-label="Next page" onClick={() => setOverduePage(p => Math.min(overdueTotalPages, p + 1))} disabled={overduePage >= overdueTotalPages || overdueLoading}><ChevronRight size={14} aria-hidden="true" /></button>
+                    <button className="btn btn-ghost btn-sm" aria-label="Refresh overdue jobs" onClick={() => fetchOverdueJobs(overduePage)} disabled={overdueLoading}>
+                      {overdueLoading ? <Loader2 size={12} className="spin" aria-hidden="true" /> : <RefreshCw size={12} aria-hidden="true" />}
                     </button>
                   </div>
                 </div>
@@ -922,11 +923,11 @@ const FrontOffice = () => {
               {overdueLoading ? (
                 <SkeletonLoader type="table" count={4} />
               ) : (!overdueJobs || overdueJobs.length === 0) ? (
-                <div className="fo-empty"><CheckCircle2 size={32} /><p>No overdue jobs!</p></div>
+                <div className="fo-empty"><CheckCircle2 size={32} aria-hidden="true" /><p>No overdue jobs!</p></div>
               ) : (
                 <div className="fo-table-wrap">
                   <table className="fo-table">
-                    <thead><tr><th>Job</th><th>Customer</th><th>Status</th><th>Delivery Was</th><th>Overdue By</th><th>Balance</th><th></th></tr></thead>
+                    <thead><tr><th scope="col">Job</th><th scope="col">Customer</th><th scope="col">Status</th><th scope="col">Delivery Was</th><th scope="col">Overdue By</th><th scope="col">Balance</th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead>
                     <tbody>
                       {overdueJobs.filter(job => !categoryFilter || matchesCategory(job.category)).map(job => {
                         const days = Math.abs(daysUntil(job.delivery_date));
@@ -938,11 +939,11 @@ const FrontOffice = () => {
                             <td><span className={`fo-badge ${getStatusBadge(job.status)}`}>{job.status}</span></td>
                             <td>{fmtDate(job.delivery_date)}</td>
                             <td><span className="fo-overdue-days">{days} day{days > 1 ? 's' : ''}</span></td>
-                            <td>{balance > 0 ? <span className="fo-due-amount">{fmt(balance)}</span> : <span className="fo-paid-tag"><CheckCircle2 size={12} /> Paid</span>}</td>
+                            <td>{balance > 0 ? <span className="fo-due-amount">{fmt(balance)}</span> : <span className="fo-paid-tag"><CheckCircle2 size={12} aria-hidden="true" /> Paid</span>}</td>
                             <td>
                               <div className="fo-row-actions">
-                                {job.customer_mobile && <a href={`tel:${job.customer_mobile}`} className="fo-action-btn" title="Call"><Phone size={13} /></a>}
-                                <button className="fo-action-btn fo-action-btn--view" onClick={(e) => { e.stopPropagation(); navigate(`/dashboard/jobs/${job.id}`); }}><Eye size={13} /></button>
+                                {job.customer_mobile && <a href={`tel:${job.customer_mobile}`} className="fo-action-btn" aria-label="Call customer"><Phone size={13} aria-hidden="true" /></a>}
+                                <button className="fo-action-btn fo-action-btn--view" aria-label="View job" onClick={(e) => { e.stopPropagation(); navigate(`/dashboard/jobs/${job.id}`); }}><Eye size={13} aria-hidden="true" /></button>
                               </div>
                             </td>
                           </tr>
@@ -959,28 +960,28 @@ const FrontOffice = () => {
           {activeTab === 'completed' && (
             <div className="fo-panel">
               <div className="fo-panel__header">
-                <div className="fo-panel__title-row"><CheckCircle2 size={14} /><span>Completed Jobs</span></div>
+                <div className="fo-panel__title-row"><CheckCircle2 size={14} aria-hidden="true" /><span>Completed Jobs</span></div>
                 <div className="fo-panel__header-right">
                   <div className="row gap-xs items-center">
-                    <button className={`btn btn-sm ${completedView === 'grouped' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setCompletedView('grouped')}><LayoutGrid size={13} /></button>
-                    <button className={`btn btn-sm ${completedView === 'list' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setCompletedView('list')}><List size={13} /></button>
+                    <button className={`btn btn-sm ${completedView === 'grouped' ? 'btn-primary' : 'btn-ghost'}`} aria-label="Grouped view" aria-pressed={completedView === 'grouped'} onClick={() => setCompletedView('grouped')}><LayoutGrid size={13} aria-hidden="true" /></button>
+                    <button className={`btn btn-sm ${completedView === 'list' ? 'btn-primary' : 'btn-ghost'}`} aria-label="List view" aria-pressed={completedView === 'list'} onClick={() => setCompletedView('list')}><List size={13} aria-hidden="true" /></button>
                   </div>
                   <div className="fo-panel__nav">
                     {completedTotal > 0 && <span className="fo-panel__total">{((completedPage - 1) * PAGE_SIZE) + 1}–{Math.min(completedPage * PAGE_SIZE, completedTotal)} of {completedTotal.toLocaleString()}</span>}
-                    <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setCompletedPage(p => Math.max(1, p - 1))} disabled={completedPage <= 1 || completedLoading}><ChevronLeft size={14} /></button>
-                    <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setCompletedPage(p => Math.min(completedTotalPages, p + 1))} disabled={completedPage >= completedTotalPages || completedLoading}><ChevronRight size={14} /></button>
-                    <button className="btn btn-ghost btn-sm" onClick={() => fetchCompleted(completedPage)} disabled={completedLoading}>
-                      {completedLoading ? <Loader2 size={12} className="spin" /> : <RefreshCw size={12} />}
+                    <button className="btn btn-ghost btn-icon btn-sm" aria-label="Previous page" onClick={() => setCompletedPage(p => Math.max(1, p - 1))} disabled={completedPage <= 1 || completedLoading}><ChevronLeft size={14} aria-hidden="true" /></button>
+                    <button className="btn btn-ghost btn-icon btn-sm" aria-label="Next page" onClick={() => setCompletedPage(p => Math.min(completedTotalPages, p + 1))} disabled={completedPage >= completedTotalPages || completedLoading}><ChevronRight size={14} aria-hidden="true" /></button>
+                    <button className="btn btn-ghost btn-sm" aria-label="Refresh completed jobs" onClick={() => fetchCompleted(completedPage)} disabled={completedLoading}>
+                      {completedLoading ? <Loader2 size={12} className="spin" aria-hidden="true" /> : <RefreshCw size={12} aria-hidden="true" />}
                     </button>
                   </div>
                 </div>
               </div>
               {completedLoading ? <SkeletonLoader type="table" count={4} /> : !completedJobs || completedJobs.length === 0 ? (
-                <div className="fo-empty"><CheckCircle2 size={32} /><p>No completed jobs yet</p></div>
+                <div className="fo-empty"><CheckCircle2 size={32} aria-hidden="true" /><p>No completed jobs yet</p></div>
               ) : completedView === 'list' ? (
                 <div className="fo-table-wrap">
                   <table className="fo-table">
-                    <thead><tr><th>Job</th><th>Customer</th><th>Status</th><th>Amount</th><th>Balance</th><th>Updated</th><th></th></tr></thead>
+                    <thead><tr><th scope="col">Job</th><th scope="col">Customer</th><th scope="col">Status</th><th scope="col">Amount</th><th scope="col">Balance</th><th scope="col">Updated</th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead>
                     <tbody>
                       {completedJobs.map(job => (
                         <tr key={job.id} onClick={() => navigate(`/dashboard/jobs/${job.id}`)}>
@@ -988,9 +989,9 @@ const FrontOffice = () => {
                           <td><div className="fo-customer-cell"><span>{job.customer_name}</span>{job.customer_mobile && <span className="fo-mobile">{job.customer_mobile}</span>}</div></td>
                           <td><span className={`fo-badge ${getStatusBadge(job.status)}`}>{job.status}</span></td>
                           <td className="fo-amount">{fmt(job.total_amount)}</td>
-                          <td>{(Number(job.balance_amount ?? job.balance ?? 0)) > 0 ? <span className="fo-due-amount">{fmt(Number(job.balance_amount ?? job.balance ?? 0))}</span> : <span className="fo-paid-tag"><CheckCircle2 size={12} /> Paid</span>}</td>
+                          <td>{(Number(job.balance_amount ?? job.balance ?? 0)) > 0 ? <span className="fo-due-amount">{fmt(Number(job.balance_amount ?? job.balance ?? 0))}</span> : <span className="fo-paid-tag"><CheckCircle2 size={12} aria-hidden="true" /> Paid</span>}</td>
                           <td>{fmtDate(job.updated_at || job.delivery_date)}</td>
-                          <td><button className="fo-action-btn fo-action-btn--view" onClick={() => navigate(`/dashboard/jobs/${job.id}`)}><Eye size={13} /></button></td>
+                          <td><button className="fo-action-btn fo-action-btn--view" aria-label="View job" onClick={() => navigate(`/dashboard/jobs/${job.id}`)}><Eye size={13} aria-hidden="true" /></button></td>
                         </tr>
                       ))}
                     </tbody>
@@ -1003,14 +1004,14 @@ const FrontOffice = () => {
                     const isExpanded = expandedCustomers.has(customerKey);
                     return (
                       <div key={customerKey} className="fo-group-card">
-                        <button className="fo-group-card__header" onClick={() => toggleCustomerExpand(customerKey)}>
+                        <button className="fo-group-card__header" onClick={() => toggleCustomerExpand(customerKey)} aria-expanded={isExpanded}>
                           <div className="fo-group-card__info">
                             <strong className="fo-group-card__name">{group.customer_name || 'Walk-in'}</strong>
                             <span className="fo-group-card__meta">{group.jobs.length} job{group.jobs.length > 1 ? 's' : ''} • Total {fmt(group.total_amount)}</span>
                           </div>
                           <div className="fo-group-card__right">
                             <span className="fo-badge badge--success" style={{ fontSize: 11 }}>Completed</span>
-                            {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                            {isExpanded ? <ChevronUp size={16} aria-hidden="true" /> : <ChevronDown size={16} aria-hidden="true" />}
                           </div>
                         </button>
                         {isExpanded && (
@@ -1023,7 +1024,7 @@ const FrontOffice = () => {
                                 </div>
                                 <div className="fo-group-job__right">
                                   <span style={{ fontWeight: 700, fontSize: 12 }}>{fmt(job.total_amount)}</span>
-                                  <button className="fo-action-btn fo-action-btn--view"><Eye size={12} /></button>
+                                  <button className="fo-action-btn fo-action-btn--view" aria-label="View job"><Eye size={12} aria-hidden="true" /></button>
                                 </div>
                               </div>
                             ))}
@@ -1041,25 +1042,25 @@ const FrontOffice = () => {
           {activeTab === 'payments' && (
             <div className="fo-panel">
               <div className="fo-panel__header">
-                <div className="fo-panel__title-row"><Receipt size={14} /><span>Recent Payments</span></div>
+                <div className="fo-panel__title-row"><Receipt size={14} aria-hidden="true" /><span>Recent Payments</span></div>
                 <div className="fo-panel__header-right">
                   <div className="fo-panel__nav">
                     {paymentsTotal > 0 && <span className="fo-panel__total">{((paymentsPage - 1) * PAGE_SIZE) + 1}–{Math.min(paymentsPage * PAGE_SIZE, paymentsTotal)} of {paymentsTotal.toLocaleString()}</span>}
-                    <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setPaymentsPage(p => Math.max(1, p - 1))} disabled={paymentsPage <= 1 || paymentsLoading}><ChevronLeft size={14} /></button>
-                    <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setPaymentsPage(p => Math.min(paymentsTotalPages, p + 1))} disabled={paymentsPage >= paymentsTotalPages || paymentsLoading}><ChevronRight size={14} /></button>
-                    <button className="btn btn-ghost btn-sm" onClick={() => fetchRecentPayments(paymentsPage)} disabled={paymentsLoading}>
-                      {paymentsLoading ? <Loader2 size={12} className="spin" /> : <RefreshCw size={12} />}
+                    <button className="btn btn-ghost btn-icon btn-sm" aria-label="Previous page" onClick={() => setPaymentsPage(p => Math.max(1, p - 1))} disabled={paymentsPage <= 1 || paymentsLoading}><ChevronLeft size={14} aria-hidden="true" /></button>
+                    <button className="btn btn-ghost btn-icon btn-sm" aria-label="Next page" onClick={() => setPaymentsPage(p => Math.min(paymentsTotalPages, p + 1))} disabled={paymentsPage >= paymentsTotalPages || paymentsLoading}><ChevronRight size={14} aria-hidden="true" /></button>
+                    <button className="btn btn-ghost btn-sm" aria-label="Refresh payments" onClick={() => fetchRecentPayments(paymentsPage)} disabled={paymentsLoading}>
+                      {paymentsLoading ? <Loader2 size={12} className="spin" aria-hidden="true" /> : <RefreshCw size={12} aria-hidden="true" />}
                     </button>
                   </div>
                 </div>
               </div>
               {paymentsLoading ? <SkeletonLoader type="table" count={4} /> : (!recentPayments || recentPayments.length === 0) ? (
-                <div className="fo-empty"><Receipt size={32} /><p>No recent payments</p></div>
+                <div className="fo-empty"><Receipt size={32} aria-hidden="true" /><p>No recent payments</p></div>
               ) : (
                 <div className="fo-payments-list">
                   {recentPayments.map(p => (
                     <div key={p.id} className="fo-payment-item">
-                      <div className="fo-payment-item__icon"><Wallet size={16} /></div>
+                      <div className="fo-payment-item__icon"><Wallet size={16} aria-hidden="true" /></div>
                       <div className="fo-payment-item__info">
                         <span className="fo-payment-item__name">{p.customer_name}</span>
                         <span className="fo-payment-item__method">{p.payment_method} • {fmtDate(p.payment_date)}</span>
@@ -1076,24 +1077,24 @@ const FrontOffice = () => {
           {activeTab === 'delivered' && (
             <div className="fo-panel">
               <div className="fo-panel__header">
-                <div className="fo-panel__title-row"><Truck size={14} /><span>Delivered</span></div>
+                <div className="fo-panel__title-row"><Truck size={14} aria-hidden="true" /><span>Delivered</span></div>
                 <div className="fo-panel__header-right">
                   <div className="fo-panel__nav">
                     {deliveredTotal > 0 && <span className="fo-panel__total">{((deliveredPage - 1) * PAGE_SIZE) + 1}–{Math.min(deliveredPage * PAGE_SIZE, deliveredTotal)} of {deliveredTotal.toLocaleString()}</span>}
-                    <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setDeliveredPage(p => Math.max(1, p - 1))} disabled={deliveredPage <= 1 || deliveredLoading}><ChevronLeft size={14} /></button>
-                    <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setDeliveredPage(p => Math.min(deliveredTotalPages, p + 1))} disabled={deliveredPage >= deliveredTotalPages || deliveredLoading}><ChevronRight size={14} /></button>
-                    <button className="btn btn-ghost btn-sm" onClick={() => fetchDeliveredJobs(deliveredPage)} disabled={deliveredLoading}>
-                      {deliveredLoading ? <Loader2 size={12} className="spin" /> : <RefreshCw size={12} />}
+                    <button className="btn btn-ghost btn-icon btn-sm" aria-label="Previous page" onClick={() => setDeliveredPage(p => Math.max(1, p - 1))} disabled={deliveredPage <= 1 || deliveredLoading}><ChevronLeft size={14} aria-hidden="true" /></button>
+                    <button className="btn btn-ghost btn-icon btn-sm" aria-label="Next page" onClick={() => setDeliveredPage(p => Math.min(deliveredTotalPages, p + 1))} disabled={deliveredPage >= deliveredTotalPages || deliveredLoading}><ChevronRight size={14} aria-hidden="true" /></button>
+                    <button className="btn btn-ghost btn-sm" aria-label="Refresh delivered jobs" onClick={() => fetchDeliveredJobs(deliveredPage)} disabled={deliveredLoading}>
+                      {deliveredLoading ? <Loader2 size={12} className="spin" aria-hidden="true" /> : <RefreshCw size={12} aria-hidden="true" />}
                     </button>
                   </div>
                 </div>
               </div>
               {deliveredLoading ? <SkeletonLoader type="table" count={4} /> : (!deliveredJobs || deliveredJobs.length === 0) ? (
-                <div className="fo-empty"><Truck size={32} /><p>No delivered jobs yet</p></div>
+                <div className="fo-empty"><Truck size={32} aria-hidden="true" /><p>No delivered jobs yet</p></div>
               ) : (
                 <div className="fo-table-wrap">
                   <table className="fo-table">
-                    <thead><tr><th>Job</th><th>Customer</th><th>Amount</th><th>Balance</th><th>Delivery Date</th><th></th></tr></thead>
+                    <thead><tr><th scope="col">Job</th><th scope="col">Customer</th><th scope="col">Amount</th><th scope="col">Balance</th><th scope="col">Delivery Date</th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead>
                     <tbody>
                       {deliveredJobs.map(job => (
                         <tr key={job.id} onClick={() => navigate(`/dashboard/jobs/${job.id}`)}>

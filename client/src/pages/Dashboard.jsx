@@ -191,7 +191,7 @@ const SidebarNavItem = React.memo(({ item, closeSidebar, pendingRequestsCount, c
                 aria-label={item.name}
             >
                 <div className="nav-item-inner">
-                    <Camera size={20} />
+                    <Camera size={20} aria-hidden="true" />
                     <span className="nav-label">{item.name}</span>
                 </div>
             </button>
@@ -208,7 +208,7 @@ const SidebarNavItem = React.memo(({ item, closeSidebar, pendingRequestsCount, c
             aria-label={item.name}
         >
             <div className="nav-item-inner">
-                <item.icon size={20} />
+                <item.icon size={20} aria-hidden="true" />
                 <span className="nav-label">{item.name}</span>
                 {item.name === 'Requests' && pendingRequestsCount > 0 && (
                     <span className="side-badge">{pendingRequestsCount}</span>
@@ -246,11 +246,11 @@ const SidebarGroup = React.memo(({ group, isCollapsed, sidebarCollapsed, toggleG
                 aria-label={group.label}
             >
                 <div className="nav-item-inner">
-                    <GroupIcon size={20} />
+                    <GroupIcon size={20} aria-hidden="true" />
                     <span className="nav-label">{group.label}</span>
                 </div>
                 {!sidebarCollapsed && (
-                    <ChevronRight size={14} className={`sidebar-group-chevron ${isCollapsed ? '' : 'sidebar-group-chevron--open'}`} />
+                    <ChevronRight size={14} className={`sidebar-group-chevron ${isCollapsed ? '' : 'sidebar-group-chevron--open'}`} aria-hidden="true" />
                 )}
             </button>
             <div className="sidebar-group-items" style={{ display: (isCollapsed || sidebarCollapsed) ? 'none' : 'block' }}>
@@ -272,7 +272,7 @@ const SimpleNavItem = React.memo(({ item, closeSidebar, pendingRequestsCount }) 
         aria-label={item.name}
     >
         <div className="nav-item-inner">
-            <item.icon size={20} />
+            <item.icon size={20} aria-hidden="true" />
             <span className="nav-label">{item.name}</span>
             {item.name === 'Requests' && pendingRequestsCount > 0 && (
                 <span className="side-badge">{pendingRequestsCount}</span>
@@ -1055,7 +1055,7 @@ const Dashboard = () => {
                         </div>
                     </div>
                     <button className="btn btn-ghost btn--full mt-16 btn--danger" onClick={handleLogout}>
-                        <LogOut size={18} className="mr-8" /> <span className="logout-text">Logout</span>
+                        <LogOut size={18} className="mr-8" aria-hidden="true" /> <span className="logout-text">Logout</span>
                     </button>
                 </div>
             </aside>
@@ -1090,7 +1090,7 @@ const Dashboard = () => {
                     <div className="appbar-right">
                         {/* Branch switcher dropdown */}
                         <div className="appbar-branch-switcher">
-                            <Building2 size={16} />
+                            <Building2 size={16} aria-hidden="true" />
                             <BranchSelect
                                 value={selectedBranchId}
                                 onChange={(e) => selectBranch(e.target.value)}
@@ -1301,16 +1301,16 @@ const Dashboard = () => {
                         {/* Tab Navigation */}
                         <div className="profile-tabs">
                             <button className={`profile-tab ${profileTab === 'profile' ? 'profile-tab--active' : ''}`} onClick={() => setProfileTab('profile')}>
-                                <UserSquare size={15} /> Profile
+                                <UserSquare size={15} aria-hidden="true" /> Profile
                             </button>
                             <button className={`profile-tab ${profileTab === 'account' ? 'profile-tab--active' : ''}`} onClick={() => setProfileTab('account')}>
-                                <Settings size={15} /> Account
+                                <Settings size={15} aria-hidden="true" /> Account
                             </button>
                             <button className={`profile-tab ${profileTab === 'permissions' ? 'profile-tab--active' : ''}`} onClick={() => setProfileTab('permissions')}>
-                                <ShieldAlert size={15} /> Permissions
+                                <ShieldAlert size={15} aria-hidden="true" /> Permissions
                             </button>
                             <button className={`profile-tab ${profileTab === 'preferences' ? 'profile-tab--active' : ''}`} onClick={() => setProfileTab('preferences')}>
-                                <Sparkles size={15} /> Preferences
+                                <Sparkles size={15} aria-hidden="true" /> Preferences
                             </button>
                         </div>
 
@@ -1424,7 +1424,7 @@ const Dashboard = () => {
                                         ].map((perm, i) => (
                                             <div key={i} className="permission-card">
                                                 <div className={`permission-card__icon ${perm.allowed ? 'permission-card__icon--allowed' : 'permission-card__icon--denied'}`}>
-                                                    {perm.allowed ? <Zap size={16} /> : <X size={16} />}
+                                                    {perm.allowed ? <Zap size={16} aria-hidden="true" /> : <X size={16} aria-hidden="true" />}
                                                 </div>
                                                 <div className="permission-card__info">
                                                     <div className="permission-card__label">{perm.label}</div>
@@ -1487,7 +1487,7 @@ const Dashboard = () => {
                                         logout();
                                     }}
                                 >
-                                    <LogOut size={16} /> Logout
+                                    <LogOut size={16} aria-hidden="true" /> Logout
                                 </button>
                                 <div className="profile-footer-actions">
                                     <Button variant="ghost" onClick={() => setShowProfileModal(false)} type="button">
@@ -1528,7 +1528,7 @@ const Dashboard = () => {
             {inventoryScanLoading && (
                 <div className="modal-backdrop modal-backdrop--medium" role="dialog" aria-modal="true" aria-label="Scanning">
                     <div className="modal modal--scan-loading">
-                        <Loader2 size={32} className="animate-spin modal-loader-icon" />
+                        <Loader2 size={32} className="animate-spin modal-loader-icon" aria-hidden="true" />
                         <div className="modal-loading-title">Looking up item…</div>
                         <div className="muted modal-loading-subtitle">Reading scanned code</div>
                     </div>
@@ -1541,7 +1541,7 @@ const Dashboard = () => {
                     <div className="modal modal--scan-result">
                         <div className="row space-between items-center mb-16">
                             <h2 className="section-title">Product Details</h2>
-                            <button className="icon-button" aria-label="Close product details" onClick={() => setInventoryScanResult(null)}><X size={20} /></button>
+                            <button className="icon-button" aria-label="Close product details" onClick={() => setInventoryScanResult(null)}><X size={20} aria-hidden="true" /></button>
                         </div>
                         <div className="stack-md">
                             {/* SKU — prominently at the top */}

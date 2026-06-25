@@ -166,6 +166,7 @@ function App() {
         <AuthProvider>
         <BranchProvider>
         <ConfirmProvider>
+          <a href="#main-content" className="skip-link">Skip to main content</a>
           <SyncStatusBar />
           <UpdateNotification />
           <Toaster
@@ -184,6 +185,7 @@ function App() {
             }}
           />
           <ToastAnnouncer />
+          <main id="main-content">
           <Suspense fallback={<AppShellSkeleton />}>
             <Routes>
               {/* Public routes */}
@@ -280,6 +282,7 @@ function App() {
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
+          </main>
         </ConfirmProvider>
         </BranchProvider>
         </AuthProvider>

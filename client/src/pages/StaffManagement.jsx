@@ -31,7 +31,7 @@ const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEdit
                     {s.image_url ? (
                         <SecureImage src={s.image_url} alt={s.name} className="avatar-img" onError={(e) => { e.currentTarget.src = ''; e.currentTarget.style.display = 'none'; }} />
                     ) : (
-                        <User size={16} />
+                        <User size={16} aria-hidden="true" />
                     )}
                 </div>
                 <span className="user-name">{s.name}</span>
@@ -54,7 +54,7 @@ const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEdit
                         title={todayAttendance[s.id]?.in_time && !todayAttendance[s.id]?.out_time ? "Mark Gone" : "Mark Attendance"}
                         aria-label={todayAttendance[s.id]?.in_time && !todayAttendance[s.id]?.out_time ? "Mark Gone" : "Mark Attendance"}
                     >
-                        {todayAttendance[s.id]?.in_time && !todayAttendance[s.id]?.out_time ? <LogOut size={15} /> : <LogIn size={15} />}
+                        {todayAttendance[s.id]?.in_time && !todayAttendance[s.id]?.out_time ? <LogOut size={15} aria-hidden="true" /> : <LogIn size={15} aria-hidden="true" />}
                     </button>
                     <button
                         className="btn btn-ghost"
@@ -75,7 +75,7 @@ const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEdit
                         title="Pay Salary"
                         aria-label="Pay Salary"
                     >
-                        <Banknote size={15} />
+                        <Banknote size={15} aria-hidden="true" />
                     </button>
                     <button
                         className="btn btn-ghost"
@@ -84,7 +84,7 @@ const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEdit
                         title="View Dashboard"
                         aria-label="View Dashboard"
                     >
-                        <BarChart3 size={15} />
+                        <BarChart3 size={15} aria-hidden="true" />
                     </button>
                     <button
                         className="btn btn-ghost"
@@ -99,7 +99,7 @@ const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEdit
                         title="Edit Staff Member"
                         aria-label="Edit Staff Member"
                     >
-                        <Edit2 size={15} />
+                        <Edit2 size={15} aria-hidden="true" />
                     </button>
                     <button
                         className="btn btn-ghost"
@@ -108,7 +108,7 @@ const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEdit
                         title="Reset Password to Default"
                         aria-label="Reset Password to Default"
                     >
-                        <Key size={15} />
+                        <Key size={15} aria-hidden="true" />
                     </button>
                     <button
                         className="btn btn-ghost"
@@ -117,7 +117,7 @@ const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEdit
                         title="Staff Settings"
                         aria-label="Staff Settings"
                     >
-                        <Settings size={15} />
+                        <Settings size={15} aria-hidden="true" />
                     </button>
                     <button
                         className="btn btn-ghost text-error"
@@ -126,7 +126,7 @@ const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEdit
                         title="Delete Staff Member"
                         aria-label="Delete Staff Member"
                     >
-                        <Trash2 size={15} />
+                        <Trash2 size={15} aria-hidden="true" />
                     </button>
                 </div>
             ) : (
@@ -141,7 +141,7 @@ const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEdit
                         title={todayAttendance[s.id]?.in_time && !todayAttendance[s.id]?.out_time ? "Mark Gone" : "Mark Attendance"}
                         aria-label={todayAttendance[s.id]?.in_time && !todayAttendance[s.id]?.out_time ? "Mark Gone" : "Mark Attendance"}
                     >
-                        {todayAttendance[s.id]?.in_time && !todayAttendance[s.id]?.out_time ? <LogOut size={15} /> : <LogIn size={15} />}
+                        {todayAttendance[s.id]?.in_time && !todayAttendance[s.id]?.out_time ? <LogOut size={15} aria-hidden="true" /> : <LogIn size={15} aria-hidden="true" />}
                     </button>
                     <button
                         className="btn btn-ghost"
@@ -150,7 +150,7 @@ const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEdit
                         title="View Dashboard"
                         aria-label="View Dashboard"
                     >
-                        <BarChart3 size={15} />
+                        <BarChart3 size={15} aria-hidden="true" />
                     </button>
                 </>
             )}
@@ -487,8 +487,10 @@ const StaffManagement = () => {
 
             <div className="staff-toolbar">
                 <div className="staff-search-wrap">
-                    <Search className="staff-search-icon" size={16} />
+                    <Search className="staff-search-icon" size={16} aria-hidden="true" />
+                    <label htmlFor="staff-search-input" className="sr-only">Search staff</label>
                     <input
+                        id="staff-search-input"
                         type="text"
                         className="staff-search-input"
                         placeholder="Search staff by name or role\u2026"
@@ -496,7 +498,9 @@ const StaffManagement = () => {
                         onChange={e => setSearchInput(e.target.value)}
                     />
                 </div>
+                <label htmlFor="branch-filter-select" className="sr-only">Filter by branch</label>
                 <select
+                    id="branch-filter-select"
                     className="form-select branch-filter-select"
                     value={selectedBranchFilter}
                     onChange={e => setSelectedBranchFilter(e.target.value)}
@@ -506,7 +510,7 @@ const StaffManagement = () => {
                 </select>
                 {isAdmin && (
                     <button onClick={() => setShowAddModal(true)} className="btn btn-primary" style={{ whiteSpace: 'nowrap' }}>
-                        <Plus size={18} />
+                        <Plus size={18} aria-hidden="true" />
                         <span>Add Staff</span>
                     </button>
                 )}
@@ -516,18 +520,18 @@ const StaffManagement = () => {
                 <table className="table">
                     <thead>
                         <tr>
-                            <th>Staff Details</th>
-                            <th>Role</th>
-                            <th>Branch</th>
-                            <th>Mobile (User ID)</th>
-                            <th>Joined</th>
-                            <th>Actions</th>
+                            <th scope="col">Staff Details</th>
+                            <th scope="col">Role</th>
+                            <th scope="col">Branch</th>
+                            <th scope="col">Mobile (User ID)</th>
+                            <th scope="col">Joined</th>
+                            <th scope="col">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {loading && filteredStaff.length === 0 ? (
                             <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--muted)' }}>
-                                <Loader2 className="animate-spin" style={{ display: 'inline', marginRight: 8 }} /> Loading staff...
+                                <Loader2 className="animate-spin" style={{ display: 'inline', marginRight: 8 }} aria-hidden="true" /> Loading staff...
                             </td></tr>
                         ) : filteredStaff.length === 0 ? (
                             <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--muted)' }}>

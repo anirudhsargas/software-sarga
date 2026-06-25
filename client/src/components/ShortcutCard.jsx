@@ -126,14 +126,20 @@ const ShortcutCard = ({ shortcut, onTap, onEdit, onDelete, editable }) => {
           flexShrink: 0,
         }}
       >
-        <Icon size={20} />
+        <Icon size={20} aria-hidden="true" />
       </div>
 
       <div style={{ fontWeight: 500, fontSize: 14, color: colors.fg }}>
         {shortcut.name}
       </div>
 
-      <div style={{ fontSize: 12, color: colors.fg, opacity: 0.7 }}>
+      <div
+        style={{
+          fontSize: 12,
+          color: shortcut.color === 'purple' ? '#26215C' : shortcut.color === 'teal' ? '#085041' : colors.fg,
+          opacity: (shortcut.color === 'purple' || shortcut.color === 'teal') ? 1 : 0.7,
+        }}
+      >
         {shortcut.customer_type?.replace('_', ' ')} &middot; {shortcut.payment_mode}
       </div>
 

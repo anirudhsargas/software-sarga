@@ -601,21 +601,20 @@ const Jobs = () => {
                                                                         });
                                                                     }}
                                                                 >
-                                                                    <ChevronDown size={14} style={{ transform: expandedPayments.has(j.payment_id) ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} />
+                                                                    <ChevronDown size={14} style={{ transform: expandedPayments.has(j.payment_id) ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} aria-hidden="true" />
                                                                 </button>
                                                                 <span className="font-bold text-sm">{groupJobs.map(g => g.job_number).join(', ')}</span>
                                                             </div>
-                                                            <span className="text-xs muted">{groupJobs.length} jobs · single bill</span>
+                                                            <span className="text-xs text-muted">{groupJobs.length} jobs · single bill</span>
                                                         </>
                                                     ) : (
                                                         <>
                                                             <div className="row items-center gap-xs">
                                                                 <span className="font-bold text-sm">{j.job_number}</span>
-                                                                <span className="text-xs muted" style={{ opacity: 0.7 }}>• {j.product_name || 'Service'}</span>
+                                                                <span className="text-xs text-muted" style={{ opacity: 0.7 }}>• {j.product_name || 'Service'}</span>
                                                             </div>
                                                             <span className="text-sm font-medium">{j.job_name}</span>
                                                             
-                                                            {/* Extra Tags for Dashboard List */}
                                                             {j.description && (
                                                                 <div className="row wrap gap-xs mt-4" style={{ marginTop: 4 }}>
                                                                     {j.description.split(' | ').filter(p => p && p.trim()).map((part, i) => {
@@ -624,7 +623,6 @@ const Jobs = () => {
                                                                         const value = isTagged ? rest.join(':').trim() : part.trim();
                                                                         const tagLabel = isTagged ? label.trim().toLowerCase() : '';
                                                                         
-                                                                        // Color coding for common tags
                                                                         const isColour = tagLabel === 'colour' || tagLabel === 'color';
                                                                         const isNumbering = tagLabel === 'numbering' || tagLabel.includes('from') || tagLabel.includes('to');
                                                                         const isMatter = tagLabel === 'matter';
@@ -652,7 +650,6 @@ const Jobs = () => {
                                                                         );
                                                                     })}
                                                                     
-                                                                    {/* Applied Extras Badge count */}
                                                                     {(() => {
                                                                         try {
                                                                             const extras = typeof j.applied_extras === 'string' ? JSON.parse(j.applied_extras) : j.applied_extras;
@@ -675,7 +672,7 @@ const Jobs = () => {
                                             <td>
                                                 <div className="stack-xs">
                                                     <span className="text-sm font-medium">{j.customer_name}</span>
-                                                    <span className="text-xs muted">{formatForDisplay(j.customer_mobile)}</span>
+                                                    <span className="text-xs text-muted">{formatForDisplay(j.customer_mobile)}</span>
                                                 </div>
                                             </td>
                                             <td className="text-sm">
@@ -703,7 +700,7 @@ const Jobs = () => {
                                                         ) : (
                                                             <span className={`badge ${getStatusColor(j.status)}`}>{j.status}</span>
                                                         )}
-                                                        {j._updating && <Loader2 size={12} className="animate-spin ml-4 inline-block" style={{ verticalAlign: 'middle' }} />}
+                                                        {j._updating && <Loader2 size={12} className="animate-spin ml-4 inline-block" style={{ verticalAlign: 'middle' }} aria-hidden="true" />}
                                                     </>
                                                 )}
                                             </td>
@@ -725,20 +722,20 @@ const Jobs = () => {
                                                                 {used} / {req} sheets
                                                             </span>
                                                             {pct !== null && (
-                                                                <span style={{ fontSize: '10px', color: 'var(--muted)' }}>
+                                                                <span className="text-muted" style={{ fontSize: '10px' }}>
                                                                     {pct}% waste
                                                                 </span>
                                                             )}
                                                         </div>
                                                     );
                                                 })() : (
-                                                    <span className="muted text-xs">—</span>
+                                                    <span className="text-muted text-xs">—</span>
                                                 )}
                                             </td>
                                             {isFinancialsVisible && (
                                                 <td>
                                                     <div className="row items-center gap-xs text-sm">
-                                                        <IndianRupee size={12} />
+                                                        <IndianRupee size={12} aria-hidden="true" />
                                                         {isSummaryRow
                                                             ? groupJobs.reduce((s, g) => s + (Number(g.total_amount) || 0), 0).toFixed(2)
                                                             : j.total_amount}
@@ -751,23 +748,23 @@ const Jobs = () => {
                                                         const bal = groupJobs.reduce((s, g) => s + (Number(g.balance_amount) || 0), 0);
                                                         return (
                                                             <div className={`row items-center gap-xs text-sm font-bold ${bal > 0 ? 'text-danger' : 'text-success'}`}>
-                                                                <IndianRupee size={12} />{bal.toFixed(2)}
+                                                                <IndianRupee size={12} aria-hidden="true" />{bal.toFixed(2)}
                                                             </div>
                                                         );
                                                     })() : (
                                                         <div className={`row items-center gap-xs text-sm font-bold ${j.balance_amount > 0 ? 'text-danger' : 'text-success'}`}>
-                                                            <IndianRupee size={12} />
+                                                            <IndianRupee size={12} aria-hidden="true" />
                                                             {j.balance_amount}
                                                         </div>
                                                     )}
                                                 </td>
                                             )}
-                                            <td className="text-sm muted">
+                                            <td className="text-sm text-muted">
                                                 {j.delivery_date ? new Date(j.delivery_date).toLocaleDateString() : 'Not Set'}
                                             </td>
                                             <td>
                                                 {isSummaryRow ? (
-                                                    <span className="text-xs muted">expand ↑↓</span>
+                                                    <span className="text-xs text-muted">expand ↑↓</span>
                                                 ) : (
                                                     <div className="row gap-sm">
                                                         <button
@@ -776,7 +773,7 @@ const Jobs = () => {
                                                             aria-label={`View details for job ${j.job_number}`}
                                                             onClick={() => navigate(`/dashboard/jobs/${j.id}`)}
                                                         >
-                                                            <FileText size={16} />
+                                                            <FileText size={16} aria-hidden="true" />
                                                         </button>
                                                         {['Admin', 'Front Office', 'front office'].includes(userRole) && (
                                                             <button
@@ -786,7 +783,7 @@ const Jobs = () => {
                                                                 aria-label={`Repeat order ${j.job_number}`}
                                                                 onClick={(e) => { e.stopPropagation(); handleRepeatOrder(j.id); }}
                                                             >
-                                                                <RotateCcw size={16} />
+                                                                <RotateCcw size={16} aria-hidden="true" />
                                                             </button>
                                                         )}
                                                         {['Admin', 'Accountant'].includes(userRole) && (
@@ -797,7 +794,7 @@ const Jobs = () => {
                                                                 aria-label={`Delete job ${j.job_number}`}
                                                                 onClick={(e) => handleDeleteJob(e, j.id)}
                                                             >
-                                                                <Trash2 size={16} />
+                                                                <Trash2 size={16} aria-hidden="true" />
                                                             </button>
                                                         )}
                                                     </div>
@@ -811,7 +808,6 @@ const Jobs = () => {
                                     if (item.type === 'single') {
                                         return [renderJobRow(item.job)];
                                     }
-                                    // Group: summary row + optional sub-rows
                                     const rep = item.jobs[0];
                                     const isExpanded = expandedPayments.has(item.paymentId);
                                     const rows = [renderJobRow(rep, { isSummaryRow: true, groupJobs: item.jobs })];
@@ -843,23 +839,23 @@ const Jobs = () => {
 
                         <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, marginBottom: 14 }}>
                             <div className="row" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
-                                <span className="muted">Job</span>
+                                <span className="text-muted">Job</span>
                                 <strong>{deliveryDueModal.job?.job_number} - {deliveryDueModal.job?.job_name}</strong>
                             </div>
                             <div className="row" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
-                                <span className="muted">Customer</span>
+                                <span className="text-muted">Customer</span>
                                 <strong>{deliveryDueModal.job?.customer_name || 'Walk-in'}</strong>
                             </div>
                             <div className="row" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
-                                <span className="muted">Total Amount</span>
+                                <span className="text-muted">Total Amount</span>
                                 <strong>Rs. {(Number(deliveryDueModal.job?.total_amount) || 0).toFixed(2)}</strong>
                             </div>
                             <div className="row" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
-                                <span className="muted">Paid So Far</span>
+                                <span className="text-muted">Paid So Far</span>
                                 <strong>Rs. {(Number(deliveryDueModal.job?.advance_paid) || 0).toFixed(2)}</strong>
                             </div>
                             <div className="row" style={{ justifyContent: 'space-between' }}>
-                                <span className="muted">Remaining Due</span>
+                                <span className="text-muted">Remaining Due</span>
                                 <strong style={{ color: 'var(--warning)' }}>Rs. {(Number(deliveryDueModal.remaining) || 0).toFixed(2)}</strong>
                             </div>
                         </div>

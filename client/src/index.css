@@ -2453,3 +2453,72 @@ textarea.input-field:disabled {
 /* ── Performance Fix: Text Utilities ── */
 .text-muted { color: var(--text-muted); }
 .font-semibold { font-weight: 600; }
+
+/* ═══════════════════════════════════════════════════
+   Accessibility fixes — WCAG 2.1 AA
+   ═══════════════════════════════════════════════════ */
+
+/* 1. Dark-mode muted text: boost --text-muted to pass 4.5:1 on dark backgrounds */
+html[data-theme="dark"],
+body[data-theme="dark"] {
+  --text-muted: #a1a1aa;
+}
+
+/* 2. Button text colours — 4.5:1 on light backgrounds (#18181b on white/light) */
+.btn,
+.btn-primary {
+  color: #18181b;
+}
+
+/* 2b. Dark-mode button text — 4.5:1 on dark backgrounds (#e4e4e7 on #09090b / #18181b) */
+html[data-theme="dark"] .btn,
+html[data-theme="dark"] .btn-primary,
+body[data-theme="dark"] .btn,
+body[data-theme="dark"] .btn-primary {
+  color: #e4e4e7;
+}
+
+/* 3. Version text — minimum 12 px and sufficient contrast */
+.version-text {
+  color: #a1a1aa;
+  font-size: max(12px, 0.75rem);
+}
+
+/* 4. Dark-mode nav tab colours — inactive passes 4.5:1, active passes 7:1 */
+html[data-theme="dark"] .nav-tab,
+html[data-theme="dark"] .sales-tab span,
+body[data-theme="dark"] .nav-tab,
+body[data-theme="dark"] .sales-tab span {
+  color: #a1a1aa;
+}
+
+html[data-theme="dark"] .nav-tab.active,
+html[data-theme="dark"] .sales-tab.active span,
+body[data-theme="dark"] .nav-tab.active,
+body[data-theme="dark"] .sales-tab.active span {
+  color: #f4f4f5;
+}
+
+/* 5. Dark-mode table header text — sufficient contrast on dark table-header-bg (#141414) */
+html[data-theme="dark"] table thead th,
+body[data-theme="dark"] table thead th {
+  color: #a1a1aa;
+}
+
+/* 6. .sr-only is already defined above (line 2304); no duplicate needed */
+
+/* 7. Skip-navigation link — hidden until focused, then snaps to top of viewport */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--bg);
+  color: var(--text);
+  padding: 8px 12px;
+  z-index: 9999;
+  font-size: 14px;
+  text-decoration: none;
+}
+.skip-link:focus {
+  top: 0;
+}
