@@ -5,7 +5,7 @@ import api, { devFallback } from '../services/api';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import PageContainer from '../components/ui/PageContainer';
-import { useAuth } from '../hooks/useAuth';
+import useAuth from '../hooks/useAuth';
 import { SkeletonCard } from '../components/Skeleton';
 
 const InventoryOverview = () => {
