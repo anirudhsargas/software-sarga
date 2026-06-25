@@ -102,8 +102,163 @@ const VendorModal = ({ vendor, onClose, onSave }) => {
   };
 
   return (
-    <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'var(--modal-overlay, rgba(0,0,0,0.3))', backdropFilter: 'blur(8px)', display: 'grid', placeItems: 'center', zIndex: 'var(--z-modal)', padding: 20 }}>
-      <div className="modal-content-premium" style={{ background: 'var(--surface)', border: '1px solid var(--border-subtle)', borderRadius: 28, width: '100%', maxWidth: 720, maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-lg)' }}>
+    <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'var(--modal-overlay, rgba(0,0,0,0.35))', backdropFilter: 'blur(8px)', display: 'grid', placeItems: 'center', zIndex: 'var(--z-modal)', padding: 20 }}>
+      <style>{`
+        .vendor-modal-container {
+          background: var(--surface);
+          border: 1px solid var(--border-subtle);
+          border-radius: 24px;
+          width: 100%;
+          max-width: 760px;
+          max-height: 90vh;
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+          box-shadow: var(--shadow-lg);
+          animation: modal-enter 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes modal-enter {
+          from { opacity: 0; transform: scale(0.96) translateY(10px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .vendor-form-body {
+          padding: 32px;
+          overflow-y: auto;
+        }
+        .vendor-form-sections-wrapper {
+          display: flex;
+          flex-direction: column;
+          gap: 28px;
+        }
+        .vendor-section-card {
+          background: var(--surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: 16px;
+          padding: 24px;
+          transition: border-color var(--transition-fast, 0.2s), box-shadow var(--transition-fast, 0.2s);
+        }
+        .vendor-section-card:hover {
+          border-color: color-mix(in srgb, var(--accent) 30%, var(--border-subtle));
+        }
+        .vendor-section-header {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 20px;
+          border-bottom: 1.5px solid var(--border-subtle);
+          padding-bottom: 12px;
+        }
+        .vendor-section-icon {
+          color: var(--accent);
+          display: flex;
+          align-items: center;
+        }
+        .vendor-section-title-text {
+          margin: 0;
+          font-size: 15px;
+          font-weight: 700;
+          color: var(--text-heading, var(--text));
+          letter-spacing: -0.01em;
+        }
+        .vendor-fields-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 20px;
+        }
+        @media (min-width: 640px) {
+          .vendor-fields-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+          .vendor-span-full {
+            grid-column: 1 / -1;
+          }
+        }
+        .vendor-field-group {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+        .vendor-label {
+          font-size: 11px;
+          font-weight: 700;
+          color: var(--text-muted, var(--muted));
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          padding-left: 2px;
+        }
+        .vendor-input-container {
+          position: relative;
+          display: flex;
+          align-items: center;
+        }
+        .vendor-input-decorator {
+          position: absolute;
+          left: 14px;
+          color: var(--text-muted, var(--muted));
+          pointer-events: none;
+          transition: color 0.15s ease;
+          display: flex;
+          align-items: center;
+        }
+        .vendor-input {
+          width: 100%;
+          padding: 11px 14px 11px 40px;
+          border: 1.5px solid var(--border-subtle);
+          border-radius: 10px;
+          background: var(--surface);
+          color: var(--text);
+          font-size: 14px;
+          line-height: var(--leading-normal, 1.4);
+          transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+          outline: none;
+          font-family: inherit;
+        }
+        .vendor-input:hover {
+          border-color: var(--text-muted, var(--muted));
+        }
+        .vendor-input:focus {
+          border-color: var(--accent);
+          background: var(--surface);
+          box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
+        }
+        .vendor-input-container:focus-within .vendor-input-decorator {
+          color: var(--accent);
+        }
+        .vendor-input.field-error {
+          border-color: var(--error);
+        }
+        .vendor-input.field-error:focus {
+          box-shadow: 0 0 0 3px color-mix(in srgb, var(--error) 15%, transparent);
+        }
+        .vendor-error-lbl {
+          font-size: 11px;
+          color: var(--error);
+          margin-top: 4px;
+          padding-left: 2px;
+          font-weight: 500;
+        }
+        .vendor-help-lbl {
+          font-size: 10px;
+          color: var(--text-muted, var(--muted));
+          margin-top: 4px;
+          padding-left: 2px;
+        }
+        select.vendor-input {
+          appearance: none;
+          -webkit-appearance: none;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 14px center;
+          background-size: 16px;
+          padding-right: 40px;
+          cursor: pointer;
+        }
+        textarea.vendor-input {
+          min-height: 80px;
+          resize: vertical;
+        }
+      `}</style>
+      <div className="vendor-modal-container">
         <div className="modal-header-premium" style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--surface-2)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <div style={{ width: 48, height: 48, borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border-subtle)', display: 'grid', placeItems: 'center', boxShadow: 'var(--shadow-sm)' }}>
@@ -119,151 +274,258 @@ const VendorModal = ({ vendor, onClose, onSave }) => {
           </button>
         </div>
 
-        <form ref={formRef} onSubmit={handleSubmit} style={{ padding: 32, overflowY: 'auto' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 40 }}>
+        <form ref={formRef} onSubmit={handleSubmit} className="vendor-form-body">
+          <div className="vendor-form-sections-wrapper">
+            
             {/* Essential Identity */}
-            <div className="form-section">
-               <h3 className="section-title"><Info size={16} /> Essential Identity</h3>
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-20">
-                  <div className="input-group-premium">
-                    <label>Legal Entity Name *</label>
-                    <div className="input-wrap">
-                      <Store size={16} className="input-icon" />
-                      <input 
-                        name="name" 
-                        value={formData.name} 
-                        onChange={handleInputChange} 
-                        placeholder="e.g. Sarga Print Solutions"
-                        className={errors.name ? 'error' : ''}
-                      />
-                    </div>
-                    {errors.name && <span className="error-text">{errors.name}</span>}
+            <div className="vendor-section-card">
+              <div className="vendor-section-header">
+                <div className="vendor-section-icon"><Info size={16} /></div>
+                <h4 className="vendor-section-title-text">Essential Identity</h4>
+              </div>
+              <div className="vendor-fields-grid">
+                
+                <div className="vendor-field-group">
+                  <label className="vendor-label">Legal Entity Name *</label>
+                  <div className="vendor-input-container">
+                    <div className="vendor-input-decorator"><Store size={15} /></div>
+                    <input 
+                      name="name" 
+                      value={formData.name} 
+                      onChange={handleInputChange} 
+                      placeholder="e.g. Sarga Print Solutions"
+                      className={`vendor-input ${errors.name ? 'field-error' : ''}`}
+                    />
                   </div>
+                  {errors.name && <span className="vendor-error-lbl">{errors.name}</span>}
+                </div>
 
-                  <div className="input-group-premium">
-                    <label>Tactical Code (3 Letters)</label>
-                    <div className="input-wrap">
-                      <Tag size={16} className="input-icon" />
-                      <input 
-                        name="vendor_code" 
-                        value={formData.vendor_code} 
-                        onChange={handleInputChange} 
-                        placeholder="e.g. SPS"
-                        maxLength={3}
-                        className={errors.vendor_code ? 'error' : ''}
-                      />
-                    </div>
-                    {errors.vendor_code ? (
-                      <span className="error-text">{errors.vendor_code}</span>
-                    ) : (
-                      <span style={{ fontSize: 10, color: 'var(--text-muted)', paddingLeft: 4 }}>Unique ID for product sourcing</span>
-                    )}
+                <div className="vendor-field-group">
+                  <label className="vendor-label">Tactical Code (3 Letters)</label>
+                  <div className="vendor-input-container">
+                    <div className="vendor-input-decorator"><Tag size={15} /></div>
+                    <input 
+                      name="vendor_code" 
+                      value={formData.vendor_code} 
+                      onChange={handleInputChange} 
+                      placeholder="e.g. SPS"
+                      maxLength={3}
+                      className={`vendor-input ${errors.vendor_code ? 'field-error' : ''}`}
+                    />
                   </div>
-                  
-                  <div className="input-group-premium">
-                    <label>Industry Segment</label>
-                    <div className="input-wrap">
-                      <Tag size={16} className="input-icon" />
-                      <select name="category" value={formData.category} onChange={handleInputChange}>
-                        <option value="offset_supplies">Offset Supplies</option>
-                        <option value="chemicals">Chemicals</option>
-                        <option value="paper">Paper</option>
-                        <option value="ink">Ink</option>
-                        <option value="equipment">Equipment</option>
-                        <option value="other">Other Segment</option>
-                      </select>
-                    </div>
+                  {errors.vendor_code ? (
+                    <span className="vendor-error-lbl">{errors.vendor_code}</span>
+                  ) : (
+                    <span className="vendor-help-lbl">Unique ID for product sourcing</span>
+                  )}
+                </div>
+                
+                <div className="vendor-field-group vendor-span-full">
+                  <label className="vendor-label">Industry Segment</label>
+                  <div className="vendor-input-container">
+                    <div className="vendor-input-decorator"><Tag size={15} /></div>
+                    <select 
+                      name="category" 
+                      value={formData.category} 
+                      onChange={handleInputChange}
+                      className="vendor-input"
+                    >
+                      <option value="offset_supplies">Offset Supplies</option>
+                      <option value="chemicals">Chemicals</option>
+                      <option value="paper">Paper</option>
+                      <option value="ink">Ink</option>
+                      <option value="equipment">Equipment</option>
+                      <option value="other">Other Segment</option>
+                    </select>
                   </div>
-               </div>
+                </div>
+
+              </div>
             </div>
 
             {/* Communication & Logistics */}
-            <div className="form-section">
-               <h3 className="section-title"><User size={16} /> Communication & Logistics</h3>
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-20">
-                  <div className="input-group-premium">
-                    <label>Strategic Liaison</label>
-                    <div className="input-wrap">
-                      <User size={16} className="input-icon" />
-                      <input name="contact_person" value={formData.contact_person} onChange={handleInputChange} placeholder="Primary point of contact" />
-                    </div>
+            <div className="vendor-section-card">
+              <div className="vendor-section-header">
+                <div className="vendor-section-icon"><Globe size={16} /></div>
+                <h4 className="vendor-section-title-text">Communication & Logistics</h4>
+              </div>
+              <div className="vendor-fields-grid">
+
+                <div className="vendor-field-group">
+                  <label className="vendor-label">Strategic Liaison</label>
+                  <div className="vendor-input-container">
+                    <div className="vendor-input-decorator"><User size={15} /></div>
+                    <input 
+                      name="contact_person" 
+                      value={formData.contact_person} 
+                      onChange={handleInputChange} 
+                      placeholder="Primary point of contact" 
+                      className="vendor-input"
+                    />
                   </div>
-                  <div className="input-group-premium">
-                    <label>Communication Line</label>
-                    <div className="input-wrap">
-                      <Phone size={16} className="input-icon" />
-                      <input name="phone" value={formData.phone} onChange={handleInputChange} placeholder="10-digit mobile" maxLength={10} className={errors.phone ? 'error' : ''} />
-                    </div>
-                    {errors.phone && <span className="error-text">{errors.phone}</span>}
+                </div>
+
+                <div className="vendor-field-group">
+                  <label className="vendor-label">Communication Line</label>
+                  <div className="vendor-input-container">
+                    <div className="vendor-input-decorator"><Phone size={15} /></div>
+                    <input 
+                      name="phone" 
+                      value={formData.phone} 
+                      onChange={handleInputChange} 
+                      placeholder="10-digit mobile" 
+                      maxLength={10} 
+                      className={`vendor-input ${errors.phone ? 'field-error' : ''}`} 
+                    />
                   </div>
-                  <div className="input-group-premium">
-                    <label>Verified Email</label>
-                    <div className="input-wrap">
-                      <Mail size={16} className="input-icon" />
-                      <input name="email" value={formData.email} onChange={handleInputChange} placeholder="partner@domain.com" className={errors.email ? 'error' : ''} />
-                    </div>
-                    {errors.email && <span className="error-text">{errors.email}</span>}
+                  {errors.phone && <span className="vendor-error-lbl">{errors.phone}</span>}
+                </div>
+
+                <div className="vendor-field-group">
+                  <label className="vendor-label">Verified Email</label>
+                  <div className="vendor-input-container">
+                    <div className="vendor-input-decorator"><Mail size={15} /></div>
+                    <input 
+                      name="email" 
+                      value={formData.email} 
+                      onChange={handleInputChange} 
+                      placeholder="partner@domain.com" 
+                      className={`vendor-input ${errors.email ? 'field-error' : ''}`} 
+                    />
                   </div>
-                  <div className="input-group-premium">
-                    <label>Taxation Identifier (GSTIN)</label>
-                    <div className="input-wrap">
-                      <ShieldCheck size={16} className="input-icon" />
-                      <input name="gstin" value={formData.gstin} onChange={handleInputChange} placeholder="GSTIN Format" maxLength={15} className={errors.gstin ? 'error' : ''} />
-                    </div>
-                    {errors.gstin && <span className="error-text">{errors.gstin}</span>}
+                  {errors.email && <span className="vendor-error-lbl">{errors.email}</span>}
+                </div>
+
+                <div className="vendor-field-group">
+                  <label className="vendor-label">Taxation Identifier (GSTIN)</label>
+                  <div className="vendor-input-container">
+                    <div className="vendor-input-decorator"><ShieldCheck size={15} /></div>
+                    <input 
+                      name="gstin" 
+                      value={formData.gstin} 
+                      onChange={handleInputChange} 
+                      placeholder="GSTIN Format" 
+                      maxLength={15} 
+                      className={`vendor-input ${errors.gstin ? 'field-error' : ''}`} 
+                    />
                   </div>
-                  <div className="input-group-premium md:col-span-2">
-                    <label>Operations Headquarters</label>
-                    <div className="input-wrap">
-                      <MapPin size={16} className="input-icon" />
-                      <textarea name="address" value={formData.address} onChange={handleInputChange} placeholder="Full logistics address" rows={2} />
-                    </div>
+                  {errors.gstin && <span className="vendor-error-lbl">{errors.gstin}</span>}
+                </div>
+
+                <div className="vendor-field-group vendor-span-full">
+                  <label className="vendor-label">Operations Headquarters</label>
+                  <div className="vendor-input-container">
+                    <div className="vendor-input-decorator" style={{ top: '15px', transform: 'none' }}><MapPin size={15} /></div>
+                    <textarea 
+                      name="address" 
+                      value={formData.address} 
+                      onChange={handleInputChange} 
+                      placeholder="Full logistics address" 
+                      rows={2} 
+                      className="vendor-input"
+                      style={{ paddingLeft: '40px' }}
+                    />
                   </div>
-                  <div className="input-group-premium">
-                    <label>Operating City</label>
-                    <div className="input-wrap">
-                      <Globe size={16} className="input-icon" />
-                      <input name="city" value={formData.city} onChange={handleInputChange} placeholder="Base city" />
-                    </div>
+                </div>
+
+                <div className="vendor-field-group vendor-span-full">
+                  <label className="vendor-label">Operating City</label>
+                  <div className="vendor-input-container">
+                    <div className="vendor-input-decorator"><Globe size={15} /></div>
+                    <input 
+                      name="city" 
+                      value={formData.city} 
+                      onChange={handleInputChange} 
+                      placeholder="Base city" 
+                      className="vendor-input"
+                    />
                   </div>
-               </div>
+                </div>
+
+              </div>
             </div>
 
-            {/* Financial Terms */}
-            <div className="form-section">
-               <h3 className="section-title"><CreditCard size={16} /> Financial Governance</h3>
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-20">
-                  <div className="input-group-premium">
-                    <label>Credit Maturity (Days)</label>
-                    <div className="input-wrap">
-                      <Calendar size={16} className="input-icon" />
-                      <input type="number" name="credit_days" value={formData.credit_days} onChange={handleInputChange} min="0" />
-                    </div>
+            {/* Financial Governance */}
+            <div className="vendor-section-card">
+              <div className="vendor-section-header">
+                <div className="vendor-section-icon"><CreditCard size={16} /></div>
+                <h4 className="vendor-section-title-text">Financial Governance</h4>
+              </div>
+              <div className="vendor-fields-grid">
+
+                <div className="vendor-field-group">
+                  <label className="vendor-label">Credit Maturity (Days)</label>
+                  <div className="vendor-input-container">
+                    <div className="vendor-input-decorator"><Calendar size={15} /></div>
+                    <input 
+                      type="number" 
+                      name="credit_days" 
+                      value={formData.credit_days} 
+                      onChange={handleInputChange} 
+                      min="0" 
+                      className="vendor-input"
+                    />
                   </div>
-                  <div className="input-group-premium">
-                    <label>Exposure Limit</label>
-                    <div className="input-wrap">
-                      <CreditCard size={16} className="input-icon" />
-                      <input type="number" name="credit_limit" value={formData.credit_limit} onChange={handleInputChange} min="0" step="0.01" />
-                    </div>
+                </div>
+
+                <div className="vendor-field-group">
+                  <label className="vendor-label">Exposure Limit</label>
+                  <div className="vendor-input-container">
+                    <div className="vendor-input-decorator"><CreditCard size={15} /></div>
+                    <input 
+                      type="number" 
+                      name="credit_limit" 
+                      value={formData.credit_limit} 
+                      onChange={handleInputChange} 
+                      min="0" 
+                      step="0.01" 
+                      className="vendor-input"
+                    />
                   </div>
-                  <div className="input-group-premium md:col-span-2">
-                    <label>Strategic Notes</label>
-                    <div className="input-wrap">
-                      <FileText size={16} className="input-icon" />
-                      <textarea name="notes" value={formData.notes} onChange={handleInputChange} placeholder="Internal observations..." rows={2} />
-                    </div>
+                </div>
+
+                <div className="vendor-field-group vendor-span-full">
+                  <label className="vendor-label">Strategic Notes</label>
+                  <div className="vendor-input-container">
+                    <div className="vendor-input-decorator" style={{ top: '15px', transform: 'none' }}><FileText size={15} /></div>
+                    <textarea 
+                      name="notes" 
+                      value={formData.notes} 
+                      onChange={handleInputChange} 
+                      placeholder="Internal observations..." 
+                      rows={2} 
+                      className="vendor-input"
+                      style={{ paddingLeft: '40px' }}
+                    />
                   </div>
-               </div>
+                </div>
+
+              </div>
             </div>
+
           </div>
 
-          <div style={{ marginTop: 40, paddingTop: 24, borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'flex-end', gap: 16 }}>
-            <button type="button" onClick={onClose} className="btn btn-ghost" style={{ padding: '8px 24px' }} disabled={loading}>
+          <div style={{ marginTop: 32, paddingTop: 24, borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'flex-end', gap: 16 }}>
+            <button 
+              type="button" 
+              onClick={onClose} 
+              className="btn btn-ghost" 
+              style={{ padding: '10px 24px', borderRadius: '10px', height: 44, fontSize: '14px', fontWeight: 600 }} 
+              disabled={loading}
+            >
               Discard
             </button>
-            <button type="submit" className="btn btn-primary" style={{ padding: '8px 32px', height: 44 }} disabled={loading}>
-              {loading ? <div style={{ width: 18, height: 18, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'var(--card)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}></div> : (vendor ? 'Update Profile' : 'Finalize Onboarding')}
+            <button 
+              type="submit" 
+              className="btn btn-primary" 
+              style={{ padding: '10px 32px', borderRadius: '10px', height: 44, fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center' }} 
+              disabled={loading}
+            >
+              {loading ? (
+                <div style={{ width: 18, height: 18, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}></div>
+              ) : (
+                vendor ? 'Update Profile' : 'Finalize Onboarding'
+              )}
             </button>
           </div>
         </form>
