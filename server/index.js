@@ -63,7 +63,9 @@ if (!JWT_SECRET) {
     process.exit(1);
 }
 
-if (!process.env.GOOGLE_SA_KEY) console.warn('[backup] WARNING: GOOGLE_SA_KEY not set');
+if (!process.env.GOOGLE_SA_KEY && !process.env.GOOGLE_SERVICE_ACCOUNT && !process.env.GOOGLE_SERVICE_ACCOUNT_BASE64) {
+    console.warn('[backup] WARNING: Google Service Account Key is not set (GOOGLE_SA_KEY, GOOGLE_SERVICE_ACCOUNT, or GOOGLE_SERVICE_ACCOUNT_BASE64)');
+}
 if (!process.env.GOOGLE_SHEET_ID) console.warn('[backup] WARNING: GOOGLE_SHEET_ID not set');
 
 logger.info('[CORS] Configured origins:', allowedOrigins);

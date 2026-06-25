@@ -2,7 +2,17 @@ const { google } = require('googleapis');
 
 // Parse service account key from env
 function getAuth() {
-  const key = JSON.parse(process.env.GOOGLE_SA_KEY);
+  let keyString = process.env.GOOGLE_SA_KEY || process.env.GOOGLE_SERVICE_ACCOUNT;
+  
+  if (!keyString && process.env.GOOGLE_SERVICE_ACCOUNT_BASE64) {
+    keyString = Buffer.from(process.env.GOOGLE_SERVICE_ACCOUNT_BASE64, 'base64').toString('utf8');
+  }
+  
+  if (!keyString) {
+    throw new Error('Google Service Account Key is not set in environment (GOOGLE_SA_KEY, GOOGLE_SERVICE_ACCOUNT, or GOOGLE_SERVICE_ACCOUNT_BASE64)');
+  }
+  
+  const key = JSON.parse(keyString);
   return new google.auth.GoogleAuth({
     credentials: key,
     scopes: [

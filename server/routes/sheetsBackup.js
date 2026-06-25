@@ -121,7 +121,7 @@ router.get('/history', async (req, res) => {
 // GET /api/backup/health — service account connection health check
 router.get('/health', async (req, res) => {
   try {
-    const isConfigured = !!process.env.GOOGLE_SA_KEY && !!process.env.GOOGLE_SHEET_ID;
+    const isConfigured = (!!process.env.GOOGLE_SA_KEY || !!process.env.GOOGLE_SERVICE_ACCOUNT || !!process.env.GOOGLE_SERVICE_ACCOUNT_BASE64) && !!process.env.GOOGLE_SHEET_ID;
     res.json({
       status: isConfigured ? 'healthy' : 'unhealthy',
       latency: isConfigured ? 50 : 0
