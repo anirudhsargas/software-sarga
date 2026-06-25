@@ -364,14 +364,14 @@ export async function saveVendor(vendor) {
     return { id, isNew };
 }
 
-export async function deleteVendor(id) {
+export async function deleteVendor(id, force = false) {
     const isTempId = String(id).startsWith('VEND');
     
     if (navigator.onLine) {
         if (!isTempId) {
             try {
                 // Perform online deletion first, letting error (e.g. 400 Bad Request) bubble up
-                await api.delete(`vendors/${id}`);
+                await api.delete(`vendors/${id}${force ? '?force=true' : ''}`);
                 await offlineDb.delete('vendors', id);
             } catch (err) {
                 console.error('Failed to delete vendor on server:', err);

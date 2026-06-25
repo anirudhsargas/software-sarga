@@ -316,6 +316,7 @@ router.put('/vendors/:id', authenticateToken, authorizeRoles('Admin', 'Accountan
 router.delete('/vendors/:id', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
   try {
     const { id } = req.params;
+    const force = req.query.force === 'true';
 
     // Check if vendor exists
     const [vendor] = await pool.query('SELECT id FROM vendors WHERE id = ? AND is_active = TRUE', [id]);
@@ -339,13 +340,13 @@ router.delete('/vendors/:id', authenticateToken, authorizeRoles('Admin'), async 
       }
     }
 
-    if (unpaidCount > 0) {
-      return res.status(400).json({ success: false, message: 'Cannot delete vendor with unpaid invoices' });
+    if (unpaidCount > 0 && !force) {
+      return res.status(400).json({ success: false, message: 'Cannot delete vendor with unpaid invoices. Use force option to proceed.' });
     }
 
     await pool.query('UPDATE vendors SET is_active = FALSE WHERE id = ?', [id]);
 
-    auditLog(req.user.id, 'VENDOR_DELETE', `Deleted vendor ID: ${id}`, { entity_type: 'vendor', entity_id: id });
+    auditLog(req.user.id, 'VENDOR_DELETE', `Deleted vendor ID: ${id} (force: ${force})`, { entity_type: 'vendor', entity_id: id });
 
     res.json({ success: true, message: 'Vendor deleted successfully' });
   } catch (error) {

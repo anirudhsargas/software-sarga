@@ -79,7 +79,23 @@ const Vendors = () => {
       navigate('/dashboard/vendors?view=list');
     } catch (error) {
       console.error('Error deleting vendor:', error);
-      toast.error('Failed to delete vendor');
+      const serverMessage = error.response?.data?.message || error.message;
+      if (serverMessage && serverMessage.includes('unpaid invoices')) {
+        if (window.confirm('This vendor has unpaid invoices or payments due. Do you want to force delete this vendor?')) {
+          try {
+            await api.delete(`/vendors/${vendorId}?force=true`);
+            toast.success('Vendor force-deleted successfully');
+            setRefreshKey(k => k + 1);
+            navigate('/dashboard/vendors?view=list');
+            return;
+          } catch (forceError) {
+            console.error('Error force deleting vendor:', forceError);
+            toast.error(forceError.response?.data?.message || forceError.message || 'Failed to force delete vendor');
+            return;
+          }
+        }
+      }
+      toast.error(serverMessage || 'Failed to delete vendor');
     }
   };
 

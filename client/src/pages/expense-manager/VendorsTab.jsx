@@ -335,13 +335,37 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
 
     try {
       await localDb.deleteVendor(v.id);
-      toast.success('Vendor deleted locally');
+      toast.success('Vendor deleted successfully');
       // Remove from local state immediately
       setPaginatedVendors(prev => prev.filter(vendor => vendor.id !== v.id));
       setTotal(prev => Math.max(0, prev - 1));
       if (onRefreshVendors) onRefreshVendors();
-    } catch {
-      toast.error('Cannot delete this vendor locally');
+    } catch (error) {
+      console.error('Error deleting vendor:', error);
+      const serverMessage = error.response?.data?.message || error.message;
+      if (serverMessage && serverMessage.includes('unpaid invoices')) {
+        const isForceConfirmed = await confirm({
+          title: 'Force Delete Vendor',
+          message: `This vendor "${v.name}" has unpaid invoices or payments due. Do you want to force delete them?`,
+          confirmText: 'Force Delete',
+          type: 'danger'
+        });
+        if (isForceConfirmed) {
+          try {
+            await localDb.deleteVendor(v.id, true);
+            toast.success('Vendor force-deleted successfully');
+            setPaginatedVendors(prev => prev.filter(vendor => vendor.id !== v.id));
+            setTotal(prev => Math.max(0, prev - 1));
+            if (onRefreshVendors) onRefreshVendors();
+            return;
+          } catch (forceError) {
+            console.error('Error force deleting vendor:', forceError);
+            toast.error(forceError.response?.data?.message || forceError.message || 'Failed to force delete vendor');
+            return;
+          }
+        }
+      }
+      toast.error(serverMessage || 'Cannot delete this vendor');
     }
   };
 
