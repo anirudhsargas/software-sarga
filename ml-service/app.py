@@ -39,8 +39,6 @@ def create_app():
     from upsell import bp as upsell_bp
     from turnaround import bp as turnaround_bp
     from expense_categorizer import bp as expense_cat_bp
-    from ocr_service import bp as ocr_bp
-    from chatbot.routes import bp as chatbot_bp
 
     application.register_blueprint(fraud_bp)
     application.register_blueprint(sales_bp)
@@ -51,32 +49,47 @@ def create_app():
     application.register_blueprint(upsell_bp)
     application.register_blueprint(turnaround_bp)
     application.register_blueprint(expense_cat_bp)
-    application.register_blueprint(ocr_bp)
-    application.register_blueprint(chatbot_bp)
+
+    try:
+        from ocr_service import bp as ocr_bp
+        application.register_blueprint(ocr_bp)
+        logger.info("Successfully registered OCR service blueprint.")
+    except Exception as e:
+        logger.warning("OCR service could not be loaded (PaddleOCR/PaddlePaddle missing or incompatible): %s", e)
+
+    chatbot_loaded = False
+    try:
+        from chatbot.routes import bp as chatbot_bp
+        application.register_blueprint(chatbot_bp)
+        logger.info("Successfully registered Chatbot service blueprint.")
+        chatbot_loaded = True
+    except Exception as e:
+        logger.warning("Chatbot service could not be loaded (SentenceTransformers/pickle5 missing or incompatible): %s", e)
 
     # ── Chatbot initialisation ────────────────────────────────────────────
-    try:
-        from chatbot import db_setup
-        db_setup.init_db()
-    except Exception as e:
-        logger.warning('Chatbot DB setup failed: %s', e)
-
-    base_dir = os.path.abspath(os.path.dirname(__file__))
-    model_file = os.path.join(base_dir, 'chatbot', 'models', 'intent_model.pkl')
-    if not os.path.exists(model_file):
+    if chatbot_loaded:
         try:
-            from chatbot import train
-            logger.info('No chatbot model found. Training initial model...')
-            train.train_and_save()
+            from chatbot import db_setup
+            db_setup.init_db()
         except Exception as e:
-            logger.warning('Initial chatbot training failed: %s', e)
+            logger.warning('Chatbot DB setup failed: %s', e)
 
-    try:
-        from chatbot import continuous_learning
-        t = Thread(target=continuous_learning.run_scheduler, daemon=True)
-        t.start()
-    except Exception as e:
-        logger.warning('Failed to start continuous learning scheduler: %s', e)
+        base_dir = os.path.abspath(os.path.dirname(__file__))
+        model_file = os.path.join(base_dir, 'chatbot', 'models', 'intent_model.pkl')
+        if not os.path.exists(model_file):
+            try:
+                from chatbot import train
+                logger.info('No chatbot model found. Training initial model...')
+                train.train_and_save()
+            except Exception as e:
+                logger.warning('Initial chatbot training failed: %s', e)
+
+        try:
+            from chatbot import continuous_learning
+            t = Thread(target=continuous_learning.run_scheduler, daemon=True)
+            t.start()
+        except Exception as e:
+            logger.warning('Failed to start continuous learning scheduler: %s', e)
 
     # ── Health check ──────────────────────────────────────────────────────
     @application.route("/health", methods=["GET"])
