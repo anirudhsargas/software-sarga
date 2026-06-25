@@ -1,7 +1,7 @@
 import { usePageTitle } from '../hooks/usePageTitle';
 import React, { useEffect, useState, useMemo } from 'react';
 import { useDebounce } from '../hooks/useDebounce';
-import { User, Loader2, Plus, X, Edit2, Trash2, Key, BarChart3, Banknote, Calendar, LogIn, LogOut, Settings, Search } from 'lucide-react';
+import { User, Loader2, Plus, X, Edit2, Trash2, Key, BarChart3, Banknote, Calendar, LogIn, LogOut, Settings, Search, Camera, Phone, Briefcase, DollarSign, MapPin } from 'lucide-react';
 import HolidayCalendar from '../components/HolidayCalendar';
 import SecureImage from '../components/SecureImage';
 import { useNavigate } from 'react-router-dom';
@@ -561,139 +561,520 @@ const StaffManagement = () => {
             <Pagination page={page} totalPages={totalPages} total={total} onPageChange={setPage} />
 
             {showAddModal && (
-                <div className="modal-backdrop">
-                    <div className="modal">
-                        <div className="modal-header">
-                            <h2 className="modal-title">Add Staff Member</h2>
-                            <button className="modal-close modal-close--static" onClick={() => setShowAddModal(false)}><X size={22} /></button>
+                <div className="modal-backdrop" style={{ zIndex: 'var(--z-modal, 1000)' }}>
+                    <style>{`
+                        .staff-modal-container {
+                            background: var(--surface);
+                            border: 1px solid var(--border-subtle);
+                            border-radius: 24px;
+                            width: 100%;
+                            max-width: 580px;
+                            max-height: 90vh;
+                            overflow: hidden;
+                            display: flex;
+                            flex-direction: column;
+                            box-shadow: var(--shadow-lg);
+                            animation: modal-enter 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+                        }
+                        @keyframes modal-enter {
+                            from { opacity: 0; transform: scale(0.96) translateY(10px); }
+                            to { opacity: 1; transform: scale(1) translateY(0); }
+                        }
+                        .staff-form-body {
+                            padding: 32px;
+                            overflow-y: auto;
+                        }
+                        .staff-form-wrapper {
+                            display: flex;
+                            flex-direction: column;
+                            gap: 22px;
+                        }
+                        .staff-photo-section {
+                            display: flex;
+                            flex-direction: column;
+                            align-items: center;
+                            gap: 16px;
+                            padding: 20px;
+                            background: var(--surface-2);
+                            border: 2px dashed var(--border-subtle);
+                            border-radius: 16px;
+                            text-align: center;
+                            position: relative;
+                            transition: border-color 0.2s ease;
+                        }
+                        .staff-photo-section:hover {
+                            border-color: var(--accent);
+                        }
+                        .staff-avatar-preview-container {
+                            width: 100px;
+                            height: 100px;
+                            border-radius: 50%;
+                            background: var(--surface);
+                            border: 2px solid var(--border-subtle);
+                            box-shadow: var(--shadow-sm);
+                            display: grid;
+                            place-items: center;
+                            overflow: hidden;
+                            position: relative;
+                        }
+                        .staff-avatar-preview {
+                            width: 100%;
+                            height: 100%;
+                            object-fit: cover;
+                        }
+                        .staff-avatar-placeholder {
+                            color: var(--text-muted, var(--muted));
+                            display: flex;
+                            flex-direction: column;
+                            align-items: center;
+                            gap: 6px;
+                        }
+                        .staff-photo-input-label {
+                            display: inline-flex;
+                            align-items: center;
+                            gap: 8px;
+                            padding: 8px 16px;
+                            border-radius: 8px;
+                            background: var(--surface);
+                            border: 1px solid var(--border);
+                            color: var(--text);
+                            font-size: 13px;
+                            font-weight: 600;
+                            cursor: pointer;
+                            box-shadow: var(--shadow-2xs);
+                            transition: all 0.15s ease;
+                        }
+                        .staff-photo-input-label:hover {
+                            background: var(--surface-2);
+                            border-color: var(--text-muted);
+                        }
+                        .staff-field-group {
+                            display: flex;
+                            flex-direction: column;
+                            gap: 6px;
+                        }
+                        .staff-label {
+                            font-size: 11px;
+                            font-weight: 700;
+                            color: var(--text-muted, var(--muted));
+                            text-transform: uppercase;
+                            letter-spacing: 0.06em;
+                            padding-left: 2px;
+                        }
+                        .staff-input-container {
+                            position: relative;
+                            display: flex;
+                            align-items: center;
+                            width: 100%;
+                        }
+                        .staff-input-decorator {
+                            position: absolute;
+                            left: 14px;
+                            color: var(--text-muted, var(--muted));
+                            pointer-events: none;
+                            transition: color 0.15s ease;
+                            display: flex;
+                            align-items: center;
+                            z-index: 1;
+                        }
+                        .staff-input {
+                            width: 100%;
+                            padding: 11px 14px 11px 40px;
+                            border: 1.5px solid var(--border-subtle);
+                            border-radius: 10px;
+                            background: var(--surface);
+                            color: var(--text);
+                            font-size: 14px;
+                            line-height: 1.4;
+                            transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+                            outline: none;
+                            font-family: inherit;
+                        }
+                        .staff-input:hover {
+                            border-color: var(--text-muted, var(--muted));
+                        }
+                        .staff-input:focus {
+                            border-color: var(--accent);
+                            background: var(--surface);
+                            box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
+                        }
+                        .staff-input-container:focus-within .staff-input-decorator {
+                            color: var(--accent);
+                        }
+                        .staff-input-row {
+                            display: flex;
+                            gap: 12px;
+                            width: 100%;
+                        }
+                        .staff-input-row select.input-field {
+                            width: 120px;
+                            flex-shrink: 0;
+                        }
+                        select.staff-input {
+                            appearance: none;
+                            -webkit-appearance: none;
+                            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+                            background-repeat: no-repeat;
+                            background-position: right 14px center;
+                            background-size: 16px;
+                            padding-right: 40px;
+                            cursor: pointer;
+                        }
+                    `}</style>
+                    <div className="staff-modal-container">
+                        <div className="modal-header" style={{ padding: '20px 28px', borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h2 className="modal-title" style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Add Staff Member</h2>
+                            <button className="modal-close modal-close--static" onClick={() => setShowAddModal(false)} style={{ display: 'grid', placeItems: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={20} /></button>
                         </div>
-                        <form onSubmit={handleAddStaff} className="stack-md">
-                            <div>
-                                <label htmlFor="newStaffPhoto" className="label">Staff Photo</label>
-                                <input id="newStaffPhoto" type="file" name="newStaffPhoto" accept="image/*" onChange={e => openCropper(e.target.files?.[0], 'newStaff')} />
-                                {newStaffPreview && <img loading="lazy" src={newStaffPreview} className="thumb-img" alt="preview" style={{ marginTop: 8, borderRadius: 8, maxHeight: 80 }} />}
-                            </div>
-                            <div>
-                                <label htmlFor="newStaffName" className="label">Full Name</label>
-                                <input id="newStaffName" type="text" name="newStaffName" className="input-field" placeholder="Full Name" value={newStaff.name} onChange={e => setNewStaff({...newStaff, name: e.target.value})} required />
-                            </div>
-                            <div>
-                                <label htmlFor="newStaffMobile" className="label">Mobile Number</label>
-                                <div className="row gap-sm">
-                                    <CountryCodeSelect value={newStaff.countryCode} onChange={(val) => setNewStaff({...newStaff, countryCode: val})} />
-                                    <input id="newStaffMobile" type="tel" name="newStaffMobile" className="input-field" placeholder="10-digit mobile" value={newStaff.mobile} onChange={e => setNewStaff({...newStaff, mobile: filterMobile(e.target.value)})} required />
-                                </div>
-                            </div>
-                            <div>
-                                <label htmlFor="newStaffBranch" className="label">Branch</label>
-                                <BranchSelect id="newStaffBranch" name="newStaffBranch" className="input-field" value={newStaff.branch_id} onChange={e => setNewStaff({...newStaff, branch_id: e.target.value})} required>
-                                    <option value="">Select Branch</option>
-                                    {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                                </BranchSelect>
-                            </div>
-                            <div>
-                                <label htmlFor="newStaffRole" className="label">Role</label>
-                                <select id="newStaffRole" name="newStaffRole" className="input-field" value={newStaff.role} onChange={e => setNewStaff({...newStaff, role: e.target.value})}>
-                                    {STAFF_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                                </select>
-                            </div>
-                            {isAdmin && (
-                                <>
+                        <form onSubmit={handleAddStaff} className="staff-form-body">
+                            <div className="staff-form-wrapper">
+                                <div className="staff-photo-section">
+                                    <div className="staff-avatar-preview-container">
+                                        {newStaffPreview ? (
+                                            <img src={newStaffPreview} className="staff-avatar-preview" alt="preview" />
+                                        ) : (
+                                            <div className="staff-avatar-placeholder">
+                                                <User size={32} />
+                                                <span style={{ fontSize: 11 }}>No photo</span>
+                                            </div>
+                                        )}
+                                    </div>
                                     <div>
-                                        <label htmlFor="newStaffSalaryType" className="label">Salary Type</label>
-                                        <select id="newStaffSalaryType" name="newStaffSalaryType" className="input-field" value={newStaff.salary_type} onChange={e => setNewStaff({...newStaff, salary_type: e.target.value})}>
-                                            <option value="Monthly">Monthly</option>
-                                            <option value="Daily">Daily</option>
+                                        <label htmlFor="newStaffPhoto" className="staff-photo-input-label">
+                                            <Camera size={14} />
+                                            <span>Choose Photo</span>
+                                        </label>
+                                        <input 
+                                            id="newStaffPhoto" 
+                                            type="file" 
+                                            name="newStaffPhoto" 
+                                            accept="image/*" 
+                                            onChange={e => openCropper(e.target.files?.[0], 'newStaff')} 
+                                            style={{ display: 'none' }}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="staff-field-group">
+                                    <label htmlFor="newStaffName" className="staff-label">Full Name</label>
+                                    <div className="staff-input-container">
+                                        <div className="staff-input-decorator"><User size={15} /></div>
+                                        <input 
+                                            id="newStaffName" 
+                                            type="text" 
+                                            name="newStaffName" 
+                                            className="staff-input" 
+                                            placeholder="Full Name" 
+                                            value={newStaff.name} 
+                                            onChange={e => setNewStaff({...newStaff, name: e.target.value})} 
+                                            required 
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="staff-field-group">
+                                    <label htmlFor="newStaffMobile" className="staff-label">Mobile Number</label>
+                                    <div className="staff-input-row">
+                                        <CountryCodeSelect value={newStaff.countryCode} onChange={(val) => setNewStaff({...newStaff, countryCode: val})} />
+                                        <div className="staff-input-container" style={{ flex: 1 }}>
+                                            <div className="staff-input-decorator"><Phone size={15} /></div>
+                                            <input 
+                                                id="newStaffMobile" 
+                                                type="tel" 
+                                                name="newStaffMobile" 
+                                                className="staff-input" 
+                                                placeholder="10-digit mobile" 
+                                                value={newStaff.mobile} 
+                                                onChange={e => setNewStaff({...newStaff, mobile: filterMobile(e.target.value)})} 
+                                                required 
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="staff-field-group">
+                                    <label htmlFor="newStaffBranch" className="staff-label">Branch</label>
+                                    <div className="staff-input-container">
+                                        <div className="staff-input-decorator"><MapPin size={15} /></div>
+                                        <BranchSelect 
+                                            id="newStaffBranch" 
+                                            name="newStaffBranch" 
+                                            className="staff-input" 
+                                            value={newStaff.branch_id} 
+                                            onChange={e => setNewStaff({...newStaff, branch_id: e.target.value})} 
+                                            required
+                                        >
+                                            <option value="">Select Branch</option>
+                                            {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                        </BranchSelect>
+                                    </div>
+                                </div>
+
+                                <div className="staff-field-group">
+                                    <label htmlFor="newStaffRole" className="staff-label">Role</label>
+                                    <div className="staff-input-container">
+                                        <div className="staff-input-decorator"><Briefcase size={15} /></div>
+                                        <select 
+                                            id="newStaffRole" 
+                                            name="newStaffRole" 
+                                            className="staff-input" 
+                                            value={newStaff.role} 
+                                            onChange={e => setNewStaff({...newStaff, role: e.target.value})}
+                                        >
+                                            {STAFF_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                                         </select>
                                     </div>
-                                    {newStaff.salary_type === 'Monthly' ? (
-                                        <div>
-                                            <label htmlFor="newStaffSalary" className="label">Base Salary (₹)</label>
-                                            <input id="newStaffSalary" type="number" name="newStaffSalary" className="input-field" placeholder="0" min="0" value={newStaff.base_salary} onChange={e => setNewStaff({...newStaff, base_salary: e.target.value})} />
+                                </div>
+
+                                {isAdmin && (
+                                    <>
+                                        <div className="staff-field-group">
+                                            <label htmlFor="newStaffSalaryType" className="staff-label">Salary Type</label>
+                                            <div className="staff-input-container">
+                                                <div className="staff-input-decorator"><DollarSign size={15} /></div>
+                                                <select 
+                                                    id="newStaffSalaryType" 
+                                                    name="newStaffSalaryType" 
+                                                    className="staff-input" 
+                                                    value={newStaff.salary_type} 
+                                                    onChange={e => setNewStaff({...newStaff, salary_type: e.target.value})}
+                                                >
+                                                    <option value="Monthly">Monthly</option>
+                                                    <option value="Daily">Daily</option>
+                                                </select>
+                                            </div>
                                         </div>
-                                    ) : (
-                                        <div>
-                                            <label htmlFor="newStaffDailyRate" className="label">Daily Rate (₹)</label>
-                                            <input id="newStaffDailyRate" type="number" name="newStaffDailyRate" className="input-field" placeholder="0" min="0" value={newStaff.daily_rate} onChange={e => setNewStaff({...newStaff, daily_rate: e.target.value})} />
-                                        </div>
-                                    )}
-                                </>
-                            )}
-                            <button type="submit" disabled={loading} className="btn btn-primary btn--full">
-                                {loading ? <Loader2 size={16} className="animate-spin" /> : 'Create Account'}
-                            </button>
+
+                                        {newStaff.salary_type === 'Monthly' ? (
+                                            <div className="staff-field-group">
+                                                <label htmlFor="newStaffSalary" className="staff-label">Base Salary (₹)</label>
+                                                <div className="staff-input-container">
+                                                    <div className="staff-input-decorator"><DollarSign size={15} /></div>
+                                                    <input 
+                                                        id="newStaffSalary" 
+                                                        type="number" 
+                                                        name="newStaffSalary" 
+                                                        className="staff-input" 
+                                                        placeholder="0" 
+                                                        min="0" 
+                                                        value={newStaff.base_salary} 
+                                                        onChange={e => setNewStaff({...newStaff, base_salary: e.target.value})} 
+                                                    />
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="staff-field-group">
+                                                <label htmlFor="newStaffDailyRate" className="staff-label">Daily Rate (₹)</label>
+                                                <div className="staff-input-container">
+                                                    <div className="staff-input-decorator"><DollarSign size={15} /></div>
+                                                    <input 
+                                                        id="newStaffDailyRate" 
+                                                        type="number" 
+                                                        name="newStaffDailyRate" 
+                                                        className="staff-input" 
+                                                        placeholder="0" 
+                                                        min="0" 
+                                                        value={newStaff.daily_rate} 
+                                                        onChange={e => setNewStaff({...newStaff, daily_rate: e.target.value})} 
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+
+                            <div style={{ marginTop: 28, paddingTop: 20, borderTop: '1px solid var(--border-subtle)', display: 'flex', gap: 16 }}>
+                                <button type="button" onClick={() => setShowAddModal(false)} className="btn btn-ghost" style={{ flex: 1, height: 44, borderRadius: 10 }}>
+                                    Cancel
+                                </button>
+                                <button type="submit" disabled={loading} className="btn btn-primary" style={{ flex: 1, height: 44, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    {loading ? <Loader2 size={16} className="animate-spin" /> : 'Create Account'}
+                                </button>
+                            </div>
                         </form>
                     </div>
                 </div>
             )}
 
             {showEditModal && selectedStaff && (
-                <div className="modal-backdrop">
-                    <div className="modal">
-                        <div className="modal-header">
-                            <h2 className="modal-title">Edit Staff Member</h2>
-                            <button className="modal-close modal-close--static" onClick={() => setShowEditModal(false)}><X size={22} /></button>
+                <div className="modal-backdrop" style={{ zIndex: 'var(--z-modal, 1000)' }}>
+                    <div className="staff-modal-container">
+                        <div className="modal-header" style={{ padding: '20px 28px', borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h2 className="modal-title" style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Edit Staff Member</h2>
+                            <button className="modal-close modal-close--static" onClick={() => setShowEditModal(false)} style={{ display: 'grid', placeItems: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={20} /></button>
                         </div>
-                        <form onSubmit={handleUpdateStaff} className="stack-md">
-                            <div>
-                                <label htmlFor="editStaffPhoto" className="label">Staff Photo</label>
-                                <div className="row gap-sm" style={{ alignItems: 'center' }}>
-                                    {editStaffPreview && <img loading="lazy" src={editStaffPreview} alt="Preview" style={{ width: 56, height: 56, borderRadius: 8, objectFit: 'cover' }} />}
-                                    <input id="editStaffPhoto" type="file" name="editStaffPhoto" accept="image/*" onChange={e => openCropper(e.target.files?.[0], 'editStaff')} />
-                                    {(editStaffImage || selectedStaff?.image_url) && (
-                                        <button type="button" className="btn btn-ghost text-error" style={{ padding: '4px 8px', fontSize: 12 }} onClick={handleRemoveStaffImage}>Remove</button>
-                                    )}
+                        <form onSubmit={handleUpdateStaff} className="staff-form-body">
+                            <div className="staff-form-wrapper">
+                                <div className="staff-photo-section">
+                                    <div className="staff-avatar-preview-container">
+                                        {editStaffPreview ? (
+                                            <img src={editStaffPreview} className="staff-avatar-preview" alt="Preview" />
+                                        ) : (
+                                            <div className="staff-avatar-placeholder">
+                                                <User size={32} />
+                                                <span style={{ fontSize: 11 }}>No photo</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div style={{ display: 'flex', gap: 8 }}>
+                                        <label htmlFor="editStaffPhoto" className="staff-photo-input-label">
+                                            <Camera size={14} />
+                                            <span>Change Photo</span>
+                                        </label>
+                                        <input 
+                                            id="editStaffPhoto" 
+                                            type="file" 
+                                            name="editStaffPhoto" 
+                                            accept="image/*" 
+                                            onChange={e => openCropper(e.target.files?.[0], 'editStaff')} 
+                                            style={{ display: 'none' }}
+                                        />
+                                        {(editStaffImage || selectedStaff?.image_url) && (
+                                            <button 
+                                                type="button" 
+                                                className="btn btn-ghost text-error" 
+                                                style={{ padding: '4px 12px', fontSize: 12, height: 32, borderRadius: 8 }} 
+                                                onClick={handleRemoveStaffImage}
+                                            >
+                                                Remove
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                            <div>
-                                <label htmlFor="editStaffName" className="label">Full Name</label>
-                                <input id="editStaffName" type="text" name="editStaffName" className="input-field" value={selectedStaff.name} onChange={e => setSelectedStaff({...selectedStaff, name: e.target.value})} required />
-                            </div>
-                            <div>
-                                <label htmlFor="editStaffMobile" className="label">Mobile Number</label>
-                                <div className="row gap-sm">
-                                    <CountryCodeSelect value={selectedStaff?.countryCode || '+91'} onChange={(val) => setSelectedStaff({...selectedStaff, countryCode: val})} />
-                                    <input id="editStaffMobile" type="tel" name="editStaffMobile" className="input-field" value={selectedStaff.user_id} onChange={e => setSelectedStaff({...selectedStaff, user_id: filterMobile(e.target.value)})} required />
+
+                                <div className="staff-field-group">
+                                    <label htmlFor="editStaffName" className="staff-label">Full Name</label>
+                                    <div className="staff-input-container">
+                                        <div className="staff-input-decorator"><User size={15} /></div>
+                                        <input 
+                                            id="editStaffName" 
+                                            type="text" 
+                                            name="editStaffName" 
+                                            className="staff-input" 
+                                            value={selectedStaff.name} 
+                                            onChange={e => setSelectedStaff({...selectedStaff, name: e.target.value})} 
+                                            required 
+                                        />
+                                    </div>
                                 </div>
-                            </div>
-                            <div>
-                                <label htmlFor="editStaffBranch" className="label">Branch</label>
-                                <BranchSelect id="editStaffBranch" name="editStaffBranch" className="input-field" value={selectedStaff.branch_id || ''} onChange={e => setSelectedStaff({...selectedStaff, branch_id: e.target.value})}>
-                                    <option value="">Select Branch</option>
-                                    {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                                </BranchSelect>
-                            </div>
-                            <div>
-                                <label htmlFor="editStaffRole" className="label">Role</label>
-                                <select id="editStaffRole" name="editStaffRole" className="input-field" value={selectedStaff.role} onChange={e => setSelectedStaff({...selectedStaff, role: e.target.value})}>
-                                    {STAFF_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                                </select>
-                            </div>
-                            {isAdmin && (
-                                <>
-                                    <div>
-                                        <label htmlFor="editStaffSalaryType" className="label">Salary Type</label>
-                                        <select id="editStaffSalaryType" name="editStaffSalaryType" className="input-field" value={selectedStaff.salary_type || 'Monthly'} onChange={e => setSelectedStaff({...selectedStaff, salary_type: e.target.value})}>
-                                            <option value="Monthly">Monthly</option>
-                                            <option value="Daily">Daily</option>
+
+                                <div className="staff-field-group">
+                                    <label htmlFor="editStaffMobile" className="staff-label">Mobile Number</label>
+                                    <div className="staff-input-row">
+                                        <CountryCodeSelect value={selectedStaff?.countryCode || '+91'} onChange={(val) => setSelectedStaff({...selectedStaff, countryCode: val})} />
+                                        <div className="staff-input-container" style={{ flex: 1 }}>
+                                            <div className="staff-input-decorator"><Phone size={15} /></div>
+                                            <input 
+                                                id="editStaffMobile" 
+                                                type="tel" 
+                                                name="editStaffMobile" 
+                                                className="staff-input" 
+                                                value={selectedStaff.user_id} 
+                                                onChange={e => setSelectedStaff({...selectedStaff, user_id: filterMobile(e.target.value)})} 
+                                                required 
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="staff-field-group">
+                                    <label htmlFor="editStaffBranch" className="staff-label">Branch</label>
+                                    <div className="staff-input-container">
+                                        <div className="staff-input-decorator"><MapPin size={15} /></div>
+                                        <BranchSelect 
+                                            id="editStaffBranch" 
+                                            name="editStaffBranch" 
+                                            className="staff-input" 
+                                            value={selectedStaff.branch_id || ''} 
+                                            onChange={e => setSelectedStaff({...selectedStaff, branch_id: e.target.value})}
+                                        >
+                                            <option value="">Select Branch</option>
+                                            {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                        </BranchSelect>
+                                    </div>
+                                </div>
+
+                                <div className="staff-field-group">
+                                    <label htmlFor="editStaffRole" className="staff-label">Role</label>
+                                    <div className="staff-input-container">
+                                        <div className="staff-input-decorator"><Briefcase size={15} /></div>
+                                        <select 
+                                            id="editStaffRole" 
+                                            name="editStaffRole" 
+                                            className="staff-input" 
+                                            value={selectedStaff.role} 
+                                            onChange={e => setSelectedStaff({...selectedStaff, role: e.target.value})}
+                                        >
+                                            {STAFF_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                                         </select>
                                     </div>
-                                    {(selectedStaff.salary_type || 'Monthly') === 'Monthly' ? (
-                                        <div>
-                                            <label htmlFor="editStaffSalary" className="label">Base Salary (₹)</label>
-                                            <input id="editStaffSalary" type="number" name="editStaffSalary" className="input-field" min="0" value={selectedStaff.base_salary || ''} onChange={e => setSelectedStaff({...selectedStaff, base_salary: e.target.value})} />
+                                </div>
+
+                                {isAdmin && (
+                                    <>
+                                        <div className="staff-field-group">
+                                            <label htmlFor="editStaffSalaryType" className="staff-label">Salary Type</label>
+                                            <div className="staff-input-container">
+                                                <div className="staff-input-decorator"><DollarSign size={15} /></div>
+                                                <select 
+                                                    id="editStaffSalaryType" 
+                                                    name="editStaffSalaryType" 
+                                                    className="staff-input" 
+                                                    value={selectedStaff.salary_type || 'Monthly'} 
+                                                    onChange={e => setSelectedStaff({...selectedStaff, salary_type: e.target.value})}
+                                                >
+                                                    <option value="Monthly">Monthly</option>
+                                                    <option value="Daily">Daily</option>
+                                                </select>
+                                            </div>
                                         </div>
-                                    ) : (
-                                        <div>
-                                            <label htmlFor="editStaffDailyRate" className="label">Daily Rate (₹)</label>
-                                            <input id="editStaffDailyRate" type="number" name="editStaffDailyRate" className="input-field" min="0" value={selectedStaff.daily_rate || ''} onChange={e => setSelectedStaff({...selectedStaff, daily_rate: e.target.value})} />
-                                        </div>
-                                    )}
-                                </>
-                            )}
-                            <button type="submit" disabled={loading} className="btn btn-primary btn--full">
-                                {loading ? <Loader2 size={16} className="animate-spin" /> : 'Update Details'}
-                            </button>
+
+                                        {(selectedStaff.salary_type || 'Monthly') === 'Monthly' ? (
+                                            <div className="staff-field-group">
+                                                <label htmlFor="editStaffSalary" className="staff-label">Base Salary (₹)</label>
+                                                <div className="staff-input-container">
+                                                    <div className="staff-input-decorator"><DollarSign size={15} /></div>
+                                                    <input 
+                                                        id="editStaffSalary" 
+                                                        type="number" 
+                                                        name="editStaffSalary" 
+                                                        className="staff-input" 
+                                                        min="0" 
+                                                        value={selectedStaff.base_salary || ''} 
+                                                        onChange={e => setSelectedStaff({...selectedStaff, base_salary: e.target.value})} 
+                                                    />
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="staff-field-group">
+                                                <label htmlFor="editStaffDailyRate" className="staff-label">Daily Rate (₹)</label>
+                                                <div className="staff-input-container">
+                                                    <div className="staff-input-decorator"><DollarSign size={15} /></div>
+                                                    <input 
+                                                        id="editStaffDailyRate" 
+                                                        type="number" 
+                                                        name="editStaffDailyRate" 
+                                                        className="staff-input" 
+                                                        min="0" 
+                                                        value={selectedStaff.daily_rate || ''} 
+                                                        onChange={e => setSelectedStaff({...selectedStaff, daily_rate: e.target.value})} 
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+
+                            <div style={{ marginTop: 28, paddingTop: 20, borderTop: '1px solid var(--border-subtle)', display: 'flex', gap: 16 }}>
+                                <button type="button" onClick={() => setShowEditModal(false)} className="btn btn-ghost" style={{ flex: 1, height: 44, borderRadius: 10 }}>
+                                    Cancel
+                                </button>
+                                <button type="submit" disabled={loading} className="btn btn-primary" style={{ flex: 1, height: 44, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    {loading ? <Loader2 size={16} className="animate-spin" /> : 'Update Details'}
+                                </button>
+                            </div>
                         </form>
                     </div>
                 </div>
