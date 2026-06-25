@@ -6,6 +6,7 @@ import { registerSW } from 'virtual:pwa-register';
 import "./index.css";
 import "./styles/global-fixes.css";
 import App from "./App.jsx";
+import { API_URL } from "./services/api";
 
 // Service worker and auto-update polling in production
 if (import.meta.env.PROD) {
@@ -25,7 +26,7 @@ if (import.meta.env.PROD) {
 
   const checkVersion = async () => {
     try {
-      const response = await fetch('/api/version');
+      const response = await fetch(`${API_URL}version`);
       if (!response.ok) return;
       const data = await response.json();
       const currentVersion = getMetaVersion() || '1.0.0';
