@@ -55,8 +55,8 @@ async function findInventoryByScannedCode(rawCode) {
     return { normalized, item: rows[0] || null, matchType: rows[0] ? 'sku' : null };
 }
 
-// Auto-migrate: ensure reserved_quantity column exists on sarga_inventory
-(async () => {
+// Auto-migrate: ensure reserved_quantity column exists on sarga_inventory (deferred to avoid startup database contention)
+setTimeout(async () => {
     try {
         const [[dbRow]] = await pool.query('SELECT DATABASE() AS db');
         const dbName = dbRow?.db;
@@ -77,7 +77,7 @@ async function findInventoryByScannedCode(rawCode) {
     } catch (err) {
         console.warn('inventory migration warning:', err.message || err);
     }
-})();
+}, 10000); // 10s delay to let the main DB migration finish and connections warm up
 
 // --- INVENTORY ROUTES (Admin Only) ---
 
