@@ -309,6 +309,11 @@ module.exports.invalidateCache = invalidateCache;
 
 // --------------- Route Modules ---------------
 
+// Root health/info route — prevents NOT_FOUND spam from Render uptime checks or browser probes
+app.get('/', (req, res) => {
+    res.json({ status: 'ok', service: 'sarga-mis', message: 'API server is running.' });
+});
+
 // Server time endpoint (tamper-proof date/time for clients)
 app.get('/api/server-time', asyncHandler((req, res) => {
     const now = new Date();
