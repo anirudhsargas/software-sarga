@@ -89,26 +89,43 @@ if (!process.env.GOOGLE_SHEET_ID) console.warn('[backup] WARNING: GOOGLE_SHEET_I
 
 logger.info('[CORS] Configured origins:', allowedOrigins);
 
-app.use(cors({
+const corsOptions = {
     origin: (origin, callback) => {
         // Allow requests with no origin (mobile apps, curl, server-to-server)
         if (!origin) return callback(null, true);
-        
+
         // Normalize incoming origin
         const normalizedOrigin = origin.replace(/\/$/, '');
-        
+
+        // Explicitly listed origins
         if (allowedOrigins.includes(normalizedOrigin)) {
             return callback(null, true);
         }
-        
+
+        // Accept any Vercel preview/branch deployment (*.vercel.app)
+        // so PR previews don't get CORS-blocked
+        if (/^https:\/\/[a-z0-9-]+-[a-z0-9]+-[a-z0-9-]+\.vercel\.app$/.test(normalizedOrigin) ||
+            normalizedOrigin.endsWith('.vercel.app')) {
+            return callback(null, true);
+        }
+
         logger.warn(`[CORS Blocked] Origin: ${origin}`);
-        // Return false instead of an Error to allow the middleware to handle the response gracefully
-        callback(null, false);
+        // Use an Error so the browser receives a proper 403 with CORS headers
+        // (passing false causes a silent drop with no CORS headers at all,
+        // which makes the browser report a confusing CORS error instead of 403)
+        callback(new Error(`CORS: origin ${origin} is not allowed`));
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Idempotency-Key', 'ngrok-skip-browser-warning', 'x-sarga-uuid']
-}));
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Idempotency-Key', 'ngrok-skip-browser-warning', 'x-sarga-uuid'],
+    optionsSuccessStatus: 200 // Some legacy browsers (IE11) choke on 204
+};
+
+// Respond to preflight OPTIONS requests immediately — before all other middleware.
+// This ensures CORS headers are present even if the server is under load or
+// a downstream middleware throws, which would otherwise produce a 520 with no headers.
+app.options('*', cors(corsOptions));
+app.use(cors(corsOptions));
 
 // Security headers
 app.use(helmet({

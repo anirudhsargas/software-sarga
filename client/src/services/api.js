@@ -199,12 +199,35 @@ api.interceptors.response.use(
         return response;
     },
     (error) => {
-        // Only redirect to /error/network if server is truly unreachable
-        // (no response at all — ECONNREFUSED, timeout, DNS failure)
+        // No response at all = server unreachable (ECONNREFUSED, timeout, DNS, or Render cold-start 520)
         if (!error.response) {
             console.error('[axios] Network error - server unreachable:', error.message);
-            window.location.href = '/error/network';
-            return Promise.reject(error);
+
+            // Retry once after a short delay before navigating to the error page.
+            // Render free-tier cold-starts take ~30s; a single retry often recovers
+            // without forcing the user to the /error/network page.
+            const config = error.config;
+            if (!config || config._retried) {
+                // Already retried or no config — navigate to error page only for
+                // user-facing requests, not background preload/sync calls
+                const isBackground = config?.url && (
+                    config.url.includes('product-hierarchy') ||
+                    config.url.includes('company-settings') ||
+                    config.url.includes('machines') ||
+                    config.url.includes('branches') ||
+                    config.url.includes('version') ||
+                    config.url.includes('server-time')
+                );
+                if (!isBackground) {
+                    window.location.href = '/error/network';
+                }
+                return Promise.reject(error);
+            }
+
+            // Mark as retried and wait 4s before trying again
+            config._retried = true;
+            return new Promise((resolve) => setTimeout(resolve, 4000))
+                .then(() => origGet(config.url, config));
         }
 
         // For all HTTP errors (401, 403, 500, 520) — do NOT redirect
