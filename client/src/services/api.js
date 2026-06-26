@@ -199,55 +199,24 @@ api.interceptors.response.use(
         return response;
     },
     (error) => {
-        if (error.config?.skipGlobalErrorHandling) {
+        // Only redirect to /error/network if server is truly unreachable
+        // (no response at all — ECONNREFUSED, timeout, DNS failure)
+        if (!error.response) {
+            console.error('[axios] Network error - server unreachable:', error.message);
+            window.location.href = '/error/network';
             return Promise.reject(error);
         }
 
-        const data = error.response?.data;
-        const serverError = data?.error;
-        const userMsg = serverError?.userMessage;
+        // For all HTTP errors (401, 403, 500, 520) — do NOT redirect
+        // Let individual pages/components handle these errors gracefully
+        const status = error.response.status;
+        console.error(`[axios] HTTP ${status} error on ${error.config?.url}`);
 
-        if (error.request && !error.response) {
-            try { toast.error('Network error — failed to reach server'); } catch {}
-            if (window.location.pathname !== '/error/network') {
-                window.location.href = '/error/network';
-            }
-            return Promise.reject(error);
-        }
-
-        const status = error.response?.status;
-
-        if (status === 429) {
-            try { toast.error(userMsg || 'Too many requests. Please slow down.'); } catch {}
-            return Promise.reject(error);
-        }
-
-        if (status === 403) {
-            try { toast.error(userMsg || "Access denied. You don't have permission for this action."); } catch {}
-            const token = localStorage.getItem('token');
-            if (!token) {
-                window.location.href = '/login';
-            } else if (window.location.pathname !== '/access-denied') {
-                window.location.href = '/access-denied';
-            }
-            return Promise.reject(error);
-        }
-
-        if (status >= 500) {
-            try { toast.error(userMsg || 'Server error. Please try again.'); } catch {}
-            return Promise.reject(error);
-        }
-
+        // Only redirect to login on 401 Unauthorized
         if (status === 401) {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
-            if (window.location.pathname !== '/login') {
-                window.location.href = '/login';
-            }
-        }
-
-        if (status === 422 && userMsg) {
-            try { toast.error(userMsg); } catch {}
+            window.location.href = '/login';
         }
 
         return Promise.reject(error);

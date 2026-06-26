@@ -877,7 +877,7 @@ const Dashboard = () => {
                     }).catch(() => {})
                 );
             }
-            await Promise.all(promises);
+            await Promise.allSettled(promises);
         };
         initialFetch();
 

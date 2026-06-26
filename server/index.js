@@ -482,6 +482,18 @@ if (process.env.NODE_ENV !== 'test') {
     initDb().then(async () => {
         logger.info('[DB] Database initialized successfully');
 
+        // Startup verification check for product_hierarchy table
+        const db = pool;
+        db.query("SHOW TABLES LIKE 'product_hierarchy'")
+            .then(([rows]) => {
+                if (rows.length === 0) {
+                    console.error('[STARTUP] WARNING: product_hierarchy table does not exist!');
+                } else {
+                    console.log('[STARTUP] product_hierarchy table verified OK');
+                }
+            })
+            .catch(err => console.error('[STARTUP] DB check failed:', err.message));
+
         const _server = app.listen(PORT, '0.0.0.0', () => {
             const mode = process.env.NODE_ENV || 'development';
             const dbHost = (process.env.DB_HOST || 'localhost').replace(/^(.{0,20}).*$/, '$1…');

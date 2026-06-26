@@ -935,16 +935,29 @@ router.get('/product-hierarchy', authenticateToken, async (req, res) => {
         }
 
         res.json(hierarchy);
-    } catch (err) {
-        console.error('Hierarchy error:', err);
-        res.status(500).json({ message: 'Database error' });
+    } catch (error) {
+        console.error('[product-hierarchy] GET error:', error.message);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Failed to fetch product hierarchy',
+            details: error.message 
+        });
     }
 });
 
 // Force-refresh hierarchy cache
 router.post('/product-hierarchy/refresh', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
-    invalidateHierarchyCache();
-    res.json({ message: 'Hierarchy cache cleared' });
+    try {
+        invalidateHierarchyCache();
+        res.json({ message: 'Hierarchy cache cleared' });
+    } catch (error) {
+        console.error('[product-hierarchy/refresh] POST error:', error.message);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Failed to refresh product hierarchy cache',
+            details: error.message 
+        });
+    }
 });
 
 // --- JOB STAFF ASSIGNMENTS ---
