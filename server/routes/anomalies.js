@@ -151,7 +151,7 @@ async function callMLService(payload) {
 }
 
 async function checkAnomalies() {
-    if (process.env.ENABLE_ML === 'false') {
+    if (process.env.ENABLE_ML !== 'true') {
         console.log('[AI_DISABLED] ML skipped');
         return { enabled: false, message: 'AI temporarily disabled', anomalies: [] };
     }

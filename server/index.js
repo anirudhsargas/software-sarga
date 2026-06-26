@@ -10,9 +10,9 @@ const axios = require('axios');
 axios.interceptors.request.use((config) => {
     const mlUrl = process.env.ML_SERVICE_URL || 'http://127.0.0.1:5001';
     if (config.url && config.url.startsWith(mlUrl)) {
-        if (process.env.ENABLE_ML === 'false') {
+        if (process.env.ENABLE_ML !== 'true') {
             console.log('[AI_DISABLED] ML skipped');
-            throw new Error('ML Service is disabled (ENABLE_ML=false)');
+            throw new Error('ML Service is disabled (ENABLE_ML is not true)');
         }
         const isLocal = mlUrl.includes('127.0.0.1') || mlUrl.includes('localhost');
         const isNotConfigured = !process.env.ML_SERVICE_URL || process.env.ML_SERVICE_URL === 'none';

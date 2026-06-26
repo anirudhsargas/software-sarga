@@ -19,7 +19,7 @@ function logSchedule(name, expression, status, error) {
 function safeSchedule(name, expression, task, options = {}) {
     const { timezone, runOnStart, startDelay } = options;
     const isMlJob = ['Anomaly Detection', 'Business Insights', 'Seasonal Analysis'].includes(name);
-    if (process.env.ENABLE_ML === 'false' && isMlJob) {
+    if (process.env.ENABLE_ML !== 'true' && isMlJob) {
         logger.info(`[AI_DISABLED] ML skipped: ${name} schedule bypassed`);
         return null;
     }

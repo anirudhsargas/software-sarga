@@ -1,7 +1,7 @@
 const logger = require('../helpers/logger');
 
 module.exports = (req, res, next) => {
-    if (process.env.ENABLE_ML === 'false') {
+    if (process.env.ENABLE_ML !== 'true') {
         logger.info('[AI_DISABLED] ML skipped');
         const path = req.baseUrl + req.path;
         

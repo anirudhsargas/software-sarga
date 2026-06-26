@@ -158,7 +158,7 @@ async function gatherKPIs() {
 // ── Generate insights (ML call + cache) ──────────────────────────────────────
 
 async function generateInsights() {
-    if (process.env.ENABLE_ML === 'false') {
+    if (process.env.ENABLE_ML !== 'true') {
         console.log('[AI_DISABLED] ML skipped');
         return { enabled: false, insights: [] };
     }

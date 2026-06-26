@@ -55,7 +55,7 @@ async function setCache(data) {
 // ── Call Python ML service ───────────────────────────────────────────────────
 
 async function computeSeasonal() {
-    if (process.env.ENABLE_ML === 'false') {
+    if (process.env.ENABLE_ML !== 'true') {
         console.log('[AI_DISABLED] ML skipped');
         return {
             enabled: false,

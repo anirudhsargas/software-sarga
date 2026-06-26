@@ -113,7 +113,7 @@ async function getMockStockPlanningData() {
 // ── Fetch from ML service (or cache) ─────────────────────────────────────────
 
 async function getStockPlanningData(forceRefresh = false) {
-    if (process.env.ENABLE_ML === 'false') {
+    if (process.env.ENABLE_ML !== 'true') {
         console.log('[AI_DISABLED] ML skipped');
         const cached = await getCached();
         if (cached) return cached;
