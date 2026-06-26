@@ -120,15 +120,17 @@ function App() {
     // Sync with server clock so staff cannot manipulate dates
     initServerTime();
 
-    // Initialize sync worker
-    syncManager.init();
-
-    // Preload frequently used static data
-    preloadStaticData();
-
-    // Update token when it changes
     const token = localStorage.getItem('token');
-    if (token) syncManager.updateToken(token);
+
+    // Only initialise the sync worker and preload data when the user is
+    // already authenticated. Starting these without a token fires 8+ API
+    // calls that all return 401, which previously wiped localStorage and
+    // caused the login → dashboard → login redirect loop.
+    if (token) {
+      syncManager.init();
+      syncManager.updateToken(token);
+      preloadStaticData();
+    }
 
     // Listen for online/offline
     const handleOnline = () => syncManager.setOnlineStatus(true);
@@ -141,9 +143,11 @@ function App() {
       syncManager.destroy();
     };
     const handlePageShow = () => {
-      syncManager.init();
-      const token = localStorage.getItem('token');
-      if (token) syncManager.updateToken(token);
+      const freshToken = localStorage.getItem('token');
+      if (freshToken) {
+        syncManager.init();
+        syncManager.updateToken(freshToken);
+      }
     };
     window.addEventListener('pagehide', handlePageHide);
     window.addEventListener('pageshow', handlePageShow);

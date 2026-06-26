@@ -424,6 +424,9 @@ const syncPendingVendors = async (db) => {
 // ── Main sync function ──
 const runSync = async () => {
   if (isSyncing) return;
+  // Never sync without an auth token — all endpoints require authentication
+  // and an empty token would flood the server with 401s.
+  if (!self.AUTH_TOKEN) return;
   isSyncing = true;
 
   self.postMessage({ type: 'SYNC_STARTED' });

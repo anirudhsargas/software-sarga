@@ -2,6 +2,8 @@
 import { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import auth from '../services/auth';
 import { useTheme } from '../theme/ThemeProvider';
+import { syncManager } from '../services/syncWorkerManager';
+import { preloadStaticData } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -25,6 +27,15 @@ export const AuthProvider = ({ children }) => {
         }
         if (backendTheme) {
             setTheme(backendTheme, false);
+        }
+
+        // Start sync worker and preload now that we have a valid token.
+        // App.jsx's one-time useEffect skipped these when there was no token.
+        const token = auth.getToken();
+        if (token) {
+            syncManager.init();
+            syncManager.updateToken(token);
+            preloadStaticData();
         }
         
         return data;
