@@ -150,8 +150,11 @@ async function callMLService(payload) {
     return res.data;
 }
 
-// ── Public function so cron / triggers can call it ───────────────────────────
 async function checkAnomalies() {
+    if (process.env.ENABLE_ML === 'false') {
+        console.log('[AI_DISABLED] ML skipped');
+        return { enabled: false, message: 'AI temporarily disabled', anomalies: [] };
+    }
     try {
         const payload = await gatherData();
         const result = await callMLService(payload);

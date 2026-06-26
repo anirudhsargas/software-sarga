@@ -55,6 +55,16 @@ async function setCache(data) {
 // ── Call Python ML service ───────────────────────────────────────────────────
 
 async function computeSeasonal() {
+    if (process.env.ENABLE_ML === 'false') {
+        console.log('[AI_DISABLED] ML skipped');
+        return {
+            enabled: false,
+            peak_months: [], slow_months: [],
+            best_day_of_week: 'N/A', worst_day_of_week: 'N/A',
+            seasonal_index: {}, yoy_growth_percent: 0,
+            trend_direction: 'stable', source: 'unavailable',
+        };
+    }
     try {
         const res = await axios.post(`${ML_URL}/seasonal-analysis`, {}, {
             timeout: ML_TIMEOUT,

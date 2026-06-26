@@ -353,6 +353,19 @@ const SalesPrediction = () => {
         return allSuggestions;
     }, [allSuggestions, purchaseFilter]);
 
+    if (forecast?.enabled === false || insights?.enabled === false) {
+        return (
+            <PageContainer>
+                <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                    <h1 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>
+                        AI Sales Prediction
+                    </h1>
+                    <p style={{ fontSize: '14px' }}>AI features temporarily unavailable</p>
+                </div>
+            </PageContainer>
+        );
+    }
+
     if (loading) {
         return (
             <div className="sp-loading">

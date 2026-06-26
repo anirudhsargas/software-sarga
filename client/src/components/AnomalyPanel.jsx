@@ -63,6 +63,7 @@ export default function AnomalyPanel() {
     const count = data.anomalies?.length || 0;
     const highCount = data.anomalies?.filter(a => a.severity === 'high').length || 0;
 
+    if (data.enabled === false) return null;
     if (count === 0 && !loading) return null;
 
     return (

@@ -158,6 +158,10 @@ async function gatherKPIs() {
 // ── Generate insights (ML call + cache) ──────────────────────────────────────
 
 async function generateInsights() {
+    if (process.env.ENABLE_ML === 'false') {
+        console.log('[AI_DISABLED] ML skipped');
+        return { enabled: false, insights: [] };
+    }
     try {
         const kpis = await gatherKPIs();
         const res = await axios.post(`${ML_URL}/generate-insights`, kpis, {

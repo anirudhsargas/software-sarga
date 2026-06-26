@@ -25,6 +25,7 @@ const StockPlanning = () => {
     const [sortField, setSortField] = useState('days_to_stockout');
     const [sortDir, setSortDir] = useState('asc');
     const [editableList, setEditableList] = useState([]);
+    const [isMlDisabled, setIsMlDisabled] = useState(false);
     const modalContentRef = useRef(null);
 
     const [showAddItem, setShowAddItem] = useState(false);
@@ -57,8 +58,12 @@ const StockPlanning = () => {
         try {
             if (refresh) setRefreshing(true); else setLoading(true);
             const res = await api.get('/ai/stock-planning/stock-status', { params: refresh ? { refresh: 'true' } : {} });
-            setStockStatus(res.data.stock_status || []);
-            setGeneratedAt(res.data.generated_at || '');
+            if (res.data.enabled === false) {
+                setIsMlDisabled(true);
+            } else {
+                setStockStatus(res.data.stock_status || []);
+                setGeneratedAt(res.data.generated_at || '');
+            }
         } catch {
             toast.error('Failed to load stock status');
         } finally {
@@ -191,6 +196,19 @@ const StockPlanning = () => {
     const criticalCount = stockStatus.filter(s => s.status === 'critical').length;
     const lowCount = stockStatus.filter(s => s.status === 'low').length;
     const okCount = stockStatus.filter(s => s.status === 'ok').length;
+
+    if (isMlDisabled) {
+        return (
+            <PageContainer>
+                <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                    <h1 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>
+                        Stock Planning
+                    </h1>
+                    <p style={{ fontSize: '14px' }}>AI features temporarily unavailable</p>
+                </div>
+            </PageContainer>
+        );
+    }
 
     if (loading) {
         return (

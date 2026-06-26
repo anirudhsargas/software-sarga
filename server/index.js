@@ -10,6 +10,10 @@ const axios = require('axios');
 axios.interceptors.request.use((config) => {
     const mlUrl = process.env.ML_SERVICE_URL || 'http://127.0.0.1:5001';
     if (config.url && config.url.startsWith(mlUrl)) {
+        if (process.env.ENABLE_ML === 'false') {
+            console.log('[AI_DISABLED] ML skipped');
+            throw new Error('ML Service is disabled (ENABLE_ML=false)');
+        }
         const isLocal = mlUrl.includes('127.0.0.1') || mlUrl.includes('localhost');
         const isNotConfigured = !process.env.ML_SERVICE_URL || process.env.ML_SERVICE_URL === 'none';
         if (process.env.NODE_ENV === 'production' && (isLocal || isNotConfigured)) {
@@ -324,6 +328,8 @@ app.get('/api/paperInventory/stock-test', (req, res) => {
 });
 
 app.use('/api', require('./routes/auth')(upload));
+const mlCheck = require('./middleware/mlCheck');
+app.use('/api/chatbot', mlCheck);
 app.use('/api/chatbot', require('./routes/chatbot'));
 app.use('/api', require('./routes/branches'));
 app.use('/api', require('./routes/payments'));
@@ -377,6 +383,7 @@ const sheetsBackupRoutes = require('./routes/sheetsBackup');
 app.use('/api/backup', sheetsBackupRoutes);
 
 // AI Features Routes
+app.use('/api/ai', mlCheck);
 app.use('/api/ai/monitoring', require('./routes/aiMonitoring'));
 app.use('/api/ai', require('./routes/aiSearch'));
 app.use('/api/ai', require('./routes/designCheck'));

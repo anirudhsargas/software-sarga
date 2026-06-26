@@ -84,6 +84,25 @@ export default function InsightsPanel() {
         }
     };
 
+    if (data.enabled === false) {
+        return (
+            <div style={{ 
+                margin: '0 0 12px', 
+                borderRadius: '8px', 
+                border: '1px solid var(--border)', 
+                background: 'var(--card)', 
+                boxShadow: 'var(--shadow-sm)',
+                padding: '16px',
+                textAlign: 'center',
+                color: 'var(--text-secondary)',
+                fontSize: '13px',
+                fontWeight: 500
+            }}>
+                AI features temporarily unavailable
+            </div>
+        );
+    }
+
     if (!visible) return null;
 
     if (loading) {

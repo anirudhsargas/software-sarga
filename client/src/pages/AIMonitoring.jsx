@@ -23,6 +23,7 @@ const AIMonitoring = () => {
     const [analyzing, setAnalyzing] = useState(false);
     const [selectedAlert, setSelectedAlert] = useState(null);
     const [filter, setFilter] = useState('all');
+    const [isMlDisabled, setIsMlDisabled] = useState(false);
 
     const triggerRef = React.useRef(null);
 
@@ -47,8 +48,12 @@ const AIMonitoring = () => {
                 api.get('/ai/monitoring/dashboard'),
                 api.get(`/ai/monitoring/alerts?status=${filter === 'all' ? '' : filter}`)
             ]);
-            setDashboard(dashRes.data);
-            setAlerts(alertRes.data.alerts || []);
+            if (dashRes.data.enabled === false) {
+                setIsMlDisabled(true);
+            } else {
+                setDashboard(dashRes.data);
+                setAlerts(alertRes.data.alerts || []);
+            }
         } catch {
             toast.error('Failed to load monitoring data');
         } finally { setLoading(false); }
@@ -74,6 +79,19 @@ const AIMonitoring = () => {
             fetchData();
         } catch { toast.error('Failed to update alert'); }
     };
+
+    if (isMlDisabled) {
+        return (
+            <PageContainer>
+                <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                    <h1 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>
+                        AI Fraud Monitoring
+                    </h1>
+                    <p style={{ fontSize: '14px' }}>AI features temporarily unavailable</p>
+                </div>
+            </PageContainer>
+        );
+    }
 
     if (loading) return (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4rem 0', gap: 8, color: 'var(--muted)' }}>
