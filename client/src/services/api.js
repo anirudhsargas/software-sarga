@@ -212,11 +212,15 @@ api.interceptors.response.use(
         const status = error.response.status;
         console.error(`[axios] HTTP ${status} error on ${error.config?.url}`);
 
-        // Only redirect to login on 401 Unauthorized
+        // Only redirect to login on 401 Unauthorized, and only if not already there
+        // (prevents the loop: preload fires on /login → 401 → redirect to /login again)
         if (status === 401) {
+            const alreadyOnLogin = window.location.pathname === '/login';
             localStorage.removeItem('token');
             localStorage.removeItem('user');
-            window.location.href = '/login';
+            if (!alreadyOnLogin) {
+                window.location.href = '/login';
+            }
         }
 
         return Promise.reject(error);
@@ -233,6 +237,11 @@ export default api;
 
 /** Preload frequently used static data so it's cached before any page needs it */
 export const preloadStaticData = () => {
+    // Only preload when the user is authenticated — unauthenticated calls
+    // return 401 which triggers the interceptor and wipes localStorage,
+    // causing the login → dashboard → login redirect loop.
+    if (!localStorage.getItem('token')) return;
+
     const endpoints = [
         'branches',
         'product-hierarchy',
