@@ -124,7 +124,7 @@ const corsOptions = {
 // Respond to preflight OPTIONS requests immediately — before all other middleware.
 // This ensures CORS headers are present even if the server is under load or
 // a downstream middleware throws, which would otherwise produce a 520 with no headers.
-app.options('*', cors(corsOptions));
+app.options('/{*path}', cors(corsOptions));
 app.use(cors(corsOptions));
 
 // Security headers

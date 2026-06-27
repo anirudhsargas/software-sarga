@@ -126,6 +126,11 @@ const initDb = async () => {
   try {
     console.log('Starting database schema migration...');
     await loadSchemaFiles(connection);
+    
+    // Run the new sequential JS migration
+    const migrateProductHierarchy = require('./migrations/023_create_product_hierarchy');
+    await migrateProductHierarchy(connection);
+    
     console.log('Database schema migration completed successfully');
   } catch (err) {
     console.error('Database initialization error:', err);
