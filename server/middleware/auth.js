@@ -303,4 +303,4 @@ const authenticateCustomer = async (req, res, next) => {
     }
 };
 
-module.exports = { authenticateToken, authorizeRoles, authenticate, requireRole, verifyWithAnySecret, normalizeRole, sessionCacheKey, revokeSessionInCache, authenticateCustomer, isCustomerSessionRevoked, revokeCustomerSessionInCache };
+module.exports = { authenticateToken, authorizeRoles, authenticate, requireRole, verifyWithAnySecret, normalizeRole, sessionCacheKey, revokeSessionInCache, authenticateCustomer, isCustomerSessionRevoked, revokeCustomerSessionInCache, JWT_SECRET };
