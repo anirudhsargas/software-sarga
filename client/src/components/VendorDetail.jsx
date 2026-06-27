@@ -138,6 +138,11 @@ const VendorDetail = ({
   const loadVendorDetails = async () => {
     try {
       setLoading(true);
+      if (String(vendorId).startsWith('VEND-')) {
+        toast.error('Local pending vendor — not yet synced to server');
+        setLoading(false);
+        return;
+      }
       const response = await api.get(`/vendors/${vendorId}`);
       setVendorDetails(response.data.data);
     } catch (error) {

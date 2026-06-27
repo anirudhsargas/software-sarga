@@ -268,33 +268,61 @@ export async function searchCustomersLocal(query) {
  */
 export async function getVendors(filters = {}) {
     let vendors = await offlineDb.getAll('vendors');
-    // Filter out pending delete
     vendors = (vendors || []).filter(v => v.syncStatus !== 'pending_delete');
 
-    // Fallback to server API if local store is empty
-    if (!vendors || vendors.length === 0) {
-        try {
-            const params = new URLSearchParams();
-            if (filters.search) params.append('search', filters.search);
-            if (filters.type) params.append('category', filters.type);
-            const res = await api.get(`/vendors?${params.toString()}&limit=1000`);
-            const serverVendors = res.data?.data || res.data || [];
-            if (Array.isArray(serverVendors) && serverVendors.length > 0) {
-                // Cache in IndexedDB for next time
-                for (const v of serverVendors) {
-                    const localExisting = await offlineDb.getById('vendors', v.id || v.vendor_id);
-                    if (localExisting && localExisting.syncStatus === 'pending_delete') {
-                        continue;
-                    }
-                    await offlineDb.save('vendors', { ...v, id: v.id || v.vendor_id });
+    // Try to re-sync any pending_create vendors, then always fetch server data
+    for (const v of vendors) {
+        if (v.syncStatus === 'pending_create' && navigator.onLine) {
+            try {
+                const payload = {
+                    name: v.name,
+                    vendor_type: v.vendor_type || v.type || 'other',
+                    contact_person: v.contact_person || null,
+                    phone: v.phone || null,
+                    email: v.email || null,
+                    gst_number: v.gst_number || v.gstin || null,
+                    address: v.address || null,
+                    city: v.city || null,
+                    category: v.category || 'other',
+                    credit_days: v.credit_days != null ? v.credit_days : 0,
+                    credit_limit: v.credit_limit != null ? v.credit_limit : 0,
+                    notes: v.notes || null,
+                    vendor_code: v.vendor_code || null,
+                    order_link: v.order_link || null,
+                    branch_id: v.branch_id || null,
+                };
+                const res = await api.post('vendors', payload);
+                if (res.data && res.data.id) {
+                    await offlineDb.delete('vendors', v.id);
+                    await offlineDb.save('vendors', { ...v, id: res.data.id, syncStatus: 'synced' });
                 }
-                // Re-fetch from DB to apply filters and skip pending deletes properly
-                vendors = await offlineDb.getAll('vendors');
-                vendors = (vendors || []).filter(v => v.syncStatus !== 'pending_delete');
+            } catch (e) {
+                console.warn('[localDb] getVendors re-sync failed for', v.id, ':', e);
             }
-        } catch (e) {
-            console.warn('[localDb] getVendors fallback failed:', e);
         }
+    }
+
+    // Always fetch from server to keep local cache fresh (not just when empty)
+    try {
+        const params = new URLSearchParams();
+        if (filters.search) params.append('search', filters.search);
+        if (filters.type) params.append('category', filters.type);
+        const res = await api.get(`/vendors?${params.toString()}&limit=1000`);
+        const serverVendors = res.data?.data || res.data || [];
+        if (Array.isArray(serverVendors) && serverVendors.length > 0) {
+            for (const v of serverVendors) {
+                const sid = v.id || v.vendor_id;
+                const localExisting = await offlineDb.getById('vendors', sid);
+                if (localExisting && (localExisting.syncStatus === 'pending_delete' || localExisting.syncStatus === 'pending_create')) {
+                    continue;
+                }
+                await offlineDb.save('vendors', { ...v, id: sid, syncStatus: 'synced' });
+            }
+            vendors = await offlineDb.getAll('vendors');
+            vendors = (vendors || []).filter(v => v.syncStatus !== 'pending_delete');
+        }
+    } catch (e) {
+        console.warn('[localDb] getVendors server fetch failed:', e);
     }
     if (filters.type) {
         vendors = vendors.filter(v => (v.vendor_type || v.type) === filters.type);
