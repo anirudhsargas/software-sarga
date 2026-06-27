@@ -33,8 +33,12 @@ router.get('/inventory/consumables', async (req, res) => {
 
 // Development helper: create a temporary admin token for local testing
 // Usage: GET /api/dev/token
+// SECURITY: This endpoint is ONLY enabled when both NODE_ENV=development AND ENABLE_DEV_TOKEN=1 are set.
 router.get('/token', (req, res) => {
     try {
+        if (process.env.NODE_ENV !== 'development' || process.env.ENABLE_DEV_TOKEN !== '1') {
+            return res.status(404).json({ message: 'Not found' });
+        }
         if (!process.env.JWT_SECRET) return res.status(500).json({ message: 'JWT not configured' });
         const payload = {
             id: 1,
@@ -42,7 +46,7 @@ router.get('/token', (req, res) => {
             branch_name: 'Perambra',
             iat: Math.floor(Date.now() / 1000)
         };
-        const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
+        const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
         res.json({ token, user: { id: 1, role: 'Admin', branch_name: 'Perambra', name: 'Dev Admin' } });
     } catch (err) {
         console.error('Dev token error:', err);

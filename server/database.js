@@ -57,20 +57,6 @@ const loadSchemaFiles = async (connection) => {
             error_message TEXT NULL
           )
         `);
-      } else {
-        await connection.query('DROP TABLE sarga_backup_jobs');
-        await connection.query(`
-          CREATE TABLE sarga_backup_jobs (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            triggered_by ENUM('cron', 'manual') NOT NULL DEFAULT 'cron',
-            status ENUM('running', 'completed', 'failed') NOT NULL DEFAULT 'running',
-            started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            completed_at TIMESTAMP NULL,
-            tables_backed_up INT DEFAULT 0,
-            rows_written INT DEFAULT 0,
-            error_message TEXT NULL
-          )
-        `);
       }
       continue;
     }
@@ -85,7 +71,32 @@ const loadSchemaFiles = async (connection) => {
         return !trimmed.startsWith('--') && !trimmed.startsWith('#');
       })
       .join('\n');
-    const statements = cleanSql.split(';').filter(s => s.trim());
+    // Split statements safely, respecting string literals
+    const statements = [];
+    let current = '';
+    let inQuotes = false;
+    let quoteChar = null;
+    for (let i = 0; i < cleanSql.length; i++) {
+      const char = cleanSql[i];
+      const prev = cleanSql[i - 1];
+      if (!inQuotes && (char === "'" || char === '"')) {
+        inQuotes = true;
+        quoteChar = char;
+        current += char;
+      } else if (inQuotes && char === quoteChar && prev !== '\\') {
+        inQuotes = false;
+        quoteChar = null;
+        current += char;
+      } else if (char === ';' && !inQuotes) {
+        const trimmed = current.trim();
+        if (trimmed) statements.push(trimmed);
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    const trimmed = current.trim();
+    if (trimmed) statements.push(trimmed);
     for (const stmt of statements) {
       try {
         await connection.query(stmt);
@@ -114,10 +125,20 @@ const pool = mysql.createPool({
   queueLimit: 0,
   enableKeepAlive: true,
   keepAliveInitialDelay: 0,
+  acquireTimeout: 60000,
+  connectTimeout: 10000,
+  queryTimeout: 30000,
   ...((process.env.DB_SSL === 'true' || process.env.DB_SSL_MODE === 'REQUIRED' || process.env.PGSSLMODE === 'require') && {
-    ssl: fs.existsSync(path.join(__dirname, 'aiven-ca.pem'))
-      ? { ca: fs.readFileSync(path.join(__dirname, 'aiven-ca.pem')), rejectUnauthorized: true }
-      : { rejectUnauthorized: false },
+    ssl: (() => {
+      const caPath = path.join(__dirname, 'aiven-ca.pem');
+      if (!fs.existsSync(caPath)) {
+        throw new Error(
+          'SSL is required (DB_SSL=true or DB_SSL_MODE=REQUIRED) but aiven-ca.pem is missing. ' +
+          'Please place the CA certificate at ' + caPath
+        );
+      }
+      return { ca: fs.readFileSync(caPath), rejectUnauthorized: true };
+    })(),
   }),
 });
 

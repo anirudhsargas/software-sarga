@@ -11,7 +11,7 @@ function getCustomerId(req) {
     const auth = req.headers.authorization || '';
     const token = auth.startsWith('Bearer ') ? auth.split(' ')[1] : null;
     if (!token) return null;
-    return jwt.verify(token, process.env.JWT_SECRET || require('../middleware/auth').JWT_SECRET).id;
+    return jwt.verify(token, process.env.JWT_SECRET).id;
   } catch { return null; }
 }
 

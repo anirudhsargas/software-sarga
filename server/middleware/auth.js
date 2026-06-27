@@ -26,7 +26,7 @@ async function isSessionRevoked(token) {
         return false;
     } catch (dbErr) {
         logger.error('Session DB check error:', dbErr);
-        return false; // preserve existing: continue on DB failure
+        return true; // fail-closed: on DB failure, treat session as revoked
     }
 }
 
@@ -163,7 +163,7 @@ const authenticate = async (req, res, next) => {
 
         next();
     } catch (error) {
-        console.error('Auth error:', error);
+        logger.error('Auth error:', error);
         return res.status(401).json({ error: 'Invalid or expired token' });
     }
 };
@@ -207,4 +207,4 @@ function normalizeRole(role) {
     return map[role.toLowerCase().trim()] || role;
 }
 
-module.exports = { authenticateToken, authorizeRoles, JWT_SECRET, authenticate, requireRole, verifyWithAnySecret, normalizeRole, sessionCacheKey, revokeSessionInCache };
+module.exports = { authenticateToken, authorizeRoles, authenticate, requireRole, verifyWithAnySecret, normalizeRole, sessionCacheKey, revokeSessionInCache };

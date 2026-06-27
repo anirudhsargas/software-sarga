@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { auditLog, asyncHandler } = require('../helpers');
-const { exec } = require('child_process');
+const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
@@ -40,11 +40,21 @@ router.post('/backups', authenticateToken, authorizeRoles('Admin'), asyncHandler
     const DATE = new Date().toISOString().replace(/[:T]/g, '-').split('.')[0];
     const BACKUP_FILE = path.join(BACKUP_DIR, `backup-${DATE}.sql`);
 
-    const dumpCmd = `mysqldump -u ${DB_USER} ${DB_PASS ? '-p' + DB_PASS : ''} ${DB_NAME} > "${BACKUP_FILE}"`;
+    const env = { ...process.env };
+    if (DB_PASS) env.MYSQL_PWD = DB_PASS;
 
-    exec(dumpCmd, (error, _stdout, _stderr) => {
-        if (error) {
-            console.error('Backup failed:', error);
+    const child = spawn('mysqldump', ['-u', DB_USER, DB_NAME], { env });
+    const writeStream = fs.createWriteStream(BACKUP_FILE);
+    child.stdout.pipe(writeStream);
+
+    child.on('error', (error) => {
+        console.error('Backup failed:', error);
+        return res.status(500).json({ message: 'Backup failed' });
+    });
+
+    child.on('close', (code) => {
+        if (code !== 0) {
+            console.error('Backup failed with exit code:', code);
             return res.status(500).json({ message: 'Backup failed' });
         }
         const stats = fs.statSync(BACKUP_FILE);
@@ -75,11 +85,21 @@ router.post('/backups/restore', authenticateToken, authorizeRoles('Admin'), asyn
     const DB_USER = process.env.DB_USER || 'root';
     const DB_PASS = process.env.DB_PASS || '';
 
-    const restoreCmd = `mysql -u ${DB_USER} ${DB_PASS ? '-p' + DB_PASS : ''} ${DB_NAME} < "${backupFile}"`;
+    const env = { ...process.env };
+    if (DB_PASS) env.MYSQL_PWD = DB_PASS;
 
-    exec(restoreCmd, (error, _stdout, _stderr) => {
-        if (error) {
-            console.error('Restore failed:', error);
+    const child = spawn('mysql', ['-u', DB_USER, DB_NAME], { env });
+    const readStream = fs.createReadStream(backupFile);
+    readStream.pipe(child.stdin);
+
+    child.on('error', (error) => {
+        console.error('Restore failed:', error);
+        return res.status(500).json({ message: 'Restore failed' });
+    });
+
+    child.on('close', (code) => {
+        if (code !== 0) {
+            console.error('Restore failed with exit code:', code);
             return res.status(500).json({ message: 'Restore failed' });
         }
         auditLog(req.user.id, 'BACKUP_RESTORE', `Restored database from: ${safeName}`);

@@ -324,17 +324,6 @@ const DailyReport = () => {
         })();
     }, [reportDate]);
 
-    // ─── Handle Opening Prompt Save/Skip ────────────────────────
-    const handleOpeningPromptSave = useCallback(() => {
-        setShowOpeningPrompt(false);
-        setPromptDone(true);
-        loadAllData();
-    }, [loadAllData]);
-
-    const handleOpeningPromptSkip = useCallback(() => {
-        setShowOpeningPrompt(false);
-        setPromptDone(true);
-    }, []);
 
     const triggerOpeningSetup = useCallback(async () => {
         try {
@@ -612,6 +601,18 @@ const DailyReport = () => {
             setInitialLoading(false);
         }
     }, [fetchOpeningBalances, loadTabData, fetchLiveCounts, fetchCreditTransactions]);
+
+    // ─── Handle Opening Prompt Save/Skip ────────────────────────
+    const handleOpeningPromptSave = useCallback(() => {
+        setShowOpeningPrompt(false);
+        setPromptDone(true);
+        loadAllData();
+    }, [loadAllData]);
+
+    const handleOpeningPromptSkip = useCallback(() => {
+        setShowOpeningPrompt(false);
+        setPromptDone(true);
+    }, []);
 
     useEffect(() => {
         if (canViewAllBranches && !selectedBranch) return;

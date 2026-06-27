@@ -21,7 +21,7 @@ function getCustomerId(req) {
     const auth = req.headers.authorization || '';
     const token = auth.startsWith('Bearer ') ? auth.split(' ')[1] : null;
     if (!token) return null;
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || require('../middleware/auth').JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     return decoded.id || null;
   } catch { return null; }
 }
@@ -29,10 +29,12 @@ function getCustomerId(req) {
 // Razorpay client
 function getRazorpay() {
   const Razorpay = require('razorpay');
-  return new Razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_placeholder',
-    key_secret: process.env.RAZORPAY_KEY_SECRET || 'placeholder'
-  });
+  const keyId = process.env.RAZORPAY_KEY_ID;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  if (!keyId || !keySecret) {
+    throw new Error('Razorpay credentials not configured');
+  }
+  return new Razorpay({ key_id: keyId, key_secret: keySecret });
 }
 
 // ─── CART API ───
@@ -349,8 +351,13 @@ router.post('/checkout/verify-payment', asyncHandler(async (req, res) => {
 
   // Verify signature
   const body = razorpay_order_id + '|' + razorpay_payment_id;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  if (!keySecret) {
+    logger.error('[Checkout] Razorpay key secret missing during payment verification');
+    return res.status(500).json({ error: 'Payment verification unavailable' });
+  }
   const expectedSig = crypto
-    .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || 'placeholder')
+    .createHmac('sha256', keySecret)
     .update(body)
     .digest('hex');
 
