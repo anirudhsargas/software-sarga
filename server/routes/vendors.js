@@ -212,6 +212,151 @@ router.get('/vendors/summary', authenticateToken, async (req, res) => {
   }
 });
 
+// GET /api/vendors/payables/summary → payables dashboard data with aging buckets
+router.get('/vendors/payables/summary', authenticateToken, async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT
+        v.id,
+        v.name,
+        v.vendor_type,
+        v.credit_limit,
+        v.credit_days,
+        v.current_balance,
+        v.phone,
+        COALESCE(SUM(CASE
+          WHEN vi.payment_status IN ('unpaid','partial')
+               AND vi.due_date >= CURDATE()
+          THEN vi.total_amount - COALESCE(vi.paid_amount, 0)
+          ELSE 0 END), 0) as current_due,
+        COALESCE(SUM(CASE
+          WHEN vi.payment_status IN ('unpaid','partial')
+               AND vi.due_date < CURDATE()
+               AND vi.due_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+          THEN vi.total_amount - COALESCE(vi.paid_amount, 0)
+          ELSE 0 END), 0) as overdue_0_30,
+        COALESCE(SUM(CASE
+          WHEN vi.payment_status IN ('unpaid','partial')
+               AND vi.due_date < DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+               AND vi.due_date >= DATE_SUB(CURDATE(), INTERVAL 60 DAY)
+          THEN vi.total_amount - COALESCE(vi.paid_amount, 0)
+          ELSE 0 END), 0) as overdue_31_60,
+        COALESCE(SUM(CASE
+          WHEN vi.payment_status IN ('unpaid','partial')
+               AND vi.due_date < DATE_SUB(CURDATE(), INTERVAL 60 DAY)
+          THEN vi.total_amount - COALESCE(vi.paid_amount, 0)
+          ELSE 0 END), 0) as overdue_60_plus
+      FROM vendors v
+      LEFT JOIN vendor_invoices vi ON vi.vendor_id = v.id
+      WHERE v.is_active = 1
+      GROUP BY v.id, v.name, v.vendor_type, v.credit_limit,
+               v.credit_days, v.current_balance, v.phone
+      HAVING v.current_balance > 0
+      ORDER BY v.current_balance DESC
+    `);
+
+    let totalPayable = 0;
+    let totalOverdue = 0;
+    let vendorsOverLimit = 0;
+
+    const vendors = rows.map(r => {
+      const balance = Number(r.current_balance) || 0;
+      const limit = Number(r.credit_limit) || 0;
+      totalPayable += balance;
+      totalOverdue += Number(r.overdue_0_30) + Number(r.overdue_31_60) + Number(r.overdue_60_plus);
+      if (limit > 0 && balance > limit) vendorsOverLimit++;
+      return {
+        id: r.id,
+        name: r.name,
+        vendor_type: r.vendor_type,
+        credit_limit: limit,
+        credit_days: Number(r.credit_days) || 0,
+        current_balance: balance,
+        phone: r.phone,
+        current_due: Number(r.current_due) || 0,
+        overdue_0_30: Number(r.overdue_0_30) || 0,
+        overdue_31_60: Number(r.overdue_31_60) || 0,
+        overdue_60_plus: Number(r.overdue_60_plus) || 0
+      };
+    });
+
+    res.json({
+      success: true,
+      summary: {
+        total_payable: totalPayable,
+        total_overdue: totalOverdue,
+        vendors_over_limit: vendorsOverLimit,
+        vendors_count: vendors.length
+      },
+      vendors
+    });
+  } catch (error) {
+    logger.error('Error fetching payables summary:', error);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
+});
+
+// GET /api/vendors/:id/credit-status → credit utilization and overdue info
+router.get('/vendors/:id/credit-status', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [vendors] = await pool.query(
+      'SELECT id, name, current_balance, credit_limit, credit_days FROM vendors WHERE id = ?',
+      [id]
+    );
+    if (vendors.length === 0) {
+      return res.status(404).json({ success: false, message: 'Vendor not found' });
+    }
+
+    const v = vendors[0];
+    const currentBalance = Number(v.current_balance) || 0;
+    const creditLimit = Number(v.credit_limit) || 0;
+
+    let status = 'ok';
+    let utilizationPercent = 0;
+    if (creditLimit > 0) {
+      utilizationPercent = (currentBalance / creditLimit) * 100;
+      if (utilizationPercent > 100) {
+        status = 'exceeded';
+      } else if (utilizationPercent >= 80) {
+        status = 'warning';
+      }
+    } else if (currentBalance > 0) {
+      status = 'warning';
+      utilizationPercent = 100;
+    }
+
+    const [overdueBills] = await pool.query(`
+      SELECT id, invoice_number as bill_number, due_date,
+             DATEDIFF(CURDATE(), due_date) as days_overdue,
+             total_amount - COALESCE(paid_amount, 0) as amount
+      FROM vendor_invoices
+      WHERE vendor_id = ? AND payment_status IN ('unpaid', 'partial') AND due_date < CURDATE()
+      ORDER BY due_date ASC
+    `, [id]);
+
+    res.json({
+      success: true,
+      vendor_id: Number(id),
+      current_balance: currentBalance,
+      credit_limit: creditLimit,
+      credit_days: Number(v.credit_days) || 0,
+      utilization_percent: Math.round(utilizationPercent * 100) / 100,
+      status,
+      overdue_bills: overdueBills.map(b => ({
+        bill_number: b.bill_number || `INV-${b.id}`,
+        due_date: b.due_date,
+        days_overdue: b.days_overdue,
+        amount: Number(b.amount) || 0
+      }))
+    });
+  } catch (error) {
+    logger.error('Error fetching credit status:', error);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
+});
+
 // GET /api/vendors/payment-audit → run SQL audit discrepancy query
 router.get('/vendors/payment-audit', authenticateToken, async (req, res) => {
   try {
@@ -1314,8 +1459,11 @@ async function recordVendorBill(req, res) {
       return res.status(404).json({ success: false, message: 'Vendor not found' });
     }
     
-    const newOutstanding = Number(vendor[0].current_balance || 0) + Number(amount);
-    if (Number(vendor[0].credit_limit) > 0 && newOutstanding > Number(vendor[0].credit_limit)) {
+    const currentBal = Number(vendor[0].current_balance || 0);
+    const creditLimit = Number(vendor[0].credit_limit) || 0;
+    const newOutstanding = currentBal + Number(amount);
+    const creditLimitWarning = creditLimit > 0 && newOutstanding > creditLimit;
+    if (creditLimitWarning) {
       res.setHeader('X-Credit-Limit-Warning', 'Breached');
     }
     
@@ -1355,6 +1503,8 @@ async function recordVendorBill(req, res) {
       data: {
         id: result.insertId,
         current_balance: updatedBalance,
+        new_vendor_balance: updatedBalance,
+        credit_limit_warning: creditLimitWarning,
         message: 'Bill recorded successfully'
       }
     });
@@ -1520,37 +1670,127 @@ async function recordVendorPayment(req, res) {
 
 // REST endpoints for vendor ledger, balance, and summary
 
-// GET /api/vendors/:id/ledger → list ledger transactions sorted by date
+// GET /api/vendors/:id/ledger → full ledger with running balance, date filter, summary
 router.get('/vendors/:id/ledger', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const [invoices] = await pool.query('SELECT id, invoice_number, invoice_date, amount, status, notes FROM vendor_invoices WHERE vendor_id = ?', [id]);
-    const [payments] = await pool.query('SELECT id, payment_date, amount, payment_mode, reference_number, notes FROM vendor_payments WHERE vendor_id = ?', [id]);
-    
-    const ledger = [
-      ...invoices.map(inv => ({
-        id: `bill-${inv.id}`,
-        rawId: inv.id,
-        type: 'bill',
-        date: inv.invoice_date,
-        number: inv.invoice_number || `Bill #${inv.id}`,
-        amount: Number(inv.amount),
-        status: inv.status,
-        notes: inv.notes
-      })),
-      ...payments.map(pay => ({
-        id: `pay-${pay.id}`,
-        rawId: pay.id,
-        type: 'payment',
-        date: pay.payment_date,
-        number: pay.reference_number || `Pay #${pay.id}`,
-        amount: Number(pay.amount),
-        status: 'paid',
-        notes: `Mode: ${pay.payment_mode}. ${pay.notes || ''}`
-      }))
-    ].sort((a, b) => new Date(a.date) - new Date(b.date));
-    
-    res.json({ success: true, data: ledger });
+    const { from, to } = req.query;
+
+    // Get vendor detail
+    const [vendors] = await pool.query(
+      'SELECT id, name, phone, vendor_type, credit_limit, credit_days, opening_balance, current_balance FROM vendors WHERE id = ?',
+      [id]
+    );
+    if (vendors.length === 0) {
+      return res.status(404).json({ success: false, message: 'Vendor not found' });
+    }
+    const vendor = vendors[0];
+
+    // Combined query: bills + payments ordered by date
+    const [rows] = await pool.query(`
+      SELECT id, date, description, debit, credit, type, payment_status, due_date
+      FROM (
+        SELECT
+          vi.id,
+          vi.invoice_date AS date,
+          CONCAT('Invoice #', COALESCE(vi.invoice_number, CONCAT('', vi.id)), ' - ', COALESCE(vi.notes, '')) AS description,
+          vi.total_amount AS debit,
+          0 AS credit,
+          'bill' AS type,
+          vi.payment_status,
+          vi.due_date
+        FROM vendor_invoices vi
+        WHERE vi.vendor_id = ?
+
+        UNION ALL
+
+        SELECT
+          vp.id,
+          vp.payment_date AS date,
+          CONCAT('Payment - ', vp.payment_mode,
+            CASE WHEN vp.reference_number IS NOT NULL
+              THEN CONCAT(' (Ref: ', vp.reference_number, ')')
+              ELSE '' END) AS description,
+          0 AS debit,
+          vp.amount AS credit,
+          'payment' AS type,
+          NULL AS payment_status,
+          NULL AS due_date
+        FROM vendor_payments vp
+        WHERE vp.vendor_id = ?
+      ) AS combined
+      ORDER BY date ASC, type DESC
+    `, [id, id]);
+
+    // Apply date filter in JS if from/to provided
+    let filtered = rows;
+    if (from) {
+      const fromDate = new Date(from);
+      filtered = filtered.filter(r => new Date(r.date) >= fromDate);
+    }
+    if (to) {
+      const toDate = new Date(to);
+      toDate.setHours(23, 59, 59, 999);
+      filtered = filtered.filter(r => new Date(r.date) <= toDate);
+    }
+
+    // Calculate running balance and summary
+    const openingBalance = Number(vendor.opening_balance) || 0;
+    let runningBalance = openingBalance;
+    let totalBilled = 0;
+    let totalPaid = 0;
+
+    const ledger = filtered.map(row => {
+      const debit = Number(row.debit) || 0;
+      const credit = Number(row.credit) || 0;
+      runningBalance += debit - credit;
+      totalBilled += debit;
+      totalPaid += credit;
+      return {
+        date: row.date,
+        description: row.description,
+        debit,
+        credit,
+        balance: runningBalance,
+        type: row.type,
+        payment_status: row.payment_status,
+        due_date: row.due_date
+      };
+    });
+
+    const currentBalance = Number(vendor.current_balance) || 0;
+
+    // Overdue amount: sum of unpaid/partial bills past due
+    let overdueAmount = 0;
+    try {
+      const [overdueRows] = await pool.query(
+        `SELECT COALESCE(SUM(total_amount - COALESCE(paid_amount, 0)), 0) as overdue
+         FROM vendor_invoices
+         WHERE vendor_id = ? AND payment_status IN ('unpaid', 'partial') AND due_date < CURDATE()`,
+        [id]
+      );
+      overdueAmount = Number(overdueRows[0].overdue) || 0;
+    } catch (_) { /* ignore */ }
+
+    res.json({
+      success: true,
+      vendor: {
+        id: vendor.id,
+        name: vendor.name,
+        phone: vendor.phone,
+        vendor_type: vendor.vendor_type,
+        credit_limit: Number(vendor.credit_limit) || 0,
+        credit_days: Number(vendor.credit_days) || 0
+      },
+      opening_balance: openingBalance,
+      ledger,
+      summary: {
+        total_billed: totalBilled,
+        total_paid: totalPaid,
+        current_balance: currentBalance,
+        overdue_amount: overdueAmount
+      }
+    });
   } catch (error) {
     logger.error('Error fetching ledger:', error);
     res.status(500).json({ success: false, message: 'Database error' });

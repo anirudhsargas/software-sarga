@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
 import InvoiceModal from './InvoiceModal';
@@ -25,6 +25,7 @@ const VendorDetail = ({
   canAdd = true
 }) => {
   const { id: routeId } = useParams();
+  const navigate = useNavigate();
   const vendorId = vendor?.id || routeId;
   const [vendorDetails, setVendorDetails] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -278,6 +279,9 @@ const VendorDetail = ({
               <Edit size={16} /> Edit Profile
             </button>
           )}
+          <button onClick={() => navigate(`/dashboard/vendors/${details.id}/ledger`)} className="btn btn-ghost btn-sm">
+            View Ledger
+          </button>
           {canDelete && (
             <button onClick={() => onDeleteVendor(details.id)} className="btn btn-ghost btn-sm" style={{ color: 'var(--error)' }}>
               <Trash2 size={16} /> Terminate

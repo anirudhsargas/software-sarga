@@ -4,6 +4,8 @@ import { Routes, Route, useNavigate, useSearchParams } from 'react-router-dom';
 import VendorsList from '../components/Vendors';
 import VendorDetail from '../components/VendorDetail';
 import VendorDashboard from '../components/VendorDashboard';
+import VendorLedger from './VendorLedger';
+import VendorPayables from './VendorPayables';
 import VendorModal from '../components/VendorModal';
 import InvoiceModal from '../components/InvoiceModal';
 import PaymentModal from '../components/PaymentModal';
@@ -184,6 +186,13 @@ const Vendors = () => {
             </button>
           </div>
 
+          <button
+            onClick={() => navigate('/dashboard/vendors/payables')}
+            className="btn btn-secondary"
+          >
+            Payables Dashboard
+          </button>
+
           {canAdd && (
             <button
               onClick={handleAddVendor}
@@ -255,6 +264,8 @@ const Vendors = () => {
               />
             )
           } />
+          <Route path="/payables" element={<VendorPayables />} />
+          <Route path="/:id/ledger" element={<VendorLedger />} />
           <Route path="/:id" element={
             <VendorDetail
               onBack={handleBackToList}

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Upload, X, AlertCircle, Loader2, CheckCircle, Link2, Plus, Trash2, Camera, FileText, Zap, Folder, Sparkles, Layers } from 'lucide-react';
 import CameraCapture from '../../components/CameraCapture';
@@ -32,6 +32,8 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
   const [ocrRawText, setOcrRawText] = useState('');
   const [branches, setBranches] = useState([]);
   const [stockBranchId, setStockBranchId] = useState('');
+  const [vendors, setVendors] = useState([]);
+  const [selectedVendorId, setSelectedVendorId] = useState('');
   const [finalForm, setFinalForm] = useState({
     document_type: defaultDocumentType || 'Invoice',
     vendor_name: '',
@@ -45,6 +47,19 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
   });
   const [gstAnalysis, setGstAnalysis] = useState(null);
   const fileInputRef = useRef(null);
+
+  // Fetch active vendors for vendor selector
+  useEffect(() => {
+    api.get('/vendors').then(res => {
+      const data = res.data?.data || res.data || [];
+      setVendors(Array.isArray(data) ? data : []);
+    }).catch(() => {});
+
+    // Read pre-selected vendor from URL params
+    const params = new URLSearchParams(window.location.search);
+    const vid = params.get('vendor_id');
+    if (vid) setSelectedVendorId(vid);
+  }, []);
 
   const currentFile = files[currentFileIndex];
 
@@ -666,6 +681,9 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
           : '';
         formData.append('description', finalForm.description || autoDescription);
         formData.append('line_items', JSON.stringify(payloadItems));
+        if (selectedVendorId) {
+          formData.append('vendor_id', selectedVendorId);
+        }
         if (forceDuplicate) {
           formData.append('force_duplicate', '1');
         }
@@ -739,6 +757,26 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
       }
 
       onSuccess?.();
+
+      // If vendor is linked, create vendor_invoice record and update balance
+      if (selectedVendorId && finalForm.bill_number && finalForm.bill_date) {
+        try {
+          const vendorBillRes = await api.post(`/vendors/${selectedVendorId}/bills`, {
+            invoice_number: finalForm.bill_number,
+            invoice_date: finalForm.bill_date,
+            amount: Number(finalForm.amount) || 0,
+            gst_amount: gstAnalysis?.tax_amount ? Number(gstAnalysis.tax_amount) : 0,
+            branch: auth.getUser()?.branch || 'common',
+            notes: finalForm.description || `Vendor bill - ${finalForm.vendor_name}`
+          });
+          if (vendorBillRes.data?.data?.credit_limit_warning) {
+            setError('⚠️ This bill has exceeded the vendor credit limit');
+            setTimeout(() => setError(''), 5000);
+          }
+        } catch (billErr) {
+          console.warn('Failed to create vendor bill record:', billErr);
+        }
+      }
 
       // Advance to next file in queue
       const nextIndex = currentFileIndex + 1;
@@ -860,6 +898,9 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
           : '';
         formData.append('description', finalForm.description || autoDescription);
         formData.append('line_items', JSON.stringify(payloadItems));
+        if (selectedVendorId) {
+          formData.append('vendor_id', selectedVendorId);
+        }
         if (forceDuplicate) {
           formData.append('force_duplicate', '1');
         }
@@ -933,6 +974,26 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
       }
 
       onSuccess?.();
+
+      // If vendor is linked, create vendor_invoice record and update balance
+      if (selectedVendorId && finalForm.bill_number && finalForm.bill_date) {
+        try {
+          const vendorBillRes = await api.post(`/vendors/${selectedVendorId}/bills`, {
+            invoice_number: finalForm.bill_number,
+            invoice_date: finalForm.bill_date,
+            amount: Number(finalForm.amount) || 0,
+            gst_amount: gstAnalysis?.tax_amount ? Number(gstAnalysis.tax_amount) : 0,
+            branch: auth.getUser()?.branch || 'common',
+            notes: finalForm.description || `Vendor bill - ${finalForm.vendor_name}`
+          });
+          if (vendorBillRes.data?.data?.credit_limit_warning) {
+            setError('⚠️ This bill has exceeded the vendor credit limit');
+            setTimeout(() => setError(''), 5000);
+          }
+        } catch (billErr) {
+          console.warn('Failed to create vendor bill record:', billErr);
+        }
+      }
 
       // Advance to next file in queue
       const nextIndex = currentFileIndex + 1;
@@ -1115,6 +1176,21 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
                     onChange={(e) => setFinalForm(prev => ({ ...prev, vendor_name: e.target.value }))}
                     placeholder="Vendor or supplier name"
                   />
+                </div>
+                <div className="data-item">
+                  <label>Link to Vendor</label>
+                  <select
+                    value={selectedVendorId}
+                    onChange={e => setSelectedVendorId(e.target.value)}
+                    style={{ marginTop: '4px', width: '100%' }}
+                  >
+                    <option value="">-- Select Vendor --</option>
+                    {vendors.map(v => (
+                      <option key={v.id} value={v.id}>
+                        {v.name} (Balance: ₹{Number(v.current_balance || 0).toLocaleString('en-IN')})
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div className="data-item">
                   <label>Vendor Contact</label>
