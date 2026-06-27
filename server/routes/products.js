@@ -199,43 +199,51 @@ module.exports = (upload, removeUploadFile) => {
 
     // Generate a unique company code (3-5 letters) that doesn't collide with existing ones
     router.get('/unique-company-code', authenticateToken, asyncHandler(async (req, res) => {
-        const name = String(req.query.name || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const rawName = (req.query.name || '').trim();
+        if (!rawName) return res.json({ code: '' });
+
+        const name = rawName.toUpperCase().replace(/[^A-Z0-9]/g, '');
         if (!name) return res.json({ code: '' });
 
-        // Get all existing source_codes from inventory
-        const [rows] = await pool.query('SELECT DISTINCT source_code FROM sarga_inventory WHERE source_code IS NOT NULL AND source_code != ""');
-        const usedCodes = new Set(rows.map(r => r.source_code.toUpperCase()));
+        try {
+            const [rows] = await pool.query('SELECT DISTINCT source_code FROM sarga_inventory WHERE source_code IS NOT NULL AND source_code != ""');
+            const usedCodes = new Set(rows.map(r => r.source_code.toUpperCase()));
 
-        // Strategy 1: first 3 letters
-        const base3 = name.substring(0, 3);
-        if (base3.length >= 2 && !usedCodes.has(base3)) return res.json({ code: base3 });
+            // Strategy 1: first 3 letters
+            const base3 = name.substring(0, 3);
+            if (base3.length >= 2 && !usedCodes.has(base3)) return res.json({ code: base3 });
 
-        // Strategy 2: try combinations — 1st+2nd+Nth letter
-        for (let i = 3; i < name.length; i++) {
-            const candidate = name[0] + name[1] + name[i];
-            if (!usedCodes.has(candidate)) return res.json({ code: candidate });
+            // Strategy 2: try combinations — 1st+2nd+Nth letter
+            for (let i = 3; i < name.length; i++) {
+                const candidate = name[0] + name[1] + name[i];
+                if (!usedCodes.has(candidate)) return res.json({ code: candidate });
+            }
+
+            // Strategy 3: try 1st+Nth+last
+            for (let i = 2; i < name.length - 1; i++) {
+                const candidate = name[0] + name[i] + name[name.length - 1];
+                if (!usedCodes.has(candidate)) return res.json({ code: candidate });
+            }
+
+            // Strategy 4: base 2 letters + digit
+            for (let d = 1; d <= 9; d++) {
+                const candidate = name.substring(0, 2) + d;
+                if (!usedCodes.has(candidate)) return res.json({ code: candidate });
+            }
+
+            // Strategy 5: first letter + 2 digits
+            for (let d = 10; d <= 99; d++) {
+                const candidate = name[0] + d;
+                if (!usedCodes.has(candidate)) return res.json({ code: candidate });
+            }
+
+            return res.json({ code: base3 });
+        } catch (err) {
+            console.error('[unique-company-code] Error:', err.message);
+            const words = rawName.split(/\s+/).filter(Boolean);
+            const fallback = words.map(w => w[0].toUpperCase()).join('').slice(0, 3);
+            return res.json({ code: fallback });
         }
-
-        // Strategy 3: try 1st+Nth+last
-        for (let i = 2; i < name.length - 1; i++) {
-            const candidate = name[0] + name[i] + name[name.length - 1];
-            if (!usedCodes.has(candidate)) return res.json({ code: candidate });
-        }
-
-        // Strategy 4: base 2 letters + digit
-        for (let d = 1; d <= 9; d++) {
-            const candidate = name.substring(0, 2) + d;
-            if (!usedCodes.has(candidate)) return res.json({ code: candidate });
-        }
-
-        // Strategy 5: first letter + 2 digits
-        for (let d = 10; d <= 99; d++) {
-            const candidate = name[0] + d;
-            if (!usedCodes.has(candidate)) return res.json({ code: candidate });
-        }
-
-        // Fallback
-        return res.json({ code: base3 });
     }));
 
     // Add Category
