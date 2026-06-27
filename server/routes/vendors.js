@@ -510,8 +510,8 @@ router.post('/vendors', authenticateToken, authorizeRoles('Admin', 'Accountant',
     const curBal = openBal;
 
     const [result] = await pool.query(`
-      INSERT INTO vendors (name, contact_person, phone, email, gst_number, address, city, category, vendor_type, credit_days, credit_limit, opening_balance, current_balance, notes, vendor_code)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO vendors (name, contact_person, phone, email, gst_number, address, city, category, vendor_type, credit_days, credit_limit, opening_balance, current_balance, notes, vendor_code, is_active)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       vendorData.name,
       vendorData.contact_person || null,
@@ -527,7 +527,8 @@ router.post('/vendors', authenticateToken, authorizeRoles('Admin', 'Accountant',
       openBal,
       curBal,
       vendorData.notes || null,
-      vendorCode
+      vendorCode,
+      1
     ]);
 
     auditLog(req.user.id, 'VENDOR_ADD', `Added vendor: ${vendorData.name} (${vendorCode})`, { entity_type: 'vendor', entity_id: result.insertId });

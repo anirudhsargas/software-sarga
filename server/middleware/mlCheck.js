@@ -77,9 +77,10 @@ module.exports = (req, res, next) => {
             });
         }
         if (path.includes('/chatbot')) {
-            return res.status(503).json({
+            return res.json({
                 enabled: false,
-                error: 'Chatbot service temporarily disabled'
+                status: 'unavailable',
+                message: 'Chatbot service temporarily disabled'
             });
         }
         
