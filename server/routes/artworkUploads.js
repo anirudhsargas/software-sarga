@@ -7,7 +7,7 @@ const crypto = require('crypto');
 const { pool } = require('../database');
 const { uploadBufferToCloudinary } = require('../helpers/cloudinaryUpload');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
-const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+const { asyncHandler } = require('../helpers');
 
 const uploadsDir = path.join(__dirname, '..', 'uploads', 'artwork');
 if (!fs.existsSync(uploadsDir)) {

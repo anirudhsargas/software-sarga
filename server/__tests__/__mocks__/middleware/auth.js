@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = 'test-secret-at-least-32-chars-long-for-security!!';
+const JWT_SECRET = process.env.JWT_SECRET || 'test-secret-at-least-32-chars-long-for-security!!';
 
 const verifyWithAnySecret = (token) => jwt.verify(token, JWT_SECRET);
 
@@ -13,7 +13,8 @@ const authenticateToken = async (req, res, next) => {
     const decoded = jwt.verify(authHeader.split(' ')[1], JWT_SECRET);
     req.user = decoded;
     next();
-  } catch {
+  } catch (err) {
+    console.log('[MOCK AUTH ERROR]', err);
     return res.status(401).json({ message: 'Invalid or expired token.' });
   }
 };

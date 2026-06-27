@@ -260,23 +260,10 @@ CREATE TABLE IF NOT EXISTS sarga_machines (
     FOREIGN KEY (branch_id) REFERENCES sarga_branches(id) ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS sarga_machine_readings (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    machine_id INT NOT NULL,
-    reading_date DATE NOT NULL,
-    opening_count INT NOT NULL DEFAULT 0,
-    closing_count INT DEFAULT NULL,
-    total_copies INT AS (closing_count - opening_count) STORED,
-    notes TEXT,
-    created_by INT NOT NULL,
-    updated_by INT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (machine_id) REFERENCES sarga_machines(id) ON DELETE CASCADE,
-    FOREIGN KEY (created_by) REFERENCES sarga_staff(id) ON DELETE SET NULL,
-    FOREIGN KEY (updated_by) REFERENCES sarga_staff(id) ON DELETE SET NULL,
-    UNIQUE KEY unique_machine_date (machine_id, reading_date)
-);
+-- sarga_machine_readings is already defined in 010_machines.sql
+-- Add generated total_copies column (safe: ignored by ER_DUP_FIELDNAME if already exists)
+ALTER TABLE sarga_machine_readings
+  ADD COLUMN total_copies INT AS (closing_count - opening_count) STORED;
 
 CREATE TABLE IF NOT EXISTS sarga_daily_report_offset (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -337,31 +324,10 @@ CREATE TABLE IF NOT EXISTS sarga_daily_credit_transactions (
     FOREIGN KEY (report_id) REFERENCES sarga_daily_report_offset(id) ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS sarga_daily_report_machine (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    report_date DATE NOT NULL,
-    machine_id INT NOT NULL,
-    branch_id INT NOT NULL,
-    opening_count INT NOT NULL DEFAULT 0,
-    closing_count INT DEFAULT NULL,
-    total_copies INT AS (closing_count - opening_count) STORED,
-    total_amount DECIMAL(12, 2) DEFAULT 0,
-    total_cash DECIMAL(12, 2) DEFAULT 0,
-    total_credit DECIMAL(12, 2) DEFAULT 0,
-    credit_cash_in DECIMAL(12, 2) DEFAULT 0,
-    credit_cash_out DECIMAL(12, 2) DEFAULT 0,
-    status ENUM('Draft', 'Finalized') DEFAULT 'Draft',
-    created_by INT NOT NULL,
-    finalized_by INT,
-    finalized_at DATETIME,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (machine_id) REFERENCES sarga_machines(id) ON DELETE CASCADE,
-    FOREIGN KEY (branch_id) REFERENCES sarga_branches(id) ON DELETE CASCADE,
-    FOREIGN KEY (created_by) REFERENCES sarga_staff(id) ON DELETE SET NULL,
-    FOREIGN KEY (finalized_by) REFERENCES sarga_staff(id) ON DELETE SET NULL,
-    UNIQUE KEY unique_machine_date (machine_id, report_date)
-);
+-- sarga_daily_report_machine is already defined in 010_machines.sql
+-- Add generated total_copies column (safe: ignored by ER_DUP_FIELDNAME if already exists)
+ALTER TABLE sarga_daily_report_machine
+  ADD COLUMN total_copies INT AS (closing_count - opening_count) STORED;
 
 CREATE TABLE IF NOT EXISTS sarga_machine_work_entries (
     id INT AUTO_INCREMENT PRIMARY KEY,

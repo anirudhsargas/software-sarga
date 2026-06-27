@@ -14,16 +14,19 @@ const websiteCache = require('../services/websiteCache');
 const { v4: uuidv4 } = require('uuid');
 const { uuidGuard, chatLimiter, inquiryLimiter } = require('../middleware/websiteSecurity');
 const jwt = require('jsonwebtoken');
-const { JWT_SECRET } = require('../middleware/auth');
+const { JWT_SECRET, authenticateCustomer, revokeCustomerSessionInCache } = require('../middleware/auth');
+const rateLimit = require('express-rate-limit');
 
 // Export a factory so we can accept the multer `upload` instance from index.js
 module.exports = (upload) => {
   const router = express.Router();
 
-  // Simple async wrapper to catch errors in async route handlers
+    // Simple async wrapper to catch errors in async route handlers
   const asyncHandler = (fn) => (req, res, next) => {
     Promise.resolve(fn(req, res, next)).catch(next);
   };
+
+  const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 
   // Debugging: log incoming POST paths for website router
   router.use((req, res, next) => {
@@ -254,8 +257,30 @@ router.post('/chat', chatLimiter, uuidGuard, async (req, res) => {
   }
 });
 
+// Helper to record a customer session token for revocation support
+const recordCustomerSession = async (token, customerId, req) => {
+  try {
+    await pool.query(
+      `INSERT INTO sarga_customer_sessions (customer_id, session_token, ip_address, user_agent, expires_at)
+       VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 7 DAY))`,
+      [customerId, token, req.ip, req.headers['user-agent'] || null]
+    );
+  } catch {
+    // non-fatal
+  }
+};
+
+// Rate limiter for customer auth endpoints
+const customerAuthLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { message: 'Too many attempts. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 // Legacy phone lookup login (kept for compatibility) — prefer OTP flow below
-router.post('/customer/login', asyncHandler(async (req, res) => {
+router.post('/customer/login', customerAuthLimiter, asyncHandler(async (req, res) => {
   const { phone, countryCode } = req.body || {};
   if (!phone) return res.status(400).json({ message: 'Phone number required' });
 
@@ -270,22 +295,41 @@ router.post('/customer/login', asyncHandler(async (req, res) => {
   }
   const customer = rows[0];
   const token = jwt.sign({ id: customer.id, role: 'Customer', name: customer.name }, JWT_SECRET, { expiresIn: '7d' });
-  res.json({ message: 'Login successful', token, customerId: customer.id, customerName: customer.name, customer });
+  await recordCustomerSession(token, customer.id, req);
+  res.json({ message: 'Login successful', token, customerId: customer.id, customerName: customer.name });
 }));
 
-// Customer lookup for autofill: GET /api/website/customer/lookup?mobile=...
-router.get('/customer/lookup', asyncHandler(async (req, res) => {
+// POST /api/website/customer/logout — revoke customer session
+router.post('/customer/logout', asyncHandler(async (req, res) => {
+    const auth = req.headers.authorization || '';
+    const token = auth.startsWith('Bearer ') ? auth.split(' ')[1] : null;
+    if (token) {
+        try {
+            await pool.query(
+                'UPDATE sarga_customer_sessions SET is_revoked = 1 WHERE session_token = ?',
+                [token]
+            );
+            await revokeCustomerSessionInCache(token);
+        } catch (_err) {
+            // Non-fatal — still respond with success
+        }
+    }
+    res.json({ message: 'Logged out' });
+}));
+
+// Customer lookup for autofill: requires valid customer token
+router.get('/customer/lookup', customerAuthLimiter, authenticateCustomer, asyncHandler(async (req, res) => {
   const { mobile, countryCode } = req.query || {};
   if (!mobile) return res.status(400).json({ message: 'mobile query param required' });
   const { normalizeMobileWithCountry } = require('../helpers');
   const normalized = normalizeMobileWithCountry(mobile, countryCode) || String(mobile).replace(/\D/g, '').slice(-10);
-  const [rows] = await pool.query('SELECT id, name, mobile, email, address FROM sarga_customers WHERE mobile = ? OR RIGHT(mobile,10) = ? LIMIT 1', [normalized, String(normalized).slice(-10)]);
+  const [rows] = await pool.query('SELECT id, name, mobile, email, address FROM sarga_customers WHERE id = ? AND (mobile = ? OR RIGHT(mobile,10) = ?) LIMIT 1', [req.customer.id, normalized, String(normalized).slice(-10)]);
   if (!rows || rows.length === 0) return res.status(404).json({ message: 'Customer not found' });
   res.json({ customer: rows[0] });
 }));
 
 // Register customer from website (mobile-first). Issues token on success.
-router.post('/customer/register', asyncHandler(async (req, res) => {
+router.post('/customer/register', customerAuthLimiter, asyncHandler(async (req, res) => {
   const { mobile, countryCode, name, email, address } = req.body || {};
   if (!mobile) return res.status(400).json({ message: 'Mobile is required' });
   const { normalizeMobileWithCountry } = require('../helpers');
@@ -302,6 +346,7 @@ router.post('/customer/register', asyncHandler(async (req, res) => {
     const [rows] = await pool.query('SELECT id, name, mobile, email FROM sarga_customers WHERE id = ? LIMIT 1', [newId]);
     const customer = rows[0];
     const token = jwt.sign({ id: customer.id, role: 'Customer', name: customer.name }, JWT_SECRET, { expiresIn: '7d' });
+    await recordCustomerSession(token, customer.id, req);
     res.status(201).json({ message: 'Registered', token, customer });
   } catch (err) {
     logger.error('[Website] Customer register error:', err.message || err);
@@ -311,7 +356,7 @@ router.post('/customer/register', asyncHandler(async (req, res) => {
 }));
 
 // Google Sign-In for website: accept `id_token` from client and verify with Google's tokeninfo endpoint.
-router.post('/customer/google-signin', asyncHandler(async (req, res) => {
+router.post('/customer/google-signin', customerAuthLimiter, asyncHandler(async (req, res) => {
   const { id_token } = req.body || {};
   if (!id_token) return res.status(400).json({ message: 'id_token is required' });
 
@@ -321,7 +366,14 @@ router.post('/customer/google-signin', asyncHandler(async (req, res) => {
     const resp = await axios.get('https://oauth2.googleapis.com/tokeninfo', { params: { id_token } });
     const payload = resp.data;
     // payload contains email, email_verified, name, picture, phone_number (optional)
-    const { email, email_verified, name, phone_number } = payload;
+    const { email, email_verified, name, phone_number, aud } = payload;
+
+    // Verify audience matches our Google Client ID to prevent token reuse from other apps
+    if (GOOGLE_CLIENT_ID && aud !== GOOGLE_CLIENT_ID) {
+      logger.warn('[Website] Google sign-in aud mismatch', { aud, expected: GOOGLE_CLIENT_ID });
+      return res.status(400).json({ message: 'Invalid token audience' });
+    }
+
     if (!email || !email_verified) return res.status(400).json({ message: 'Google account email not available or not verified' });
 
     // Try find customer by email or phone
@@ -346,6 +398,7 @@ router.post('/customer/google-signin', asyncHandler(async (req, res) => {
     }
 
     const token = jwt.sign({ id: found.id, role: 'Customer', name: found.name }, JWT_SECRET, { expiresIn: '7d' });
+    await recordCustomerSession(token, found.id, req);
     res.json({ message: 'Authenticated', token, customer: found });
   } catch (err) {
     logger.error('[Website] Google signin error:', err && err.message ? err.message : err);
@@ -400,12 +453,14 @@ router.post('/customer/send-otp', inquiryLimiter, asyncHandler(async (req, res) 
     }
   }
 
-  const debugExpose = process.env.DEBUG_EMAIL_OTPS === '1' || process.env.NODE_ENV !== 'production';
   const resp = { message: 'OTP sent' };
   if (!mailSent) {
     resp.warning = 'Email not delivered by SMTP; check server SMTP settings.';
   }
-  if (debugExpose) resp.otp = otp;
+
+  if (!mailSent && process.env.NODE_ENV !== 'production') {
+    logger.debug('[OTP Dev] customer otp=%s', otp);
+  }
 
   res.json(resp);
 }));
@@ -430,6 +485,7 @@ router.post('/customer/verify-otp', asyncHandler(async (req, res) => {
   // valid — issue token and cleanup
   await pool.query('DELETE FROM sarga_customer_otps WHERE id = ?', [otpRow.id]);
   const token = jwt.sign({ id: customer.id, role: 'Customer', name: customer.name }, JWT_SECRET, { expiresIn: '7d' });
+  await recordCustomerSession(token, customer.id, req);
   res.json({ message: 'Authenticated', token, customerId: customer.id, customerName: customer.name });
 }));
 
@@ -452,18 +508,8 @@ router.post('/upload-design', upload.array('files', 10), asyncHandler(async (req
 }));
 
 // Customer dashboard proxy: uses token issued above to fetch customer's dashboard
-router.get('/customer/dashboard', asyncHandler(async (req, res) => {
-  const auth = req.headers.authorization || '';
-  const token = auth.startsWith('Bearer ') ? auth.split(' ')[1] : null;
-  if (!token) return res.status(401).json({ message: 'Missing token' });
-  let decoded;
-  try {
-    decoded = jwt.verify(token, JWT_SECRET);
-  } catch (_err) {
-    return res.status(401).json({ message: 'Invalid token' });
-  }
-
-  const customerId = decoded.id;
+router.get('/customer/dashboard', authenticateCustomer, asyncHandler(async (req, res) => {
+  const customerId = req.customer.id;
   if (!customerId) return res.status(400).json({ message: 'Invalid token payload' });
 
   // Reuse existing customers dashboard query from server/routes/customers.js
@@ -481,14 +527,8 @@ router.get('/customer/dashboard', asyncHandler(async (req, res) => {
 }));
 
 // GET /api/website/job/:id — Customer-visible job details (requires customer token)
-router.get('/job/:id', asyncHandler(async (req, res) => {
-  const auth = req.headers.authorization || '';
-  const token = auth.startsWith('Bearer ') ? auth.split(' ')[1] : null;
-  if (!token) return res.status(401).json({ message: 'Missing token' });
-  let decoded;
-  try { decoded = jwt.verify(token, JWT_SECRET); } catch (_err) { return res.status(401).json({ message: 'Invalid token' }); }
-
-  const customerId = decoded.id;
+router.get('/job/:id', authenticateCustomer, asyncHandler(async (req, res) => {
+  const customerId = req.customer.id;
   const jobId = req.params.id;
 
   const [[jobRow]] = await pool.query(
@@ -530,14 +570,8 @@ router.get('/job/:id', asyncHandler(async (req, res) => {
 }));
 
 // POST /api/website/jobs/:id/proofs/:proofId/review-customer — Customer review a proof
-router.post('/jobs/:id/proofs/:proofId/review-customer', asyncHandler(async (req, res) => {
-  const auth = req.headers.authorization || '';
-  const token = auth.startsWith('Bearer ') ? auth.split(' ')[1] : null;
-  if (!token) return res.status(401).json({ message: 'Missing token' });
-  let decoded;
-  try { decoded = jwt.verify(token, JWT_SECRET); } catch (_err) { return res.status(401).json({ message: 'Invalid token' }); }
-
-  const customerId = decoded.id;
+router.post('/jobs/:id/proofs/:proofId/review-customer', authenticateCustomer, asyncHandler(async (req, res) => {
+  const customerId = req.customer.id;
   const jobId = req.params.id;
   const proofId = req.params.proofId;
   const { status, customer_feedback } = req.body;
@@ -571,14 +605,8 @@ router.post('/jobs/:id/proofs/:proofId/review-customer', asyncHandler(async (req
 }));
 
 // GET /api/website/invoices/:invoiceId/download — generate and stream invoice PDF to customer
-router.get('/invoices/:invoiceId/download', asyncHandler(async (req, res) => {
-  const auth = req.headers.authorization || '';
-  const token = auth.startsWith('Bearer ') ? auth.split(' ')[1] : null;
-  if (!token) return res.status(401).json({ message: 'Missing token' });
-  let decoded;
-  try { decoded = jwt.verify(token, JWT_SECRET); } catch (_err) { return res.status(401).json({ message: 'Invalid token' }); }
-
-  const customerId = decoded.id;
+router.get('/invoices/:invoiceId/download', authenticateCustomer, asyncHandler(async (req, res) => {
+  const customerId = req.customer.id;
   const invoiceId = req.params.invoiceId;
 
   const [[invoice]] = await pool.query('SELECT i.*, c.name as customer_name, c.mobile as customer_mobile FROM sarga_invoices i LEFT JOIN sarga_customers c ON i.customer_id = c.id WHERE i.id = ?', [invoiceId]);
@@ -619,7 +647,7 @@ router.get('/invoices/:invoiceId/download', asyncHandler(async (req, res) => {
 
 // ─── GET /api/website/chat/history ───
 // Optional query param: ?uuid=<uuid>&limit=50
-router.get('/chat/history', async (req, res) => {
+router.get('/chat/history', authenticateCustomer, async (req, res) => {
   const { uuid, limit } = req.query;
   try {
     const history = await chatStore.getHistory({ uuid: uuid || null, limit: limit ? Number(limit) : 50 });
@@ -635,7 +663,7 @@ router.get('/chat/history', async (req, res) => {
 // Set WEBSITE_SYNC_SECRET in environment to a shared secret.
 router.post('/webhook/sync', async (req, res) => {
   try {
-    const secret = req.headers['x-webhook-secret'] || req.query.secret;
+    const secret = req.headers['x-webhook-secret'];
     if (!process.env.WEBSITE_SYNC_SECRET) {
       logger.warn('[Webhook] WEBSITE_SYNC_SECRET not configured — rejecting webhook');
       return res.status(403).json({ message: 'Webhook disabled' });

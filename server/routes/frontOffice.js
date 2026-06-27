@@ -7,7 +7,7 @@ const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken } = require('../middleware/auth');
 const { branchFilter } = require('../middleware/branchFilter');
-const { getTodayDate } = require('../helpers');
+const { getTodayDate, asyncHandler } = require('../helpers');
 
 // ─── FRONT OFFICE ATTENDANCE REMINDER (9:00 AM to 10:00 AM) ───────────────
 router.get('/front-office/attendance-reminder', authenticateToken, async (req, res) => {

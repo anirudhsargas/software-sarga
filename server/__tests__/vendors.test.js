@@ -18,6 +18,7 @@ describe('Vendor Management', () => {
         .post('/api/vendors')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({ name: 'Supreme Paper Mills', category: 'paper', type: 'Vendor' });
+      if (res.status !== 200) console.log('DEBUG VENDORS TEST 401 BODY:', res.body);
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(res.body.data).toHaveProperty('vendor_code');

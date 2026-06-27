@@ -17,7 +17,7 @@ import toast from 'react-hot-toast';
 import FullBillModal from './FullBillModal';
 import DOMPurify from 'dompurify';
 
-const emptyVendorForm = { name: '', type: 'Vendor', contact_person: '', phone: '', address: '', gstin: '', order_link: '' };
+const emptyVendorForm = { name: '', vendor_type: 'Vendor', contact_person: '', phone: '', address: '', gst_number: '', order_link: '' };
 
 // Memoized transaction row
 const TransactionRow = React.memo(({ r, openFullBillFromTransaction }) => (
@@ -173,7 +173,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
           (v.name && v.name.toLowerCase().includes(search)) ||
           (v.phone && v.phone.includes(search)) ||
           (v.contact_person && v.contact_person.toLowerCase().includes(search)) ||
-          (v.type && v.type.toLowerCase().includes(search))
+          ((v.vendor_type || v.type) && (v.vendor_type || v.type).toLowerCase().includes(search))
         );
       });
 
@@ -305,7 +305,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
 
   const openEditForm = (v) => {
     setEditingVendor(v);
-    setVendorForm({ name: v.name || '', type: v.type || 'Vendor', contact_person: v.contact_person || '', phone: v.phone || '', address: v.address || '', gstin: v.gstin || '', order_link: v.order_link || '' });
+      setVendorForm({ name: v.name || '', vendor_type: v.vendor_type || v.type || 'Vendor', contact_person: v.contact_person || '', phone: v.phone || '', address: v.address || '', gst_number: v.gst_number || '', order_link: v.order_link || '' });
     setFormError('');
     setShowForm(true);
   };
@@ -387,7 +387,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
         contact_person: requestForm.contact_person || null,
         phone: requestForm.phone || null,
         address: requestForm.address || null,
-        gstin: requestForm.gstin || null,
+        gst_number: requestForm.gst_number || null,
         request_reason: requestReason || null
       });
       setShowRequestForm(false);
@@ -696,7 +696,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
                 <div>To: ${toName}</div>
                 ${selectedVendor.address ? `<div>${selectedVendor.address}</div>` : ''}
                 ${selectedVendor.phone ? `<div>Tel: ${selectedVendor.phone}</div>` : ''}
-                ${selectedVendor.gstin ? `<div>GSTIN: ${selectedVendor.gstin}</div>` : ''}
+                ${selectedVendor.gst_number ? `<div>GSTIN: ${selectedVendor.gst_number}</div>` : ''}
                 ${ (statementFrom || statementTo) ? `<div style="margin-top:6px;font-weight:600">Period: ${statementFrom || '...'} — ${statementTo || '...'}</div>` : '' }
               </div>
             </div>
@@ -736,7 +736,11 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
       container.style.pointerEvents = 'none';
       container.style.width = '794px';
       container.style.background = 'var(--card)';
-      container.innerHTML = DOMPurify.sanitize(summaryHtml, { ALLOWED_TAGS: ['div', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'h2', 'style'], ALLOWED_ATTR: ['style', 'id', 'colspan'] });
+      container.innerHTML = DOMPurify.sanitize(summaryHtml, {
+        ALLOWED_TAGS: ['div', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'h2'],
+        ALLOWED_ATTR: ['id', 'colspan'],
+        FORCE_BODY: true,
+      });
       document.body.appendChild(container);
 
       // Helper to load script
@@ -764,7 +768,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
           yPos += 14;
           if (selectedVendor.address) { doc.text(String(selectedVendor.address), margin, yPos); yPos += 12; }
           if (selectedVendor.phone) { doc.text(`Tel: ${selectedVendor.phone}`, margin, yPos); yPos += 12; }
-          if (selectedVendor.gstin) { doc.text(`GSTIN: ${selectedVendor.gstin}`, margin, yPos); yPos += 12; }
+          if (selectedVendor.gst_number) { doc.text(`GSTIN: ${selectedVendor.gst_number}`, margin, yPos); yPos += 12; }
           if (statementFrom || statementTo) { doc.text(`Period: ${statementFrom || '...'} — ${statementTo || '...'}`, margin, yPos); yPos += 18; }
           doc.text('No transactions found for the selected period.', margin, yPos);
           yPos += 20;
@@ -894,11 +898,11 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
           <div className="em-vendor-profile__info">
             <h2 className="em-vendor-profile__name">{v.name}</h2>
             <div className="em-vendor-profile__meta">
-              <span className="em-type-badge em-type-badge--vendor">{v.type || 'Vendor'}</span>
+              <span className="em-type-badge em-type-badge--vendor">{v.vendor_type || v.type || 'Vendor'}</span>
               {v.phone && <span className="em-vendor-profile__tag"><Phone size={12} /> {v.phone}</span>}
               {v.address && <span className="em-vendor-profile__tag"><MapPin size={12} /> {v.address}</span>}
               {v.contact_person && <span className="em-vendor-profile__tag"><User size={12} /> {v.contact_person}</span>}
-              {v.gstin && <span className="em-vendor-profile__tag"><FileText size={12} /> GSTIN: {v.gstin}</span>}
+              {v.gst_number && <span className="em-vendor-profile__tag"><FileText size={12} /> GSTIN: {v.gst_number}</span>}
             </div>
           </div>
           <div className="em-vendor-profile__actions" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -1098,7 +1102,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
                   <div className="em-vendor-card__avatar"><Store size={18} /></div>
                   <div className="em-vendor-card__info">
                     <div className="em-vendor-card__name">{v.name}</div>
-                    <div className="em-vendor-card__meta">{v.type} · {v.phone || 'No phone'}</div>
+                    <div className="em-vendor-card__meta">{v.vendor_type || v.type || 'Vendor'} · {v.phone || 'No phone'}</div>
                   </div>
                   <div className="em-vendor-card__actions">
                     <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); openVendorDetail(v); }}>View</button>
@@ -1121,7 +1125,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
                   <div className="em-vendor-card__body">
                     <div className="em-vendor-card__details-grid">
                       {v.address && <div className="em-vendor-detail-item"><MapPin size={14} /><span>{v.address}</span></div>}
-                      {v.gstin && <div className="em-vendor-detail-item"><FileText size={14} /><span>GSTIN: {v.gstin}</span></div>}
+                      {v.gst_number && <div className="em-vendor-detail-item"><FileText size={14} /><span>GSTIN: {v.gst_number}</span></div>}
                       <div className="em-vendor-detail-item"><User size={14} /><span>Contact: {v.contact_person || '—'}</span></div>
                       {v.phone && <div className="em-vendor-detail-item"><Phone size={14} /><span>{v.phone}</span></div>}
                     </div>
@@ -1162,7 +1166,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
                   </div>
                   <div className="em-form-group">
                     <label>Type</label>
-                    <select name="vendor_type" aria-label="Select option"  className="em-input" value={vendorForm.type} onChange={e => setVendorForm(p => ({ ...p, type: e.target.value }))}>
+                    <select name="vendor_type" aria-label="Select option"  className="em-input" value={vendorForm.vendor_type || 'Vendor'} onChange={e => setVendorForm(p => ({ ...p, vendor_type: e.target.value }))}>
                       <option value="Vendor">Vendor</option>
                       <option value="Paper Supplier">Paper Supplier</option>
                       <option value="Ink Supplier">Ink Supplier</option>
@@ -1185,7 +1189,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
                   </div>
                   <div className="em-form-group">
                     <label>GSTIN</label>
-                    <input name="gstin" className="em-input" value={vendorForm.gstin} onChange={e => setVendorForm(p => ({ ...p, gstin: e.target.value }))} />
+                    <input name="gst_number" className="em-input" value={vendorForm.gst_number} onChange={e => setVendorForm(p => ({ ...p, gst_number: e.target.value }))} />
                   </div>
                   <div className="em-form-group">
                     <label>Order Link</label>
@@ -1228,7 +1232,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
                   </div>
                   <div className="em-form-group">
                     <label>GSTIN</label>
-                    <input name="gstin" className="em-input" value={requestForm.gstin} onChange={e => setRequestForm(p => ({ ...p, gstin: e.target.value }))} />
+                    <input name="gst_number" className="em-input" value={requestForm.gst_number} onChange={e => setRequestForm(p => ({ ...p, gst_number: e.target.value }))} />
                   </div>
                   <div className="em-form-group em-form-group--full">
                     <label>Address</label>

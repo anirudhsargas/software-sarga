@@ -103,7 +103,7 @@ class ErrorBoundary extends React.Component {
                   <button className="error-boundary__retry-btn" onClick={() => window.location.reload()}>
                     <RotateCw size={16} /> Reload Page
                   </button>
-                  <button className="error-boundary__home-btn" onClick={() => window.location.href = '/dashboard'}>
+                  <button className="error-boundary__home-btn" onClick={() => window.dispatchEvent(new CustomEvent('navigate', { detail: { path: '/dashboard' } }))}>
                     <Home size={16} /> Go Home
                   </button>
                 </>

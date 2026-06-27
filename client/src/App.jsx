@@ -1,5 +1,5 @@
 import React, { useEffect, Suspense, lazy } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import AppShellSkeleton from './components/ui/AppShellSkeleton';
 import './bones/registry';
@@ -19,7 +19,7 @@ import { initServerTime } from './services/serverTime';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ConfirmProvider } from './contexts/ConfirmContext';
 import { BranchProvider } from './contexts/BranchContext';
-import { AuthProvider } from './hooks/useAuth';
+import { AuthProvider, AuthContext } from './hooks/useAuth';
 
 import { HelmetProvider } from 'react-helmet-async';
 
@@ -67,12 +67,13 @@ const queryClient = new QueryClient({
 });
 
 const ProtectedRoute = ({ children, roles }) => {
+  const authCtx = React.useContext(AuthContext);
+  const user = authCtx?.user || auth.getUser();
   if (!auth.isAuthenticated()) {
     return <Navigate to="/login" replace />;
   }
 
-  const user = auth.getUser();
-  if (roles && !roles.includes(user.role)) {
+  if (roles && user && !roles.includes(user.role)) {
     return <Navigate to="/access-denied" replace />;
   }
 
@@ -110,6 +111,21 @@ function ToastAnnouncer() {
       {message}
     </div>
   );
+}
+
+// Navigation event listener for cross-component navigation (used by api.js interceptors, etc.)
+function RouteChangeHandler() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.detail && e.detail.path) {
+        navigate(e.detail.path);
+      }
+    };
+    window.addEventListener('navigate', handler);
+    return () => window.removeEventListener('navigate', handler);
+  }, [navigate]);
+  return null;
 }
 
 function App() {
@@ -170,6 +186,7 @@ function App() {
         <AuthProvider>
         <BranchProvider>
         <ConfirmProvider>
+          <RouteChangeHandler />
           <a href="#main-content" className="skip-link">Skip to main content</a>
           <SyncStatusBar />
           <UpdateNotification />

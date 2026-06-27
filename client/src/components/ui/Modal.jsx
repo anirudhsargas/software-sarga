@@ -32,10 +32,21 @@ const Modal = ({
 
   useEffect(() => {
     if (isOpen) {
+      document.body.dataset.modalLocked = 'true';
       document.body.style.overflow = 'hidden';
     }
-    return () => { document.body.style.overflow = ''; };
+    return () => {
+      document.body.style.overflow = '';
+      delete document.body.dataset.modalLocked;
+    };
   }, [isOpen]);
+
+  // Safety: restore body scroll on page unload in case of crash
+  useEffect(() => {
+    const restore = () => { document.body.style.overflow = ''; };
+    window.addEventListener('beforeunload', restore);
+    return () => window.removeEventListener('beforeunload', restore);
+  }, []);
 
   if (!isOpen) return null;
 

@@ -1,6 +1,6 @@
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
-const { auditLog } = require('../helpers');
+const { auditLog, asyncHandler } = require('../helpers');
 const { invalidateHierarchyCache } = require('./jobs');
 const { paginate } = require('../helpers/pagination');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../helpers/cloudinaryUpload');
@@ -198,7 +198,7 @@ module.exports = (upload, removeUploadFile) => {
     });
 
     // Generate a unique company code (3-5 letters) that doesn't collide with existing ones
-    router.get('/unique-company-code', authenticateToken, async (req, res) => {
+    router.get('/unique-company-code', authenticateToken, asyncHandler(async (req, res) => {
         const name = String(req.query.name || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
         if (!name) return res.json({ code: '' });
 
@@ -236,7 +236,7 @@ module.exports = (upload, removeUploadFile) => {
 
         // Fallback
         return res.json({ code: base3 });
-    });
+    }));
 
     // Add Category
     router.post('/product-categories', authenticateToken, authorizeRoles('Admin', 'Accountant'), upload.single('image'), async (req, res) => {

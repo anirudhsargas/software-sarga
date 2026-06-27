@@ -8,7 +8,7 @@ import {
   ArrowLeft, Plus, FileText, CreditCard, 
   TrendingUp, Edit, Trash2, User, 
   Phone, Mail, MapPin, Calendar, 
-  ShieldCheck, AlertCircle, Info, ChevronRight 
+  ShieldCheck, AlertCircle, Info, ChevronRight, RotateCcw 
 } from 'lucide-react';
 import '../pages/Vendors.css';
 
@@ -33,6 +33,8 @@ const VendorDetail = ({
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [_spendTrend, setSpendTrend] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [balanceDiscrepancy, setBalanceDiscrepancy] = useState(null);
+  const [recalculating, setRecalculating] = useState(false);
   const transactionsPerPage = 10;
 
   const getLatestRecordDate = (items, dateKey) => {
@@ -154,9 +156,42 @@ const VendorDetail = ({
     }
   };
 
+  const checkBalanceDiscrepancy = async () => {
+    try {
+      const response = await api.get('/vendors/payment-audit');
+      const discrepancies = response.data?.data || [];
+      const vendorDiscrepancy = discrepancies.find(d => d.id === Number(vendorId));
+      if (vendorDiscrepancy && Math.abs(Number(vendorDiscrepancy.discrepancy)) > 0.01) {
+        setBalanceDiscrepancy(vendorDiscrepancy);
+      } else {
+        setBalanceDiscrepancy(null);
+      }
+    } catch (error) {
+      console.error('Error checking balance discrepancy:', error);
+    }
+  };
+
+  const handleRecalculateBalance = async () => {
+    try {
+      setRecalculating(true);
+      const response = await api.post(`/vendors/${vendorId}/recalculate`);
+      if (response.data?.success) {
+        toast.success(`Balance recalculated: ${formatCurrency(response.data.current_balance)}`);
+        setBalanceDiscrepancy(null);
+        loadVendorDetails();
+      }
+    } catch (error) {
+      console.error('Error recalculating balance:', error);
+      toast.error('Failed to recalculate balance');
+    } finally {
+      setRecalculating(false);
+    }
+  };
+
   useEffect(() => {
     loadVendorDetails();
     loadSpendTrend();
+    checkBalanceDiscrepancy();
   }, [vendorId, refreshKey]);
 
   const handleAddInvoice = () => {
@@ -263,11 +298,25 @@ const VendorDetail = ({
         </div>
         <div className="metric-card-detail">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-            <span className="metric-label-detail">Current Exposure</span>
-            <div className="metric-icon-detail" style={{ color: 'var(--error)' }}><AlertCircle size={18} /></div>
+            <span className="metric-label-detail">Outstanding Balance</span>
+            <div className="metric-icon-detail" style={{ color: 'var(--warning)' }}><AlertCircle size={18} /></div>
           </div>
-          <p className="metric-value-detail" style={{ color: 'var(--error)' }}>{formatCurrency(details.pending_amount || 0)}</p>
-          <p className="metric-sub-detail">Outstanding accounts payable</p>
+          <p className="metric-value-detail" style={{
+            color: !details.current_balance || details.current_balance <= 0
+              ? 'var(--success)'
+              : details.credit_limit > 0 && details.current_balance >= details.credit_limit
+                ? 'var(--error)'
+                : 'var(--warning)'
+          }}>
+            {formatCurrency(details.current_balance || details.pending_amount || 0)}
+          </p>
+          <p className="metric-sub-detail">
+            {!details.current_balance || details.current_balance <= 0
+              ? 'Account in good standing'
+              : details.credit_limit > 0
+                ? `${((details.current_balance / details.credit_limit) * 100).toFixed(0)}% of ₹${Number(details.credit_limit).toLocaleString()} credit limit used`
+                : 'Outstanding accounts payable'}
+          </p>
         </div>
         <div className="metric-card-detail">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
@@ -287,6 +336,33 @@ const VendorDetail = ({
         </div>
       </div>
 
+      {/* Balance Discrepancy Warning */}
+      {balanceDiscrepancy && (
+        <div className="glass-card" style={{ padding: '16px 20px', borderLeft: '4px solid var(--error)', background: 'var(--surface-2)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <AlertCircle size={20} style={{ color: 'var(--error)', flexShrink: 0 }} />
+              <div>
+                <p style={{ fontWeight: 700, fontSize: '14px', color: 'var(--error)' }}>Balance Discrepancy Detected</p>
+                <p style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                  Stored balance: <strong>{formatCurrency(balanceDiscrepancy.stored_balance)}</strong> &middot;
+                  Calculated balance: <strong>{formatCurrency(balanceDiscrepancy.calculated_balance)}</strong> &middot;
+                  Difference: <strong style={{ color: 'var(--error)' }}>{formatCurrency(Math.abs(balanceDiscrepancy.discrepancy))}</strong>
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleRecalculateBalance}
+              disabled={recalculating}
+              className="btn btn-primary btn-sm"
+              style={{ whiteSpace: 'nowrap' }}
+            >
+              <RotateCcw size={14} /> {recalculating ? 'Recalculating...' : 'Recalculate Balance'}
+            </button>
+          </div>
+        </div>
+      )}
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
         {/* Entity Dossier - Now at the top */}
         <div className="glass-card" style={{ padding: '24px' }}>
@@ -298,8 +374,9 @@ const VendorDetail = ({
               { label: 'Key Contact', value: details.contact_person, icon: User },
               { label: 'Communication', value: details.phone, icon: Phone },
               { label: 'Digital Mail', value: details.email, icon: Mail },
-              { label: 'Taxation ID', value: details.gstin, icon: ShieldCheck },
+              { label: 'GST Number (GSTIN)', value: details.gst_number || details.gstin, icon: ShieldCheck },
               { label: 'Operations Base', value: details.city, icon: MapPin },
+              { label: 'Opening Balance', value: details.opening_balance ? `₹${Number(details.opening_balance).toLocaleString('en-IN')}` : null, icon: Calendar },
               { label: 'Financial Terms', value: details.credit_days ? `${details.credit_days} Days Net` : 'Standard', icon: Calendar },
             ].map((item, i) => item.value && (
               <div key={i} style={{ display: 'flex', gap: '12px' }}>

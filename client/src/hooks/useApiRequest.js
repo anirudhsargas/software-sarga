@@ -8,7 +8,7 @@ import api from '../services/api';
  * Usage:
  * const { data, loading, error, retry } = useApiRequest('/endpoint');
  */
-const useApiRequest = (url, options = {}) => {
+const useApiRequest = (url, options) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -16,6 +16,11 @@ const useApiRequest = (url, options = {}) => {
   
   const lastDataRef = useRef(null);
   const abortControllerRef = useRef(null);
+  const mountedRef = useRef(true);
+  const optionsRef = useRef(options);
+
+  // Keep ref in sync with latest options to avoid stale closures
+  useEffect(() => { optionsRef.current = options; });
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -31,15 +36,17 @@ const useApiRequest = (url, options = {}) => {
     try {
       const response = await api.get(url, {
         signal: abortControllerRef.current.signal,
-        ...options
+        ...optionsRef.current
       });
 
       const responseData = response.data || null;
-      
-      setData(responseData);
-      lastDataRef.current = responseData;
-      setLastUpdated(new Date());
-      setError(false);
+
+      if (mountedRef.current) {
+        setData(responseData);
+        lastDataRef.current = responseData;
+        setLastUpdated(new Date());
+        setError(false);
+      }
 
       return responseData;
     } catch (err) {
@@ -49,25 +56,29 @@ const useApiRequest = (url, options = {}) => {
       }
 
       console.error(`API Error [${url}]:`, err.message);
-      
-      setError(true);
-      
-      // Use last cached data if available
-      if (lastDataRef.current) {
-        setData(lastDataRef.current);
+
+      if (mountedRef.current) {
+        setError(true);
+
+        // Use last cached data if available
+        if (lastDataRef.current) {
+          setData(lastDataRef.current);
+        }
       }
 
       return lastDataRef.current || null;
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
-  }, [url, options]);
+  }, [url]);
 
   // Initial fetch on mount or when URL changes
   useEffect(() => {
+    mountedRef.current = true;
     fetchData();
 
     return () => {
+      mountedRef.current = false;
       // Cleanup: abort request on unmount
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();

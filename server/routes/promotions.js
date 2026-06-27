@@ -2,9 +2,8 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
+const { asyncHandler } = require('../helpers');
 const crypto = require('crypto');
-
-const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 function generateSlug(title) {
   return title.toLowerCase().replace(/[^\w\s-]/g, '').replace(/[\s_]+/g, '-').replace(/^-+|-+$/g, '') + '-' + crypto.randomBytes(3).toString('hex');

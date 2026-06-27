@@ -15,6 +15,5 @@ gunicorn==21.2.0
 paddleocr==2.7.0.3
 paddlepaddle==2.5.2
 pillow==10.1.0
-sentence-transformers
-schedule
-pickle5
+sentence-transformers==2.2.2
+schedule==1.2.0

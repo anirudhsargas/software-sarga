@@ -202,10 +202,25 @@ router.post('/preflight/check-url', asyncHandler(async (req, res) => {
   const { file_url, file_name } = req.body;
   if (!file_url) return res.status(400).json({ error: 'file_url required' });
 
-  // Try to download and analyze
+  // Validate URL to prevent SSRF — only allow common image/CDN hosts
   try {
-    const https = require('https');
+    const validHosts = [
+      'res.cloudinary.com', 'cloudinary.com',
+      'images.unsplash.com', 'unsplash.com',
+      'i.ibb.co', 'ibb.co',
+      'drive.google.com', 'docs.google.com',
+      'lh3.googleusercontent.com',
+      'storage.googleapis.com',
+    ];
     const urlObj = new URL(file_url);
+    const hostname = urlObj.hostname.toLowerCase();
+    const isAllowed = validHosts.some(h => hostname === h || hostname.endsWith('.' + h));
+    const isImageExt = /\.(jpg|jpeg|png|webp|tiff|tif|pdf)$/i.test(urlObj.pathname);
+    if (!isAllowed || !isImageExt) {
+      return res.status(400).json({ error: 'URL rejected: only image URLs from trusted hosts are allowed' });
+    }
+
+    const https = require('https');
     const ext = path.extname(urlObj.pathname) || '.jpg';
     const tempPath = path.join(preflightDir, `url-check-${Date.now()}${ext}`);
 

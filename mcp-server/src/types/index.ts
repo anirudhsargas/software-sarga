@@ -9,7 +9,7 @@ export interface Vendor {
   contact_person: string | null;
   phone: string | null;
   email: string | null;
-  gstin: string | null;
+  gst_number: string | null;
   address: string | null;
   city: string | null;
   category: string;

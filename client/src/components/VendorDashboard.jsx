@@ -84,7 +84,7 @@ const VendorDashboard = ({ refreshKey = 0 }) => {
               href="/dashboard/vendors"
               onClick={(e) => {
                 e.preventDefault();
-                window.location.href = '/dashboard/vendors?view=list';
+                window.dispatchEvent(new CustomEvent('navigate', { detail: { path: '/dashboard/vendors?view=list' } }));
               }}
               className="btn btn-primary"
             >

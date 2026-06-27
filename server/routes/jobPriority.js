@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
-const { auditLog } = require('../helpers');
+const { auditLog, asyncHandler } = require('../helpers');
 const { paginate } = require('../helpers/pagination');
 
 // ───────────────────── Priority Scoring Engine ─────────────────────

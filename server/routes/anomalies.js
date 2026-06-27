@@ -8,7 +8,7 @@
  * If the ML service is unreachable we return the last cached result — never a 500.
  */
 const router = require('express').Router();
-const axios = require('axios');
+const axios = require('../helpers/mlAxios');
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 

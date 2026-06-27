@@ -127,7 +127,7 @@ async function ensureVendorExistsFromBill({ vendorName, documentType, branchId }
 
   const vendorType = mapVendorTypeFromDocumentType(documentType);
   const [insertRes] = await pool.query(
-    'INSERT INTO vendors (name, type, branch_id, category) VALUES (?, ?, ?, ?)',
+    'INSERT INTO vendors (name, vendor_type, branch_id, category) VALUES (?, ?, ?, ?)',
     [canonicalName, vendorType, branchId || null, 'other']
   );
 

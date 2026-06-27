@@ -38,7 +38,7 @@ if (import.meta.env.PROD) {
       const currentVersion = getMetaVersion() || '1.0.0';
       if (data.version && data.version !== currentVersion) {
         if (data.critical) {
-          window.location.reload(true);
+          window.location.reload();
         } else {
           window.dispatchEvent(new CustomEvent('app.update', { detail: { version: data.version } }));
         }
@@ -121,8 +121,8 @@ createRoot(
   </StrictMode>
 );
 
-// Ripple
-
+// Ripple effect handler — uses AbortController for cleanup
+const rippleController = new AbortController();
 document.addEventListener(
   "click",
   async (e) => {
@@ -142,5 +142,11 @@ document.addEventListener(
       clientX: e.clientX,
       clientY: e.clientY,
     });
-  }
+  },
+  { signal: rippleController.signal }
 );
+
+// Clean up ripple listener on page unload
+window.addEventListener("beforeunload", () => {
+  rippleController.abort();
+});

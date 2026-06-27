@@ -5,7 +5,7 @@
  * POST /feedback → saves user correction to training table for future model improvement
  */
 const router = require('express').Router();
-const axios = require('axios');
+const axios = require('../helpers/mlAxios');
 const { pool } = require('../database');
 const { authenticateToken } = require('../middleware/auth');
 

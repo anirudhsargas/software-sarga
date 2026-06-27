@@ -119,7 +119,7 @@ router.post('/auth/reset-password', resetLimiter, async (req, res) => {
     try {
         const { token, new_password } = req.body;
         if (!token || !new_password) return res.status(400).json({ message: 'Token and new password are required' });
-        if (new_password.length < 6) return res.status(400).json({ message: 'Password must be at least 6 characters' });
+        if (new_password.length < 8) return res.status(400).json({ message: 'Password must be at least 8 characters' });
 
         const [[record]] = await pool.query(
             'SELECT * FROM sarga_password_reset_tokens WHERE token = ? AND used = FALSE AND expires_at > NOW()',

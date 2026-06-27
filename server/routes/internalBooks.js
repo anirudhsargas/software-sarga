@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../database');
 const auth = require('../middleware/auth');
+const { asyncHandler } = require('../helpers');
 
 const BOOK_TYPES = ['Offset', 'Laser', 'Other'];
 

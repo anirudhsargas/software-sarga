@@ -6,7 +6,7 @@
  * POST /approve-purchase-list — save to purchase_orders table
  */
 const router = require('express').Router();
-const axios = require('axios');
+const axios = require('../helpers/mlAxios');
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 

@@ -297,7 +297,7 @@ export async function getVendors(filters = {}) {
         }
     }
     if (filters.type) {
-        vendors = vendors.filter(v => v.type === filters.type);
+        vendors = vendors.filter(v => (v.vendor_type || v.type) === filters.type);
     }
     if (filters.search) {
         const s = filters.search.toLowerCase();
@@ -329,11 +329,11 @@ export async function saveVendor(vendor) {
             const isTempId = String(id).startsWith('VEND');
             const vendorPayload = {
                 name: vendor.name,
-                type: vendor.type || 'Vendor',
+                vendor_type: vendor.vendor_type || vendor.type || 'Vendor',
                 contact_person: vendor.contact_person || null,
                 phone: vendor.phone || null,
                 email: vendor.email || null,
-                gstin: vendor.gstin || null,
+                gst_number: vendor.gst_number || vendor.gstin || null,
                 address: vendor.address || null,
                 city: vendor.city || null,
                 category: vendor.category || 'other',

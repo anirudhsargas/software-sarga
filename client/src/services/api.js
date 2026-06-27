@@ -219,7 +219,7 @@ api.interceptors.response.use(
                     config.url.includes('server-time')
                 );
                 if (!isBackground) {
-                    window.location.href = '/error/network';
+                    window.dispatchEvent(new CustomEvent('navigate', { detail: { path: '/error/network' } }));
                 }
                 return Promise.reject(error);
             }
@@ -242,7 +242,7 @@ api.interceptors.response.use(
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             if (!alreadyOnLogin) {
-                window.location.href = '/login';
+                window.dispatchEvent(new CustomEvent('navigate', { detail: { path: '/login' } }));
             }
         }
 

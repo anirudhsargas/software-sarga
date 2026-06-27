@@ -5,6 +5,17 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
+/**
+ * Validates that a string is safe to pass as a mysqldump/mysql CLI argument.
+ * Only alphanumeric characters, underscores, and hyphens are permitted.
+ * Prevents flag injection via crafted DB_USER or DB_NAME values.
+ */
+function assertSafeDbArg(value, name) {
+    if (!value || !/^[A-Za-z0-9_-]+$/.test(value)) {
+        throw new Error(`Unsafe or missing environment variable ${name}: "${value}"`);
+    }
+}
+
 const BACKUP_DIR = path.join(__dirname, '../backups');
 
 // Ensure backup directory exists
@@ -42,6 +53,9 @@ router.post('/backups', authenticateToken, authorizeRoles('Admin'), asyncHandler
 
     const env = { ...process.env };
     if (DB_PASS) env.MYSQL_PWD = DB_PASS;
+
+    assertSafeDbArg(DB_USER, 'DB_USER');
+    assertSafeDbArg(DB_NAME, 'DB_NAME');
 
     const child = spawn('mysqldump', ['-u', DB_USER, DB_NAME], { env });
     const writeStream = fs.createWriteStream(BACKUP_FILE);
@@ -87,6 +101,9 @@ router.post('/backups/restore', authenticateToken, authorizeRoles('Admin'), asyn
 
     const env = { ...process.env };
     if (DB_PASS) env.MYSQL_PWD = DB_PASS;
+
+    assertSafeDbArg(DB_USER, 'DB_USER');
+    assertSafeDbArg(DB_NAME, 'DB_NAME');
 
     const child = spawn('mysql', ['-u', DB_USER, DB_NAME], { env });
     const readStream = fs.createReadStream(backupFile);

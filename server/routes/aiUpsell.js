@@ -8,7 +8,7 @@
  * Apriori association rules on historical job data.
  */
 const router = require('express').Router();
-const axios = require('axios');
+const axios = require('../helpers/mlAxios');
 const { authenticateToken } = require('../middleware/auth');
 
 const ML_URL = process.env.ML_SERVICE_URL || 'http://127.0.0.1:5001';

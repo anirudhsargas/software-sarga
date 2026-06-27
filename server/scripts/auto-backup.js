@@ -1,5 +1,5 @@
 // Daily automatic backup script for MySQL database
-const { exec } = require('child_process');
+const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
@@ -14,14 +14,21 @@ if (!fs.existsSync(BACKUP_DIR)) {
     fs.mkdirSync(BACKUP_DIR);
 }
 
-const dumpCmd = `mysqldump -u ${DB_USER} ${DB_PASS ? '-p' + DB_PASS : ''} ${DB_NAME} > "${BACKUP_FILE}"`;
+const env = { ...process.env };
+if (DB_PASS) env.MYSQL_PWD = DB_PASS;
 
-exec(dumpCmd, (error, _stdout, _stderr) => {
-    if (error) {
-        console.error('Backup failed:', error);
+const child = spawn('mysqldump', ['-u', DB_USER, DB_NAME], { env });
+const writeStream = fs.createWriteStream(BACKUP_FILE);
+child.stdout.pipe(writeStream);
+
+child.on('error', (error) => {
+    console.error('Backup failed:', error);
+});
+
+child.on('close', (code) => {
+    if (code !== 0) {
+        console.error('Backup failed with exit code:', code);
     } else {
         console.log('Backup completed:', BACKUP_FILE);
     }
 });
-
-// To schedule: Use Windows Task Scheduler or a cron job to run this script daily.

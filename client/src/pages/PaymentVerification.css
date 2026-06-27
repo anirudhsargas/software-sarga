@@ -595,7 +595,7 @@
 }
 
 .nav-item.active {
-  background: var(--sidebar-active-bg, var(--shadow-sm), 0.08)) !important;
+  background: var(--sidebar-active-bg, rgba(0, 0, 0, 0.08)) !important;
   color: var(--accent-2) !important;
 }
 

@@ -1,3 +1,36 @@
+/* VENDOR ROUTES INDEX
+ * GET    /api/vendors                          (line 108)  - List all vendors
+ * GET    /api/vendors/:id                      (line 152)  - Vendor detail
+ * GET    /api/vendors/:id/items                (line 209)  - Items purchased from vendor
+ * POST   /api/vendors                          (line 234)  - Create vendor
+ * PUT    /api/vendors/:id                      (line 293)  - Update vendor
+ * DELETE /api/vendors/:id                      (line 358)  - Delete vendor
+ * GET    /api/vendors/dashboard/stats          (line 401)  - Dashboard statistics
+ * GET    /api/vendor-invoices                  (line 538)  - List invoices
+ * POST   /api/vendor-invoices                  (line 609)  - Create invoice
+ * PUT    /api/vendor-invoices/:id              (line 612)  - Update invoice
+ * POST   /api/vendor-payments                  (line 615)  - Record payment
+ * GET    /api/vendors/:id/spend-trend          (line 618)  - Spend trend
+ * POST   /api/vendor-invoices/:id/upload-bill  (line 707)  - Upload bill attachment
+ * GET    /api/vendors/:id/bills                (line 764)  - List vendor bills
+ * GET    /api/vendor-invoices/:id/bills        (line 803)  - Invoice bill attachments
+ * DELETE /api/vendor-bill-attachments/:id      (line 828)  - Delete bill attachment
+ * POST   /api/vendors/:id/upload-statement     (line 859)  - Upload bank statement CSV
+ * POST   /api/vendor-statements/:id/reconcile  (line 1053) - Reconcile statement
+ * GET    /api/vendor-statements/:id/result     (line 1174) - Reconciliation result
+ * GET    /api/vendors/:id/ledger               (line 1420) - Vendor ledger
+ * GET    /api/vendors/:id/balance              (line 1457) - Current balance
+ * GET    /api/vendors/summary                  (line 1472) - Summary totals
+ * GET    /api/vendors/:id/payments             (line 1503) - List payments
+ * POST   /api/vendors/:id/payments             (line 1521) - Record payment (by vendor)
+ * PUT    /api/vendor-payments/:paymentId       (line 1524) - Update payment
+ * DELETE /api/vendor-payments/:paymentId       (line 1596) - Delete payment
+ * (dup)  /api/vendors/:id/bills                (line 1656) - List bills (ledger)
+ * POST   /api/vendors/:id/bills                (line 1668) - Create bill
+ * PUT    /api/vendor-bills/:billId             (line 1671) - Update bill
+ * GET    /api/vendors/payment-audit            (line 1674) - Payment audit log
+ * POST   /api/vendors/:id/recalculate          (line 1716) - Recalculate balance
+ */
 const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
@@ -64,6 +97,29 @@ async function generateVendorCode(vendorName) {
   } while (usedCodes.has(randomCode));
 
   return randomCode;
+}
+
+// Recalculate vendor current balance based on opening balance, bills, and payments
+async function recalculateVendorBalance(vendorId, connectionOrPool) {
+  const conn = connectionOrPool || pool;
+  
+  // Get opening_balance
+  const [vendorRows] = await conn.query('SELECT opening_balance FROM vendors WHERE id = ?', [vendorId]);
+  if (vendorRows.length === 0) return 0;
+  const opening_balance = Number(vendorRows[0].opening_balance) || 0;
+  
+  // Get sum(total_amount) from vendor_invoices
+  const [billRows] = await conn.query('SELECT COALESCE(SUM(total_amount), 0) as total_billed FROM vendor_invoices WHERE vendor_id = ?', [vendorId]);
+  const total_billed = Number(billRows[0].total_billed) || 0;
+  
+  // Get sum(amount) from vendor_payments
+  const [paymentRows] = await conn.query('SELECT COALESCE(SUM(amount), 0) as total_paid FROM vendor_payments WHERE vendor_id = ?', [vendorId]);
+  const total_paid = Number(paymentRows[0].total_paid) || 0;
+  
+  const newBalance = opening_balance + total_billed - total_paid;
+  
+  await conn.query('UPDATE vendors SET current_balance = ? WHERE id = ?', [newBalance, vendorId]);
+  return newBalance;
 }
 
 // Helper function to update overdue status
@@ -230,27 +286,35 @@ router.post('/vendors', authenticateToken, authorizeRoles('Admin', 'Accountant',
       }
     }
 
+    const gst = vendorData.gst_number || vendorData.gstin || null;
+    const vendorType = vendorData.vendor_type || 'other';
+    const openBal = Number(vendorData.opening_balance) || 0;
+    const curBal = openBal;
+
     const [result] = await pool.query(`
-      INSERT INTO vendors (name, contact_person, phone, email, gstin, address, city, category, credit_days, credit_limit, notes, vendor_code)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO vendors (name, contact_person, phone, email, gst_number, address, city, category, vendor_type, credit_days, credit_limit, opening_balance, current_balance, notes, vendor_code)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       vendorData.name,
       vendorData.contact_person || null,
       vendorData.phone || null,
       vendorData.email || null,
-      vendorData.gstin || null,
+      gst,
       vendorData.address || null,
       vendorData.city || null,
       vendorData.category || 'other',
+      vendorType,
       vendorData.credit_days || 0,
       vendorData.credit_limit || 0,
+      openBal,
+      curBal,
       vendorData.notes || null,
       vendorCode
     ]);
 
     auditLog(req.user.id, 'VENDOR_ADD', `Added vendor: ${vendorData.name} (${vendorCode})`, { entity_type: 'vendor', entity_id: result.insertId });
 
-    res.json({ success: true, data: { id: result.insertId, vendor_code: vendorCode, message: 'Vendor added successfully' } });
+    res.json({ success: true, data: { id: result.insertId, vendor_code: vendorCode, current_balance: curBal, message: 'Vendor added successfully' } });
   } catch (error) {
     console.error('Error creating vendor:', error);
     res.status(500).json({ success: false, message: 'Database error' });
@@ -283,29 +347,38 @@ router.put('/vendors/:id', authenticateToken, authorizeRoles('Admin', 'Accountan
       }
     }
 
+    const gst = vendorData.gst_number || vendorData.gstin || null;
+    const vendorType = vendorData.vendor_type || 'other';
+    const openBal = Number(vendorData.opening_balance) || 0;
+
     await pool.query(`
       UPDATE vendors
-      SET name = ?, contact_person = ?, phone = ?, email = ?, gstin = ?, address = ?, city = ?, category = ?, credit_days = ?, credit_limit = ?, notes = ?, vendor_code = ?
+      SET name = ?, contact_person = ?, phone = ?, email = ?, gst_number = ?, address = ?, city = ?, category = ?, vendor_type = ?, credit_days = ?, credit_limit = ?, opening_balance = ?, notes = ?, vendor_code = ?
       WHERE id = ?
     `, [
       vendorData.name,
       vendorData.contact_person || null,
       vendorData.phone || null,
       vendorData.email || null,
-      vendorData.gstin || null,
+      gst,
       vendorData.address || null,
       vendorData.city || null,
       vendorData.category || 'other',
+      vendorType,
       vendorData.credit_days || 0,
       vendorData.credit_limit || 0,
+      openBal,
       vendorData.notes || null,
       vendorData.vendor_code || null,
       id
     ]);
 
+    // Recalculate balance for this vendor because opening_balance or credit parameters might have changed
+    const updatedBalance = await recalculateVendorBalance(id, pool);
+
     auditLog(req.user.id, 'VENDOR_UPDATE', `Updated vendor: ${vendorData.name}`, { entity_type: 'vendor', entity_id: id });
 
-    res.json({ success: true, message: 'Vendor updated successfully' });
+    res.json({ success: true, current_balance: updatedBalance, message: 'Vendor updated successfully' });
   } catch (error) {
     console.error('Error updating vendor:', error);
     res.status(500).json({ success: false, message: 'Database error' });
@@ -564,140 +637,13 @@ router.get('/vendor-invoices', authenticateToken, async (req, res) => {
 });
 
 // POST /api/vendor-invoices - Create invoice
-router.post('/vendor-invoices', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), validate(addInvoiceSchema), async (req, res) => {
-  try {
-    const invoiceData = req.body;
-
-    // Check if vendor exists
-    const [vendor] = await pool.query('SELECT id, credit_days FROM vendors WHERE id = ? AND is_active = TRUE', [invoiceData.vendor_id]);
-    if (vendor.length === 0) {
-      return res.status(404).json({ success: false, message: 'Vendor not found' });
-    }
-
-    // Calculate due date
-    const invoiceDate = new Date(invoiceData.invoice_date);
-    const dueDate = new Date(invoiceDate);
-    dueDate.setDate(dueDate.getDate() + (vendor[0].credit_days || 0));
-
-    const [result] = await pool.query(`
-      INSERT INTO vendor_invoices (vendor_id, invoice_number, invoice_date, due_date, amount, branch, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `, [
-      invoiceData.vendor_id,
-      invoiceData.invoice_number || null,
-      invoiceData.invoice_date,
-      dueDate.toISOString().split('T')[0],
-      invoiceData.amount,
-      invoiceData.branch || 'common',
-      invoiceData.notes || null
-    ]);
-
-    auditLog(req.user.id, 'VENDOR_INVOICE_ADD', `Added invoice for vendor ${invoiceData.vendor_id}`, { entity_type: 'vendor_invoice', entity_id: result.insertId });
-
-    res.json({ success: true, data: { id: result.insertId, message: 'Invoice added successfully' } });
-  } catch (error) {
-    console.error('Error creating invoice:', error);
-    res.status(500).json({ success: false, message: 'Database error' });
-  }
-});
+router.post('/vendor-invoices', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), validate(addInvoiceSchema), recordVendorBill);
 
 // PUT /api/vendor-invoices/:id - Update invoice
-router.put('/vendor-invoices/:id', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const invoiceData = req.body;
-
-    await pool.query(`
-      UPDATE vendor_invoices
-      SET invoice_number = ?, invoice_date = ?, due_date = ?, amount = ?, branch = ?, notes = ?
-      WHERE id = ?
-    `, [
-      invoiceData.invoice_number || null,
-      invoiceData.invoice_date,
-      invoiceData.due_date,
-      invoiceData.amount,
-      invoiceData.branch || 'common',
-      invoiceData.notes || null,
-      id
-    ]);
-
-    auditLog(req.user.id, 'VENDOR_INVOICE_UPDATE', `Updated invoice ${id}`, { entity_type: 'vendor_invoice', entity_id: id });
-
-    res.json({ success: true, message: 'Invoice updated successfully' });
-  } catch (error) {
-    console.error('Error updating invoice:', error);
-    res.status(500).json({ success: false, message: 'Database error' });
-  }
-});
+router.put('/vendor-invoices/:id', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), updateVendorBill);
 
 // POST /api/vendor-payments - Record payment
-router.post('/vendor-payments', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), validate(addVendorPaymentSchema), async (req, res) => {
-  const connection = await pool.getConnection();
-  try {
-    await connection.beginTransaction();
-
-    const paymentData = req.body;
-
-    // Get invoice details
-    const [invoice] = await connection.query('SELECT * FROM vendor_invoices WHERE id = ?', [paymentData.vendor_invoice_id]);
-    if (invoice.length === 0) {
-      await connection.rollback();
-      return res.status(404).json({ success: false, message: 'Invoice not found' });
-    }
-
-    const inv = invoice[0];
-    const balanceDue = inv.amount - inv.paid_amount;
-
-    if (paymentData.amount > balanceDue) {
-      await connection.rollback();
-      return res.status(400).json({ success: false, message: `Payment amount cannot exceed balance due of ₹${balanceDue}` });
-    }
-
-    // Insert payment
-    const [paymentResult] = await connection.query(`
-      INSERT INTO vendor_payments (vendor_invoice_id, vendor_id, amount, payment_date, payment_mode, reference_number, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `, [
-      paymentData.vendor_invoice_id,
-      inv.vendor_id,
-      paymentData.amount,
-      paymentData.payment_date,
-      paymentData.payment_mode || 'cash',
-      paymentData.reference_number || null,
-      paymentData.notes || null
-    ]);
-
-    // Update invoice paid amount and status
-    const newPaidAmount = inv.paid_amount + paymentData.amount;
-    let newStatus = 'partial';
-    if (newPaidAmount >= inv.amount) {
-      newStatus = 'paid';
-    } else if (new Date(inv.due_date) < new Date() && newPaidAmount < inv.amount) {
-      newStatus = 'overdue';
-    }
-
-    await connection.query(`
-      UPDATE vendor_invoices
-      SET paid_amount = ?, status = ?
-      WHERE id = ?
-    `, [newPaidAmount, newStatus, paymentData.vendor_invoice_id]);
-
-    await connection.commit();
-
-    auditLog(req.user.id, 'VENDOR_PAYMENT_ADD', `Recorded payment of ₹${paymentData.amount} for invoice ${paymentData.vendor_invoice_id}`, {
-      entity_type: 'vendor_payment',
-      entity_id: paymentResult.insertId
-    });
-
-    res.json({ success: true, data: { id: paymentResult.insertId, message: 'Payment recorded successfully' } });
-  } catch (error) {
-    await connection.rollback();
-    console.error('Error recording payment:', error);
-    res.status(500).json({ success: false, message: 'Database error' });
-  } finally {
-    connection.release();
-  }
-});
+router.post('/vendor-payments', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), validate(addVendorPaymentSchema), recordVendorPayment);
 
 // GET /api/vendors/:id/spend-trend - Monthly spend trend
 router.get('/vendors/:id/spend-trend', authenticateToken, async (req, res) => {
@@ -1275,6 +1221,536 @@ router.get('/vendor-statements/:id/result', authenticateToken, async (req, res) 
     res.json({ success: true, data: lines });
   } catch (error) {
     console.error('Error fetching reconciliation results:', error);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
+});
+
+// Helper functions for bills and payments
+async function recordVendorBill(req, res) {
+  try {
+    const vendor_id = req.params.id ? parseInt(req.params.id) : req.body.vendor_id;
+    const { invoice_number, invoice_date, amount, gst_amount, branch, notes } = req.body;
+    
+    if (!vendor_id) {
+      return res.status(400).json({ success: false, message: 'vendor_id is required' });
+    }
+
+    // Get credit limit
+    const [vendor] = await pool.query('SELECT credit_limit, current_balance, credit_days FROM vendors WHERE id = ?', [vendor_id]);
+    if (vendor.length === 0) {
+      return res.status(404).json({ success: false, message: 'Vendor not found' });
+    }
+    
+    const newOutstanding = Number(vendor[0].current_balance || 0) + Number(amount);
+    if (Number(vendor[0].credit_limit) > 0 && newOutstanding > Number(vendor[0].credit_limit)) {
+      res.setHeader('X-Credit-Limit-Warning', 'Breached');
+    }
+    
+    // Calculate due date
+    const creditDays = vendor[0].credit_days || 0;
+    const dueDateObj = new Date(invoice_date);
+    dueDateObj.setDate(dueDateObj.getDate() + creditDays);
+    const due_date = dueDateObj.toISOString().split('T')[0];
+    
+    const finalTotal = Number(amount) + Number(gst_amount || 0);
+    
+    const [result] = await pool.query(`
+      INSERT INTO vendor_invoices (vendor_id, invoice_number, invoice_date, due_date, amount, gst_amount, total_amount, paid_amount, status, payment_status, branch, notes)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'pending', 'unpaid', ?, ?)
+    `, [
+      vendor_id,
+      invoice_number || null,
+      invoice_date,
+      due_date,
+      amount,
+      gst_amount || 0,
+      finalTotal,
+      branch || 'common',
+      notes || null
+    ]);
+    
+    // Recalculate vendor balance
+    const updatedBalance = await recalculateVendorBalance(vendor_id, pool);
+    
+    auditLog(req.user.id, 'VENDOR_BILL_ADD', `Added bill for vendor ID ${vendor_id}`, {
+      entity_type: 'vendor_invoice',
+      entity_id: result.insertId
+    });
+    
+    res.json({
+      success: true,
+      data: {
+        id: result.insertId,
+        current_balance: updatedBalance,
+        message: 'Bill recorded successfully'
+      }
+    });
+  } catch (error) {
+    logger.error('Error recording bill:', error);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
+}
+
+async function updateVendorBill(req, res) {
+  try {
+    const billId = req.params.billId || req.params.id;
+    const { invoice_number, invoice_date, due_date, amount, gst_amount, branch, notes } = req.body;
+    
+    // Find old bill
+    const [bill] = await pool.query('SELECT vendor_id, paid_amount FROM vendor_invoices WHERE id = ?', [billId]);
+    if (bill.length === 0) {
+      return res.status(404).json({ success: false, message: 'Bill not found' });
+    }
+    const vendorId = bill[0].vendor_id;
+    const paidAmount = Number(bill[0].paid_amount || 0);
+    
+    const finalTotal = Number(amount) + Number(gst_amount || 0);
+    
+    // Determine status and payment_status
+    let status = 'pending';
+    let paymentStatus = 'unpaid';
+    if (paidAmount >= finalTotal) {
+      status = 'paid';
+      paymentStatus = 'paid';
+    } else if (paidAmount > 0) {
+      status = 'partial';
+      paymentStatus = 'partial';
+    }
+    
+    await pool.query(`
+      UPDATE vendor_invoices
+      SET invoice_number = ?, invoice_date = ?, due_date = ?, amount = ?, gst_amount = ?, total_amount = ?, status = ?, payment_status = ?, branch = ?, notes = ?
+      WHERE id = ?
+    `, [
+      invoice_number || null,
+      invoice_date,
+      due_date,
+      amount,
+      gst_amount || 0,
+      finalTotal,
+      status,
+      paymentStatus,
+      branch || 'common',
+      notes || null,
+      billId
+    ]);
+    
+    // Recalculate balance
+    const updatedBalance = await recalculateVendorBalance(vendorId, pool);
+    
+    auditLog(req.user.id, 'VENDOR_BILL_UPDATE', `Updated bill ID ${billId}`, {
+      entity_type: 'vendor_invoice',
+      entity_id: billId
+    });
+    
+    res.json({ success: true, current_balance: updatedBalance, message: 'Bill updated successfully' });
+  } catch (error) {
+    logger.error('Error updating bill:', error);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
+}
+
+async function recordVendorPayment(req, res) {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const vendor_id = req.params.id ? parseInt(req.params.id) : req.body.vendor_id;
+    const { vendor_invoice_id, amount, payment_date, payment_mode, reference_number, notes } = req.body;
+    
+    if (!amount || amount <= 0) {
+      await connection.rollback();
+      return res.status(400).json({ success: false, message: 'Amount must be greater than zero' });
+    }
+    
+    // Verify payment mode
+    const validModes = ['cash', 'bank', 'upi', 'cheque', 'neft', 'rtgs'];
+    if (!validModes.includes(payment_mode)) {
+      await connection.rollback();
+      return res.status(400).json({ success: false, message: `Invalid payment mode. Allowed: ${validModes.join(', ')}` });
+    }
+    
+    // For cheque, reference number is required
+    if (payment_mode === 'cheque' && (!reference_number || reference_number.trim() === '')) {
+      await connection.rollback();
+      return res.status(400).json({ success: false, message: 'Reference number is required for cheque payments' });
+    }
+    
+    // Fetch invoice details
+    const [invoice] = await connection.query('SELECT * FROM vendor_invoices WHERE id = ?', [vendor_invoice_id]);
+    if (invoice.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ success: false, message: 'Invoice not found' });
+    }
+    
+    const inv = invoice[0];
+    const finalVendorId = vendor_id || inv.vendor_id;
+    
+    // Insert payment
+    const [paymentResult] = await connection.query(`
+      INSERT INTO vendor_payments (vendor_invoice_id, vendor_id, amount, payment_date, payment_mode, reference_number, notes, created_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      vendor_invoice_id,
+      finalVendorId,
+      amount,
+      payment_date,
+      payment_mode,
+      reference_number || null,
+      notes || null,
+      req.user.id
+    ]);
+    
+    // Update invoice paid amount and status
+    const newPaidAmount = Number(inv.paid_amount || 0) + Number(amount);
+    let newStatus = 'partial';
+    let newPaymentStatus = 'partial';
+    if (newPaidAmount >= Number(inv.amount)) {
+      newStatus = 'paid';
+      newPaymentStatus = 'paid';
+    } else if (newPaidAmount <= 0) {
+      newStatus = 'pending';
+      newPaymentStatus = 'unpaid';
+    }
+    
+    await connection.query(`
+      UPDATE vendor_invoices
+      SET paid_amount = ?, status = ?, payment_status = ?
+      WHERE id = ?
+    `, [newPaidAmount, newStatus, newPaymentStatus, vendor_invoice_id]);
+    
+    await connection.commit();
+    
+    // Recalculate vendor balance
+    const updatedBalance = await recalculateVendorBalance(finalVendorId, pool);
+    
+    auditLog(req.user.id, 'VENDOR_PAYMENT_ADD', `Recorded payment of ₹${amount} for vendor ID ${finalVendorId}`, {
+      entity_type: 'vendor_payment',
+      entity_id: paymentResult.insertId
+    });
+    
+    res.json({
+      success: true,
+      data: {
+        id: paymentResult.insertId,
+        current_balance: updatedBalance,
+        message: 'Payment recorded successfully'
+      }
+    });
+  } catch (error) {
+    await connection.rollback();
+    logger.error('Error recording payment:', error);
+    res.status(500).json({ success: false, message: 'Database error' });
+  } finally {
+    connection.release();
+  }
+}
+
+// REST endpoints for vendor ledger, balance, and summary
+
+// GET /api/vendors/:id/ledger → list ledger transactions sorted by date
+router.get('/vendors/:id/ledger', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [invoices] = await pool.query('SELECT id, invoice_number, invoice_date, amount, status, notes FROM vendor_invoices WHERE vendor_id = ?', [id]);
+    const [payments] = await pool.query('SELECT id, payment_date, amount, payment_mode, reference_number, notes FROM vendor_payments WHERE vendor_id = ?', [id]);
+    
+    const ledger = [
+      ...invoices.map(inv => ({
+        id: `bill-${inv.id}`,
+        rawId: inv.id,
+        type: 'bill',
+        date: inv.invoice_date,
+        number: inv.invoice_number || `Bill #${inv.id}`,
+        amount: Number(inv.amount),
+        status: inv.status,
+        notes: inv.notes
+      })),
+      ...payments.map(pay => ({
+        id: `pay-${pay.id}`,
+        rawId: pay.id,
+        type: 'payment',
+        date: pay.payment_date,
+        number: pay.reference_number || `Pay #${pay.id}`,
+        amount: Number(pay.amount),
+        status: 'paid',
+        notes: `Mode: ${pay.payment_mode}. ${pay.notes || ''}`
+      }))
+    ].sort((a, b) => new Date(a.date) - new Date(b.date));
+    
+    res.json({ success: true, data: ledger });
+  } catch (error) {
+    logger.error('Error fetching ledger:', error);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
+});
+
+// GET /api/vendors/:id/balance → current balance
+router.get('/vendors/:id/balance', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [rows] = await pool.query('SELECT current_balance FROM vendors WHERE id = ?', [id]);
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Vendor not found' });
+    }
+    res.json({ success: true, balance: Number(rows[0].current_balance) || 0 });
+  } catch (error) {
+    logger.error('Error fetching balance:', error);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
+});
+
+// GET /api/vendors/summary → total payables, overdue, all vendors
+router.get('/vendors/summary', authenticateToken, async (req, res) => {
+  try {
+    const [summary] = await pool.query(`
+      SELECT 
+        COALESCE(SUM(current_balance), 0) as total_payables,
+        COUNT(id) as vendor_count
+      FROM vendors
+      WHERE is_active = TRUE
+    `);
+    
+    const [overdue] = await pool.query(`
+      SELECT COALESCE(SUM(amount - paid_amount), 0) as total_overdue
+      FROM vendor_invoices
+      WHERE status = 'overdue'
+    `);
+    
+    res.json({
+      success: true,
+      data: {
+        total_payables: Number(summary[0].total_payables) || 0,
+        total_overdue: Number(overdue[0].total_overdue) || 0,
+        vendor_count: summary[0].vendor_count
+      }
+    });
+  } catch (error) {
+    logger.error('Error fetching summary:', error);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
+});
+
+// GET /api/vendors/:id/payments → list payments
+router.get('/vendors/:id/payments', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [payments] = await pool.query(`
+      SELECT vp.*, vi.invoice_number
+      FROM vendor_payments vp
+      LEFT JOIN vendor_invoices vi ON vp.vendor_invoice_id = vi.id
+      WHERE vp.vendor_id = ?
+      ORDER BY vp.payment_date DESC
+    `, [id]);
+    res.json({ success: true, data: payments });
+  } catch (error) {
+    logger.error('Error fetching payments:', error);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
+});
+
+// POST /api/vendors/:id/payments → record payment scoped to vendor
+router.post('/vendors/:id/payments', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), validate(addVendorPaymentSchema), recordVendorPayment);
+
+// PUT /api/vendor-payments/:paymentId → edit payment
+router.put('/vendor-payments/:paymentId', authenticateToken, authorizeRoles('Admin', 'Accountant'), validate(addVendorPaymentSchema), async (req, res) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const { paymentId } = req.params;
+    const { amount, payment_date, payment_mode, reference_number, notes } = req.body;
+    
+    const [payment] = await connection.query('SELECT * FROM vendor_payments WHERE id = ?', [paymentId]);
+    if (payment.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ success: false, message: 'Payment not found' });
+    }
+    
+    const oldPayment = payment[0];
+    const vendorId = oldPayment.vendor_id;
+    
+    // For cheque, reference number is required
+    if (payment_mode === 'cheque' && (!reference_number || reference_number.trim() === '')) {
+      await connection.rollback();
+      return res.status(400).json({ success: false, message: 'Reference number is required for cheque payments' });
+    }
+    
+    // Update payment
+    await connection.query(`
+      UPDATE vendor_payments
+      SET amount = ?, payment_date = ?, payment_mode = ?, reference_number = ?, notes = ?
+      WHERE id = ?
+    `, [amount, payment_date, payment_mode, reference_number || null, notes || null, paymentId]);
+    
+    // Adjust invoice paid amount
+    const diff = Number(amount) - Number(oldPayment.amount);
+    const [invoice] = await connection.query('SELECT * FROM vendor_invoices WHERE id = ?', [oldPayment.vendor_invoice_id]);
+    if (invoice.length > 0) {
+      const inv = invoice[0];
+      const newPaidAmount = Number(inv.paid_amount || 0) + diff;
+      let newStatus = 'partial';
+      let newPaymentStatus = 'partial';
+      if (newPaidAmount >= Number(inv.amount)) {
+        newStatus = 'paid';
+        newPaymentStatus = 'paid';
+      } else if (newPaidAmount <= 0) {
+        newStatus = 'pending';
+        newPaymentStatus = 'unpaid';
+      }
+      
+      await connection.query(`
+        UPDATE vendor_invoices
+        SET paid_amount = ?, status = ?, payment_status = ?
+        WHERE id = ?
+      `, [newPaidAmount, newStatus, newPaymentStatus, oldPayment.vendor_invoice_id]);
+    }
+    
+    await connection.commit();
+    
+    const updatedBalance = await recalculateVendorBalance(vendorId, pool);
+    
+    auditLog(req.user.id, 'VENDOR_PAYMENT_UPDATE', `Updated payment ID ${paymentId}`, {
+      entity_type: 'vendor_payment',
+      entity_id: paymentId
+    });
+    
+    res.json({ success: true, current_balance: updatedBalance, message: 'Payment updated successfully' });
+  } catch (error) {
+    await connection.rollback();
+    logger.error('Error updating payment:', error);
+    res.status(500).json({ success: false, message: 'Database error' });
+  } finally {
+    connection.release();
+  }
+});
+
+// DELETE /api/vendor-payments/:paymentId → delete payment
+router.delete('/vendor-payments/:paymentId', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const { paymentId } = req.params;
+    
+    const [payment] = await connection.query('SELECT * FROM vendor_payments WHERE id = ?', [paymentId]);
+    if (payment.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ success: false, message: 'Payment not found' });
+    }
+    
+    const oldPayment = payment[0];
+    const vendorId = oldPayment.vendor_id;
+    
+    // Delete payment
+    await connection.query('DELETE FROM vendor_payments WHERE id = ?', [paymentId]);
+    
+    // Adjust invoice paid amount
+    const [invoice] = await connection.query('SELECT * FROM vendor_invoices WHERE id = ?', [oldPayment.vendor_invoice_id]);
+    if (invoice.length > 0) {
+      const inv = invoice[0];
+      const newPaidAmount = Math.max(0, Number(inv.paid_amount || 0) - Number(oldPayment.amount));
+      let newStatus = 'partial';
+      let newPaymentStatus = 'partial';
+      if (newPaidAmount >= Number(inv.amount)) {
+        newStatus = 'paid';
+        newPaymentStatus = 'paid';
+      } else if (newPaidAmount <= 0) {
+        newStatus = 'pending';
+        newPaymentStatus = 'unpaid';
+      }
+      
+      await connection.query(`
+        UPDATE vendor_invoices
+        SET paid_amount = ?, status = ?, payment_status = ?
+        WHERE id = ?
+      `, [newPaidAmount, newStatus, newPaymentStatus, oldPayment.vendor_invoice_id]);
+    }
+    
+    await connection.commit();
+    
+    const updatedBalance = await recalculateVendorBalance(vendorId, pool);
+    
+    auditLog(req.user.id, 'VENDOR_PAYMENT_DELETE', `Deleted payment ID ${paymentId}`, {
+      entity_type: 'vendor_payment',
+      entity_id: paymentId
+    });
+    
+    res.json({ success: true, current_balance: updatedBalance, message: 'Payment deleted successfully' });
+  } catch (error) {
+    await connection.rollback();
+    logger.error('Error deleting payment:', error);
+    res.status(500).json({ success: false, message: 'Database error' });
+  } finally {
+    connection.release();
+  }
+});
+
+// GET /api/vendors/:id/bills → list bills for vendor
+router.get('/vendors/:id/bills', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [bills] = await pool.query('SELECT * FROM vendor_invoices WHERE vendor_id = ? ORDER BY invoice_date DESC', [id]);
+    res.json({ success: true, data: bills });
+  } catch (error) {
+    logger.error('Error fetching bills:', error);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
+});
+
+// POST /api/vendors/:id/bills → record purchase bill
+router.post('/vendors/:id/bills', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), validate(addInvoiceSchema), recordVendorBill);
+
+// PUT /api/vendor-bills/:billId → update bill
+router.put('/vendor-bills/:billId', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), updateVendorBill);
+
+// GET /api/vendors/payment-audit → run SQL audit discrepancy query
+router.get('/vendors/payment-audit', authenticateToken, async (req, res) => {
+  try {
+    try {
+      await pool.query("SET SESSION sql_mode=(SELECT REPLACE(@@sql_mode, 'ONLY_FULL_GROUP_BY', ''))");
+    } catch (e) {
+      logger.warn('Could not modify sql_mode for session:', e.message);
+    }
+    
+    const [rows] = await pool.query(`
+      SELECT 
+        v.id,
+        v.name,
+        v.opening_balance,
+        (SELECT COALESCE(SUM(total_amount), 0) FROM vendor_invoices WHERE vendor_id = v.id) as total_billed,
+        (SELECT COALESCE(SUM(amount), 0) FROM vendor_payments WHERE vendor_id = v.id) as total_paid,
+        (v.opening_balance + 
+         (SELECT COALESCE(SUM(total_amount), 0) FROM vendor_invoices WHERE vendor_id = v.id) - 
+         (SELECT COALESCE(SUM(amount), 0) FROM vendor_payments WHERE vendor_id = v.id)
+        ) as calculated_balance,
+        v.current_balance as stored_balance,
+        (v.current_balance - (v.opening_balance + 
+         (SELECT COALESCE(SUM(total_amount), 0) FROM vendor_invoices WHERE vendor_id = v.id) - 
+         (SELECT COALESCE(SUM(amount), 0) FROM vendor_payments WHERE vendor_id = v.id)
+        )) as discrepancy
+      FROM vendors v
+      WHERE v.is_active = 1
+      GROUP BY v.id, v.name, v.opening_balance, v.current_balance
+      HAVING ABS(discrepancy) > 0.01
+    `);
+    
+    if (rows.length > 0) {
+      logger.warn(`Vendor payment audit found ${rows.length} discrepancy(ies)`);
+    }
+    
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    logger.error('Error running payment audit:', error);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
+});
+
+// POST /api/vendors/:id/recalculate → trigger recalculation of balance manually
+router.post('/vendors/:id/recalculate', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const balance = await recalculateVendorBalance(parseInt(id), pool);
+    res.json({ success: true, current_balance: balance, message: 'Balance recalculated successfully' });
+  } catch (error) {
+    logger.error('Error recalculating balance:', error);
     res.status(500).json({ success: false, message: 'Database error' });
   }
 });

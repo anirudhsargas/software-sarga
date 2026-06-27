@@ -46,7 +46,7 @@ export function registerVendorTools(server: McpServer): void {
 
       const vendors = await selectAll(
         `SELECT
-           v.id, v.name, v.contact_person, v.phone, v.email, v.gstin, v.city,
+           v.id, v.name, v.contact_person, v.phone, v.email, v.gst_number, v.city,
            v.category, v.vendor_code, v.credit_days, v.credit_limit,
            COALESCE(SUM(CASE WHEN vi.invoice_date BETWEEN ? AND ? THEN vi.amount ELSE 0 END), 0) as this_month_spend,
            COALESCE(SUM(CASE WHEN vi.status != 'paid' THEN vi.amount - vi.paid_amount ELSE 0 END), 0) as pending_amount,
@@ -284,7 +284,7 @@ export function registerVendorTools(server: McpServer): void {
       contact_person: z.string().optional(),
       phone: z.string().optional(),
       email: z.string().optional(),
-      gstin: z.string().optional(),
+      gst_number: z.string().optional(),
       address: z.string().optional(),
       city: z.string().optional(),
       category: z.string().optional(),

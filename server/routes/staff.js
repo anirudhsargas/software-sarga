@@ -332,7 +332,7 @@ module.exports = (upload, removeUploadFile) => {
             const newHashedPassword = await bcrypt.hash(passwordWithSuffix, 10);
             await pool.query("UPDATE sarga_staff SET password = ?, is_first_login = 1 WHERE id = ?", [newHashedPassword, id]);
 
-            auditLog(req.user.id, 'STAFF_PASSWORD_RESET', `Reset password for staff member ${users[0].name} (${id}) to ${normalizedMobile}@Sarga`);
+            auditLog(req.user.id, 'STAFF_PASSWORD_RESET', `Reset password for staff member ${users[0].name} (${id}) to [REDACTED]`);
             res.json({ message: `Password reset to ${normalizedMobile}@Sarga successfully. Staff must change password on first login.` });
         } catch (err) {
             console.error("Reset password error:", err);

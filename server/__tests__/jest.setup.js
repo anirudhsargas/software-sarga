@@ -9,3 +9,6 @@ process.env.DB_PASSWORD = process.env.TEST_DB_PASSWORD || '';
 process.env.DB_NAME = process.env.TEST_DB_NAME || 'sarga_test';
 process.env.DB_SSL = 'false';
 process.env.ML_SERVICE_URL = 'http://127.0.0.1:5001';
+
+// Mock database globally using the mock-pool helper
+jest.mock('../database', () => require('./helpers/mock-pool'));

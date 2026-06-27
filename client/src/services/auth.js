@@ -23,7 +23,7 @@ const auth = {
         }
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        window.location.replace('/login'); // Prevent back-navigation memory
+        window.dispatchEvent(new CustomEvent('navigate', { detail: { path: '/login' } }));
     },
 
     getToken: () => localStorage.getItem('token'),

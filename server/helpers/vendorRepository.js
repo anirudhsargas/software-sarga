@@ -15,7 +15,7 @@ const S_VENDORS = 'sarga_vendors';
 const VENDORS = 'vendors';
 
 const S_COLS = ['id', 'name', 'type', 'contact_person', 'phone', 'address', 'branch_id', 'order_link', 'gstin', 'created_at']; // eslint-disable-line no-unused-vars
-const V_COLS = ['id', 'name', 'contact_person', 'phone', 'email', 'gstin', 'address', 'city', 'vendor_code', 'category', 'credit_days', 'credit_limit', 'is_active', 'notes', 'created_at']; // eslint-disable-line no-unused-vars
+const V_COLS = ['id', 'name', 'contact_person', 'phone', 'email', 'gst_number', 'address', 'city', 'vendor_code', 'category', 'credit_days', 'credit_limit', 'is_active', 'notes', 'created_at']; // eslint-disable-line no-unused-vars
 
 /**
  * Normalize a vendor row from either table into a consistent shape.
@@ -29,7 +29,7 @@ function normalizeRow(row, source) {
             contactPerson: row.contact_person,
             phone: row.phone,
             email: row.email || null,
-            gstin: row.gstin || null,
+            gst_number: row.gst_number || null,
             address: row.address || null,
             city: row.city || null,
             vendorCode: row.vendor_code || null,
@@ -49,7 +49,7 @@ function normalizeRow(row, source) {
         contactPerson: row.contact_person || null,
         phone: row.phone || null,
         email: null,
-        gstin: row.gstin || null,
+        gst_number: row.gst_number || row.gstin || null,
         address: row.address || null,
         city: null,
         vendorCode: null,
@@ -92,10 +92,10 @@ async function listVendors({ search, isActive, category, limit, offset } = {}) {
 /**
  * Create a vendor in the primary `vendors` table.
  */
-async function createVendor({ name, contactPerson, phone, email, gstin, address, city, vendorCode, category, creditDays, creditLimit, notes }) {
+async function createVendor({ name, contactPerson, phone, email, gst_number, address, city, vendorCode, category, creditDays, creditLimit, notes }) {
     const [result] = await pool.query(
-        `INSERT INTO ${VENDORS} (name, contact_person, phone, email, gstin, address, city, vendor_code, category, credit_days, credit_limit, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [name, contactPerson || null, phone || null, email || null, gstin || null, address || null, city || null, vendorCode || null, category || 'General', creditDays || 0, creditLimit || 0, notes || null]
+        `INSERT INTO ${VENDORS} (name, contact_person, phone, email, gst_number, address, city, vendor_code, category, credit_days, credit_limit, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [name, contactPerson || null, phone || null, email || null, gst_number || null, address || null, city || null, vendorCode || null, category || 'General', creditDays || 0, creditLimit || 0, notes || null]
     );
     return { id: result.insertId, ...await getVendor(result.insertId) };
 }
@@ -104,7 +104,7 @@ async function createVendor({ name, contactPerson, phone, email, gstin, address,
  * Update a vendor in the primary `vendors` table.
  */
 async function updateVendor(id, fields) {
-    const allowed = ['name', 'contact_person', 'phone', 'email', 'gstin', 'address', 'city', 'vendor_code', 'category', 'credit_days', 'credit_limit', 'is_active', 'notes'];
+    const allowed = ['name', 'contact_person', 'phone', 'email', 'gst_number', 'address', 'city', 'vendor_code', 'category', 'credit_days', 'credit_limit', 'is_active', 'notes'];
     const setClauses = [];
     const params = [];
     for (const [key, value] of Object.entries(fields)) {

@@ -1,11 +1,24 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Mail, Search, Filter, BookOpen, ExternalLink, Calendar, User, Save, RefreshCw, Plus, Trash2, Edit3, Eye, Share2, EyeOff, Sparkles, Layout } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import DOMPurify from 'dompurify';
 import api from '../services/api';
 import './BlogCMS.css';
 import PageContainer from '../components/ui/PageContainer';
 import { useConfirm } from '../contexts/ConfirmContext';
 import { usePageTitle } from '../hooks/usePageTitle';
+
+const BLOG_PURIFY_CONFIG = {
+  ALLOWED_TAGS: [
+    'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'ul', 'ol', 'li', 'strong', 'em', 'a',
+    'blockquote', 'code', 'pre', 'br', 'hr',
+    'img', 'table', 'thead', 'tbody', 'tr', 'th', 'td',
+    'span', 'div'
+  ],
+  ALLOWED_ATTR: ['href', 'src', 'alt', 'class', 'id', 'target', 'rel', 'colspan', 'rowspan'],
+  FORCE_BODY: true,
+};
 
 const CATEGORIES = [
   'Wedding Card Guides',
@@ -524,7 +537,7 @@ const BlogCMS = () => {
                     ) : (
                       <div 
                         className="editor-preview-pane"
-                        dangerouslySetInnerHTML={{ __html: postForm.content || '<em>Write some HTML to preview content...</em>' }}
+                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(postForm.content || '<em>Write some HTML to preview content...</em>', BLOG_PURIFY_CONFIG) }}
                       />
                     )}
                   </div>

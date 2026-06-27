@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
-import { X, Calendar, IndianRupee, CreditCard, FileText } from 'lucide-react';
+import { X, Calendar, IndianRupee, CreditCard, FileText, AlertCircle } from 'lucide-react';
 import Button from './Button';
 import { formatCurrency } from '../utils/formatters';
 import { validateDate, validatePrice } from '../utils/validators';
@@ -19,6 +19,7 @@ const PaymentModal = ({ invoice, onClose, onSave }) => {
   const [loading, setLoading] = useState(false);
   const { errors, validate, focusFirstError, formRef: _formRef } = useFormValidation();
   const [invoiceDetails, setInvoiceDetails] = useState(null);
+  const [showOverpaymentConfirm, setShowOverpaymentConfirm] = useState(false);
 
   useEffect(() => {
     if (invoice) {
@@ -44,7 +45,10 @@ const PaymentModal = ({ invoice, onClose, onSave }) => {
       amount: () => {
         const priceResult = validatePrice(formData.amount, { label: 'Payment amount', min: 0.01 });
         if (!priceResult.valid) return priceResult;
-        if (Number(formData.amount) > balanceDue) return { valid: false, error: `Payment cannot exceed balance due of ₹${balanceDue.toFixed(2)}` };
+        if (Number(formData.amount) > balanceDue) {
+          setShowOverpaymentConfirm(true);
+          return { valid: false, error: `Amount exceeds balance due of ₹${balanceDue.toFixed(2)}. Click Submit again to confirm overpayment.` };
+        }
         return priceResult;
       },
     });
@@ -52,6 +56,18 @@ const PaymentModal = ({ invoice, onClose, onSave }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    const balanceDue = invoiceDetails ? invoiceDetails.amount - (invoiceDetails.paid_amount || 0) : 0;
+    const isOverpayment = Number(formData.amount) > balanceDue;
+
+    if (!showOverpaymentConfirm && isOverpayment) {
+      if (!validateForm().valid) {
+        focusFirstError();
+        return;
+      }
+      setShowOverpaymentConfirm(true);
+      return;
+    }
 
     if (!validateForm().valid) {
       focusFirstError();
@@ -62,7 +78,8 @@ const PaymentModal = ({ invoice, onClose, onSave }) => {
     try {
       const submitData = {
         ...formData,
-        amount: parseFloat(formData.amount)
+        amount: parseFloat(formData.amount),
+        overpayment_confirmed: isOverpayment ? true : undefined
       };
 
       await api.post('/vendor-payments', submitData);
@@ -316,6 +333,26 @@ const PaymentModal = ({ invoice, onClose, onSave }) => {
                   </span>
                 </div>
               )}
+              {formData.amount && Number(formData.amount) > 0 && (
+                <div style={{ marginTop: 12, borderTop: '1px solid var(--border-subtle)', paddingTop: 10, fontSize: '12px', display: 'flex', justifyContent: 'space-between' }}>
+                  <div>
+                    <span className="premium-info-label" style={{ textTransform: 'none' }}>Balance Before Payment:</span>
+                    <p style={{ fontWeight: 700, color: 'var(--warning)' }}>{formatCurrency(balanceDue)}</p>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <span className="premium-info-label" style={{ textTransform: 'none' }}>Balance After Payment:</span>
+                    <p style={{ fontWeight: 700, color: Number(formData.amount) >= balanceDue ? 'var(--success)' : 'var(--accent)' }}>
+                      {formatCurrency(Math.max(0, balanceDue - Number(formData.amount)))}
+                    </p>
+                  </div>
+                </div>
+              )}
+              {showOverpaymentConfirm && (
+                <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(var(--warning-rgb, 245,158,11), 0.12)', border: '1px solid var(--warning)', borderRadius: 10, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <AlertCircle size={16} style={{ color: 'var(--warning)', flexShrink: 0 }} />
+                  <span>Overpayment of <strong>{formatCurrency(Number(formData.amount) - balanceDue)}</strong> will be recorded. Click Submit again to confirm.</span>
+                </div>
+              )}
             </div>
 
             {/* Payment Details */}
@@ -346,9 +383,11 @@ const PaymentModal = ({ invoice, onClose, onSave }) => {
                     className="premium-input"
                   >
                     <option value="cash">Cash</option>
+                    <option value="bank">Bank Transfer</option>
                     <option value="upi">UPI</option>
-                    <option value="bank_transfer">Bank Transfer</option>
                     <option value="cheque">Cheque</option>
+                    <option value="neft">NEFT</option>
+                    <option value="rtgs">RTGS</option>
                   </select>
                 </div>
               </div>
@@ -378,9 +417,9 @@ const PaymentModal = ({ invoice, onClose, onSave }) => {
               )}
             </div>
 
-            {(formData.payment_mode === 'bank_transfer' || formData.payment_mode === 'cheque' || formData.payment_mode === 'upi') && (
+            {(formData.payment_mode === 'bank' || formData.payment_mode === 'upi' || formData.payment_mode === 'cheque' || formData.payment_mode === 'neft' || formData.payment_mode === 'rtgs') && (
               <div className="premium-field-group">
-                <label className="premium-label">Reference Number</label>
+                <label className="premium-label">Reference Number {formData.payment_mode === 'cheque' ? '*' : ''}</label>
                 <div className="premium-input-container">
                   <div className="premium-input-decorator"><FileText size={15} /></div>
                   <input
@@ -389,7 +428,7 @@ const PaymentModal = ({ invoice, onClose, onSave }) => {
                     value={formData.reference_number}
                     onChange={handleInputChange}
                     className="premium-input"
-                    placeholder="Transaction ID, Cheque Number, etc."
+                    placeholder={formData.payment_mode === 'cheque' ? 'Cheque Number (required)' : 'Transaction ID / Reference'}
                   />
                 </div>
               </div>

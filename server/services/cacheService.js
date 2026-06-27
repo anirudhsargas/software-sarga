@@ -1,4 +1,4 @@
-const CACHE_ENABLED = false;
+const CACHE_ENABLED = process.env.CACHE_ENABLED !== 'false';
 
 const CACHE_TTL = {
     DASHBOARD: 300,
@@ -10,8 +10,12 @@ const CACHE_TTL = {
     STAFF: 3600,
 };
 
+// Simple in-memory cache as fallback (Redis expected in production)
+const memoryCache = new Map();
+
 function getCacheStats() {
-    return { hits: 0, misses: 0, byDomain: {} };
+    if (!CACHE_ENABLED) return { hits: 0, misses: 0, byDomain: {} };
+    return { hits: 0, misses: 0, byDomain: {}, size: memoryCache.size };
 }
 
 function buildKey(prefix, identifier) {
@@ -19,51 +23,68 @@ function buildKey(prefix, identifier) {
 }
 
 async function getCache(key, domain = 'general') {
-    return null;
+    if (!CACHE_ENABLED) return null;
+    const entry = memoryCache.get(key);
+    if (!entry) return null;
+    if (Date.now() > entry.expiry) {
+        memoryCache.delete(key);
+        return null;
+    }
+    return entry.data;
 }
 
 async function setCache(key, data, ttl) {
-    // No-op
+    if (!CACHE_ENABLED) return;
+    memoryCache.set(key, { data, expiry: Date.now() + (ttl || 300) * 1000 });
 }
 
 async function deleteCache(key) {
-    // No-op
+    memoryCache.delete(key);
 }
 
 async function invalidatePattern(pattern) {
-    return 0;
+    if (!CACHE_ENABLED) return 0;
+    let count = 0;
+    for (const key of memoryCache.keys()) {
+        if (key.includes(pattern)) {
+            memoryCache.delete(key);
+            count++;
+        }
+    }
+    return count;
 }
 
 async function invalidateCustomerCache() {
-    return 0;
+    return invalidatePattern('customers');
 }
 
 async function invalidateDashboardCache() {
-    return 0;
+    return invalidatePattern('dashboard');
 }
 
 async function invalidateAnalyticsCache() {
-    return 0;
+    return invalidatePattern('analytics');
 }
 
 async function invalidateSearchCache() {
-    return 0;
+    return invalidatePattern('search');
 }
 
 async function invalidateFinanceCache() {
-    return 0;
+    return invalidatePattern('finance');
 }
 
 async function invalidateReportsCache() {
-    return 0;
+    return invalidatePattern('reports');
 }
 
 async function invalidateStaffCache() {
-    return 0;
+    return invalidatePattern('staff');
 }
 
 function routeCache(ttl, keyFn) {
     return (req, res, next) => {
+        if (!CACHE_ENABLED) return next();
         next();
     };
 }

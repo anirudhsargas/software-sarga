@@ -2,8 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../database');
 const logger = require('../helpers/logger'); // eslint-disable-line no-unused-vars
-
-const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+const { asyncHandler } = require('../helpers');
 
 function getCustomerId(req) {
   try {

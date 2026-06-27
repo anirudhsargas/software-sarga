@@ -8,10 +8,10 @@
  * If ML service is unreachable, returns cached data — never a 500.
  */
 const router = require('express').Router();
-const axios = require('axios');
+const axios = require('../helpers/mlAxios');
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
-const { getTodayDate } = require('../helpers');
+const { getTodayDate, asyncHandler } = require('../helpers');
 
 const ML_URL = process.env.ML_SERVICE_URL || 'http://127.0.0.1:5001';
 const ML_TIMEOUT = 20_000;

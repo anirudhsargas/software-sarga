@@ -75,8 +75,8 @@
     width: 48px;
     height: 48px;
     border-radius: var(--wi-radius-md);
-    background: var(--shadow-sm), 0.08);
-    border: 1px solid var(--shadow-sm), 0.12);
+    background: rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(0, 0, 0, 0.12);
 }
 
 /* Layout Grid */
@@ -133,7 +133,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--wi-space-sm);
-    background: var(--shadow-sm), 0.5);
+    background: rgba(0, 0, 0, 0.5);
 }
 
 .search-box-modern {
@@ -151,7 +151,7 @@
 .search-box-modern:focus-within {
     border-color: var(--primary);
     background: var(--surface);
-    box-shadow: 0 0 0 3px var(--shadow-sm), 0.12);
+    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.12);
 }
 
 .search-box-modern input {
@@ -204,7 +204,7 @@
 .inquiry-card {
     padding: var(--wi-space-md);
     border-radius: var(--wi-radius-md);
-    background: var(--shadow-sm), 0.3);
+    background: rgba(0, 0, 0, 0.3);
     border: 1px solid transparent;
     cursor: pointer;
     transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -239,8 +239,8 @@
 }
 
 .inquiry-card.unread {
-    background: var(--shadow-sm), 0.03);
-    border-color: var(--shadow-sm), 0.1);
+    background: rgba(0, 0, 0, 0.03);
+    border-color: rgba(0, 0, 0, 0.1);
 }
 
 .inquiry-card.unread .inquiry-name {
@@ -281,7 +281,7 @@
 }
 
 .inquiry-service {
-    background: var(--shadow-sm), 0.08);
+    background: rgba(0, 0, 0, 0.08);
     color: var(--text-secondary);
     padding: 2px 8px;
     border-radius: 4px;
@@ -411,7 +411,7 @@
 
 /* Message Box */
 .detail-message-box {
-    background: var(--shadow-sm), 0.4);
+    background: rgba(0, 0, 0, 0.4);
     border: 1px solid var(--border);
     border-radius: var(--wi-radius-lg);
     padding: var(--wi-space-md);
@@ -437,7 +437,7 @@
 
 /* Action Area */
 .detail-actions {
-    background: var(--shadow-sm), 0.02);
+    background: rgba(0, 0, 0, 0.02);
     border: 1px dashed var(--border);
     padding: var(--wi-space-md);
     border-radius: var(--wi-radius-md);
@@ -524,7 +524,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background: var(--shadow-sm), 0.2);
+    background: rgba(0, 0, 0, 0.2);
     border: 1px dashed var(--border);
     border-radius: var(--wi-radius-lg);
     text-align: center;

@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
-const { _getUserBranchId, auditLog } = require('../helpers');
+const { _getUserBranchId, auditLog, asyncHandler } = require('../helpers');
 const { validate, branchSchema } = require('../middleware/validate');
 const { redisCache } = require('../middleware/cache');
 const { invalidatePattern } = require('../services/cacheService');
@@ -10,7 +10,7 @@ const logger = require('../helpers/logger');
 // --- BRANCH ROUTES (Admin Only) ---
 
 // List Branches - Cache for 5 minutes (static data)
-router.get('/branches', authenticateToken, redisCache(300, 'route'), async (req, res) => {
+router.get('/branches', authenticateToken, redisCache(300, 'route'), asyncHandler(async (req, res) => {
     try {
         // Return all branches for all users (needed for dashboards to display branch names)
         const [rows] = await pool.query("SELECT id, name, address, phone, email, upi_id, short_name FROM sarga_branches ORDER BY name ASC");
@@ -18,10 +18,10 @@ router.get('/branches', authenticateToken, redisCache(300, 'route'), async (req,
     } catch (_err) {
         res.status(500).json({ message: 'Database error' });
     }
-});
+}));
 
 // Get Branch by ID
-router.get('/branches/:id', authenticateToken, async (req, res) => {
+router.get('/branches/:id', authenticateToken, asyncHandler(async (req, res) => {
     const { id } = req.params;
     try {
         const [rows] = await pool.query(
@@ -35,10 +35,10 @@ router.get('/branches/:id', authenticateToken, async (req, res) => {
     } catch (_err) {
         res.status(500).json({ message: 'Database error' });
     }
-});
+}));
 
 // Temporary DB Debug route
-router.get('/branches/debug-db/show', authenticateToken, async (req, res) => {
+router.get('/branches/debug-db/show', authenticateToken, asyncHandler(async (req, res) => {
     try {
         const [tables] = await pool.query("SHOW TABLES");
         let shortcutErr = null;
@@ -61,10 +61,10 @@ router.get('/branches/debug-db/show', authenticateToken, async (req, res) => {
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
-});
+}));
 
 // Add Branch
-router.post('/branches', authenticateToken, authorizeRoles('Admin'), validate(branchSchema), async (req, res) => {
+router.post('/branches', authenticateToken, authorizeRoles('Admin'), validate(branchSchema), asyncHandler(async (req, res) => {
     const { name, address, phone, upi_id, short_name } = req.body;
     try {
         const [result] = await pool.query(
@@ -79,7 +79,7 @@ router.post('/branches', authenticateToken, authorizeRoles('Admin'), validate(br
         if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'Branch name already exists' });
         res.status(500).json({ message: 'Database error' });
     }
-});
+}));
 
 // Update Branch
 router.put('/branches/:id', authenticateToken, authorizeRoles('Admin'), validate(branchSchema), async (req, res) => {

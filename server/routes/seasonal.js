@@ -7,7 +7,7 @@
  * for 30 days (recomputed monthly). Never returns 500.
  */
 const router = require('express').Router();
-const axios = require('axios');
+const axios = require('../helpers/mlAxios');
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 

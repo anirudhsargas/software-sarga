@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../database');
 const auth = require('../middleware/auth');
-const { auditLog } = require('../helpers');
+const { auditLog, asyncHandler } = require('../helpers');
 const { paginate } = require('../helpers/pagination');
 
 // ==================== BOOK STAFF ASSIGNMENTS (Offset/Laser/Other) ====================

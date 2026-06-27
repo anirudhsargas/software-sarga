@@ -1,5 +1,5 @@
 import { useSEO } from '../hooks/useSEO';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, useSearchParams } from 'react-router-dom';
 import VendorsList from '../components/Vendors';
 import VendorDetail from '../components/VendorDetail';
@@ -10,7 +10,7 @@ import PaymentModal from '../components/PaymentModal';
 import api from '../services/api';
 import auth from '../services/auth';
 import { toast } from 'react-hot-toast';
-import { Plus, TrendingUp, List } from 'lucide-react';
+import { Plus, TrendingUp, List, AlertCircle, X } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
 import './Vendors.css';
 import PageContainer from '../components/ui/PageContainer';
@@ -30,6 +30,7 @@ const Vendors = () => {
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [editingVendor, setEditingVendor] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [auditDiscrepancies, setAuditDiscrepancies] = useState(null);
 
   const userRole = auth.getRole();
   const canEdit = CAN_EDIT_ROLES.includes(userRole);
@@ -132,6 +133,24 @@ const Vendors = () => {
     navigate('/dashboard/vendors?view=list');
   };
 
+  const checkPaymentAudit = async () => {
+    try {
+      const response = await api.get('/vendors/payment-audit');
+      const data = response.data?.data || [];
+      if (data.length > 0) {
+        setAuditDiscrepancies(data);
+      } else {
+        setAuditDiscrepancies(null);
+      }
+    } catch (error) {
+      console.error('Error checking payment audit:', error);
+    }
+  };
+
+  useEffect(() => {
+    checkPaymentAudit();
+  }, [refreshKey]);
+
   return (
     <PageContainer>
       {/* Header section with glassmorphism */}
@@ -176,6 +195,44 @@ const Vendors = () => {
           )}
         </div>
       </div>
+
+      {/* Payment Audit Warning Banner */}
+      {auditDiscrepancies && auditDiscrepancies.length > 0 && (
+        <div style={{
+          marginBottom: '16px', padding: '12px 16px',
+          background: 'rgba(var(--warning-rgb, 245,158,11), 0.12)',
+          border: '1px solid var(--warning)', borderRadius: '12px',
+          display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap'
+        }}>
+          <AlertCircle size={18} style={{ color: 'var(--warning)', flexShrink: 0 }} />
+          <span style={{ fontSize: '13px', flex: 1 }}>
+            <strong>{auditDiscrepancies.length} vendor(s)</strong> have balance discrepancies.{' '}
+            Visit <strong>Vendor Detail</strong> to view and recalculate individual balances, or{' '}
+            <button
+              onClick={async () => {
+                try {
+                  await Promise.all(auditDiscrepancies.map(d =>
+                    api.post(`/vendors/${d.id}/recalculate`)
+                  ));
+                  toast.success(`Recalculated ${auditDiscrepancies.length} vendor(s) successfully`);
+                  setAuditDiscrepancies(null);
+                } catch (e) {
+                  toast.error('Failed to recalculate some vendor balances');
+                }
+              }}
+              style={{ background: 'none', border: 'none', color: 'var(--warning)', fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}
+            >
+              Recalculate All
+            </button>
+          </span>
+          <button
+            onClick={() => setAuditDiscrepancies(null)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)' }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
 
       {/* Main Content Area */}
       <div>

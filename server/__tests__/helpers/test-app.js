@@ -10,6 +10,11 @@
  * vars are explicitly set.
  */
 
+jest.mock('uuid', () => ({
+  v4: () => '123e4567-e89b-12d3-a456-426614174000',
+  v1: () => '123e4567-e89b-12d3-a456-426614174000'
+}));
+
 const express = require('express');
 
 function createTestApp() {
@@ -21,9 +26,21 @@ function createTestApp() {
 
   // Silence rate-limiters in tests
   const noopMiddleware = (req, res, next) => next();
-  jest.spyOn(require('express-rate-limit'), 'default').mockReturnValue(noopMiddleware);
-  jest.spyOn(require('helmet'), 'default').mockReturnValue(noopMiddleware);
-  jest.spyOn(require('compression'), 'default').mockReturnValue(noopMiddleware);
+  try {
+    const rateLimit = require('express-rate-limit');
+    if (rateLimit.default) jest.spyOn(rateLimit, 'default').mockReturnValue(noopMiddleware);
+    else if (typeof rateLimit === 'function') jest.spyOn(rateLimit, 'rateLimit').mockReturnValue(noopMiddleware);
+  } catch (e) {}
+  try {
+    const helmet = require('helmet');
+    if (helmet.default) jest.spyOn(helmet, 'default').mockReturnValue(noopMiddleware);
+    else if (typeof helmet === 'function') jest.spyOn(helmet, 'helmet').mockReturnValue(noopMiddleware);
+  } catch (e) {}
+  try {
+    const compression = require('compression');
+    if (compression.default) jest.spyOn(compression, 'default').mockReturnValue(noopMiddleware);
+    else if (typeof compression === 'function') jest.spyOn(compression, 'compression').mockReturnValue(noopMiddleware);
+  } catch (e) {}
 
   // Health check
   app.get('/api/health', async (req, res) => {

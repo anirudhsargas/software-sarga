@@ -347,11 +347,11 @@ const syncPendingVendors = async (db) => {
         const isTempId = String(v.id).startsWith('VEND');
         const body = {
           name: v.name,
-          type: v.type || 'Vendor',
+          vendor_type: v.vendor_type || v.type || 'Vendor',
           contact_person: v.contact_person || null,
           phone: v.phone || null,
           address: v.address || null,
-          gstin: v.gstin || null,
+          gst_number: v.gst_number || v.gstin || null,
           order_link: v.order_link || null,
           branch_id: v.branch_id || null
         };
@@ -372,11 +372,11 @@ const syncPendingVendors = async (db) => {
       } else if (v.syncStatus === 'pending_update') {
         const body = {
           name: v.name,
-          type: v.type || 'Vendor',
+          vendor_type: v.vendor_type || v.type || 'Vendor',
           contact_person: v.contact_person || null,
           phone: v.phone || null,
           address: v.address || null,
-          gstin: v.gstin || null,
+          gst_number: v.gst_number || v.gstin || null,
           order_link: v.order_link || null,
           branch_id: v.branch_id || null
         };

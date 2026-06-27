@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../database');
 const auth = require('../middleware/auth');
+const { asyncHandler } = require('../helpers');
 
 // Helper: determine branch scope (Admin/Accountant may pass branch_id)
 const getBranchId = (user, queryBranchId) => {

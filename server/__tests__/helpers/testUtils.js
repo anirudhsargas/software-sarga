@@ -82,7 +82,7 @@ function setTableData(tables, tableName, data) {
 }
 
 async function hashPassword(password) {
-  return bcrypt.hash(password, 4);
+  return bcrypt.hash(password, 8);
 }
 
 module.exports = {

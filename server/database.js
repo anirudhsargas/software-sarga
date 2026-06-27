@@ -71,15 +71,16 @@ const loadSchemaFiles = async (connection) => {
         return !trimmed.startsWith('--') && !trimmed.startsWith('#');
       })
       .join('\n');
-    // Split statements safely, respecting string literals
+    // Split statements safely, respecting string literals and delimiters
     const statements = [];
     let current = '';
     let inQuotes = false;
     let quoteChar = null;
+    let inBacktick = false;
     for (let i = 0; i < cleanSql.length; i++) {
       const char = cleanSql[i];
-      const prev = cleanSql[i - 1];
-      if (!inQuotes && (char === "'" || char === '"')) {
+      const prev = i > 0 ? cleanSql[i - 1] : '';
+      if (!inQuotes && !inBacktick && (char === "'" || char === '"')) {
         inQuotes = true;
         quoteChar = char;
         current += char;
@@ -87,7 +88,10 @@ const loadSchemaFiles = async (connection) => {
         inQuotes = false;
         quoteChar = null;
         current += char;
-      } else if (char === ';' && !inQuotes) {
+      } else if (!inQuotes && char === '`' && prev !== '\\') {
+        inBacktick = !inBacktick;
+        current += char;
+      } else if (char === ';' && !inQuotes && !inBacktick) {
         const trimmed = current.trim();
         if (trimmed) statements.push(trimmed);
         current = '';
@@ -151,6 +155,18 @@ const initDb = async () => {
     // Run the new sequential JS migration
     const migrateProductHierarchy = require('./migrations/023_create_product_hierarchy');
     await migrateProductHierarchy(connection);
+
+    // Run schema fixes migration (adds missing columns, FKs, customer sessions)
+    const migrateSchemaFixes = require('./migrations/032_schema_fixes');
+    await migrateSchemaFixes(connection);
+
+    // Run vendor tables fixes migration (adds missing columns, updates payments mode enum, etc.)
+    const migrateVendorTables = require('./migrations/033_fix_vendor_tables');
+    await migrateVendorTables(connection);
+
+    // Run legacy column removal migration (drops vendors.type and vendors.gstin after data verification)
+    const migrateDropLegacy = require('./migrations/034_drop_legacy_vendor_columns');
+    await migrateDropLegacy(connection);
     
     console.log('Database schema migration completed successfully');
   } catch (err) {

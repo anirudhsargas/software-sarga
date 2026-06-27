@@ -5,7 +5,7 @@ import { useTheme } from '../theme/ThemeProvider';
 import { syncManager } from '../services/syncWorkerManager';
 import { preloadStaticData } from '../services/api';
 
-const AuthContext = createContext(null);
+export const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(() => auth.getUser());

@@ -2239,7 +2239,7 @@ select.em-input {
 .em-vendor-profile__tag {
     display: inline-block;
     padding: var(--space-3) var(--space-10);
-    background: var(--foreground), .1);
+    background: color-mix(in srgb, var(--foreground), transparent 90%);
     color: var(--accent);
     border-radius: var(--radius-xs);
     font-size: var(--text-xs);
@@ -2247,7 +2247,7 @@ select.em-input {
 }
 
 .dark .em-vendor-profile__tag {
-    background: var(--secondary), .15);
+    background: color-mix(in srgb, var(--secondary), transparent 85%);
     color: var(--accent);
 }
 

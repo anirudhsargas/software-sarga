@@ -5,23 +5,7 @@ if (typeof globalThis.Path2D === 'undefined') globalThis.Path2D = class Path2D {
 
 require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 
-// Setup global Axios interceptor to prevent connection refused/timeout logs for ML Service in production when not configured
-const axios = require('axios');
-axios.interceptors.request.use((config) => {
-    const mlUrl = process.env.ML_SERVICE_URL || 'http://127.0.0.1:5001';
-    if (config.url && config.url.startsWith(mlUrl)) {
-        if (process.env.ENABLE_ML !== 'true') {
-            console.log('[AI_DISABLED] ML skipped');
-            throw new Error('ML Service is disabled (ENABLE_ML is not true)');
-        }
-        const isLocal = mlUrl.includes('127.0.0.1') || mlUrl.includes('localhost');
-        const isNotConfigured = !process.env.ML_SERVICE_URL || process.env.ML_SERVICE_URL === 'none';
-        if (process.env.NODE_ENV === 'production' && (isLocal || isNotConfigured)) {
-            throw new Error('ML Service not configured in production (skipping call)');
-        }
-    }
-    return config;
-}, (error) => Promise.reject(error));
+
 
 const express = require('express');
 const cors = require('cors');
@@ -82,6 +66,24 @@ if (!JWT_SECRET) {
     process.exit(1);
 }
 
+// Startup env-var safety checks
+const _dbUserCheck = process.env.DB_USER;
+const _dbNameCheck = process.env.DB_NAME;
+if (_dbUserCheck && !/^[A-Za-z0-9_-]+$/.test(_dbUserCheck)) {
+    logger.error('FATAL: DB_USER contains unsafe characters. Refusing to start.');
+    process.exit(1);
+}
+if (_dbNameCheck && !/^[A-Za-z0-9_-]+$/.test(_dbNameCheck)) {
+    logger.error('FATAL: DB_NAME contains unsafe characters. Refusing to start.');
+    process.exit(1);
+}
+if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+    logger.warn('[startup] RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET not set — payment routes will be disabled at runtime');
+}
+if (!process.env.GOOGLE_CLIENT_ID) {
+    logger.warn('[startup] GOOGLE_CLIENT_ID not set — Google sign-in audience check is disabled');
+}
+
 if (!process.env.GOOGLE_SA_KEY && !process.env.GOOGLE_SERVICE_ACCOUNT && !process.env.GOOGLE_SERVICE_ACCOUNT_BASE64) {
     console.warn('[backup] WARNING: Google Service Account Key is not set (GOOGLE_SA_KEY, GOOGLE_SERVICE_ACCOUNT, or GOOGLE_SERVICE_ACCOUNT_BASE64)');
 }
@@ -102,12 +104,7 @@ const corsOptions = {
             return callback(null, true);
         }
 
-        // Accept any Vercel preview/branch deployment (*.vercel.app)
-        // so PR previews don't get CORS-blocked
-        if (/^https:\/\/[a-z0-9-]+-[a-z0-9]+-[a-z0-9-]+\.vercel\.app$/.test(normalizedOrigin) ||
-            normalizedOrigin.endsWith('.vercel.app')) {
-            return callback(null, true);
-        }
+        // Accept known Vercel preview/branch deployments listed in allowedOrigins
 
         logger.warn(`[CORS Blocked] Origin: ${origin}`);
         // Use an Error so the browser receives a proper 403 with CORS headers
@@ -246,7 +243,8 @@ const uploadToCloudinaryMiddleware = (fieldName, folder = 'uploads') => [ // esl
 
 // Protected uploads route with Cloudinary fallback when local file missing
 app.use('/uploads', (req, res, next) => {
-    // Allow token via query string (?token=xxx) or Authorization header
+    // Allow token via query string (?token=xxx) for image/imgUrl requests (no Authorization header possible in <img> tags)
+    // or Authorization header for API calls
     const token = req.query.token || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
     if (!token) return res.status(401).json({ message: 'Access denied.' });
     try {
@@ -332,22 +330,21 @@ app.get('/', (req, res) => {
 });
 
 // Server time endpoint (tamper-proof date/time for clients)
-app.get('/api/server-time', asyncHandler((req, res) => {
+app.get('/api/server-time', (req, res, next) => {
+    if (!req.headers.authorization) {
+        return res.status(401).json({ message: 'Authentication required' });
+    }
+    next();
+}, asyncHandler((req, res) => {
     const now = new Date();
     const today = getTodayDate();
     res.json({
-        debug_marker: 'paper-inventory-debug-v1',
         iso: now.toISOString(),
         date: today,
         month: today.slice(0, 7),
         timestamp: now.getTime()
     });
 }));
-
-// Quick dev test route to verify paperInventory path
-app.get('/api/paperInventory/stock-test', (req, res) => {
-    res.json({ ok: true, message: 'paperInventory test route' });
-});
 
 app.use('/api', require('./routes/auth')(upload));
 const mlCheck = require('./middleware/mlCheck');

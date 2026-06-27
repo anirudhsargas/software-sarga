@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const { pool } = require('../database');
 const jwt = require('jsonwebtoken');
+const { asyncHandler } = require('../helpers');
 
 // Development-only routes to aid UI testing without auth.
 // These are only intended for local development and should not be enabled in production.

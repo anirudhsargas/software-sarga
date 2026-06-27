@@ -126,7 +126,7 @@ const ConsumablesManagement = () => {
         } catch (err) {
             if (err.response?.status === 401) {
                 toast.error('Authentication required — please login');
-                window.location.href = '/login';
+                window.dispatchEvent(new CustomEvent('navigate', { detail: { path: '/login' } }));
                 return;
             }
             toast.error('Failed to load consumables inventory');

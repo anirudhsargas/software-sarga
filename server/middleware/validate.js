@@ -81,16 +81,18 @@ const branchSchema = z.object({ // eslint-disable-line no-unused-vars
 // ---- Vendors ----
 const addVendorSchema = z.object({
     name: requiredString('Vendor name'),
-    type: z.enum(['Vendor', 'Utility', 'Salary', 'Rent', 'Other']).optional().default('Vendor'),
     contact_person: z.string().optional().nullable(),
     phone: z.string().regex(/^\d{10}$/, 'Phone must be exactly 10 digits').optional().nullable().or(z.literal('')),
     email: z.string().email('Invalid email format').optional().nullable().or(z.literal('')),
-    gstin: z.string().regex(/^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}[Z]{1}[A-Z\d]{1}$/, 'Invalid GSTIN format').optional().nullable().or(z.literal('')),
+    gst_number: z.string().regex(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/, 'Invalid GST number format').optional().nullable().or(z.literal('')),
     address: z.string().optional().nullable(),
     city: z.string().optional().nullable(),
     category: z.enum(['offset_supplies', 'chemicals', 'paper', 'ink', 'equipment', 'other']).optional().default('other'),
-    credit_days: z.preprocess((v) => (v === '' || v === null ? 0 : Number(v)), z.number().int().min(0).optional().default(0)),
-    credit_limit: z.preprocess((v) => (v === '' || v === null ? 0 : Number(v)), z.number().min(0).optional().default(0)),
+    vendor_type: z.enum(['paper', 'ink', 'plate', 'service', 'other']).optional().default('other'),
+    credit_days: z.preprocess((v) => (v === undefined || v === '' || v === null ? 0 : Number(v)), z.number().int().min(0).optional().default(0)),
+    credit_limit: z.preprocess((v) => (v === undefined || v === '' || v === null ? 0 : Number(v)), z.number().min(0).optional().default(0)),
+    opening_balance: z.preprocess((v) => (v === undefined || v === '' || v === null ? 0 : Number(v)), z.number().min(0).optional().default(0)),
+    current_balance: z.preprocess((v) => (v === undefined || v === '' || v === null ? 0 : Number(v)), z.number().min(0).optional().default(0)),
     notes: z.string().optional().nullable(),
     vendor_code: z.string().regex(/^[A-Z]{3}$/, 'Vendor code must be exactly 3 uppercase letters').optional().nullable().or(z.literal('')),
     branch_id: z.preprocess((v) => (v === '' || v === null || v === undefined ? null : Number(v)), z.number().int().positive().nullable().optional()),
@@ -312,9 +314,17 @@ const addVendorPaymentSchema = z.object({
     vendor_invoice_id: z.preprocess(Number, z.number().int().positive()),
     amount: requiredPositiveNumber,
     payment_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD'),
-    payment_mode: z.enum(['cash', 'upi', 'bank_transfer', 'cheque']).default('cash'),
-    reference_number: z.string().optional().nullable(),
+    payment_mode: z.enum(['cash', 'bank', 'upi', 'cheque', 'neft', 'rtgs']).default('cash'),
+    reference_number: z.string().optional().nullable().or(z.literal('')),
     notes: z.string().optional().nullable()
+}).refine(data => {
+    if (data.payment_mode === 'cheque' && (!data.reference_number || data.reference_number.trim() === '')) {
+        return false;
+    }
+    return true;
+}, {
+    message: 'Reference number is required for cheque payments',
+    path: ['reference_number']
 });
 
 // ---- Blog ----

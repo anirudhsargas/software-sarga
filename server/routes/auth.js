@@ -27,10 +27,7 @@ module.exports = (upload) => {
         const digits = String(user_id || '').replace(/\D/g, '');
         const last10 = digits.slice(-10);
 
-        console.log(`[LOGIN] Attempt: user_id=${user_id}, normalized=${normalizedUserId}, last10=${last10}`);
-
         if (!normalizedUserId && last10.length !== 10) {
-            console.log(`[LOGIN] ❌ Invalid format: ${user_id}`);
             return res.status(400).json({ message: 'Invalid user ID format' });
         }
 
@@ -41,25 +38,15 @@ module.exports = (upload) => {
             );
             const user = users[0];
 
-            console.log(`[LOGIN] User query returned: ${users.length} user(s)`);
-            if (user) {
-                console.log(`[LOGIN] Found user: ID=${user.id}, Name=${user.name}, HasPassword=${!!user.password}, FirstLogin=${user.is_first_login}`);
-            }
-
             if (!user) {
-                console.log(`[LOGIN] ❌ User not found for mobile ${normalizedUserId}`);
                 return res.status(401).json({ message: 'Invalid credentials' });
             }
 
             const validPassword = await bcrypt.compare(password, user.password);
-            console.log(`[LOGIN] bcrypt.compare result: ${validPassword}`);
 
             if (!validPassword) {
-                console.log(`[LOGIN] ❌ Password check failed for user ${user.id}`);
                 return res.status(401).json({ message: 'Invalid credentials' });
             }
-            
-            console.log(`[LOGIN] ✅ Authentication successful for user ${user.id}`);
 
             const { normalizeRole } = require('../middleware/auth');
             const userRoleNormalized = normalizeRole(user.role);

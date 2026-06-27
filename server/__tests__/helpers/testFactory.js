@@ -31,7 +31,7 @@ function generateTestToken(overrides = {}) {
     permissions: ['view_dashboard', 'manage_orders', 'manage_customers', 'manage_inventory', 'manage_staff', 'manage_expenses', 'manage_vendors', 'view_reports', 'manage_designs', 'manage_blog'],
     ...overrides,
   };
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' });
+  return jwt.sign(payload, process.env.JWT_SECRET || JWT_SECRET, { expiresIn: '1h' });
 }
 
 module.exports = { createMockPool, generateTestToken, JWT_SECRET };
