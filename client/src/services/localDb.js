@@ -270,7 +270,46 @@ export async function getVendors(filters = {}) {
     let vendors = await offlineDb.getAll('vendors');
     vendors = (vendors || []).filter(v => v.syncStatus !== 'pending_delete');
 
-    // Try to re-sync any pending_create vendors, then always fetch server data
+    // Always fetch from server to keep local cache fresh (not just when empty)
+    try {
+        const params = new URLSearchParams();
+        if (filters.search) params.append('search', filters.search);
+        if (filters.type) params.append('category', filters.type);
+        const res = await api.get(`/vendors?${params.toString()}&limit=1000`);
+        const serverVendors = res.data?.data || res.data || [];
+        if (Array.isArray(serverVendors) && serverVendors.length > 0) {
+            for (const v of serverVendors) {
+                const sid = v.id || v.vendor_id;
+                const localExisting = await offlineDb.getById('vendors', sid);
+                if (localExisting && (localExisting.syncStatus === 'pending_delete' || localExisting.syncStatus === 'pending_create')) {
+                    continue;
+                }
+                await offlineDb.save('vendors', { ...v, id: sid, syncStatus: 'synced' });
+            }
+            vendors = await offlineDb.getAll('vendors');
+            vendors = (vendors || []).filter(v => v.syncStatus !== 'pending_delete');
+        }
+    } catch (e) {
+        console.warn('[localDb] getVendors server fetch failed:', e);
+    }
+
+    // Fire-and-forget: sync any pending_create vendors to server (non-blocking)
+    syncPendingVendors(vendors);
+
+    if (filters.type) {
+        vendors = vendors.filter(v => (v.vendor_type || v.type) === filters.type);
+    }
+    if (filters.search) {
+        const s = filters.search.toLowerCase();
+        vendors = vendors.filter(v => 
+            (v.name && v.name.toLowerCase().includes(s)) || 
+            (v.phone && v.phone.includes(s))
+        );
+    }
+    return vendors;
+}
+
+async function syncPendingVendors(vendors) {
     for (const v of vendors) {
         if (v.syncStatus === 'pending_create' && navigator.onLine) {
             try {
@@ -297,44 +336,10 @@ export async function getVendors(filters = {}) {
                     await offlineDb.save('vendors', { ...v, id: res.data.id, syncStatus: 'synced' });
                 }
             } catch (e) {
-                console.warn('[localDb] getVendors re-sync failed for', v.id, ':', e);
+                console.warn('[localDb] syncPendingVendors failed for', v.id, ':', e);
             }
         }
     }
-
-    // Always fetch from server to keep local cache fresh (not just when empty)
-    try {
-        const params = new URLSearchParams();
-        if (filters.search) params.append('search', filters.search);
-        if (filters.type) params.append('category', filters.type);
-        const res = await api.get(`/vendors?${params.toString()}&limit=1000`);
-        const serverVendors = res.data?.data || res.data || [];
-        if (Array.isArray(serverVendors) && serverVendors.length > 0) {
-            for (const v of serverVendors) {
-                const sid = v.id || v.vendor_id;
-                const localExisting = await offlineDb.getById('vendors', sid);
-                if (localExisting && (localExisting.syncStatus === 'pending_delete' || localExisting.syncStatus === 'pending_create')) {
-                    continue;
-                }
-                await offlineDb.save('vendors', { ...v, id: sid, syncStatus: 'synced' });
-            }
-            vendors = await offlineDb.getAll('vendors');
-            vendors = (vendors || []).filter(v => v.syncStatus !== 'pending_delete');
-        }
-    } catch (e) {
-        console.warn('[localDb] getVendors server fetch failed:', e);
-    }
-    if (filters.type) {
-        vendors = vendors.filter(v => (v.vendor_type || v.type) === filters.type);
-    }
-    if (filters.search) {
-        const s = filters.search.toLowerCase();
-        vendors = vendors.filter(v => 
-            (v.name && v.name.toLowerCase().includes(s)) || 
-            (v.phone && v.phone.includes(s))
-        );
-    }
-    return vendors;
 }
 
 export async function saveVendor(vendor) {

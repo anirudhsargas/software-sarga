@@ -135,7 +135,7 @@ const ExpenseManager = () => {
   }, []);
 
   const fetchVendors = useCallback(async () => {
-    try { const data = await localDb.getVendors(); setVendors(data || []); } catch { /* ignore */ }
+    try { const data = await localDb.getVendors(); setVendors(data || []); } catch (e) { console.warn('[ExpenseManager] fetchVendors failed:', e); }
   }, []);
 
   const fetchDashboardForUtilities = useCallback(async () => {

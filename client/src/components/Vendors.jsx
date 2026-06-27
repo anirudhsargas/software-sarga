@@ -47,6 +47,19 @@ const Vendors = ({
     }
   };
 
+  // Safety timeout: if loading exceeds 35s, force-show fallback
+  useEffect(() => {
+    if (!loading) return;
+    const timer = setTimeout(() => {
+      if (loading) {
+        setLoading(false);
+        setVendors([]);
+        console.warn('[Vendors] Load timed out after 35s, showing empty state');
+      }
+    }, 35000);
+    return () => clearTimeout(timer);
+  }, [loading]);
+
   useEffect(() => {
     loadVendors();
   }, [searchTerm, categoryFilter, refreshKey]);
