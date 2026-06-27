@@ -329,7 +329,7 @@ export async function saveVendor(vendor) {
             const isTempId = String(id).startsWith('VEND');
             const vendorPayload = {
                 name: vendor.name,
-                vendor_type: vendor.vendor_type || vendor.type || 'Vendor',
+                vendor_type: vendor.vendor_type || vendor.type || 'other',
                 contact_person: vendor.contact_person || null,
                 phone: vendor.phone || null,
                 email: vendor.email || null,

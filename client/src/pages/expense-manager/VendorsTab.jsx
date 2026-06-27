@@ -17,7 +17,7 @@ import toast from 'react-hot-toast';
 import FullBillModal from './FullBillModal';
 import DOMPurify from 'dompurify';
 
-const emptyVendorForm = { name: '', vendor_type: 'Vendor', contact_person: '', phone: '', address: '', gst_number: '', order_link: '' };
+const emptyVendorForm = { name: '', vendor_type: 'other', contact_person: '', phone: '', address: '', gst_number: '', order_link: '' };
 
 // Memoized transaction row
 const TransactionRow = React.memo(({ r, openFullBillFromTransaction }) => (
@@ -305,7 +305,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
 
   const openEditForm = (v) => {
     setEditingVendor(v);
-      setVendorForm({ name: v.name || '', vendor_type: v.vendor_type || v.type || 'Vendor', contact_person: v.contact_person || '', phone: v.phone || '', address: v.address || '', gst_number: v.gst_number || '', order_link: v.order_link || '' });
+      setVendorForm({ name: v.name || '', vendor_type: v.vendor_type || v.type || 'other', contact_person: v.contact_person || '', phone: v.phone || '', address: v.address || '', gst_number: v.gst_number || '', order_link: v.order_link || '' });
     setFormError('');
     setShowForm(true);
   };
@@ -1166,13 +1166,15 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
                   </div>
                   <div className="em-form-group">
                     <label>Type</label>
-                    <select name="vendor_type" aria-label="Select option"  className="em-input" value={vendorForm.vendor_type || 'Vendor'} onChange={e => setVendorForm(p => ({ ...p, vendor_type: e.target.value }))}>
-                      <option value="Vendor">Vendor</option>
-                      <option value="Paper Supplier">Paper Supplier</option>
-                      <option value="Ink Supplier">Ink Supplier</option>
-                      <option value="Machine Vendor">Machine Vendor</option>
-                      <option value="Service Provider">Service Provider</option>
-                      <option value="Other">Other</option>
+                    <select name="vendor_type" aria-label="Select option"  className="em-input" value={vendorForm.vendor_type || 'other'} onChange={e => setVendorForm(p => ({ ...p, vendor_type: e.target.value }))}>
+                      <option value="other">Other</option>
+                      <option value="paper">Paper</option>
+                      <option value="ink">Ink</option>
+                      <option value="plate">Plate</option>
+                      <option value="service">Service</option>
+                      <option value="offset_supplies">Offset Supplies</option>
+                      <option value="chemicals">Chemicals</option>
+                      <option value="equipment">Equipment</option>
                     </select>
                   </div>
                   <div className="em-form-group">

@@ -85,7 +85,7 @@ const VendorModal = ({ vendor, onClose, onSave }) => {
         ...formData,
         id: vendor ? vendor.id : undefined,
         syncStatus: vendor ? vendor.syncStatus : undefined,
-        vendor_type: vendor?.vendor_type || vendor?.type || 'Vendor',
+        vendor_type: vendor?.vendor_type || vendor?.type || 'other',
         branch_id: vendor?.branch_id || null,
         order_link: vendor?.order_link || null
       };
