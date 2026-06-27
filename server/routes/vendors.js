@@ -181,6 +181,79 @@ router.get('/vendors', authenticateToken, async (req, res) => {
   }
 });
 
+// GET /api/vendors/summary → total payables, overdue, all vendors
+router.get('/vendors/summary', authenticateToken, async (req, res) => {
+  try {
+    const [summary] = await pool.query(`
+      SELECT 
+        COALESCE(SUM(current_balance), 0) as total_payables,
+        COUNT(id) as vendor_count
+      FROM vendors
+      WHERE is_active = TRUE
+    `);
+
+    const [overdue] = await pool.query(`
+      SELECT COALESCE(SUM(amount - paid_amount), 0) as total_overdue
+      FROM vendor_invoices
+      WHERE status = 'overdue'
+    `);
+
+    res.json({
+      success: true,
+      data: {
+        total_payables: Number(summary[0].total_payables) || 0,
+        total_overdue: Number(overdue[0].total_overdue) || 0,
+        vendor_count: summary[0].vendor_count
+      }
+    });
+  } catch (error) {
+    logger.error('Error fetching summary:', error);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
+});
+
+// GET /api/vendors/payment-audit → run SQL audit discrepancy query
+router.get('/vendors/payment-audit', authenticateToken, async (req, res) => {
+  try {
+    try {
+      await pool.query("SET SESSION sql_mode=(SELECT REPLACE(@@sql_mode, 'ONLY_FULL_GROUP_BY', ''))");
+    } catch (e) {
+      logger.warn('Could not modify sql_mode for session:', e.message);
+    }
+
+    const [rows] = await pool.query(`
+      SELECT 
+        v.id,
+        v.name,
+        v.opening_balance,
+        (SELECT COALESCE(SUM(total_amount), 0) FROM vendor_invoices WHERE vendor_id = v.id) as total_billed,
+        (SELECT COALESCE(SUM(amount), 0) FROM vendor_payments WHERE vendor_id = v.id) as total_paid,
+        (v.opening_balance + 
+         (SELECT COALESCE(SUM(total_amount), 0) FROM vendor_invoices WHERE vendor_id = v.id) - 
+         (SELECT COALESCE(SUM(amount), 0) FROM vendor_payments WHERE vendor_id = v.id)
+        ) as calculated_balance,
+        v.current_balance as stored_balance,
+        (v.current_balance - (v.opening_balance + 
+         (SELECT COALESCE(SUM(total_amount), 0) FROM vendor_invoices WHERE vendor_id = v.id) - 
+         (SELECT COALESCE(SUM(amount), 0) FROM vendor_payments WHERE vendor_id = v.id)
+        )) as discrepancy
+      FROM vendors v
+      WHERE v.is_active = 1
+      GROUP BY v.id, v.name, v.opening_balance, v.current_balance
+      HAVING ABS(discrepancy) > 0.01
+    `);
+
+    if (rows.length > 0) {
+      logger.warn(`Vendor payment audit found ${rows.length} discrepancy(ies)`);
+    }
+
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    logger.error('Error running payment audit:', error);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
+});
+
 // GET /api/vendors/:id - Single vendor with full details
 router.get('/vendors/:id', authenticateToken, async (req, res) => {
   try {
@@ -1499,37 +1572,6 @@ router.get('/vendors/:id/balance', authenticateToken, async (req, res) => {
   }
 });
 
-// GET /api/vendors/summary → total payables, overdue, all vendors
-router.get('/vendors/summary', authenticateToken, async (req, res) => {
-  try {
-    const [summary] = await pool.query(`
-      SELECT 
-        COALESCE(SUM(current_balance), 0) as total_payables,
-        COUNT(id) as vendor_count
-      FROM vendors
-      WHERE is_active = TRUE
-    `);
-    
-    const [overdue] = await pool.query(`
-      SELECT COALESCE(SUM(amount - paid_amount), 0) as total_overdue
-      FROM vendor_invoices
-      WHERE status = 'overdue'
-    `);
-    
-    res.json({
-      success: true,
-      data: {
-        total_payables: Number(summary[0].total_payables) || 0,
-        total_overdue: Number(overdue[0].total_overdue) || 0,
-        vendor_count: summary[0].vendor_count
-      }
-    });
-  } catch (error) {
-    logger.error('Error fetching summary:', error);
-    res.status(500).json({ success: false, message: 'Database error' });
-  }
-});
-
 // GET /api/vendors/:id/payments → list payments
 router.get('/vendors/:id/payments', authenticateToken, async (req, res) => {
   try {
@@ -1700,48 +1742,6 @@ router.post('/vendors/:id/bills', authenticateToken, authorizeRoles('Admin', 'Ac
 
 // PUT /api/vendor-bills/:billId → update bill
 router.put('/vendor-bills/:billId', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), updateVendorBill);
-
-// GET /api/vendors/payment-audit → run SQL audit discrepancy query
-router.get('/vendors/payment-audit', authenticateToken, async (req, res) => {
-  try {
-    try {
-      await pool.query("SET SESSION sql_mode=(SELECT REPLACE(@@sql_mode, 'ONLY_FULL_GROUP_BY', ''))");
-    } catch (e) {
-      logger.warn('Could not modify sql_mode for session:', e.message);
-    }
-    
-    const [rows] = await pool.query(`
-      SELECT 
-        v.id,
-        v.name,
-        v.opening_balance,
-        (SELECT COALESCE(SUM(total_amount), 0) FROM vendor_invoices WHERE vendor_id = v.id) as total_billed,
-        (SELECT COALESCE(SUM(amount), 0) FROM vendor_payments WHERE vendor_id = v.id) as total_paid,
-        (v.opening_balance + 
-         (SELECT COALESCE(SUM(total_amount), 0) FROM vendor_invoices WHERE vendor_id = v.id) - 
-         (SELECT COALESCE(SUM(amount), 0) FROM vendor_payments WHERE vendor_id = v.id)
-        ) as calculated_balance,
-        v.current_balance as stored_balance,
-        (v.current_balance - (v.opening_balance + 
-         (SELECT COALESCE(SUM(total_amount), 0) FROM vendor_invoices WHERE vendor_id = v.id) - 
-         (SELECT COALESCE(SUM(amount), 0) FROM vendor_payments WHERE vendor_id = v.id)
-        )) as discrepancy
-      FROM vendors v
-      WHERE v.is_active = 1
-      GROUP BY v.id, v.name, v.opening_balance, v.current_balance
-      HAVING ABS(discrepancy) > 0.01
-    `);
-    
-    if (rows.length > 0) {
-      logger.warn(`Vendor payment audit found ${rows.length} discrepancy(ies)`);
-    }
-    
-    res.json({ success: true, data: rows });
-  } catch (error) {
-    logger.error('Error running payment audit:', error);
-    res.status(500).json({ success: false, message: 'Database error' });
-  }
-});
 
 // POST /api/vendors/:id/recalculate → trigger recalculation of balance manually
 router.post('/vendors/:id/recalculate', authenticateToken, async (req, res) => {
