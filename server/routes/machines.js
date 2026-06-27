@@ -432,7 +432,7 @@ router.get('/:id', auth.authenticate, async (req, res) => {
                 mr.reading_date,
                 mr.opening_count,
                 mr.closing_count,
-                mr.total_copies,
+                (COALESCE(mr.closing_count, 0) - mr.opening_count) as total_copies,
                 COALESCE(SUM(mwe.total_amount), 0) as day_revenue,
                 COALESCE(SUM(mwe.copies), 0) as work_copies,
                 COUNT(mwe.id) as work_entries_count
@@ -440,7 +440,7 @@ router.get('/:id', auth.authenticate, async (req, res) => {
              LEFT JOIN sarga_daily_report_machine drm ON drm.machine_id = mr.machine_id AND drm.report_date = mr.reading_date
              LEFT JOIN sarga_machine_work_entries mwe ON mwe.report_id = drm.id
              WHERE mr.machine_id = ?
-             GROUP BY mr.reading_date, mr.opening_count, mr.closing_count, mr.total_copies
+             GROUP BY mr.reading_date, mr.opening_count, mr.closing_count
              ORDER BY mr.reading_date DESC LIMIT 7`,
             [id]
         );
@@ -792,8 +792,8 @@ router.post('/:id/readings', auth.authenticate, async (req, res) => {
                     return res.status(400).json({ error: `Waste prints (${wastePrints}) + proof prints (${proofPrints}) cannot exceed total copies (${totalCopies})` });
                 }
                 await pool.query(
-                    `UPDATE sarga_machine_readings SET closing_count = ?, total_copies = ?, waste_prints = ?, proof_prints = ?, notes = NULL, updated_by = ? WHERE id = ?`,
-                    [closeCount, totalCopies, wastePrints, proofPrints, req.user.id, existing[0].id]
+                    `UPDATE sarga_machine_readings SET closing_count = ?, waste_prints = ?, proof_prints = ?, notes = NULL, updated_by = ? WHERE id = ?`,
+                    [closeCount, wastePrints, proofPrints, req.user.id, existing[0].id]
                 );
                 // Sync waste/proof to daily report
                 await pool.query(
@@ -852,17 +852,16 @@ router.post('/:id/readings', auth.authenticate, async (req, res) => {
         }
 
         await pool.query(
-            `INSERT INTO sarga_machine_readings (machine_id, reading_date, opening_count, closing_count, total_copies, waste_prints, proof_prints, notes, created_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `INSERT INTO sarga_machine_readings (machine_id, reading_date, opening_count, closing_count, waste_prints, proof_prints, notes, created_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE
                 opening_count = VALUES(opening_count),
                 closing_count = VALUES(closing_count),
-                total_copies = VALUES(total_copies),
                 waste_prints = VALUES(waste_prints),
                 proof_prints = VALUES(proof_prints),
                 notes = VALUES(notes),
                 updated_by = VALUES(created_by)`,
-            [id, reading_date, openCount, closeCount, totalCopies, wastePrints, proofPrints, notes || null, req.user.id]
+            [id, reading_date, openCount, closeCount, wastePrints, proofPrints, notes || null, req.user.id]
         );
         // Sync waste/proof to daily report master
         await pool.query(
@@ -1052,10 +1051,10 @@ router.get('/:id/production-summary', auth.authenticate, async (req, res) => {
                 mr.reading_date,
                 mr.opening_count,
                 mr.closing_count,
-                mr.total_copies,
+                (COALESCE(mr.closing_count, 0) - mr.opening_count) as total_copies,
                 COALESCE(mr.waste_prints, 0) as waste_prints,
                 COALESCE(mr.proof_prints, 0) as proof_prints,
-                GREATEST(0, COALESCE(mr.total_copies, 0) - COALESCE(mr.waste_prints, 0) - COALESCE(mr.proof_prints, 0)) as good_prints,
+                GREATEST(0, COALESCE(mr.closing_count, 0) - mr.opening_count - COALESCE(mr.waste_prints, 0) - COALESCE(mr.proof_prints, 0)) as good_prints,
                 COALESCE(drm.total_amount, 0) as day_revenue,
                 COALESCE(drm.total_cash, 0) as day_cash,
                 COALESCE(drm.total_credit, 0) as day_credit,
@@ -1121,8 +1120,8 @@ router.put('/count-requests/:reqId', auth.authenticate, auth.requireRole(['Admin
                 const ec = existing[0].closing_count;
                 const totalCopies = ec !== null ? Math.max(0, ec - expected_count) : 0;
                 await pool.query(
-                    'UPDATE sarga_machine_readings SET opening_count = ?, total_copies = ?, updated_by = ? WHERE id = ?',
-                    [expected_count, totalCopies, req.user.id, existing[0].id]
+                    'UPDATE sarga_machine_readings SET opening_count = ?, updated_by = ? WHERE id = ?',
+                    [expected_count, req.user.id, existing[0].id]
                 );
             }
         }
@@ -1280,7 +1279,7 @@ router.get('/:id/meter-comparison', auth.authenticate, async (req, res) => {
         
         // Get count requests for this machine (mismatches)
         const [requests] = await pool.query(
-            `SELECT mcr.*, mr.opening_count, mr.closing_count, mr.total_copies,
+            `SELECT mcr.*, mr.opening_count, mr.closing_count, (COALESCE(mr.closing_count, 0) - mr.opening_count) as total_copies,
                     s.name as submitted_by_name, rev.name as reviewed_by_name
              FROM sarga_machine_count_requests mcr
              LEFT JOIN sarga_machine_readings mr ON mcr.machine_id = mr.machine_id AND mcr.reading_date = mr.reading_date

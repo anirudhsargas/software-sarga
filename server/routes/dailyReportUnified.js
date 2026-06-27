@@ -212,7 +212,7 @@ router.post('/change-requests/:id/review', auth.authenticate, async (req, res) =
                 const newOpening = parseInt(request.requested_value) || 0;
                 await pool.query(
                     `UPDATE sarga_machine_readings
-                     SET opening_count = ?, total_copies = GREATEST(0, COALESCE(closing_count, 0) - ?)
+                      SET opening_count = ?
                      WHERE machine_id = ? AND reading_date = ?`,
                     [newOpening, newOpening, request.machine_id, request.report_date]
                 );
@@ -665,7 +665,7 @@ router.get('/laser-live', auth.authenticate, async (req, res) => {
         let readings = [];
         if (machineIds.length > 0) {
             const [readingRows] = await pool.query(
-                `SELECT mr.machine_id, mr.opening_count, mr.closing_count, mr.total_copies,
+                `SELECT mr.machine_id, mr.opening_count, mr.closing_count, (COALESCE(mr.closing_count, 0) - mr.opening_count) as total_copies,
                         COALESCE(mr.waste_prints, 0) as waste_prints, COALESCE(mr.proof_prints, 0) as proof_prints
                  FROM sarga_machine_readings mr
                  WHERE mr.reading_date = ? AND mr.machine_id IN (${machineIds.map(() => '?').join(',')})`,
@@ -1295,7 +1295,7 @@ router.get('/live-counts', auth.authenticate, async (req, res) => {
 
         // Machine readings total copies today
         const [[machineCopies]] = await pool.query(
-            `SELECT COALESCE(SUM(mr.total_copies), 0) as total
+            `SELECT COALESCE(SUM(COALESCE(mr.closing_count, 0) - mr.opening_count), 0) as total
              FROM sarga_machine_readings mr
              JOIN sarga_machines m ON mr.machine_id = m.id
              WHERE mr.reading_date = ? AND m.branch_id = ? AND m.machine_type = 'Digital'`,

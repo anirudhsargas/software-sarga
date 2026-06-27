@@ -307,22 +307,17 @@ const syncJobToMachineWorkEntry = async (jobData, machineId, userId) => {
                 !(existingReading[0].notes || '').startsWith('[Auto-Sync]');
 
             if (isManualEntry) {
-                // If it's a manual entry, only update the total_copies (sum of bills), leave closing_count alone
-                await pool.query(
-                    `UPDATE sarga_machine_readings SET total_copies = ? WHERE machine_id = ? AND reading_date = ?`,
-                    [totalCopies, machineId, reportDate]
-                );
+                // Manual entry — closing_count is already set by user; total_copies computed on read
             } else {
                 // If it's empty or was auto-synced, update everything
                 await pool.query(
-                    `INSERT INTO sarga_machine_readings (machine_id, reading_date, opening_count, total_copies, closing_count, notes, created_by)
-                     VALUES (?, ?, ?, ?, ?, ?, ?)
+                    `INSERT INTO sarga_machine_readings (machine_id, reading_date, opening_count, closing_count, notes, created_by)
+                     VALUES (?, ?, ?, ?, ?, ?)
                      ON DUPLICATE KEY UPDATE 
-                        total_copies = VALUES(total_copies),
-                        closing_count = opening_count + VALUES(total_copies),
+                        closing_count = opening_count + ?,
                         notes = VALUES(notes),
                         updated_by = VALUES(created_by)`,
-                    [machineId, reportDate, opening, totalCopies, opening + totalCopies, '[Auto-Sync] Live Billing', userId]
+                    [machineId, reportDate, opening, opening + totalCopies, '[Auto-Sync] Live Billing', userId, totalCopies]
                 );
             }
         }

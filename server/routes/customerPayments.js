@@ -839,7 +839,7 @@ router.get('/stats/dashboard', authenticateToken, async (req, res) => {
 
         // 5. Machine Stats
         const [machineReadings] = await pool.query(`
-            SELECT m.id, m.machine_name, mr.total_copies, mr.reading_date
+            SELECT m.id, m.machine_name, (COALESCE(mr.closing_count, 0) - mr.opening_count) as total_copies, mr.reading_date
             FROM sarga_machine_readings mr
             JOIN sarga_machines m ON mr.machine_id = m.id
             WHERE DATE(mr.reading_date) = ? ${branchIds ? " AND m.branch_id IN (?)" : ""}
