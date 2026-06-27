@@ -1104,6 +1104,27 @@ router.delete('/vendor-bill-attachments/:id', authenticateToken, authorizeRoles(
   }
 });
 
+// GET /api/vendors/:id/statement - Get latest vendor statement
+router.get('/vendors/:id/statement', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [statements] = await pool.query(`
+      SELECT vs.* FROM vendor_statements vs WHERE vs.vendor_id = ? ORDER BY vs.id DESC LIMIT 1
+    `, [id]);
+    if (statements.length === 0) {
+      return res.status(404).json({ success: false, message: 'No statement found' });
+    }
+    const statement = statements[0];
+    const [lines] = await pool.query(`
+      SELECT * FROM vendor_statement_lines WHERE vendor_statement_id = ? ORDER BY line_date
+    `, [statement.id]);
+    res.json({ success: true, data: { ...statement, lines } });
+  } catch (err) {
+    console.error('Statement fetch error:', err);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
+});
+
 // POST /api/vendors/:id/upload-statement - Upload bank statement
 router.post('/vendors/:id/upload-statement', authenticateToken, authorizeRoles('Admin', 'Accountant'), statementUpload.single('statement'), async (req, res) => {
   try {

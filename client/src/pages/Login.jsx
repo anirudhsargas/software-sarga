@@ -101,6 +101,8 @@ const Login = () => {
                                 type="tel"
                                 inputMode="numeric"
                                 pattern="[0-9]*"
+                                id="user-id"
+                                name="userId"
                                 autoComplete="tel"
                                 placeholder="User ID / Mobile Number"
                                 className="input-field input-field--icon"
@@ -120,6 +122,8 @@ const Login = () => {
                             <input
                                 type={showPassword ? "text" : "password"}
                                 placeholder="Password"
+                                id="password"
+                                name="password"
                                 autoComplete="current-password"
                                 className="input-field input-field--with-icon input-field--with-toggle"
                                 value={password}
