@@ -14,8 +14,9 @@ module.exports = async (connection) => {
   };
 
   // Add columns to vendors if missing
+  const hasGstin = await checkColumn('vendors', 'gstin');
   if (!(await checkColumn('vendors', 'gst_number'))) {
-    await connection.query(`ALTER TABLE vendors ADD COLUMN gst_number VARCHAR(20) NULL AFTER gstin`);
+    await connection.query(`ALTER TABLE vendors ADD COLUMN gst_number VARCHAR(20) NULL${hasGstin ? ' AFTER gstin' : ''}`);
     console.log('[Migration 033] Added vendors.gst_number column');
   }
 
@@ -36,11 +37,13 @@ module.exports = async (connection) => {
 
   // Populate vendors columns
   // COPY gstin to gst_number (only where gst_number is NULL/empty AND gstin has data)
-  await connection.query(`
-    UPDATE vendors 
-    SET gst_number = COALESCE(NULLIF(gstin, ''), gst_number)
-    WHERE gst_number IS NULL
-  `);
+  if (hasGstin) {
+    await connection.query(`
+      UPDATE vendors 
+      SET gst_number = COALESCE(NULLIF(gstin, ''), gst_number)
+      WHERE gst_number IS NULL
+    `);
+  }
   // TODO: After verifying gst_number data, drop `gstin` column in migration 034
   await connection.query(`
     UPDATE vendors 
