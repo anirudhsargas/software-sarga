@@ -1483,314 +1483,588 @@ const Inventory = () => {
             {
                 showAddModal && (
                     <div className="modal-backdrop">
-                        <div className="modal">
-                            <button className="modal-close" onClick={() => setShowAddModal(false)}>
-                                <X size={22} />
-                            </button>
-                            <h2 className="section-title mb-16">Add Inventory Item</h2>
+                        <div className="modal modal--large" style={{ maxHeight: '92vh', borderRadius: 'var(--radius-xl)' }}>
 
-                            <div className="mb-16">
-                                <label className="label">Match with Product Library (Optional)</label>
-                                <div className="search-input-container">
-                                    <Search size={18} className="search-icon" />
-                                    <input
-                                        name="addProductSearch"
-                                        className="input-field"
-                                        placeholder="Search product from library..."
-                                        value={productSearch}
-                                        onChange={(e) => setProductSearch(e.target.value)}
-                                    />
-                                </div>
-                                {filteredProducts.length > 0 && (
-                                    <div className="dropdown mt-4">
-                                        {filteredProducts.map(p => (
-                                            <div role="button" tabIndex={0} key={p.id} className="dropdown-item" onClick={() => selectProduct(p)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectProduct(p); } }}>
-                                                <div className="text-sm font-medium">{p.name}</div>
-                                                <div className="muted text-xs">{p.category_name} &rsaquo; {p.subcategory_name}</div>
-                                            </div>
-                                        ))}
+                            {/* ── Sticky Header ── */}
+                            <div className="modal-header" style={{ padding: 'var(--space-20) var(--space-24)', borderBottom: '1px solid var(--border)', flexShrink: 0, background: 'var(--surface)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-12)' }}>
+                                    <div style={{
+                                        width: 40, height: 40, borderRadius: 'var(--radius-md)',
+                                        background: 'var(--accent-alpha)',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        fontSize: 20
+                                    }}>📦</div>
+                                    <div>
+                                        <h2 style={{ margin: 0, fontSize: 'var(--text-lg)', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-heading)' }}>
+                                            Add Inventory Item
+                                        </h2>
+                                        <p style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+                                            Fill in the details below to add a new item to your inventory
+                                        </p>
                                     </div>
-                                )}
+                                </div>
+                                <button className="modal-close modal-close--static" onClick={() => setShowAddModal(false)}
+                                    style={{ position: 'static', flexShrink: 0 }}>
+                                    <X size={18} />
+                                </button>
                             </div>
 
-                            <form onSubmit={handleAddItem} className="stack-md">
-                                <div className="mb-16 panel panel--tight" style={{ background: 'var(--surface-alt)' }}>
-                                    <label className="label">Item Type</label>
-                                    <div className="row gap-md mt-4">
-                                        <label className="row items-center gap-sm cursor-pointer">
-                                            <input type="radio" name="add_item_type" value="Retail" checked={newItem.item_type === 'Retail'} onChange={(e) => setNewItem({ ...newItem, item_type: e.target.value })} />
-                                            <span>Retail Product</span>
-                                        </label>
-                                    </div>
-                                </div>
-                                <div className="row gap-sm">
-                                    <div className="flex-1">
-                                        <label className="label">Item Name</label>
+                            {/* ── Scrollable Body ── */}
+                            <div className="modal-body" style={{ overflowY: 'auto', flex: 1, padding: 'var(--space-24)' }}>
+
+                                {/* Product Library Search */}
+                                <div style={{
+                                    marginBottom: 'var(--space-24)',
+                                    padding: 'var(--space-16)',
+                                    borderRadius: 'var(--radius-md)',
+                                    background: 'var(--surface-alt)',
+                                    border: '1px solid var(--border)'
+                                }}>
+                                    <label className="label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', fontWeight: 600 }}>
+                                        🔗 Match with Product Library <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(Optional)</span>
+                                    </label>
+                                    <div className="search-input-container" style={{ marginTop: 'var(--space-8)' }}>
+                                        <Search size={16} className="search-icon" />
                                         <input
-                                            name="addItemName"
+                                            name="addProductSearch"
                                             className="input-field"
-                                            value={newItem.name}
-                                            onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
-                                            required
+                                            placeholder="Search product from library to auto-fill fields..."
+                                            value={productSearch}
+                                            onChange={(e) => setProductSearch(e.target.value)}
                                         />
                                     </div>
-                                    {newItem.item_type === 'Retail' && (
-                                        <div className="flex-1">
-                                            <label className="label">SKU (Unique Code)</label>
-                                            <input
-                                                name="addItemSku"
-                                                className="input-field"
-                                                style={{ fontWeight: 700, letterSpacing: '0.5px' }}
-                                                value={newItem.sku}
-                                                onChange={(e) => setNewItem({ ...newItem, sku: e.target.value.toUpperCase() })}
-                                                placeholder="AUTOGENERATED"
-                                            />
+                                    {filteredProducts.length > 0 && (
+                                        <div className="dropdown mt-4">
+                                            {filteredProducts.map(p => (
+                                                <div role="button" tabIndex={0} key={p.id} className="dropdown-item" onClick={() => selectProduct(p)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectProduct(p); } }}>
+                                                    <div className="text-sm font-medium">{p.name}</div>
+                                                    <div className="muted text-xs">{p.category_name} &rsaquo; {p.subcategory_name}</div>
+                                                </div>
+                                            ))}
                                         </div>
                                     )}
                                 </div>
 
-                                {newItem.item_type === 'Retail' && (
-                                    <>
-                                        <div className="row gap-sm panel panel--tight" style={{ background: 'var(--surface-alt)', border: '1px dashed var(--border)' }}>
-                                            <div style={{ width: '80px' }}>
-                                                <label className="label">Source</label>
-                                                <input
-                                                    name="addItemSource"
-                                                    className="input-field"
-                                                    maxLength={3}
-                                                    placeholder="ABC"
-                                                    value={newItem.source_code}
-                                                    onChange={(e) => {
-                                                        const val = e.target.value.toUpperCase();
-                                                        const newSku = `${val}-${newItem.model_name}-${newItem.size_code}`.replace(/-+$/, '').replace(/^-+/, '');
-                                                        setNewItem({ ...newItem, source_code: val, sku: newSku });
-                                                    }}
-                                                />
+                                <form id="add-inventory-item-form" onSubmit={handleAddItem}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-20)' }}>
+
+                                        {/* ── Section: Item Identity ── */}
+                                        <div style={{
+                                            borderRadius: 'var(--radius-md)',
+                                            border: '1px solid var(--border)',
+                                            overflow: 'hidden'
+                                        }}>
+                                            <div style={{
+                                                padding: 'var(--space-12) var(--space-16)',
+                                                background: 'var(--surface-alt)',
+                                                borderBottom: '1px solid var(--border)',
+                                                display: 'flex', alignItems: 'center', gap: 'var(--space-8)'
+                                            }}>
+                                                <div style={{ width: 3, height: 16, borderRadius: 2, background: 'var(--accent)' }} />
+                                                <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-secondary)' }}>
+                                                    Item Identity
+                                                </span>
                                             </div>
-                                            <div className="flex-1">
-                                                <label className="label">Model Name</label>
-                                                <input
-                                                    name="addItemModel"
-                                                    className="input-field"
-                                                    placeholder="Model"
-                                                    value={newItem.model_name}
-                                                    onChange={(e) => {
-                                                        const val = e.target.value.toUpperCase();
-                                                        const newSku = `${newItem.source_code}-${val}-${newItem.size_code}`.replace(/-+$/, '').replace(/^-+/, '');
-                                                        setNewItem({ ...newItem, model_name: val, sku: newSku });
-                                                    }}
-                                                />
-                                            </div>
-                                            <div style={{ width: '80px' }}>
-                                                <label className="label">Size</label>
-                                                <input
-                                                    name="addItemSize"
-                                                    className="input-field"
-                                                    maxLength={10}
-                                                    placeholder="L"
-                                                    value={newItem.size_code}
-                                                    onChange={(e) => {
-                                                        const val = e.target.value.toUpperCase();
-                                                        const newSku = `${newItem.source_code}-${newItem.model_name}-${val}`.replace(/-+$/, '').replace(/^-+/, '');
-                                                        setNewItem({ ...newItem, size_code: val, sku: newSku });
-                                                    }}
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="row gap-sm">
-                                            <div className="flex-1">
-                                                <label className="label">Category</label>
-                                                <select
-                                                    name="addItemCategory"
-                                                    className="input-field"
-                                                    value={newItem.category}
-                                                    onChange={(e) => setNewItem({ ...newItem, category: e.target.value })}
-                                                >
-                                                    <option value="">Select Category</option>
-                                                    {hierarchy.map(cat => (
-                                                        <optgroup key={cat.id} label={cat.name}>
-                                                            {cat.subcategories.map(sub => (
-                                                                <option key={sub.id} value={sub.name}>{sub.name}</option>
-                                                            ))}
-                                                        </optgroup>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                            <div className="flex-1">
-                                                <label className="label">HSN Code</label>
-                                                <input
-                                                    name="addItemHsn"
-                                                    className="input-field"
-                                                    value={newItem.hsn}
-                                                    onChange={(e) => setNewItem({ ...newItem, hsn: e.target.value })}
-                                                />
-                                            </div>
-                                        </div>
-                                    </>
-                                )}
-                                <div className="row gap-sm">
-                                    {branches && branches.length > 0 ? (
-                                        <div className="flex-1" style={{ minWidth: '100%' }}>
-                                            <div className="panel panel--tight mb-8" style={{ background: 'var(--surface-alt)', border: '1px solid var(--border)' }}>
-                                                <label className="label mb-8 font-semibold" style={{ color: 'var(--accent-2)' }}>Branch Stock Distribution</label>
-                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-12)' }}>
-                                                    {newItem.branch_stocks?.map((bs, index) => (
-                                                        <div key={bs.branch_id} className="row items-center justify-between gap-sm p-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                                                            <span className="text-xs font-medium text-muted">{bs.branch_name} ({bs.short_name})</span>
+                                            <div style={{ padding: 'var(--space-16)', display: 'flex', flexDirection: 'column', gap: 'var(--space-16)', background: 'var(--surface)' }}>
+                                                {/* Item Type */}
+                                                <div>
+                                                    <label className="label" style={{ marginBottom: 'var(--space-8)', display: 'block' }}>Item Type</label>
+                                                    <div style={{ display: 'flex', gap: 'var(--space-12)' }}>
+                                                        <label style={{
+                                                            display: 'flex', alignItems: 'center', gap: 'var(--space-8)',
+                                                            padding: 'var(--space-10) var(--space-16)',
+                                                            borderRadius: 'var(--radius-sm)',
+                                                            border: `2px solid ${newItem.item_type === 'Retail' ? 'var(--accent)' : 'var(--border)'}`,
+                                                            background: newItem.item_type === 'Retail' ? 'var(--accent-alpha)' : 'transparent',
+                                                            cursor: 'pointer', transition: 'all var(--transition-fast)', flex: 1
+                                                        }}>
+                                                            <input type="radio" name="add_item_type" value="Retail"
+                                                                checked={newItem.item_type === 'Retail'}
+                                                                onChange={(e) => setNewItem({ ...newItem, item_type: e.target.value })}
+                                                                style={{ accentColor: 'var(--accent)' }}
+                                                            />
+                                                            <div>
+                                                                <div style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--text-primary)' }}>🛍️ Retail Product</div>
+                                                                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Has SKU, category, pricing</div>
+                                                            </div>
+                                                        </label>
+                                                    </div>
+                                                </div>
+
+                                                {/* Item Name + SKU */}
+                                                <div style={{ display: 'grid', gridTemplateColumns: newItem.item_type === 'Retail' ? '1fr 1fr' : '1fr', gap: 'var(--space-12)' }}>
+                                                    <div>
+                                                        <label className="label">Item Name <span style={{ color: 'var(--danger)' }}>*</span></label>
+                                                        <input
+                                                            name="addItemName"
+                                                            className="input-field"
+                                                            placeholder="e.g. Canon A4 Paper"
+                                                            value={newItem.name}
+                                                            onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
+                                                            required
+                                                            style={{ marginTop: 'var(--space-6)' }}
+                                                        />
+                                                    </div>
+                                                    {newItem.item_type === 'Retail' && (
+                                                        <div>
+                                                            <label className="label">SKU (Unique Code)</label>
                                                             <input
-                                                                type="number"
-                                                                className="input-field text-right"
-                                                                style={{ width: '80px', padding: 'var(--space-4) var(--space-8)', minHeight: '30px' }}
-                                                                value={bs.quantity}
-                                                                min="0"
+                                                                name="addItemSku"
+                                                                className="input-field"
+                                                                style={{ fontWeight: 700, letterSpacing: '0.5px', fontFamily: 'var(--font-mono)', marginTop: 'var(--space-6)' }}
+                                                                value={newItem.sku}
+                                                                onChange={(e) => setNewItem({ ...newItem, sku: e.target.value.toUpperCase() })}
+                                                                placeholder="AUTOGENERATED"
+                                                            />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* ── Section: SKU Builder (Retail only) ── */}
+                                        {newItem.item_type === 'Retail' && (
+                                            <div style={{
+                                                borderRadius: 'var(--radius-md)',
+                                                border: '1px solid var(--border)',
+                                                overflow: 'hidden'
+                                            }}>
+                                                <div style={{
+                                                    padding: 'var(--space-12) var(--space-16)',
+                                                    background: 'var(--surface-alt)',
+                                                    borderBottom: '1px solid var(--border)',
+                                                    display: 'flex', alignItems: 'center', gap: 'var(--space-8)'
+                                                }}>
+                                                    <div style={{ width: 3, height: 16, borderRadius: 2, background: 'var(--info)' }} />
+                                                    <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-secondary)' }}>
+                                                        SKU Builder
+                                                    </span>
+                                                    <span style={{ marginLeft: 'auto', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Source · Model · Size → SKU</span>
+                                                </div>
+                                                <div style={{ padding: 'var(--space-16)', background: 'var(--surface)' }}>
+                                                    <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr 100px', gap: 'var(--space-12)' }}>
+                                                        <div>
+                                                            <label className="label">Source</label>
+                                                            <input
+                                                                name="addItemSource"
+                                                                className="input-field"
+                                                                maxLength={3}
+                                                                placeholder="ABC"
+                                                                value={newItem.source_code}
+                                                                style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, textTransform: 'uppercase', marginTop: 'var(--space-6)' }}
                                                                 onChange={(e) => {
-                                                                    const val = Math.max(0, parseInt(e.target.value) || 0);
-                                                                    const updatedStocks = [...(newItem.branch_stocks || [])];
-                                                                    updatedStocks[index] = { ...bs, quantity: val };
-                                                                    const totalQty = updatedStocks.reduce((sum, s) => sum + s.quantity, 0);
-                                                                    setNewItem({
-                                                                        ...newItem,
-                                                                        branch_stocks: updatedStocks,
-                                                                        quantity: String(totalQty)
-                                                                    });
+                                                                    const val = e.target.value.toUpperCase();
+                                                                    const newSku = `${val}-${newItem.model_name}-${newItem.size_code}`.replace(/-+$/, '').replace(/^-+/, '');
+                                                                    setNewItem({ ...newItem, source_code: val, sku: newSku });
                                                                 }}
                                                             />
                                                         </div>
-                                                    ))}
+                                                        <div>
+                                                            <label className="label">Model Name</label>
+                                                            <input
+                                                                name="addItemModel"
+                                                                className="input-field"
+                                                                placeholder="Model"
+                                                                value={newItem.model_name}
+                                                                style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, textTransform: 'uppercase', marginTop: 'var(--space-6)' }}
+                                                                onChange={(e) => {
+                                                                    const val = e.target.value.toUpperCase();
+                                                                    const newSku = `${newItem.source_code}-${val}-${newItem.size_code}`.replace(/-+$/, '').replace(/^-+/, '');
+                                                                    setNewItem({ ...newItem, model_name: val, sku: newSku });
+                                                                }}
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="label">Size</label>
+                                                            <input
+                                                                name="addItemSize"
+                                                                className="input-field"
+                                                                maxLength={10}
+                                                                placeholder="L"
+                                                                value={newItem.size_code}
+                                                                style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, textTransform: 'uppercase', marginTop: 'var(--space-6)' }}
+                                                                onChange={(e) => {
+                                                                    const val = e.target.value.toUpperCase();
+                                                                    const newSku = `${newItem.source_code}-${newItem.model_name}-${val}`.replace(/-+$/, '').replace(/^-+/, '');
+                                                                    setNewItem({ ...newItem, size_code: val, sku: newSku });
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    {newItem.sku && (
+                                                        <div style={{
+                                                            marginTop: 'var(--space-12)',
+                                                            padding: 'var(--space-10) var(--space-14)',
+                                                            borderRadius: 'var(--radius-sm)',
+                                                            background: 'var(--surface-alt)',
+                                                            border: '1px dashed var(--border)',
+                                                            display: 'flex', alignItems: 'center', gap: 'var(--space-8)'
+                                                        }}>
+                                                            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Generated SKU:</span>
+                                                            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 'var(--text-sm)', color: 'var(--text-primary)', letterSpacing: '1px' }}>{newItem.sku}</span>
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                <div className="row items-center justify-between mt-8 pt-8" style={{ borderTop: '1px solid var(--border)' }}>
-                                                    <span className="text-xs font-semibold">Total Stock Available</span>
-                                                    <span className="text-sm font-bold text-accent">
-                                                        {newItem.quantity || '0'} {newItem.unit}
+                                            </div>
+                                        )}
+
+                                        {/* ── Section: Classification (Retail only) ── */}
+                                        {newItem.item_type === 'Retail' && (
+                                            <div style={{
+                                                borderRadius: 'var(--radius-md)',
+                                                border: '1px solid var(--border)',
+                                                overflow: 'hidden'
+                                            }}>
+                                                <div style={{
+                                                    padding: 'var(--space-12) var(--space-16)',
+                                                    background: 'var(--surface-alt)',
+                                                    borderBottom: '1px solid var(--border)',
+                                                    display: 'flex', alignItems: 'center', gap: 'var(--space-8)'
+                                                }}>
+                                                    <div style={{ width: 3, height: 16, borderRadius: 2, background: 'var(--success)' }} />
+                                                    <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-secondary)' }}>
+                                                        Classification
                                                     </span>
                                                 </div>
+                                                <div style={{ padding: 'var(--space-16)', background: 'var(--surface)' }}>
+                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-12)' }}>
+                                                        <div>
+                                                            <label className="label">Category</label>
+                                                            <select
+                                                                name="addItemCategory"
+                                                                className="input-field"
+                                                                value={newItem.category}
+                                                                onChange={(e) => setNewItem({ ...newItem, category: e.target.value })}
+                                                                style={{ marginTop: 'var(--space-6)' }}
+                                                            >
+                                                                <option value="">Select Category</option>
+                                                                {hierarchy.map(cat => (
+                                                                    <optgroup key={cat.id} label={cat.name}>
+                                                                        {cat.subcategories.map(sub => (
+                                                                            <option key={sub.id} value={sub.name}>{sub.name}</option>
+                                                                        ))}
+                                                                    </optgroup>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+                                                        <div>
+                                                            <label className="label">HSN Code</label>
+                                                            <input
+                                                                name="addItemHsn"
+                                                                className="input-field"
+                                                                placeholder="e.g. 4802"
+                                                                value={newItem.hsn}
+                                                                onChange={(e) => setNewItem({ ...newItem, hsn: e.target.value })}
+                                                                style={{ marginTop: 'var(--space-6)' }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
-                                        </div>
-                                    ) : (
-                                        <div className="flex-1">
-                                            <label className="label">Quantity</label>
-                                            <input
-                                                name="addItemQty"
-                                                type="number"
-                                                className="input-field"
-                                                value={newItem.quantity}
-                                                onChange={(e) => setNewItem({ ...newItem, quantity: e.target.value })}
-                                                min="0"
-                                            />
-                                        </div>
-                                    )}
-                                    <div className="flex-1">
-                                        <label className="label">Unit</label>
-                                        <input
-                                            name="addItemUnit"
-                                            className="input-field"
-                                            value={newItem.unit}
-                                            onChange={(e) => setNewItem({ ...newItem, unit: e.target.value })}
-                                        />
-                                    </div>
-                                    <div className="flex-1">
-                                        <label className="label">Reorder Level</label>
-                                        <input
-                                            name="addItemReorderLevel"
-                                            type="number"
-                                            className="input-field"
-                                            value={newItem.reorder_level}
-                                            onChange={(e) => setNewItem({ ...newItem, reorder_level: e.target.value })}
-                                            min="0"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="row gap-sm">
-                                    <div className="flex-1">
-                                        <label className="label">Cost Price</label>
-                                        <input
-                                            name="addItemCostPrice"
-                                            type="number"
-                                            step="0.01"
-                                            className="input-field"
-                                            value={newItem.cost_price}
-                                            onChange={(e) => setNewItem({ ...newItem, cost_price: e.target.value })}
-                                            min="0"
-                                        />
-                                    </div>
-                                    {newItem.item_type === 'Retail' && (
-                                        <>
-                                            <div className="flex-1">
-                                                <label className="label">GST Rate %</label>
-                                                <input
-                                                    name="addItemGstRate"
-                                                    type="number"
-                                                    className="input-field"
-                                                    value={newItem.gst_rate}
-                                                    onChange={(e) => setNewItem({ ...newItem, gst_rate: e.target.value })}
-                                                    min="0"
-                                                />
-                                            </div>
-                                            <div className="flex-1">
-                                                <label className="label">Discount %</label>
-                                                <input
-                                                    name="addItemDiscount"
-                                                    type="number"
-                                                    className="input-field"
-                                                    value={newItem.discount}
-                                                    onChange={(e) => setNewItem({ ...newItem, discount: e.target.value })}
-                                                    min="0"
-                                                />
-                                            </div>
-                                        </>
-                                    )}
-                                </div>
-                                {newItem.item_type === 'Retail' && (
-                                    <div>
-                                        <label className="label">Sell Price</label>
-                                        <input
-                                            name="addItemSellPrice"
-                                            type="number"
-                                            step="0.01"
-                                            className="input-field"
-                                            value={newItem.sell_price}
-                                            onChange={(e) => setNewItem({ ...newItem, sell_price: e.target.value })}
-                                            min="0"
-                                        />
-                                    </div>
-                                )}
-                                <div className="row gap-sm">
-                                    <div className="flex-1">
-                                        <label className="label">Vendor Name</label>
-                                        <input
-                                            name="addItemVendorName"
-                                            className="input-field"
-                                            placeholder="Where do we buy this?"
-                                            value={newItem.vendor_name}
-                                            onChange={(e) => setNewItem({ ...newItem, vendor_name: e.target.value })}
-                                        />
-                                    </div>
-                                    <div className="flex-1">
-                                        <label className="label">Vendor Contact</label>
-                                        <input
-                                            name="addItemVendorContact"
-                                            className="input-field"
-                                            placeholder="Phone or Email"
-                                            value={newItem.vendor_contact}
-                                            onChange={(e) => setNewItem({ ...newItem, vendor_contact: e.target.value })}
-                                        />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="label">Purchase Link</label>
-                                    <input
-                                        name="addItemPurchaseLink"
-                                        className="input-field"
-                                        placeholder="https://amazon.in/..."
-                                        value={newItem.purchase_link}
-                                        onChange={(e) => setNewItem({ ...newItem, purchase_link: e.target.value })}
-                                    />
-                                </div>
+                                        )}
 
-                                <button type="submit" className="btn btn-primary btn--full" disabled={saving}>
-                                    {saving ? 'Creating...' : 'Create Item'}
+                                        {/* ── Section: Stock & Fulfillment ── */}
+                                        <div style={{
+                                            borderRadius: 'var(--radius-md)',
+                                            border: '1px solid var(--border)',
+                                            overflow: 'hidden'
+                                        }}>
+                                            <div style={{
+                                                padding: 'var(--space-12) var(--space-16)',
+                                                background: 'var(--surface-alt)',
+                                                borderBottom: '1px solid var(--border)',
+                                                display: 'flex', alignItems: 'center', gap: 'var(--space-8)'
+                                            }}>
+                                                <div style={{ width: 3, height: 16, borderRadius: 2, background: 'var(--warning)' }} />
+                                                <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-secondary)' }}>
+                                                    Stock &amp; Fulfillment
+                                                </span>
+                                            </div>
+                                            <div style={{ padding: 'var(--space-16)', background: 'var(--surface)', display: 'flex', flexDirection: 'column', gap: 'var(--space-16)' }}>
+                                                {branches && branches.length > 0 ? (
+                                                    <div style={{
+                                                        borderRadius: 'var(--radius-sm)',
+                                                        border: '1px solid var(--border)',
+                                                        overflow: 'hidden'
+                                                    }}>
+                                                        <div style={{
+                                                            padding: 'var(--space-10) var(--space-14)',
+                                                            background: 'var(--surface-alt)',
+                                                            borderBottom: '1px solid var(--border)'
+                                                        }}>
+                                                            <span style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--accent-2)' }}>Branch Stock Distribution</span>
+                                                        </div>
+                                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+                                                            {newItem.branch_stocks?.map((bs, index) => (
+                                                                <div key={bs.branch_id} style={{
+                                                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                                                    padding: 'var(--space-10) var(--space-14)',
+                                                                    borderBottom: '1px solid var(--border-subtle)',
+                                                                    gap: 'var(--space-8)'
+                                                                }}>
+                                                                    <span style={{ fontSize: 'var(--text-xs)', fontWeight: 500, color: 'var(--text-muted)' }}>
+                                                                        {bs.branch_name} <span style={{ opacity: 0.6 }}>({bs.short_name})</span>
+                                                                    </span>
+                                                                    <input
+                                                                        type="number"
+                                                                        className="input-field"
+                                                                        style={{ width: 72, padding: '4px 8px', minHeight: 32, textAlign: 'right', fontWeight: 600 }}
+                                                                        value={bs.quantity}
+                                                                        min="0"
+                                                                        onChange={(e) => {
+                                                                            const val = Math.max(0, parseInt(e.target.value) || 0);
+                                                                            const updatedStocks = [...(newItem.branch_stocks || [])];
+                                                                            updatedStocks[index] = { ...bs, quantity: val };
+                                                                            const totalQty = updatedStocks.reduce((sum, s) => sum + s.quantity, 0);
+                                                                            setNewItem({ ...newItem, branch_stocks: updatedStocks, quantity: String(totalQty) });
+                                                                        }}
+                                                                    />
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                        <div style={{
+                                                            padding: 'var(--space-10) var(--space-14)',
+                                                            background: 'var(--surface-alt)',
+                                                            borderTop: '1px solid var(--border)',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+                                                        }}>
+                                                            <span style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-secondary)' }}>Total Stock Available</span>
+                                                            <span style={{ fontSize: 'var(--text-sm)', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                                                {newItem.quantity || '0'} {newItem.unit}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div>
+                                                        <label className="label">Opening Quantity</label>
+                                                        <input
+                                                            name="addItemQty"
+                                                            type="number"
+                                                            className="input-field"
+                                                            placeholder="0"
+                                                            value={newItem.quantity}
+                                                            onChange={(e) => setNewItem({ ...newItem, quantity: e.target.value })}
+                                                            min="0"
+                                                            style={{ marginTop: 'var(--space-6)' }}
+                                                        />
+                                                    </div>
+                                                )}
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-12)' }}>
+                                                    <div>
+                                                        <label className="label">Unit of Measure</label>
+                                                        <input
+                                                            name="addItemUnit"
+                                                            className="input-field"
+                                                            placeholder="pcs, kg, box..."
+                                                            value={newItem.unit}
+                                                            onChange={(e) => setNewItem({ ...newItem, unit: e.target.value })}
+                                                            style={{ marginTop: 'var(--space-6)' }}
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="label">Reorder Level</label>
+                                                        <input
+                                                            name="addItemReorderLevel"
+                                                            type="number"
+                                                            className="input-field"
+                                                            placeholder="e.g. 10"
+                                                            value={newItem.reorder_level}
+                                                            onChange={(e) => setNewItem({ ...newItem, reorder_level: e.target.value })}
+                                                            min="0"
+                                                            style={{ marginTop: 'var(--space-6)' }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* ── Section: Pricing ── */}
+                                        <div style={{
+                                            borderRadius: 'var(--radius-md)',
+                                            border: '1px solid var(--border)',
+                                            overflow: 'hidden'
+                                        }}>
+                                            <div style={{
+                                                padding: 'var(--space-12) var(--space-16)',
+                                                background: 'var(--surface-alt)',
+                                                borderBottom: '1px solid var(--border)',
+                                                display: 'flex', alignItems: 'center', gap: 'var(--space-8)'
+                                            }}>
+                                                <div style={{ width: 3, height: 16, borderRadius: 2, background: 'var(--success)' }} />
+                                                <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-secondary)' }}>
+                                                    Pricing
+                                                </span>
+                                            </div>
+                                            <div style={{ padding: 'var(--space-16)', background: 'var(--surface)', display: 'flex', flexDirection: 'column', gap: 'var(--space-12)' }}>
+                                                <div style={{ display: 'grid', gridTemplateColumns: newItem.item_type === 'Retail' ? '1fr 1fr 1fr' : '1fr', gap: 'var(--space-12)' }}>
+                                                    <div>
+                                                        <label className="label">Cost Price</label>
+                                                        <div style={{ position: 'relative', marginTop: 'var(--space-6)' }}>
+                                                            <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 'var(--text-sm)', color: 'var(--text-muted)', pointerEvents: 'none' }}>₹</span>
+                                                            <input
+                                                                name="addItemCostPrice"
+                                                                type="number"
+                                                                step="0.01"
+                                                                className="input-field"
+                                                                style={{ paddingLeft: 24 }}
+                                                                placeholder="0.00"
+                                                                value={newItem.cost_price}
+                                                                onChange={(e) => setNewItem({ ...newItem, cost_price: e.target.value })}
+                                                                min="0"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    {newItem.item_type === 'Retail' && (
+                                                        <>
+                                                            <div>
+                                                                <label className="label">GST Rate %</label>
+                                                                <input
+                                                                    name="addItemGstRate"
+                                                                    type="number"
+                                                                    className="input-field"
+                                                                    placeholder="18"
+                                                                    value={newItem.gst_rate}
+                                                                    onChange={(e) => setNewItem({ ...newItem, gst_rate: e.target.value })}
+                                                                    min="0"
+                                                                    style={{ marginTop: 'var(--space-6)' }}
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <label className="label">Discount %</label>
+                                                                <input
+                                                                    name="addItemDiscount"
+                                                                    type="number"
+                                                                    className="input-field"
+                                                                    placeholder="0"
+                                                                    value={newItem.discount}
+                                                                    onChange={(e) => setNewItem({ ...newItem, discount: e.target.value })}
+                                                                    min="0"
+                                                                    style={{ marginTop: 'var(--space-6)' }}
+                                                                />
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                </div>
+                                                {newItem.item_type === 'Retail' && (
+                                                    <div>
+                                                        <label className="label">Sell Price (MRP)</label>
+                                                        <div style={{ position: 'relative', marginTop: 'var(--space-6)' }}>
+                                                            <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 'var(--text-sm)', color: 'var(--text-muted)', pointerEvents: 'none' }}>₹</span>
+                                                            <input
+                                                                name="addItemSellPrice"
+                                                                type="number"
+                                                                step="0.01"
+                                                                className="input-field"
+                                                                style={{ paddingLeft: 24 }}
+                                                                placeholder="0.00"
+                                                                value={newItem.sell_price}
+                                                                onChange={(e) => setNewItem({ ...newItem, sell_price: e.target.value })}
+                                                                min="0"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* ── Section: Vendor Info ── */}
+                                        <div style={{
+                                            borderRadius: 'var(--radius-md)',
+                                            border: '1px solid var(--border)',
+                                            overflow: 'hidden'
+                                        }}>
+                                            <div style={{
+                                                padding: 'var(--space-12) var(--space-16)',
+                                                background: 'var(--surface-alt)',
+                                                borderBottom: '1px solid var(--border)',
+                                                display: 'flex', alignItems: 'center', gap: 'var(--space-8)'
+                                            }}>
+                                                <div style={{ width: 3, height: 16, borderRadius: 2, background: 'var(--info)' }} />
+                                                <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-secondary)' }}>
+                                                    Vendor &amp; Sourcing
+                                                </span>
+                                            </div>
+                                            <div style={{ padding: 'var(--space-16)', background: 'var(--surface)', display: 'flex', flexDirection: 'column', gap: 'var(--space-12)' }}>
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-12)' }}>
+                                                    <div>
+                                                        <label className="label">Vendor Name</label>
+                                                        <input
+                                                            name="addItemVendorName"
+                                                            className="input-field"
+                                                            placeholder="Where do we buy this?"
+                                                            value={newItem.vendor_name}
+                                                            onChange={(e) => setNewItem({ ...newItem, vendor_name: e.target.value })}
+                                                            style={{ marginTop: 'var(--space-6)' }}
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="label">Vendor Contact</label>
+                                                        <input
+                                                            name="addItemVendorContact"
+                                                            className="input-field"
+                                                            placeholder="Phone or Email"
+                                                            value={newItem.vendor_contact}
+                                                            onChange={(e) => setNewItem({ ...newItem, vendor_contact: e.target.value })}
+                                                            style={{ marginTop: 'var(--space-6)' }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <label className="label">Purchase Link</label>
+                                                    <input
+                                                        name="addItemPurchaseLink"
+                                                        className="input-field"
+                                                        placeholder="https://amazon.in/..."
+                                                        value={newItem.purchase_link}
+                                                        onChange={(e) => setNewItem({ ...newItem, purchase_link: e.target.value })}
+                                                        style={{ marginTop: 'var(--space-6)' }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                    </div>
+                                </form>
+                            </div>
+
+                            {/* ── Sticky Footer ── */}
+                            <div className="modal-footer" style={{
+                                padding: 'var(--space-16) var(--space-24)',
+                                borderTop: '1px solid var(--border)',
+                                background: 'var(--surface)',
+                                display: 'flex', gap: 'var(--space-12)', flexShrink: 0,
+                                justifyContent: 'flex-end', alignItems: 'center'
+                            }}>
+                                <button
+                                    type="button"
+                                    className="btn btn-secondary"
+                                    onClick={() => setShowAddModal(false)}
+                                    style={{ minWidth: 100 }}
+                                >
+                                    Cancel
                                 </button>
-                            </form>
+                                <button
+                                    type="submit"
+                                    form="add-inventory-item-form"
+                                    className="btn btn-primary"
+                                    disabled={saving}
+                                    style={{ minWidth: 140, gap: 'var(--space-8)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                >
+                                    {saving ? (
+                                        <>
+                                            <span style={{
+                                                width: 14, height: 14, border: '2px solid currentColor',
+                                                borderTopColor: 'transparent', borderRadius: '50%',
+                                                display: 'inline-block', animation: 'spin 0.6s linear infinite'
+                                            }} />
+                                            Creating...
+                                        </>
+                                    ) : (
+                                        <>📦 Create Item</>
+                                    )}
+                                </button>
+                            </div>
+
                         </div>
                     </div>
                 )
@@ -2121,292 +2395,341 @@ const Inventory = () => {
             {
                 showPrintModal && (
                     <div className="modal-backdrop">
-                        <div className="modal" style={{ maxWidth: '540px' }}>
-                            <button className="modal-close" onClick={() => setShowPrintModal(false)}>
-                                <X size={22} />
-                            </button>
+                        <div className="modal" style={{ maxWidth: '560px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', borderRadius: 'var(--radius-xl)' }}>
 
-                            <div style={{ marginBottom: 'var(--space-20)' }}>
-                                <h2 className="section-title" style={{ marginBottom: 4 }}>Label Quantities</h2>
-                                <p className="section-subtitle">Set how many labels to print for each selected item.</p>
-                            </div>
-
-                            <div className="row gap-sm" style={{ marginBottom: 'var(--space-16)', gap: 8 }}>
-                                <button className="btn btn-ghost btn-sm" onClick={applyStockQuantitiesForSelected}>
-                                    <Layers size={14} /> Use Stock Qty
-                                </button>
-                                <button
-                                    className="btn btn-ghost btn-sm"
-                                    onClick={() => {
-                                        const reset = {};
-                                        selectedIds.forEach((id) => { reset[id] = 1; });
-                                        setPrintQuantities(reset);
-                                    }}
-                                >
-                                    Reset to 1
+                            {/* ── Header ── */}
+                            <div className="modal-header" style={{ padding: 'var(--space-20) var(--space-24)', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-12)' }}>
+                                    <div style={{ width: 38, height: 38, borderRadius: 'var(--radius-md)', background: 'var(--accent-alpha)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🏷️</div>
+                                    <div>
+                                        <h2 style={{ margin: 0, fontSize: 'var(--text-lg)', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-heading)' }}>Label Quantities</h2>
+                                        <p style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Set how many labels to print for each item</p>
+                                    </div>
+                                </div>
+                                <button className="modal-close modal-close--static" onClick={() => setShowPrintModal(false)} style={{ position: 'static', flexShrink: 0 }}>
+                                    <X size={18} />
                                 </button>
                             </div>
 
-                            <div className="panel" style={{ padding: 'var(--space-8)', maxHeight: '320px', overflowY: 'auto', marginBottom: 'var(--space-20)' }}>
-                                {items.filter(i => selectedIds.includes(i.id)).map(item => (
-                                    <div key={item.id} className="row items-center justify-between"
-                                        style={{
-                                            padding: 'var(--space-10) var(--space-12)',
-                                            borderRadius: 'var(--radius-sm)',
-                                            background: 'var(--bg)',
-                                            marginBottom: 4,
-                                            border: '1px solid var(--border)',
+                            {/* ── Body ── */}
+                            <div className="modal-body" style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-20) var(--space-24)' }}>
+
+                                {/* Quick-action buttons */}
+                                <div style={{ display: 'flex', gap: 'var(--space-8)', marginBottom: 'var(--space-16)' }}>
+                                    <button className="btn btn-ghost btn-sm" onClick={applyStockQuantitiesForSelected} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <Layers size={14} /> Use Stock Qty
+                                    </button>
+                                    <button
+                                        className="btn btn-ghost btn-sm"
+                                        onClick={() => {
+                                            const reset = {};
+                                            selectedIds.forEach((id) => { reset[id] = 1; });
+                                            setPrintQuantities(reset);
                                         }}
                                     >
-                                        <div style={{ flex: 1, minWidth: 0, marginRight: 12 }}>
-                                            <div className="text-sm font-bold" style={{ lineHeight: 1.3 }}>{item.name}</div>
-                                            <div className="muted text-xs" style={{ marginTop: 2 }}>
-                                                SKU: {item.sku || 'N/A'} · Stock: <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{Number(item.quantity) || 0}</span>
+                                        Reset to 1
+                                    </button>
+                                </div>
+
+                                {/* Item rows */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
+                                    {items.filter(i => selectedIds.includes(i.id)).map(item => (
+                                        <div key={item.id}
+                                            style={{
+                                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                                padding: 'var(--space-14) var(--space-16)',
+                                                borderRadius: 'var(--radius-md)',
+                                                background: 'var(--surface)',
+                                                border: '1px solid var(--border)',
+                                                gap: 'var(--space-12)',
+                                                transition: 'box-shadow var(--transition-fast)',
+                                            }}
+                                        >
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontSize: 'var(--text-sm)', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.3, marginBottom: 4 }}>{item.name}</div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)' }}>
+                                                    {item.sku && (
+                                                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--text-muted)', background: 'var(--surface-alt)', padding: '2px 6px', borderRadius: 4, border: '1px solid var(--border)' }}>
+                                                            {item.sku}
+                                                        </span>
+                                                    )}
+                                                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+                                                        Stock: <strong style={{ color: 'var(--text-primary)' }}>{Number(item.quantity) || 0}</strong>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            {/* Stepper */}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-6)', flexShrink: 0, background: 'var(--surface-alt)', borderRadius: 'var(--radius-sm)', padding: '4px', border: '1px solid var(--border)' }}>
+                                                <button
+                                                    className="icon-button icon-button--sm"
+                                                    style={{ width: 28, height: 28 }}
+                                                    onClick={() => setPrintQuantities(prev => ({ ...prev, [item.id]: Math.max(1, (prev[item.id] || 1) - 1) }))}
+                                                >
+                                                    <Minus size={13} />
+                                                </button>
+                                                <input
+                                                    type="number"
+                                                    className="input-field text-center"
+                                                    style={{ width: 52, padding: '4px 2px', fontSize: 'var(--text-sm)', fontWeight: 700, border: 'none', background: 'transparent', outline: 'none' }}
+                                                    min={1}
+                                                    value={printQuantities[item.id] || 1}
+                                                    onChange={(e) => setPrintQuantities(prev => ({ ...prev, [item.id]: Math.max(1, Number(e.target.value) || 1) }))}
+                                                />
+                                                <button
+                                                    className="icon-button icon-button--sm"
+                                                    style={{ width: 28, height: 28 }}
+                                                    onClick={() => setPrintQuantities(prev => ({ ...prev, [item.id]: (prev[item.id] || 1) + 1 }))}
+                                                >
+                                                    <Plus size={13} />
+                                                </button>
                                             </div>
                                         </div>
-                                        <div className="row items-center gap-sm" style={{ flexShrink: 0 }}>
-                                            <button
-                                                className="icon-button icon-button--sm"
-                                                onClick={() => setPrintQuantities(prev => ({
-                                                    ...prev,
-                                                    [item.id]: Math.max(1, (prev[item.id] || 1) - 1)
-                                                }))}
-                                            >
-                                                <Minus size={14} />
-                                            </button>
-                                            <input
-                                                type="number"
-                                                className="input-field text-center"
-                                                style={{ width: '56px', padding: '4px 2px', fontSize: 'var(--text-sm)', fontWeight: 600 }}
-                                                min={1}
-                                                value={printQuantities[item.id] || 1}
-                                                onChange={(e) => setPrintQuantities(prev => ({
-                                                    ...prev,
-                                                    [item.id]: Math.max(1, Number(e.target.value) || 1)
-                                                }))}
-                                            />
-                                            <button
-                                                className="icon-button icon-button--sm"
-                                                onClick={() => setPrintQuantities(prev => ({
-                                                    ...prev,
-                                                    [item.id]: (prev[item.id] || 1) + 1
-                                                }))}
-                                            >
-                                                <Plus size={14} />
-                                            </button>
+                                    ))}
+                                </div>
+
+                                {/* Summary bar */}
+                                {(() => {
+                                    const totalLabels = Object.values(printQuantities).reduce((a, b) => a + (b || 1), 0);
+                                    const pagesNeeded = Math.ceil(totalLabels / 48);
+                                    return (
+                                        <div style={{
+                                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                            marginTop: 'var(--space-16)',
+                                            padding: 'var(--space-12) var(--space-16)',
+                                            background: 'var(--accent-alpha)',
+                                            borderRadius: 'var(--radius-md)',
+                                            border: '1px solid var(--accent-light)',
+                                        }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-6)' }}>
+                                                <Package size={15} style={{ color: 'var(--text-secondary)' }} />
+                                                <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+                                                    <strong style={{ color: 'var(--text-primary)', fontSize: 'var(--text-base)' }}>{totalLabels}</strong> label{totalLabels !== 1 ? 's' : ''}
+                                                </span>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-6)' }}>
+                                                <FileText size={15} style={{ color: 'var(--text-secondary)' }} />
+                                                <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+                                                    <strong style={{ color: 'var(--text-primary)' }}>{pagesNeeded}</strong> A4 page{pagesNeeded !== 1 ? 's' : ''} <span style={{ color: 'var(--text-muted)' }}>(48/page)</span>
+                                                </span>
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })()}
                             </div>
 
-                            {(() => {
-                                const totalLabels = Object.values(printQuantities).reduce((a, b) => a + (b || 1), 0);
-                                const pagesNeeded = Math.ceil(totalLabels / 48);
-                                return (
-                                    <div style={{
-                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                        marginBottom: 'var(--space-16)', fontSize: 12,
-                                        padding: 'var(--space-10) var(--space-14)',
-                                        background: 'var(--bg)', borderRadius: 'var(--radius-sm)',
-                                        border: '1px solid var(--border)',
-                                    }}>
-                                        <span className="muted">
-                                            <Package size={13} style={{ verticalAlign: 'middle', marginRight: 4 }} />
-                                            <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{totalLabels}</span> total label{totalLabels !== 1 ? 's' : ''}
-                                        </span>
-                                        <span className="muted">
-                                            <FileText size={13} style={{ verticalAlign: 'middle', marginRight: 4 }} />
-                                            ~<span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{pagesNeeded}</span> A4 page{pagesNeeded !== 1 ? 's' : ''} (48 / page)
-                                        </span>
-                                    </div>
-                                );
-                            })()}
-
-                            <button
-                                className="btn btn-primary btn--full"
-                                onClick={generatePDF}
-                                disabled={printingLabel}
-                                style={{ height: 44, fontSize: 'var(--text-sm)', fontWeight: 700 }}
-                            >
-                                {printingLabel ? (
-                                    <Loader2 className="animate-spin" size={18} style={{ marginRight: 8 }} />
-                                ) : (
-                                    <Printer size={18} style={{ marginRight: 8 }} />
-                                )}
-                                <span>Generate Label Sheet (PDF)</span>
-                            </button>
+                            {/* ── Footer ── */}
+                            <div className="modal-footer" style={{ padding: 'var(--space-16) var(--space-24)', borderTop: '1px solid var(--border)', flexShrink: 0, display: 'flex', gap: 'var(--space-10)', justifyContent: 'flex-end' }}>
+                                <button className="btn btn-secondary" onClick={() => setShowPrintModal(false)}>Cancel</button>
+                                <button
+                                    className="btn btn-primary"
+                                    onClick={generatePDF}
+                                    disabled={printingLabel}
+                                    style={{ minWidth: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-8)', fontWeight: 700 }}
+                                >
+                                    {printingLabel ? (
+                                        <Loader2 className="animate-spin" size={16} />
+                                    ) : (
+                                        <Printer size={16} />
+                                    )}
+                                    {printingLabel ? 'Generating…' : 'Generate Label PDF'}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}
 
             {showSelectPrintModal && (
                 <div className="modal-backdrop">
-                    <div className="modal" style={{ maxWidth: '580px' }}>
-                        <button className="modal-close" onClick={() => setShowSelectPrintModal(false)}>
-                            <X size={22} />
-                        </button>
+                    <div className="modal" style={{ maxWidth: '600px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', borderRadius: 'var(--radius-xl)' }}>
 
-                        <div style={{ marginBottom: 'var(--space-20)' }}>
-                            <h2 className="section-title" style={{ marginBottom: 4 }}>Print Labels</h2>
-                            <p className="section-subtitle">Search for a product, set label quantity, then generate a PDF.</p>
+                        {/* ── Header ── */}
+                        <div className="modal-header" style={{ padding: 'var(--space-20) var(--space-24)', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-12)' }}>
+                                <div style={{ width: 38, height: 38, borderRadius: 'var(--radius-md)', background: 'var(--accent-alpha)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🖨️</div>
+                                <div>
+                                    <h2 style={{ margin: 0, fontSize: 'var(--text-lg)', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-heading)' }}>Print Labels</h2>
+                                    <p style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Search for an item, set quantity, then generate a PDF label sheet</p>
+                                </div>
+                            </div>
+                            <button className="modal-close modal-close--static" onClick={() => setShowSelectPrintModal(false)} style={{ position: 'static', flexShrink: 0 }}>
+                                <X size={18} />
+                            </button>
                         </div>
 
-                        {/* Search box */}
-                        <div style={{
-                            display: 'flex', alignItems: 'center', gap: 8,
-                            padding: '0 12px', borderRadius: 'var(--radius-input)',
-                            border: '1px solid var(--border)', background: 'var(--bg)',
-                            marginBottom: 'var(--space-12)',
-                        }}>
-                            <Search size={16} style={{ color: 'var(--muted)', flexShrink: 0 }} />
-                            <input
-                                className="input-field"
-                                placeholder="Search by name or SKU…"
-                                value={selectPrintSearch}
-                                onChange={e => {
-                                    setSelectPrintSearch(e.target.value);
-                                    setSelectPrintSelectedId(null);
-                                }}
-                                style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', padding: '10px 0', fontSize: 'var(--text-sm)' }}
-                                autoFocus
-                            />
-                            {selectPrintSearch && (
-                                <button style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', padding: 4 }}
-                                    onClick={() => { setSelectPrintSearch(''); setSelectPrintSelectedId(null); }}>
-                                    <X size={14} />
-                                </button>
-                            )}
-                        </div>
+                        {/* ── Body ── */}
+                        <div className="modal-body" style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-20) var(--space-24)', display: 'flex', flexDirection: 'column', gap: 'var(--space-16)' }}>
 
-                        {/* Product list */}
-                        <div className="panel" style={{ padding: 'var(--space-6)', maxHeight: '250px', overflowY: 'auto', marginBottom: 'var(--space-16)' }}>
-                            {(() => {
-                                const filtered = items
-                                    .filter(item => {
-                                        const q = selectPrintSearch.toLowerCase();
-                                        if (!q) return !isPaperCategory(item.category);
-                                        return !isPaperCategory(item.category) &&
-                                            ((item.name || '').toLowerCase().includes(q) ||
-                                             (item.sku || '').toLowerCase().includes(q));
-                                    })
-                                    .slice(0, 30);
-                                return filtered.length > 0 ? filtered.map(item => {
-                                    const isSelected = selectPrintSelectedId === item.id;
-                                    return (
-                                        <div
-                                            key={item.id}
-                                            onClick={() => {
-                                                setSelectPrintSelectedId(item.id);
-                                                setSelectPrintQty(getStockBasedPrintQty(item));
-                                            }}
-                                            style={{
-                                                cursor: 'pointer',
-                                                padding: 'var(--space-10) var(--space-12)',
-                                                borderRadius: 'var(--radius-sm)',
-                                                background: isSelected ? 'color-mix(in srgb, var(--accent), transparent 85%)' : 'transparent',
-                                                border: `1px solid ${isSelected ? 'var(--accent)' : 'transparent'}`,
-                                                marginBottom: 3,
-                                                transition: 'background 0.15s, border-color 0.15s',
-                                            }}
-                                            onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = 'var(--bg)'; }}
-                                            onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}
-                                        >
-                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            {/* Search bar */}
+                            <div style={{
+                                display: 'flex', alignItems: 'center', gap: 'var(--space-10)',
+                                padding: '0 var(--space-14)', borderRadius: 'var(--radius-md)',
+                                border: '1px solid var(--border)', background: 'var(--surface-alt)',
+                                transition: 'border-color var(--transition-fast)',
+                            }}>
+                                <Search size={15} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                                <input
+                                    placeholder="Search by name or SKU…"
+                                    value={selectPrintSearch}
+                                    onChange={e => {
+                                        setSelectPrintSearch(e.target.value);
+                                        setSelectPrintSelectedId(null);
+                                    }}
+                                    style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', padding: '11px 0', fontSize: 'var(--text-sm)', color: 'var(--text-primary)' }}
+                                    autoFocus
+                                />
+                                {selectPrintSearch && (
+                                    <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4, display: 'flex', borderRadius: 4 }}
+                                        onClick={() => { setSelectPrintSearch(''); setSelectPrintSelectedId(null); }}>
+                                        <X size={14} />
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* Product list */}
+                            <div style={{
+                                borderRadius: 'var(--radius-md)',
+                                border: '1px solid var(--border)',
+                                overflow: 'hidden',
+                                maxHeight: '240px',
+                                overflowY: 'auto',
+                            }}>
+                                {(() => {
+                                    const filtered = items
+                                        .filter(item => {
+                                            const q = selectPrintSearch.toLowerCase();
+                                            if (!q) return !isPaperCategory(item.category);
+                                            return !isPaperCategory(item.category) &&
+                                                ((item.name || '').toLowerCase().includes(q) ||
+                                                 (item.sku || '').toLowerCase().includes(q));
+                                        })
+                                        .slice(0, 30);
+                                    return filtered.length > 0 ? filtered.map((item, idx) => {
+                                        const isSelected = selectPrintSelectedId === item.id;
+                                        return (
+                                            <div
+                                                key={item.id}
+                                                onClick={() => {
+                                                    setSelectPrintSelectedId(item.id);
+                                                    setSelectPrintQty(getStockBasedPrintQty(item));
+                                                }}
+                                                style={{
+                                                    cursor: 'pointer',
+                                                    padding: 'var(--space-12) var(--space-16)',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-12)',
+                                                    background: isSelected ? 'var(--accent-alpha)' : idx % 2 === 0 ? 'var(--surface)' : 'var(--surface-alt)',
+                                                    borderLeft: isSelected ? '3px solid var(--accent)' : '3px solid transparent',
+                                                    borderBottom: '1px solid var(--border-subtle)',
+                                                    transition: 'background 0.12s, border-color 0.12s',
+                                                }}
+                                                onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = 'var(--surface-hover)'; }}
+                                                onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = idx % 2 === 0 ? 'var(--surface)' : 'var(--surface-alt)'; }}
+                                            >
                                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                                    <div className="text-sm font-bold" style={{ lineHeight: 1.3 }}>{item.name}</div>
-                                                    <div className="muted text-xs" style={{ marginTop: 2 }}>
-                                                        SKU: {item.sku || 'N/A'} · Stock: <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{Number(item.quantity) || 0}</span>
+                                                    <div style={{ fontSize: 'var(--text-sm)', fontWeight: isSelected ? 700 : 600, color: 'var(--text-primary)', lineHeight: 1.3, marginBottom: 3 }}>{item.name}</div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)' }}>
+                                                        {item.sku && (
+                                                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--text-muted)', background: 'var(--surface-2)', padding: '1px 5px', borderRadius: 3, border: '1px solid var(--border)' }}>
+                                                                {item.sku}
+                                                            </span>
+                                                        )}
+                                                        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+                                                            Stock: <strong style={{ color: Number(item.quantity) > 0 ? 'var(--success)' : 'var(--danger)' }}>{Number(item.quantity) || 0}</strong>
+                                                        </span>
                                                     </div>
                                                 </div>
                                                 {isSelected && (
-                                                    <span style={{
-                                                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                                                        width: 22, height: 22, borderRadius: '50%',
-                                                        background: 'var(--accent)', color: 'var(--on-accent, white)',
-                                                        flexShrink: 0, marginLeft: 8,
-                                                    }}>
+                                                    <div style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--accent)', color: 'var(--on-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                                         <Check size={12} />
-                                                    </span>
+                                                    </div>
                                                 )}
                                             </div>
+                                        );
+                                    }) : (
+                                        <div style={{ textAlign: 'center', padding: 'var(--space-32) var(--space-16)', color: 'var(--text-muted)' }}>
+                                            <Package size={28} style={{ opacity: 0.25, marginBottom: 'var(--space-10)' }} />
+                                            <div style={{ fontSize: 'var(--text-sm)', fontWeight: 500 }}>No items found</div>
+                                            <div style={{ fontSize: 'var(--text-xs)', marginTop: 4 }}>Try a different search term</div>
                                         </div>
                                     );
-                                }) : (
-                                    <div style={{ textAlign: 'center', padding: 'var(--space-24) var(--space-16)', color: 'var(--muted)' }}>
-                                        <Package size={24} style={{ opacity: 0.3, marginBottom: 8 }} />
-                                        <div className="text-sm" style={{ fontWeight: 500 }}>No items found</div>
+                                })()}
+                            </div>
+
+                            {/* Selected item — quantity control */}
+                            {selectPrintSelectedId && (() => {
+                                const selItem = items.find(i => i.id === selectPrintSelectedId);
+                                return selItem ? (
+                                    <div style={{
+                                        borderRadius: 'var(--radius-md)',
+                                        border: '1px solid var(--accent-light)',
+                                        background: 'var(--accent-alpha)',
+                                        padding: 'var(--space-16) var(--space-20)',
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-10)', marginBottom: 'var(--space-14)' }}>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontSize: 'var(--text-sm)', fontWeight: 700, color: 'var(--text-primary)' }}>{selItem.name}</div>
+                                                {selItem.sku && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 2 }}>{selItem.sku}</div>}
+                                            </div>
+                                        </div>
+                                        <label style={{ fontSize: 'var(--text-xs)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', display: 'block', marginBottom: 'var(--space-10)' }}>Number of labels to print</label>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-10)' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', background: 'var(--surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', overflow: 'hidden' }}>
+                                                <button
+                                                    className="icon-button"
+                                                    type="button"
+                                                    style={{ width: 36, height: 36, borderRadius: 0, border: 'none' }}
+                                                    onClick={() => setSelectPrintQty(q => Math.max(1, q - 1))}
+                                                >
+                                                    <Minus size={14} />
+                                                </button>
+                                                <input
+                                                    type="number"
+                                                    style={{ width: 64, padding: '6px 4px', fontSize: 'var(--text-sm)', fontWeight: 700, border: 'none', background: 'transparent', outline: 'none', textAlign: 'center', color: 'var(--text-primary)' }}
+                                                    min={1}
+                                                    max={5000}
+                                                    value={selectPrintQty}
+                                                    onChange={e => setSelectPrintQty(Math.max(1, Number(e.target.value) || 1))}
+                                                />
+                                                <button
+                                                    className="icon-button"
+                                                    type="button"
+                                                    style={{ width: 36, height: 36, borderRadius: 0, border: 'none' }}
+                                                    onClick={() => setSelectPrintQty(q => q + 1)}
+                                                >
+                                                    <Plus size={14} />
+                                                </button>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-6)', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+                                                <FileText size={13} />
+                                                <span>
+                                                    <strong style={{ color: 'var(--text-primary)' }}>{Math.ceil(selectPrintQty / 48)}</strong> A4 page{Math.ceil(selectPrintQty / 48) !== 1 ? 's' : ''}
+                                                    {selectPrintQty % 48 !== 0 && <span> · {selectPrintQty % 48}/48 on last page</span>}
+                                                </span>
+                                            </div>
+                                        </div>
                                     </div>
-                                );
+                                ) : null;
                             })()}
                         </div>
 
-                        {/* Quantity row — only shown when an item is selected */}
-                        {selectPrintSelectedId && (() => {
-                            const selItem = items.find(i => i.id === selectPrintSelectedId);
-                            return selItem ? (
-                                <div style={{
-                                    background: 'var(--bg)',
-                                    border: '1px solid var(--border)',
-                                    borderRadius: 'var(--radius-sm)',
-                                    padding: 'var(--space-14) var(--space-16)',
-                                    marginBottom: 'var(--space-16)',
-                                }}>
-                                    <div style={{ marginBottom: 10 }}>
-                                        <div className="text-sm font-bold">{selItem.name}</div>
-                                        <div className="muted text-xs" style={{ marginTop: 2 }}>SKU: {selItem.sku || 'N/A'}</div>
-                                    </div>
-                                    <label className="label" style={{ marginBottom: 8, display: 'block' }}>Number of labels to print</label>
-                                    <div className="row items-center gap-sm">
-                                        <button
-                                            className="icon-button icon-button--sm"
-                                            type="button"
-                                            onClick={() => setSelectPrintQty(q => Math.max(1, q - 1))}
-                                        >
-                                            <Minus size={14} />
-                                        </button>
-                                        <input
-                                            type="number"
-                                            className="input-field text-center"
-                                            style={{ width: '72px', padding: '6px 4px', fontSize: 'var(--text-sm)', fontWeight: 700 }}
-                                            min={1}
-                                            max={5000}
-                                            value={selectPrintQty}
-                                            onChange={e => setSelectPrintQty(Math.max(1, Number(e.target.value) || 1))}
-                                        />
-                                        <button
-                                            className="icon-button icon-button--sm"
-                                            type="button"
-                                            onClick={() => setSelectPrintQty(q => q + 1)}
-                                        >
-                                            <Plus size={14} />
-                                        </button>
-                                        <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--muted)' }}>
-                                            <FileText size={11} style={{ verticalAlign: 'middle', marginRight: 3 }} />
-                                            {Math.ceil(selectPrintQty / 48)} A4 page{Math.ceil(selectPrintQty / 48) !== 1 ? 's' : ''}
-                                            {selectPrintQty % 48 !== 0 && (
-                                                <span> · {selectPrintQty % 48} / 48 labels</span>
-                                            )}
-                                        </span>
-                                    </div>
-                                </div>
-                            ) : null;
-                        })()}
-
-                        <button
-                            className="btn btn-primary btn--full"
-                            disabled={!selectPrintSelectedId || printingLabel}
-                            onClick={() => {
-                                if (!selectPrintSelectedId) return;
-                                setSelectedIds([selectPrintSelectedId]);
-                                setPrintQuantities({ [selectPrintSelectedId]: selectPrintQty });
-                                setShowSelectPrintModal(false);
-                                setShowPrintModal(true);
-                            }}
-                            style={{ height: 44, fontSize: 'var(--text-sm)', fontWeight: 700 }}
-                        >
-                            <Printer size={18} style={{ marginRight: 8 }} />
-                            <span>Continue to Generate PDF</span>
-                        </button>
+                        {/* ── Footer ── */}
+                        <div className="modal-footer" style={{ padding: 'var(--space-16) var(--space-24)', borderTop: '1px solid var(--border)', flexShrink: 0, display: 'flex', gap: 'var(--space-10)', justifyContent: 'flex-end' }}>
+                            <button className="btn btn-secondary" onClick={() => setShowSelectPrintModal(false)}>Cancel</button>
+                            <button
+                                className="btn btn-primary"
+                                disabled={!selectPrintSelectedId || printingLabel}
+                                onClick={() => {
+                                    if (!selectPrintSelectedId) return;
+                                    setSelectedIds([selectPrintSelectedId]);
+                                    setPrintQuantities({ [selectPrintSelectedId]: selectPrintQty });
+                                    setShowSelectPrintModal(false);
+                                    setShowPrintModal(true);
+                                }}
+                                style={{ minWidth: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-8)', fontWeight: 700 }}
+                            >
+                                <Printer size={16} />
+                                Continue to Generate PDF
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
@@ -2946,88 +3269,205 @@ const Inventory = () => {
             {/* Stock Requests Panel */}
             {showStockRequestsPanel && (
                 <div role="button" tabIndex={0} className="modal-backdrop" onClick={() => setShowStockRequestsPanel(false)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowStockRequestsPanel(false); } }}>
-                    <div role="button" tabIndex={0} className="modal" style={{ maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
-                        <button className="modal-close" onClick={() => setShowStockRequestsPanel(false)}>
-                            <X size={22} />
-                        </button>
-                        <div className="row items-center justify-between mb-16">
-                            <h2 className="section-title">Stock Transfer Requests</h2>
-                            <button className="btn btn-ghost btn-sm" onClick={fetchStockRequests} disabled={stockRequestsLoading}>
-                                {stockRequestsLoading ? <Loader2 size={16} className="animate-spin" /> : 'Refresh'}
-                            </button>
+                    <div role="button" tabIndex={0} className="modal modal--large" style={{ maxHeight: '90vh', display: 'flex', flexDirection: 'column', borderRadius: 'var(--radius-xl)' }} onClick={e => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
+
+                        {/* ── Header ── */}
+                        <div className="modal-header" style={{ padding: 'var(--space-20) var(--space-24)', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-12)' }}>
+                                <div style={{ width: 38, height: 38, borderRadius: 'var(--radius-md)', background: 'var(--accent-alpha)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🔄</div>
+                                <div>
+                                    <h2 style={{ margin: 0, fontSize: 'var(--text-lg)', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-heading)' }}>Stock Transfer Requests</h2>
+                                    <p style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Review, approve, and track inter-branch stock movements</p>
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-10)' }}>
+                                <button className="btn btn-ghost btn-sm" onClick={fetchStockRequests} disabled={stockRequestsLoading} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-6)' }}>
+                                    {stockRequestsLoading ? <Loader2 size={14} className="animate-spin" /> : <ArrowLeftRight size={14} />}
+                                    Refresh
+                                </button>
+                                <button className="modal-close modal-close--static" onClick={() => setShowStockRequestsPanel(false)} style={{ position: 'static', flexShrink: 0 }}>
+                                    <X size={18} />
+                                </button>
+                            </div>
                         </div>
 
-                        {/* Status legend */}
-                        <div className="row gap-md mb-16 text-xs" style={{ flexWrap: 'wrap' }}>
-                            <span className="row gap-xs items-center"><span className="badge badge--warn">Pending</span> Awaiting approval</span>
-                            <span className="row gap-xs items-center"><span className="badge badge--ok">Approved</span> Ready to send</span>
-                            <span className="row gap-xs items-center"><span className="badge" style={{ background: 'var(--primary)', color: 'var(--on-accent)' }}>Sent</span> In transit</span>
-                            <span className="row gap-xs items-center"><span className="badge" style={{ background: 'var(--success)', color: 'var(--on-accent)' }}>Received</span> Complete</span>
+                        {/* ── Status legend strip ── */}
+                        <div style={{
+                            padding: 'var(--space-12) var(--space-24)',
+                            borderBottom: '1px solid var(--border)',
+                            background: 'var(--surface-alt)',
+                            display: 'flex', alignItems: 'center', gap: 'var(--space-20)', flexWrap: 'wrap',
+                            flexShrink: 0,
+                        }}>
+                            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Status:</span>
+                            {[
+                                { label: 'Pending', bg: 'var(--warning-bg)', color: 'var(--warning)', desc: 'Awaiting approval' },
+                                { label: 'Approved', bg: 'var(--success-bg)', color: 'var(--success)', desc: 'Ready to send' },
+                                { label: 'Sent', bg: 'var(--info-bg)', color: 'var(--info)', desc: 'In transit' },
+                                { label: 'Received', bg: 'var(--success-bg)', color: 'var(--success)', desc: 'Complete' },
+                            ].map(s => (
+                                <span key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-6)', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+                                    <span style={{ padding: '2px 8px', borderRadius: 'var(--radius-full)', background: s.bg, color: s.color, fontWeight: 700, fontSize: 'var(--text-2xs)' }}>{s.label}</span>
+                                    {s.desc}
+                                </span>
+                            ))}
                         </div>
 
-                        {stockRequestsLoading ? (
-                            <div className="text-center py-24"><Loader2 className="animate-spin" size={28} /></div>
-                        ) : stockRequests.length === 0 ? (
-                            <p className="muted text-center py-24">No stock transfer requests yet.</p>
-                        ) : (
-                            <div className="stack-sm">
-                                {stockRequests.map(sr => {
-                                    const statusColor = sr.status === 'Pending' ? 'badge--warn'
-                                        : sr.status === 'Approved' ? 'badge--ok'
-                                        : sr.status === 'Sent' ? '' : sr.status === 'Received' ? '' : 'badge--error';
-                                    const statusStyle = sr.status === 'Sent' ? { background: 'var(--primary)', color: 'var(--on-accent)' }
-                                        : sr.status === 'Received' ? { background: 'var(--success)', color: 'var(--on-accent)' } : {};
+                        {/* ── Body ── */}
+                        <div className="modal-body" style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-20) var(--space-24)' }}>
+                            {stockRequestsLoading ? (
+                                <div style={{ textAlign: 'center', padding: 'var(--space-48)' }}>
+                                    <Loader2 className="animate-spin" size={32} style={{ color: 'var(--text-muted)', opacity: 0.5 }} />
+                                    <p style={{ marginTop: 'var(--space-12)', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>Loading requests…</p>
+                                </div>
+                            ) : stockRequests.length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: 'var(--space-48)' }}>
+                                    <div style={{ fontSize: 40, marginBottom: 'var(--space-12)' }}>📭</div>
+                                    <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', fontWeight: 500 }}>No stock transfer requests yet.</p>
+                                    <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 4 }}>Requests from branches will appear here once submitted.</p>
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-10)' }}>
+                                    {stockRequests.map(sr => {
+                                        const statusMap = {
+                                            Pending:  { bg: 'var(--warning-bg)',  color: 'var(--warning)',  label: 'Pending' },
+                                            Approved: { bg: 'var(--success-bg)', color: 'var(--success)', label: 'Approved' },
+                                            Sent:     { bg: 'var(--info-bg)',    color: 'var(--info)',    label: 'Sent' },
+                                            Received: { bg: 'var(--success-bg)', color: 'var(--success)', label: 'Received' },
+                                            Rejected: { bg: 'var(--error-bg)',   color: 'var(--danger)',  label: 'Rejected' },
+                                        };
+                                        const st = statusMap[sr.status] || statusMap.Pending;
 
-                                    return (
-                                        <div key={sr.id} className="panel panel--tight" style={{ padding: '12px 16px' }}>
-                                            <div className="row items-start justify-between gap-md">
-                                                <div className="flex-1">
-                                                    <div className="row items-center gap-sm mb-4">
-                                                        <span className="text-sm" style={{ fontWeight: 700 }}>{sr.item_name}</span>
-                                                        {sr.item_sku && <span className="text-xs muted" style={{ fontFamily: 'monospace' }}>{sr.item_sku}</span>}
-                                                        <span className={`badge ${statusColor}`} style={statusStyle}>{sr.status}</span>
+                                        return (
+                                            <div key={sr.id} style={{
+                                                borderRadius: 'var(--radius-md)',
+                                                border: '1px solid var(--border)',
+                                                background: 'var(--surface)',
+                                                overflow: 'hidden',
+                                                transition: 'box-shadow var(--transition-fast)',
+                                            }}>
+                                                {/* Card top stripe by status */}
+                                                <div style={{ height: 3, background: st.color, opacity: 0.6 }} />
+
+                                                <div style={{ padding: 'var(--space-16) var(--space-18)' }}>
+                                                    {/* Row 1: item name + status badge */}
+                                                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--space-12)', marginBottom: 'var(--space-10)' }}>
+                                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)', flexWrap: 'wrap', marginBottom: 'var(--space-4)' }}>
+                                                                <span style={{ fontSize: 'var(--text-sm)', fontWeight: 700, color: 'var(--text-primary)' }}>{sr.item_name}</span>
+                                                                {sr.item_sku && (
+                                                                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--text-muted)', background: 'var(--surface-alt)', padding: '1px 6px', borderRadius: 4, border: '1px solid var(--border)' }}>
+                                                                        {sr.item_sku}
+                                                                    </span>
+                                                                )}
+                                                                <span style={{ padding: '2px 10px', borderRadius: 'var(--radius-full)', background: st.bg, color: st.color, fontSize: 'var(--text-xs)', fontWeight: 700 }}>
+                                                                    {st.label}
+                                                                </span>
+                                                            </div>
+
+                                                            {/* Transfer arrow */}
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+                                                                <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{sr.from_branch_name}</span>
+                                                                <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--text-muted)', fontSize: 'var(--text-xs)' }}>
+                                                                    requests
+                                                                    <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 'var(--text-sm)', background: 'var(--surface-alt)', padding: '1px 8px', borderRadius: 4, border: '1px solid var(--border)' }}>
+                                                                        {sr.quantity} pcs
+                                                                    </span>
+                                                                    from
+                                                                </span>
+                                                                <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{sr.to_branch_name}</span>
+                                                            </div>
+
+                                                            {sr.notes && (
+                                                                <div style={{ marginTop: 'var(--space-8)', padding: 'var(--space-8) var(--space-12)', background: 'var(--surface-alt)', borderRadius: 'var(--radius-sm)', borderLeft: '3px solid var(--border)', fontSize: 'var(--text-xs)', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                                                                    "{sr.notes}"
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Action buttons */}
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', flexShrink: 0, alignItems: 'flex-end' }}>
+                                                            {sr.status === 'Pending' && (
+                                                                <>
+                                                                    <button
+                                                                        className="btn btn-sm"
+                                                                        style={{ background: 'var(--success-bg)', color: 'var(--success)', border: '1px solid var(--success)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5, minWidth: 90 }}
+                                                                        onClick={() => handleReviewStockRequest(sr.id, 'approve')}
+                                                                    >
+                                                                        <Check size={13} /> Approve
+                                                                    </button>
+                                                                    <button
+                                                                        className="btn btn-sm"
+                                                                        style={{ background: 'var(--error-bg)', color: 'var(--danger)', border: '1px solid var(--danger)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5, minWidth: 90 }}
+                                                                        onClick={() => handleReviewStockRequest(sr.id, 'reject')}
+                                                                    >
+                                                                        <X size={13} /> Reject
+                                                                    </button>
+                                                                </>
+                                                            )}
+                                                            {sr.status === 'Approved' && (
+                                                                <button
+                                                                    className="btn btn-primary btn-sm"
+                                                                    style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 110 }}
+                                                                    onClick={() => handleReviewStockRequest(sr.id, 'send')}
+                                                                >
+                                                                    <ArrowLeftRight size={13} /> Send Stock
+                                                                </button>
+                                                            )}
+                                                            {sr.status === 'Sent' && (
+                                                                <button
+                                                                    className="btn btn-sm"
+                                                                    style={{ background: 'var(--success)', color: 'var(--on-accent)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5, minWidth: 110 }}
+                                                                    onClick={() => handleReviewStockRequest(sr.id, 'receive')}
+                                                                >
+                                                                    <Check size={13} /> Receive Stock
+                                                                </button>
+                                                            )}
+                                                            {sr.status === 'Received' && (
+                                                                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--success)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                                    <Check size={13} /> Complete
+                                                                </span>
+                                                            )}
+                                                            {sr.status === 'Rejected' && (
+                                                                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--danger)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                                    <X size={13} /> Rejected
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                    <div className="text-xs muted mb-4">
-                                                        <strong>{sr.from_branch_name}</strong> requests <strong>{sr.quantity} pcs</strong> from <strong>{sr.to_branch_name}</strong>
+
+                                                    {/* Row 2: timeline metadata */}
+                                                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-8)', paddingTop: 'var(--space-10)', borderTop: '1px solid var(--border-subtle)' }}>
+                                                        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 3 }}>
+                                                            🙋 <strong style={{ color: 'var(--text-secondary)' }}>{sr.created_by_name}</strong>
+                                                            &nbsp;·&nbsp;{new Date(sr.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                        </span>
+                                                        {sr.resolved_by_name && (
+                                                            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+                                                                · {sr.status === 'Rejected' ? '❌' : '✅'} {sr.status === 'Rejected' ? 'Rejected' : 'Approved'} by <strong style={{ color: 'var(--text-secondary)' }}>{sr.resolved_by_name}</strong>
+                                                            </span>
+                                                        )}
+                                                        {sr.sent_by_name && (
+                                                            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+                                                                · 📦 Sent by <strong style={{ color: 'var(--text-secondary)' }}>{sr.sent_by_name}</strong>
+                                                            </span>
+                                                        )}
+                                                        {sr.received_by_name && (
+                                                            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+                                                                · 🎉 Received by <strong style={{ color: 'var(--text-secondary)' }}>{sr.received_by_name}</strong>
+                                                            </span>
+                                                        )}
                                                     </div>
-                                                    {sr.notes && <div className="text-xs muted mb-4" style={{ fontStyle: 'italic' }}>"{sr.notes}"</div>}
-                                                    <div className="text-xs muted">
-                                                        Requested by {sr.created_by_name} · {new Date(sr.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                                        {sr.resolved_by_name && <span> · {sr.status === 'Rejected' ? 'Rejected' : 'Approved'} by {sr.resolved_by_name}</span>}
-                                                        {sr.sent_by_name && <span> · Sent by {sr.sent_by_name}</span>}
-                                                        {sr.received_by_name && <span> · Received by {sr.received_by_name}</span>}
-                                                    </div>
-                                                </div>
-                                                <div className="row gap-sm" style={{ flexShrink: 0, alignSelf: 'center' }}>
-                                                    {sr.status === 'Pending' && (
-                                                        <>
-                                                            <button className="btn btn-ghost btn-sm" style={{ color: 'var(--success)' }} onClick={() => handleReviewStockRequest(sr.id, 'approve')} title="Approve this request">
-                                                                <Check size={14} /> Approve
-                                                            </button>
-                                                            <button className="btn btn-ghost btn-sm btn-danger" onClick={() => handleReviewStockRequest(sr.id, 'reject')} title="Reject this request">
-                                                                <X size={14} /> Reject
-                                                            </button>
-                                                        </>
-                                                    )}
-                                                    {sr.status === 'Approved' && (
-                                                        <button className="btn btn-primary btn-sm" onClick={() => handleReviewStockRequest(sr.id, 'send')} title="Send stock — will deduct from source branch">
-                                                            <ArrowLeftRight size={14} /> Send Stock
-                                                        </button>
-                                                    )}
-                                                    {sr.status === 'Sent' && (
-                                                        <button className="btn btn-sm" style={{ background: 'var(--success)', color: 'var(--on-accent)' }} onClick={() => handleReviewStockRequest(sr.id, 'receive')} title="Confirm you received the stock">
-                                                            <Check size={14} /> Receive Stock
-                                                        </button>
-                                                    )}
-                                                    {sr.status === 'Received' && (
-                                                        <span className="text-xs" style={{ color: 'var(--success)', fontWeight: 600 }}>✓ Complete</span>
-                                                    )}
-                                                    {sr.status === 'Rejected' && (
-                                                        <span className="text-xs" style={{ color: 'var(--danger)', fontWeight: 600 }}>✗ Rejected</span>
-                                                    )}
                                                 </div>
                                             </div>
-                                        </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}/div>
                                     );
                                 })}
                             </div>

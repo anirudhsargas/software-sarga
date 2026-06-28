@@ -328,6 +328,8 @@
   width: 100%;
   border-collapse: collapse;
   font-size: var(--text-sm);
+  /* Enforce horizontal scroll on mobile for wide tables (11-col Sales Register etc.) */
+  min-width: 720px;
 }
 
 .acc-table th {

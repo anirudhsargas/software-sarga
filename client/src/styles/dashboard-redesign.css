@@ -364,7 +364,8 @@
   align-items: center;
   gap: var(--space-16);
   flex: 1;
-  min-width: 0;
+  min-width: 0; /* critical: lets children shrink below their natural size */
+  overflow: hidden;
 }
 
 .appbar-hamburger {
@@ -393,9 +394,12 @@
   font-size: var(--text-sm);
   font-weight: 500;
   color: var(--text-secondary);
+  /* Fix: allow the breadcrumb to shrink without clipping the title */
+  min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  flex: 1;
 }
 
 .breadcrumb-item {
@@ -474,7 +478,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-16);
-  flex: 1;
+  flex-shrink: 0; /* don't let right section crush the breadcrumb */
   justify-content: flex-end;
 }
 
@@ -1060,11 +1064,25 @@
   }
 
   .appbar-breadcrumb {
-    font-size: var(--text-xs);
+    font-size: var(--text-sm);
+    /* Show only the last breadcrumb segment on mobile to save space */
+    max-width: calc(100vw - 180px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .appbar-branch-switcher {
-    display: none;
+    /* Show a compact icon-only version on mobile instead of hiding it */
+    padding: 0 var(--space-8);
+    gap: var(--space-4);
+  }
+
+  /* Hide only the text label inside the branch switcher, keep the icon + select */
+  .appbar-branch-switcher .appbar-select {
+    /* On very small screens make select minimal width */
+    max-width: 110px;
+    padding-right: var(--space-16);
   }
 }
 

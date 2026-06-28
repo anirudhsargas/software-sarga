@@ -199,51 +199,15 @@ api.interceptors.response.use(
         return response;
     },
     (error) => {
-        // No response at all = server unreachable (ECONNREFUSED, timeout, DNS, or Render cold-start 520)
-        if (!error.response) {
-            console.error('[axios] Network error - server unreachable:', error.message);
-
-            // Retry once after a short delay before navigating to the error page.
-            // Render free-tier cold-starts take ~30s; a single retry often recovers
-            // without forcing the user to the /error/network page.
-            const config = error.config;
-            if (!config || config._retried) {
-                // Already retried or no config — navigate to error page only for
-                // user-facing requests, not background preload/sync calls
-                const isBackground = config?.url && (
-                    config.url.includes('product-hierarchy') ||
-                    config.url.includes('company-settings') ||
-                    config.url.includes('machines') ||
-                    config.url.includes('branches') ||
-                    config.url.includes('version') ||
-                    config.url.includes('server-time')
-                );
-                if (!isBackground) {
-                    window.dispatchEvent(new CustomEvent('navigate', { detail: { path: '/error/network' } }));
-                }
-                return Promise.reject(error);
-            }
-
-            // Mark as retried and wait 4s before trying again
-            config._retried = true;
-            return new Promise((resolve) => setTimeout(resolve, 4000))
-                .then(() => origGet(config.url, config));
-        }
-
-        // For all HTTP errors (401, 403, 500, 520) — do NOT redirect
-        // Let individual pages/components handle these errors gracefully
-        const status = error.response.status;
-        console.error(`[axios] HTTP ${status} error on ${error.config?.url}`);
-
-        // Only redirect to login on 401 Unauthorized, and only if not already there
-        // (prevents the loop: preload fires on /login → 401 → redirect to /login again)
-        if (status === 401) {
-            const alreadyOnLogin = window.location.pathname === '/login';
+        if (error.response?.status === 401) {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
-            if (!alreadyOnLogin) {
-                window.dispatchEvent(new CustomEvent('navigate', { detail: { path: '/login' } }));
-            }
+            window.location.href = '/login';
+            return Promise.reject(error);
+        }
+
+        if (!error.response) {
+            window.location.href = '/error/network';
         }
 
         return Promise.reject(error);

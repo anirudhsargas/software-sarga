@@ -768,7 +768,8 @@ const Jobs = () => {
                                                 ) : (
                                                     <div className="row gap-sm">
                                                         <button
-                                                            className="btn btn-ghost btn-danger touch-target"
+                                                            className="btn btn-ghost touch-target"
+                                                            style={{ color: 'var(--text-secondary)' }}
                                                             title="View Details"
                                                             aria-label={`View details for job ${j.job_number}`}
                                                             onClick={() => navigate(`/dashboard/jobs/${j.id}`)}

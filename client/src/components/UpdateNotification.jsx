@@ -113,27 +113,7 @@ export const UpdateNotification = () => {
         </div>
       )}
 
-      {version && (
-        <div
-          style={{
-            position: 'fixed',
-            bottom: '80px',
-            right: '20px',
-            zIndex: 'var(--z-toast)',
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-full)',
-            padding: '4px 12px',
-            fontSize: '10px',
-            color: 'var(--text-muted)',
-            fontWeight: 500,
-            opacity: 0.7,
-            pointerEvents: 'none',
-          }}
-        >
-          v{version}
-        </div>
-      )}
+      {/* Version badge removed from fixed overlay — no longer floats over page content */}
     </>
   );
 };
