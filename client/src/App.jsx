@@ -15,7 +15,8 @@ const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const StaffSettingsPage = lazy(() => import('./pages/StaffSettingsPage'));
 import auth from './services/auth';
-import { initServerTime } from './services/serverTime';
+import { initServerTime, checkHealth } from './services/serverTime';
+import OfflineBanner from './components/OfflineBanner';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ConfirmProvider } from './contexts/ConfirmContext';
 import { BranchProvider } from './contexts/BranchContext';
@@ -130,6 +131,8 @@ function RouteChangeHandler() {
 }
 
 function App() {
+  const [isOffline, setIsOffline] = useState(false);
+
   useEffect(() => {
     // Remove splash screen after app mounts
     document.body.classList.add('loaded');
@@ -150,8 +153,8 @@ function App() {
     }
 
     // Listen for online/offline
-    const handleOnline = () => syncManager.setOnlineStatus(true);
-    const handleOffline = () => syncManager.setOnlineStatus(false);
+    const handleOnline = () => { setIsOffline(false); syncManager.setOnlineStatus(true); };
+    const handleOffline = () => { setIsOffline(true); syncManager.setOnlineStatus(false); };
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
@@ -169,11 +172,18 @@ function App() {
     window.addEventListener('pagehide', handlePageHide);
     window.addEventListener('pageshow', handlePageShow);
 
+    // Periodic health check every 60 seconds
+    const healthInterval = setInterval(async () => {
+      const healthy = await checkHealth();
+      setIsOffline(!healthy);
+    }, 60000);
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('pagehide', handlePageHide);
       window.removeEventListener('pageshow', handlePageShow);
+      clearInterval(healthInterval);
       syncManager.destroy();
     };
   }, []);
@@ -207,6 +217,7 @@ function App() {
             }}
           />
           <ToastAnnouncer />
+          <OfflineBanner visible={isOffline} onRetry={() => { setIsOffline(false); initServerTime(); }} />
           <main id="main-content">
           <Suspense fallback={<AppShellSkeleton />}>
             <Routes>

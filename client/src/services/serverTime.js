@@ -4,26 +4,67 @@
  * manipulate it by changing their device clock.
  * 
  * Usage:
- *   import { initServerTime, serverNow, serverToday, serverThisMonth } from '../services/serverTime';
+ *   import { initServerTime, serverNow, serverToday, serverThisMonth, checkHealth } from '../services/serverTime';
  *   await initServerTime();          // call once on app load
  *   const now   = serverNow();       // Date object using server offset
  *   const date  = serverToday();     // "YYYY-MM-DD"
  *   const month = serverThisMonth(); // "YYYY-MM"
+ *   await checkHealth();             // returns true if server is reachable
  */
 import api from './api';
 
 let offsetMs = 0;      // server_time - client_time (milliseconds)
 let initialized = false;
 let isChecking = false;
+let isHealthy = true;
+
+/**
+ * Check if the server is reachable using the health endpoint.
+ * Returns true if healthy, false otherwise.
+ */
+export async function checkHealth() {
+    try {
+        const res = await api.get('/health', { _noCache: true });
+        isHealthy = res.status === 200;
+        return isHealthy;
+    } catch (err) {
+        if (err.response?.status === 429) {
+            // Rate limited - server is reachable, just busy
+            console.warn('Health check rate limited, treating as healthy');
+            isHealthy = true;
+            return true;
+        }
+        if (err.response?.status >= 500) {
+            // Server error - treat as unhealthy
+            console.warn('Health check failed with server error:', err.response.status);
+            isHealthy = false;
+            return false;
+        }
+        // Network error or other - treat as unhealthy
+        console.warn('Health check failed:', err.message);
+        isHealthy = false;
+        return false;
+    }
+}
 
 /**
  * Call once on app bootstrap (e.g. after login).
  * Calculates the offset between server clock and client clock.
+ * First verifies server health, then syncs time.
  */
 export async function initServerTime() {
     if (isChecking) return;
     isChecking = true;
     try {
+        // First check if server is healthy
+        const healthy = await checkHealth();
+        if (!healthy) {
+            console.warn('Server unhealthy, skipping time sync');
+            offsetMs = 0;
+            initialized = true;
+            return;
+        }
+
         const before = Date.now();
         const res = await api.get('/server-time');
         const after = Date.now();
@@ -33,12 +74,25 @@ export async function initServerTime() {
         offsetMs = serverTs - (before + roundTrip / 2);
         initialized = true;
     } catch (err) {
-        console.warn('Failed to sync server time, falling back to device clock:', err.message);
+        if (err.response?.status === 429) {
+            console.warn('Server time rate limited, falling back to device clock');
+        } else if (err.response?.status >= 500) {
+            console.warn('Server time failed with server error:', err.response.status);
+        } else {
+            console.warn('Failed to sync server time, falling back to device clock:', err.message);
+        }
         offsetMs = 0;
         initialized = true;
     } finally {
         isChecking = false;
     }
+}
+
+/**
+ * Get current health status
+ */
+export function isServerHealthy() {
+    return isHealthy;
 }
 
 /** Returns a Date object adjusted to server time */

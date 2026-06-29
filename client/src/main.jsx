@@ -105,11 +105,7 @@ if (import.meta.env.PROD) {
 // ── Online recovery ───────────────────
 
 window.addEventListener('online', () => {
-  const hasNetworkError = sessionStorage.getItem('sarga_network_error');
-  if (hasNetworkError) {
-    sessionStorage.removeItem('sarga_network_error');
-    window.location.reload();
-  }
+  sessionStorage.removeItem('sarga_network_error');
 });
 
 // ── Stale chunk recovery ──────────────

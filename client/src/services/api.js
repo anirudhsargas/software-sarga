@@ -210,7 +210,7 @@ api.interceptors.response.use(
         }
 
         if (error.response?.status === 429) {
-            return Promise.reject(error);
+            return Promise.resolve(error.response);
         }
 
         if (!error.response) {

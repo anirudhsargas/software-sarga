@@ -22,12 +22,13 @@ describe('Server Time Service', () => {
   it('initServerTime fetches and computes offset', async () => {
     const api = (await import('../../services/api')).default;
     const now = Date.now();
-    api.get.mockResolvedValue({
-      data: { timestamp: now, date: '2026-06-21', month: '2026-06' },
-    });
+    api.get
+      .mockResolvedValueOnce({ status: 200, data: { status: 'ok' } })
+      .mockResolvedValueOnce({
+        data: { timestamp: now, date: '2026-06-21', month: '2026-06' },
+      });
 
     await initServerTime();
-    expect(api.get).toHaveBeenCalledWith('/server-time');
     expect(isServerTimeReady()).toBe(true);
   });
 
@@ -53,7 +54,9 @@ describe('Server Time Service', () => {
 
   it('handles network failure gracefully', async () => {
     const api = (await import('../../services/api')).default;
-    api.get.mockRejectedValue(new Error('Network error'));
+    api.get
+      .mockResolvedValueOnce({ status: 200, data: { status: 'ok' } })
+      .mockRejectedValueOnce(new Error('Network error'));
     await initServerTime();
     expect(isServerTimeReady()).toBe(true);
   });

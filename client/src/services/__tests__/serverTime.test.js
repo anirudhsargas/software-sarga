@@ -12,7 +12,10 @@ describe('serverTime service', () => {
 
   it('initServerTime calculates offset on success', async () => {
     const mockTimestamp = Date.now();
-    api.get.mockResolvedValue({ data: { timestamp: mockTimestamp } });
+    // First call is health check, second is server-time
+    api.get
+      .mockResolvedValueOnce({ status: 200, data: { status: 'ok' } })
+      .mockResolvedValueOnce({ data: { timestamp: mockTimestamp } });
 
     const { initServerTime, serverNow } = await import('../serverTime');
     await initServerTime();
@@ -23,7 +26,10 @@ describe('serverTime service', () => {
   });
 
   it('initServerTime falls back to device clock on failure', async () => {
-    api.get.mockRejectedValue(new Error('Network error'));
+    // Health check passes, but server-time fails
+    api.get
+      .mockResolvedValueOnce({ status: 200, data: { status: 'ok' } })
+      .mockRejectedValueOnce(new Error('Network error'));
 
     const { initServerTime, serverNow } = await import('../serverTime');
     await initServerTime();
