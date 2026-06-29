@@ -110,6 +110,7 @@ window.addEventListener('online', () => {
 
 // ── Stale chunk recovery ──────────────
 
+// Catches dynamic import failures (lazy-loaded routes)
 window.addEventListener("unhandledrejection", (event) => {
   const msg = event?.reason?.message || "";
 
@@ -126,29 +127,42 @@ window.addEventListener("unhandledrejection", (event) => {
     event?.reason?.name === "ChunkLoadError";
 
   if (isChunkError) {
-    const reloadKey =
-      "sarga_chunk_reload";
-
-    const count =
-      parseInt(
-        sessionStorage.getItem(reloadKey) || "0",
-        10
-      );
-
-    if (count < 2) {
-      sessionStorage.setItem(
-        reloadKey,
-        String(count + 1)
-      );
-
-      window.location.reload();
-    }
+    handleStaleChunk();
   }
 });
 
-sessionStorage.removeItem(
-  "sarga_chunk_reload"
-);
+// Catches static script/style loading failures (e.g. cached index.html
+// referencing old chunk hashes that no longer exist after deployment)
+window.addEventListener("error", (event) => {
+  const target = event.target;
+  // Only handle resource loading errors (scripts, stylesheets, images)
+  // not runtime errors (which have event.error set)
+  if (target && (target.tagName === "SCRIPT" || target.tagName === "LINK")) {
+    const src = target.src || target.href || "";
+    if (src.includes("/assets/")) {
+      event.preventDefault();
+      handleStaleChunk();
+    }
+  }
+}, true);
+
+const RELOAD_KEY = "sarga_chunk_reload";
+
+function handleStaleChunk() {
+  // Activate waiting service worker if available
+  if ("serviceWorker" in navigator && navigator.serviceWorker.waiting) {
+    navigator.serviceWorker.waiting.postMessage({ type: "SKIP_WAITING" });
+  }
+
+  const count = parseInt(sessionStorage.getItem(RELOAD_KEY) || "0", 10);
+  if (count < 2) {
+    sessionStorage.setItem(RELOAD_KEY, String(count + 1));
+    window.location.reload();
+  }
+}
+
+// Reset reload counter on fresh page load
+sessionStorage.removeItem(RELOAD_KEY);
 
 // ── React Render ─────────────────────
 
