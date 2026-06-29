@@ -232,7 +232,7 @@ const versionLimiter = rateLimit({
     max: 1,
     standardHeaders: true,
     legacyHeaders: false,
-    keyGenerator: (req) => req.ip,
+    validate: { xForwardedForHeader: false },
     skip: (req) => req.method === 'OPTIONS',
     handler: (req, res) => {
         const retryAfter = Math.ceil((req.rateLimit.resetTime - Date.now()) / 1000);
