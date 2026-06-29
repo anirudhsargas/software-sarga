@@ -60,6 +60,12 @@ export async function initServerTime() {
 
         const before = Date.now();
         const res = await api.get('/server-time');
+        if (res.status !== 200) {
+            console.warn('Server time returned', res.status, 'falling back to device clock');
+            offsetMs = 0;
+            initialized = true;
+            return;
+        }
         const after = Date.now();
         const roundTrip = after - before;
         const serverTs = res.data.timestamp;

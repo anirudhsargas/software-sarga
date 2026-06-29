@@ -28,7 +28,7 @@ describe('Server Time Service', () => {
     global.fetch.mockResolvedValueOnce({ status: 200 });
     // Server-time uses api.get
     api.get.mockResolvedValueOnce({
-      data: { timestamp: now, date: '2026-06-21', month: '2026-06' },
+      status: 200, data: { timestamp: now, date: '2026-06-21', month: '2026-06' },
     });
 
     await initServerTime();

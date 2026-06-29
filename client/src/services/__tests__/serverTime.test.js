@@ -17,7 +17,7 @@ describe('serverTime service', () => {
     // Health check uses fetch
     global.fetch.mockResolvedValueOnce({ status: 200 });
     // Server-time uses api.get
-    api.get.mockResolvedValueOnce({ data: { timestamp: mockTimestamp } });
+    api.get.mockResolvedValueOnce({ status: 200, data: { timestamp: mockTimestamp } });
 
     const { initServerTime, serverNow } = await import('../serverTime');
     await initServerTime();
