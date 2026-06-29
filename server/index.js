@@ -219,6 +219,51 @@ app.use('/api', (req, res, next) => {
     next();
 });
 
+// ── Per-endpoint rate limiters for debug/noisy endpoints ──
+const serverTimeCache = new Map();
+// Cleanup stale cache entries every 60s
+setInterval(() => {
+    const cutoff = Date.now() - 30_000;
+    for (const [ip, entry] of serverTimeCache) {
+        if (entry._ts < cutoff) serverTimeCache.delete(ip);
+    }
+}, 60_000).unref();
+
+const versionLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 1,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => req.ip,
+    handler: (req, res) => {
+        const retryAfter = Math.ceil((req.rateLimit.resetTime - Date.now()) / 1000);
+        logger.info(`[RateLimit] version IP=${req.ip} UA="${(req.headers['user-agent'] || '').slice(0, 80)}" count=${req.rateLimit.current}`);
+        res.status(429)
+            .set('Retry-After', String(Math.max(1, retryAfter)))
+            .json({ message: `Rate limit exceeded. Retry after ${retryAfter} seconds.` });
+    }
+});
+
+const serverTimeLimiter = rateLimit({
+    windowMs: 10 * 1000,
+    max: 1,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => req.ip,
+    handler: (req, res) => {
+        const retryAfter = Math.ceil((req.rateLimit.resetTime - Date.now()) / 1000);
+        logger.info(`[RateLimit] server-time IP=${req.ip} UA="${(req.headers['user-agent'] || '').slice(0, 80)}" count=${req.rateLimit.current}`);
+        // Serve cached value within the 10s window
+        const cached = serverTimeCache.get(req.ip);
+        if (cached) {
+            return res.json(cached.data);
+        }
+        res.status(429)
+            .set('Retry-After', String(Math.max(1, retryAfter)))
+            .json({ message: `Rate limit exceeded. Retry after ${retryAfter} seconds.` });
+    }
+});
+
 // --------------- File Uploads (Cloudinary-direct) ---------------
 // Local uploads/ dir preserved only for backward-compat with existing files.
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -347,21 +392,24 @@ app.get('/', (req, res) => {
 });
 
 // Server time endpoint (tamper-proof date/time for clients)
-app.get('/api/server-time', (req, res, next) => {
+app.get('/api/server-time', serverTimeLimiter, (req, res, next) => {
     if (!req.headers.authorization) {
         return res.status(401).json({ message: 'Authentication required' });
     }
     next();
 }, asyncHandler((req, res) => {
-    logger.info(`[ServerTime] UA="${(req.headers['user-agent'] || '').slice(0, 120)}" IP=${req.ip} Origin=${req.headers.origin || '-'}`);
     const now = new Date();
     const today = getTodayDate();
-    res.json({
+    const data = {
         iso: now.toISOString(),
         date: today,
         month: today.slice(0, 7),
         timestamp: now.getTime()
-    });
+    };
+    // Cache for rate-limited requests within the 10s window
+    serverTimeCache.set(req.ip, { data, _ts: Date.now() });
+    logger.info(`[ServerTime] IP=${req.ip} UA="${(req.headers['user-agent'] || '').slice(0, 120)}" count=${req.rateLimit?.current || 1}`);
+    res.json(data);
 }));
 
 app.use('/api', require('./routes/auth')(upload));
@@ -508,8 +556,9 @@ app.get('/api/ping', async (req, res) => {
 });
 
 // App version endpoint
-app.get('/api/version', (req, res) => {
-    logger.info(`[VersionCheck] UA="${(req.headers['user-agent'] || '').slice(0, 120)}" IP=${req.ip} Origin=${req.headers.origin || '-'}`);
+app.get('/api/version', versionLimiter, (req, res) => {
+    res.set('Cache-Control', 'public, max-age=60');
+    logger.info(`[VersionCheck] IP=${req.ip} UA="${(req.headers['user-agent'] || '').slice(0, 120)}" count=${req.rateLimit?.current || 1}`);
     res.json({
         version: process.env.APP_VERSION || '1.0.0',
         critical: process.env.APP_VERSION_CRITICAL === 'true'
