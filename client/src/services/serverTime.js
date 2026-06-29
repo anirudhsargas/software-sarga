@@ -49,6 +49,15 @@ export async function initServerTime() {
     if (isChecking) return;
     isChecking = true;
     try {
+        // Skip if not authenticated — server-time requires auth
+        const token = localStorage.getItem('token');
+        if (!token) {
+            console.warn('No auth token, skipping server time sync');
+            offsetMs = 0;
+            initialized = true;
+            return;
+        }
+
         // First check if server is healthy
         const healthy = await checkHealth();
         if (!healthy) {

@@ -10,6 +10,11 @@ describe('serverTime service', () => {
   beforeEach(() => {
     vi.resetModules();
     global.fetch = vi.fn();
+    localStorage.setItem('token', 'test-token');
+  });
+
+  afterEach(() => {
+    localStorage.removeItem('token');
   });
 
   it('initServerTime calculates offset on success', async () => {

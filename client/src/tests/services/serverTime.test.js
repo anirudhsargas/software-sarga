@@ -19,6 +19,11 @@ describe('Server Time Service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     global.fetch = vi.fn();
+    localStorage.setItem('token', 'test-token');
+  });
+
+  afterEach(() => {
+    localStorage.removeItem('token');
   });
 
   it('initServerTime fetches and computes offset', async () => {
