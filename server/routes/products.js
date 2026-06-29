@@ -11,7 +11,7 @@ module.exports = (upload, removeUploadFile) => {
 
     // Auto-create an inventory entry when a product is added to the Product Library
     async function autoCreateInventoryFromProduct(productId, productName, productCode, subcategoryId, slabs, companyName, companyCode, size, extraInv = {}) {
-        // Check if already linked
+        // Check if already linked — if so, skip (product already has its own inventory)
         const [existing] = await pool.query('SELECT inventory_item_id FROM sarga_products WHERE id = ? AND inventory_item_id IS NOT NULL', [productId]);
         if (existing.length > 0) return;
 
@@ -23,7 +23,6 @@ module.exports = (upload, removeUploadFile) => {
              WHERE s.id = ?`,
             [subcategoryId]
         );
-        // Use subcategory name as inventory category (e.g., WOODEN MEMENTO)
         const inventoryCategory = subRows.length > 0 ? subRows[0].sub_name : null;
 
         // Extract cost and sell price from first slab and extraInv
@@ -37,78 +36,49 @@ module.exports = (upload, removeUploadFile) => {
         const parsedSellPrice = isSet(extraInv.sell_price) ? Number(extraInv.sell_price) : slabSellPrice;
 
         // Use product_code as SKU, or auto-generate from companyCode+name+size
-        let sku = productCode || null;
+        let sku = productCode ? `${productCode}-${productId}` : null;
         if (!sku) {
             const c = String(companyCode || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
             const p = String(productName || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
             const s = String(size || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
             const parts = [c, p, s].filter(Boolean);
-            if (parts.length > 0) sku = parts.join('-');
+            if (parts.length > 0) sku = `${parts.join('-')}-${productId}`;
         }
 
-        // Source code = company code (user-defined unique abbreviation)
         const sourceCode = String(companyCode || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '') || null;
         const sizeCode = String(size || '').trim().toUpperCase() || null;
 
-        // Check if inventory item with same name+category already exists
-        const [existingInv] = await pool.query(
-            'SELECT id FROM sarga_inventory WHERE name = ? AND (category = ? OR (category IS NULL AND ? IS NULL))',
-            [productName, inventoryCategory, inventoryCategory]
+        const [invResult] = await pool.query(
+            `INSERT INTO sarga_inventory (name, sku, category, unit, quantity, reorder_level, cost_price, sell_price, item_type, source_code, model_name, size_code, hsn, gst_rate, vendor_name)
+             VALUES (?, ?, ?, ?, ?, 0, ?, ?, 'Retail', ?, ?, ?, ?, ?, ?)`,
+            [
+                productName, sku, inventoryCategory, 
+                extraInv.unit || 'pcs', 
+                Number(extraInv.quantity) || 0, 
+                parsedCostPrice, 
+                parsedSellPrice, 
+                sourceCode, productName, sizeCode,
+                extraInv.hsn || null,
+                Number(extraInv.gst_rate) || 0,
+                extraInv.vendor_name || null
+            ]
         );
+        const inventoryId = invResult.insertId;
 
-        let inventoryId;
-        if (existingInv.length > 0) {
-            inventoryId = existingInv[0].id;
-            // Update existing inventory entry with latest product prices
-            await pool.query(
-                `UPDATE sarga_inventory 
-                 SET name = ?, sku = COALESCE(?, sku), category = ?, unit = ?, cost_price = ?, sell_price = ?, 
-                     source_code = ?, model_name = ?, size_code = ?, hsn = ?, gst_rate = ?, vendor_name = ?
-                 WHERE id = ?`,
-                [
-                    productName, sku, inventoryCategory,
-                    extraInv.unit || 'pcs',
-                    parsedCostPrice, parsedSellPrice,
-                    sourceCode, productName, sizeCode,
-                    extraInv.hsn || null,
-                    Number(extraInv.gst_rate) || 0,
-                    extraInv.vendor_name || null,
-                    inventoryId
-                ]
-            );
-        } else {
-            const [invResult] = await pool.query(
-                `INSERT INTO sarga_inventory (name, sku, category, unit, quantity, reorder_level, cost_price, sell_price, item_type, source_code, model_name, size_code, hsn, gst_rate, vendor_name)
-                 VALUES (?, ?, ?, ?, ?, 0, ?, ?, 'Retail', ?, ?, ?, ?, ?, ?)`,
-                [
-                    productName, sku, inventoryCategory, 
-                    extraInv.unit || 'pcs', 
-                    Number(extraInv.quantity) || 0, 
-                    parsedCostPrice, 
-                    parsedSellPrice, 
-                    sourceCode, productName, sizeCode,
-                    extraInv.hsn || null,
-                    Number(extraInv.gst_rate) || 0,
-                    extraInv.vendor_name || null
-                ]
-            );
-            inventoryId = invResult.insertId;
-
-            // Auto-generate SKU if still none
-            if (!sku) {
-                const catPart = (inventoryCategory || 'INV').substring(0, 3).toUpperCase().replace(/[^A-Z]/g, '') || 'INV';
-                const autoSku = `${catPart}-${String(inventoryId).padStart(4, '0')}`;
-                await pool.query('UPDATE sarga_inventory SET sku = ? WHERE id = ? AND sku IS NULL', [autoSku, inventoryId]);
-            }
+        // Auto-generate fallback SKU using the new inventory ID if still none
+        if (!sku) {
+            const catPart = (inventoryCategory || 'INV').substring(0, 3).toUpperCase().replace(/[^A-Z]/g, '') || 'INV';
+            const autoSku = `${catPart}-${String(inventoryId).padStart(4, '0')}`;
+            await pool.query('UPDATE sarga_inventory SET sku = ? WHERE id = ? AND sku IS NULL', [autoSku, inventoryId]);
         }
 
-        // Link product to inventory item
+        // Link product to the new inventory item
         await pool.query(
             'UPDATE sarga_products SET inventory_item_id = ?, is_physical_product = 1 WHERE id = ?',
             [inventoryId, productId]
         );
 
-        console.log(`[AutoInventory] Created/linked inventory #${inventoryId} for product #${productId} (${productName})`);
+        console.log(`[AutoInventory] Created fresh inventory #${inventoryId} for product #${productId} (${productName})`);
     }
 
     // Sync an existing linked inventory item from the updated product library data

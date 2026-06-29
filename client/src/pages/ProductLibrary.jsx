@@ -1223,9 +1223,10 @@ const ProductLibrary = () => {
                 has_double_side_rate: !!prod.has_double_side_rate,
                 inventory_item_id: '',
                 isPhysicalProduct: prod.is_physical_product === 1 || prod.is_physical_product === true,
-                slabs: prod.slabs && prod.slabs.length > 0 ? prod.slabs.map(s => ({ ...s, id: undefined })) : [{ min_qty: 0, max_qty: '', base_value: 0, unit_rate: 0, offset_unit_rate: 0, double_side_unit_rate: 0 }],
-                extras: prod.extras ? prod.extras.map(e => ({ ...e, id: undefined })) : [],
-                image_url: prod.image_url,
+                slabs: prod.slabs && prod.slabs.length > 0 ? prod.slabs.map(s => ({ ...s, id: undefined, product_id: undefined })) : [{ min_qty: 0, max_qty: '', base_value: 0, unit_rate: 0, offset_unit_rate: 0, double_side_unit_rate: 0 }],
+                extras: prod.extras ? prod.extras.map(e => ({ ...e, id: undefined, product_id: undefined })) : [],
+                links: prod.links ? prod.links.map(l => ({ ...l, id: undefined, product_id: undefined })) : [],
+                image_url: '',
                 isManualCompanyCode: false,
                 extraInv: { hsn: (prod.extraInv?.hsn || ''), quantity: (prod.extraInv?.quantity || ''), unit: (prod.extraInv?.unit || 'pcs'), gst_rate: (prod.extraInv?.gst_rate || '0'), cost_price: '', sell_price: '', vendor_name: (prod.extraInv?.vendor_name || '') }
             };
