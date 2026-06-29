@@ -22,25 +22,8 @@ const verifyWithAnySecret = require('./middleware/auth').verifyWithAnySecret;
 
 // Express app and basic config
 const app = express();
-app.set('trust proxy', 1);
+app.set("trust proxy", 1);
 const PORT = process.env.PORT || 3000;
-
-// Health check endpoint for Render keepalive (no auth, checks DB connectivity)
-app.get('/api/health', async (req, res) => {
-    let dbStatus = 'disconnected';
-    try {
-        const [rows] = await pool.query('SELECT 1 AS ok');
-        dbStatus = rows?.[0]?.ok === 1 ? 'connected' : 'error';
-    } catch (_e) {
-        dbStatus = 'error';
-    }
-    res.status(dbStatus === 'connected' ? 200 : 503).json({
-        status: dbStatus === 'connected' ? 'ok' : 'degraded',
-        database: dbStatus,
-        service: 'sarga-mis',
-        time: new Date().toISOString()
-    });
-});
 
 
 
@@ -129,6 +112,23 @@ app.use(cors(corsOptions));
 app.use((req, res, next) => {
     if (req.method === 'OPTIONS') return res.sendStatus(204);
     next();
+});
+
+// Health check endpoint (placed after CORS so cross-origin fetches work)
+app.get('/api/health', async (req, res) => {
+    let dbStatus = 'disconnected';
+    try {
+        const [rows] = await pool.query('SELECT 1 AS ok');
+        dbStatus = rows?.[0]?.ok === 1 ? 'connected' : 'error';
+    } catch (_e) {
+        dbStatus = 'error';
+    }
+    res.status(dbStatus === 'connected' ? 200 : 503).json({
+        status: dbStatus === 'connected' ? 'ok' : 'degraded',
+        database: dbStatus,
+        service: 'sarga-mis',
+        time: new Date().toISOString()
+    });
 });
 
 // Security headers

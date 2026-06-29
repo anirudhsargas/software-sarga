@@ -12,6 +12,7 @@
  *   await checkHealth();             // returns true if server is reachable
  */
 import api from './api';
+import { API_URL } from './api';
 
 let offsetMs = 0;      // server_time - client_time (milliseconds)
 let initialized = false;
@@ -20,27 +21,19 @@ let isHealthy = true;
 
 /**
  * Check if the server is reachable using the health endpoint.
+ * Uses fetch() instead of Axios to avoid CORS preflight (no credentials).
  * Returns true if healthy, false otherwise.
  */
 export async function checkHealth() {
     try {
-        const res = await api.get('/health', { _noCache: true });
-        isHealthy = res.status === 200;
-        return isHealthy;
+        const url = API_URL.startsWith('http')
+            ? `${API_URL.replace(/\/?$/, '/')}health`
+            : 'https://software-sarga-2.onrender.com/api/health';
+        const res = await fetch(url);
+        const healthy = res.status === 200;
+        isHealthy = healthy;
+        return healthy;
     } catch (err) {
-        if (err.response?.status === 429) {
-            // Rate limited - server is reachable, just busy
-            console.warn('Health check rate limited, treating as healthy');
-            isHealthy = true;
-            return true;
-        }
-        if (err.response?.status >= 500) {
-            // Server error - treat as unhealthy
-            console.warn('Health check failed with server error:', err.response.status);
-            isHealthy = false;
-            return false;
-        }
-        // Network error or other - treat as unhealthy
         console.warn('Health check failed:', err.message);
         isHealthy = false;
         return false;

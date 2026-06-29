@@ -12,21 +12,24 @@ vi.mock('../../services/api', () => ({
   default: {
     get: vi.fn(),
   },
+  API_URL: 'http://localhost:3000/api/',
 }));
 
 describe('Server Time Service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    global.fetch = vi.fn();
   });
 
   it('initServerTime fetches and computes offset', async () => {
     const api = (await import('../../services/api')).default;
     const now = Date.now();
-    api.get
-      .mockResolvedValueOnce({ status: 200, data: { status: 'ok' } })
-      .mockResolvedValueOnce({
-        data: { timestamp: now, date: '2026-06-21', month: '2026-06' },
-      });
+    // Health check uses fetch
+    global.fetch.mockResolvedValueOnce({ status: 200 });
+    // Server-time uses api.get
+    api.get.mockResolvedValueOnce({
+      data: { timestamp: now, date: '2026-06-21', month: '2026-06' },
+    });
 
     await initServerTime();
     expect(isServerTimeReady()).toBe(true);
@@ -54,9 +57,10 @@ describe('Server Time Service', () => {
 
   it('handles network failure gracefully', async () => {
     const api = (await import('../../services/api')).default;
-    api.get
-      .mockResolvedValueOnce({ status: 200, data: { status: 'ok' } })
-      .mockRejectedValueOnce(new Error('Network error'));
+    // Health check passes
+    global.fetch.mockResolvedValueOnce({ status: 200 });
+    // Server-time fails
+    api.get.mockRejectedValueOnce(new Error('Network error'));
     await initServerTime();
     expect(isServerTimeReady()).toBe(true);
   });
