@@ -8,7 +8,7 @@ import "./styles/global-fixes.css";
 import App from "./App.jsx";
 import { API_URL } from "./services/api";
 
-// Service worker and auto-update polling in production
+// Service worker and version-update polling in production
 if (import.meta.env.PROD) {
   registerSW({
     onNeedRefresh() {
@@ -24,37 +24,51 @@ if (import.meta.env.PROD) {
     return meta ? meta.getAttribute('content') : null;
   };
 
+  // Shared request cache — prevents duplicate in-flight version fetches
+  let versionPromise = null;
+
   const checkVersion = async () => {
-    try {
-      // Use the full absolute API URL to ensure we hit the backend (Render),
-      // not Vercel's edge (which has no /api/version route). Build the URL
-      // explicitly so relative-path API_URL values don't cause a 404.
-      const versionUrl = API_URL.startsWith('http')
-        ? `${API_URL.replace(/\/?$/, '/')}version`
-        : 'https://software-sarga-2.onrender.com/api/version';
-      const response = await fetch(versionUrl);
-      if (!response.ok) return;
-      const data = await response.json();
-      const currentVersion = getMetaVersion() || '1.0.0';
-      if (data.version && data.version !== currentVersion) {
-        if (data.critical) {
-          const lastReloaded = sessionStorage.getItem('sarga_critical_reloaded');
-          if (lastReloaded !== data.version) {
-            sessionStorage.setItem('sarga_critical_reloaded', data.version);
-            window.location.reload();
-            return;
+    if (versionPromise) return versionPromise;
+
+    const doFetch = async () => {
+      try {
+        const versionUrl = API_URL.startsWith('http')
+          ? `${API_URL.replace(/\/?$/, '/')}version`
+          : 'https://software-sarga-2.onrender.com/api/version';
+        const response = await fetch(versionUrl);
+        if (!response.ok) return;
+        const data = await response.json();
+        const currentVersion = getMetaVersion() || '1.0.0';
+        if (data.version && data.version !== currentVersion) {
+          if (data.critical) {
+            const lastReloaded = sessionStorage.getItem('sarga_critical_reloaded');
+            if (lastReloaded !== data.version) {
+              sessionStorage.setItem('sarga_critical_reloaded', data.version);
+              window.location.reload();
+              return;
+            }
           }
+          window.dispatchEvent(new CustomEvent('app.update', { detail: { version: data.version } }));
         }
-        window.dispatchEvent(new CustomEvent('app.update', { detail: { version: data.version } }));
+      } catch (err) {
+        console.error('Failed to check app version:', err);
       }
-    } catch (err) {
-      console.error('Failed to check app version:', err);
-    }
+    };
+
+    versionPromise = doFetch().finally(() => { versionPromise = null; });
+    return versionPromise;
   };
 
-  // Check version on startup and every 5 minutes
-  checkVersion();
-  setInterval(checkVersion, 5 * 60 * 1000);
+  // Debounce mount: sessionStorage guard avoids StrictMode double-fetch
+  // and rapid mount/unmount cycles in dev
+  if (!sessionStorage.getItem('sarga_version_checked')) {
+    sessionStorage.setItem('sarga_version_checked', '1');
+    checkVersion();
+  }
+
+  // Poll every 5 minutes with cleanup
+  const versionInterval = setInterval(checkVersion, 5 * 60 * 1000);
+  window.addEventListener('beforeunload', () => clearInterval(versionInterval), { once: true });
 }
 
 // ── Sentry ─────────────────────────────
