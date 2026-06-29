@@ -177,14 +177,14 @@ const isProduction = process.env.NODE_ENV === 'production';
 const skipRateLimit = (req) => {
     if (req.method === 'OPTIONS') return true;
     const path = req.path || req.url;
-    if (path === '/api/company-settings' || path.startsWith('/api/i18n/') || path === '/api/health' || path === '/api/version') return true;
+    if (path === '/api/company-settings' || path.startsWith('/api/i18n/') || path === '/api/health' || path === '/api/version' || path === '/api/server-time') return true;
     return false;
 };
 
 // General API rate limit
 const generalLimiter = rateLimit({
     windowMs: 5 * 60 * 1000,
-    max: isProduction ? 200 : 2000,
+    max: isProduction ? 300 : 2000,
     standardHeaders: true,
     legacyHeaders: false,
     skip: skipRateLimit,
@@ -195,7 +195,7 @@ app.use('/api', generalLimiter);
 // Rate limit for write operations
 const writeLimiter = rateLimit({
     windowMs: 5 * 60 * 1000,
-    max: isProduction ? 60 : 600,
+    max: isProduction ? 120 : 600,
     standardHeaders: true,
     legacyHeaders: false,
     skip: skipRateLimit,
@@ -225,15 +225,6 @@ app.use('/api', (req, res, next) => {
 });
 
 // ── Per-endpoint rate limiters for debug/noisy endpoints ──
-const serverTimeCache = new Map();
-// Cleanup stale cache entries every 60s
-setInterval(() => {
-    const cutoff = Date.now() - 30_000;
-    for (const [ip, entry] of serverTimeCache) {
-        if (entry._ts < cutoff) serverTimeCache.delete(ip);
-    }
-}, 60_000).unref();
-
 const versionLimiter = rateLimit({
     windowMs: 60 * 1000,
     max: 1,
@@ -244,27 +235,6 @@ const versionLimiter = rateLimit({
     handler: (req, res) => {
         const retryAfter = Math.ceil((req.rateLimit.resetTime - Date.now()) / 1000);
         logger.info(`[RateLimit] version IP=${req.ip} UA="${(req.headers['user-agent'] || '').slice(0, 80)}" count=${req.rateLimit.current}`);
-        res.status(429)
-            .set('Retry-After', String(Math.max(1, retryAfter)))
-            .json({ message: `Rate limit exceeded. Retry after ${retryAfter} seconds.` });
-    }
-});
-
-const serverTimeLimiter = rateLimit({
-    windowMs: 10 * 1000,
-    max: 1,
-    standardHeaders: true,
-    legacyHeaders: false,
-    keyGenerator: (req) => req.ip,
-    skip: (req) => req.method === 'OPTIONS',
-    handler: (req, res) => {
-        const retryAfter = Math.ceil((req.rateLimit.resetTime - Date.now()) / 1000);
-        logger.info(`[RateLimit] server-time IP=${req.ip} UA="${(req.headers['user-agent'] || '').slice(0, 80)}" count=${req.rateLimit.current}`);
-        // Serve cached value within the 10s window
-        const cached = serverTimeCache.get(req.ip);
-        if (cached) {
-            return res.json(cached.data);
-        }
         res.status(429)
             .set('Retry-After', String(Math.max(1, retryAfter)))
             .json({ message: `Rate limit exceeded. Retry after ${retryAfter} seconds.` });
@@ -399,7 +369,7 @@ app.get('/', (req, res) => {
 });
 
 // Server time endpoint (tamper-proof date/time for clients)
-app.get('/api/server-time', serverTimeLimiter, (req, res, next) => {
+app.get('/api/server-time', (req, res, next) => {
     if (!req.headers.authorization) {
         return res.status(401).json({ message: 'Authentication required' });
     }
@@ -413,9 +383,7 @@ app.get('/api/server-time', serverTimeLimiter, (req, res, next) => {
         month: today.slice(0, 7),
         timestamp: now.getTime()
     };
-    // Cache for rate-limited requests within the 10s window
-    serverTimeCache.set(req.ip, { data, _ts: Date.now() });
-    logger.info(`[ServerTime] IP=${req.ip} UA="${(req.headers['user-agent'] || '').slice(0, 120)}" count=${req.rateLimit?.current || 1}`);
+    logger.info(`[ServerTime] IP=${req.ip} UA="${(req.headers['user-agent'] || '').slice(0, 120)}"`);
     res.json(data);
 }));
 

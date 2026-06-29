@@ -209,6 +209,10 @@ api.interceptors.response.use(
             return Promise.reject(error);
         }
 
+        if (error.response?.status === 429) {
+            return Promise.reject(error);
+        }
+
         if (!error.response) {
             try { sessionStorage.setItem('sarga_network_error', '1'); } catch {}
             if (error.code === 'ECONNABORTED' || error.message === 'Network Error') {

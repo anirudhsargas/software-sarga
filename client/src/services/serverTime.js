@@ -14,12 +14,15 @@ import api from './api';
 
 let offsetMs = 0;      // server_time - client_time (milliseconds)
 let initialized = false;
+let isChecking = false;
 
 /**
  * Call once on app bootstrap (e.g. after login).
  * Calculates the offset between server clock and client clock.
  */
 export async function initServerTime() {
+    if (isChecking) return;
+    isChecking = true;
     try {
         const before = Date.now();
         const res = await api.get('/server-time');
@@ -33,6 +36,8 @@ export async function initServerTime() {
         console.warn('Failed to sync server time, falling back to device clock:', err.message);
         offsetMs = 0;
         initialized = true;
+    } finally {
+        isChecking = false;
     }
 }
 
