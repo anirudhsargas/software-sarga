@@ -67,15 +67,19 @@ const Summary = () => {
       todayParams.append('startDate', today);
       todayParams.append('endDate', today);
 
-      const [todayRes, overallRes] = await Promise.all([
+      const [todayRes, overallRes] = await Promise.allSettled([
         api.get(`/stats/dashboard?${todayParams}`, { signal, timeout: 10000 }),
         api.get(`/stats/dashboard?${params}`, { signal, timeout: 10000 })
       ]);
 
-      setStatsToday(todayRes.data);
-      setStatsOverall(overallRes.data);
-      cachedStatsToday = todayRes.data;
-      cachedStatsOverall = overallRes.data;
+      if (todayRes.status === 'fulfilled' && todayRes.value?.data) {
+        setStatsToday(todayRes.value.data);
+        cachedStatsToday = todayRes.value.data;
+      }
+      if (overallRes.status === 'fulfilled' && overallRes.value?.data) {
+        setStatsOverall(overallRes.value.data);
+        cachedStatsOverall = overallRes.value.data;
+      }
       setError(false);
     } catch (err) {
       if (err.name !== 'CanceledError' && err.code !== 'ERR_CANCELED') {

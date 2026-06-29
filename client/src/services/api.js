@@ -71,7 +71,8 @@ export const imgUrl = (path) => {
 
 const api = axios.create({
     baseURL: API_URL,
-    timeout: 30000
+    timeout: 20000,
+    withCredentials: true
 });
 // --- Request Deduplication & Response Caching ---
 const pendingRequests = new Map();
@@ -180,6 +181,7 @@ api.interceptors.request.use((config) => {
 // Automatically handle 401 responses and cache invalidation
 api.interceptors.response.use(
     (response) => {
+        try { sessionStorage.removeItem('sarga_network_error'); } catch {}
         const method = response.config?.method?.toLowerCase();
         if (['post', 'put', 'delete', 'patch'].includes(method)) {
             // 1. Clear in-memory cache for API requests so next GET is fresh
@@ -208,7 +210,11 @@ api.interceptors.response.use(
         }
 
         if (!error.response) {
-            window.location.href = '/error/network';
+            try { sessionStorage.setItem('sarga_network_error', '1'); } catch {}
+            if (error.code === 'ECONNABORTED' || error.message === 'Network Error') {
+                return Promise.resolve({ data: null, offline: true });
+            }
+            return Promise.resolve({ data: null, offline: true });
         }
 
         return Promise.reject(error);
@@ -253,3 +259,15 @@ export const devFallback = (path) => {
     }
     return path;
 };
+
+/** Retry a fetch-based function with exponential backoff */
+export async function fetchRetry(fn, retries = 3) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            return await fn();
+        } catch (e) {
+            if (i === retries - 1) throw e;
+            await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+        }
+    }
+}

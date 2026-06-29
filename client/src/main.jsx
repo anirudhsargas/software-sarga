@@ -87,6 +87,31 @@ if (import.meta.env.PROD) {
   console.info = () => {};
 }
 
+// ── Health keepalive ping ────────────
+
+const pingHealth = () => {
+  const url = API_URL.startsWith('http')
+    ? `${API_URL.replace(/\/?$/, '/')}health`
+    : 'https://software-sarga-2.onrender.com/api/health';
+  fetch(url).catch(() => {});
+};
+
+if (import.meta.env.PROD) {
+  pingHealth();
+  const healthInterval = setInterval(pingHealth, 300000);
+  window.addEventListener('beforeunload', () => clearInterval(healthInterval), { once: true });
+}
+
+// ── Online recovery ───────────────────
+
+window.addEventListener('online', () => {
+  const hasNetworkError = sessionStorage.getItem('sarga_network_error');
+  if (hasNetworkError) {
+    sessionStorage.removeItem('sarga_network_error');
+    window.location.reload();
+  }
+});
+
 // ── Stale chunk recovery ──────────────
 
 window.addEventListener("unhandledrejection", (event) => {
