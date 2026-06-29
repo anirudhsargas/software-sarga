@@ -113,8 +113,18 @@ router.get('/inventory', authenticateToken, authorizeRoles('Admin', 'Front Offic
             });
         }
 
-        let whereClauses = ['i.is_deleted = 0'];
+        let whereClauses = [];
         let params = [];
+
+        // Use is_deleted filter if column exists (migration may not have run yet)
+        let isDeletedFilter = 'i.is_deleted = 0';
+        try {
+            // Test if column exists
+            await pool.query('SELECT is_deleted FROM sarga_inventory LIMIT 0');
+        } catch (_) {
+            isDeletedFilter = '1=1';
+        }
+        whereClauses.push(isDeletedFilter);
         let joinClauses = [];
         let selectExtra = '';
 

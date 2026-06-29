@@ -163,29 +163,44 @@ module.exports = (upload, removeUploadFile) => {
             const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
             const search = req.query.search ? `%${req.query.search}%` : null;
 
-            let where = 'WHERE p.is_active = 1 AND p.is_deleted = 0';
-            const params = [];
-            
-            if (search) {
-                where += ' AND (p.name LIKE ? OR p.product_code LIKE ?)';
-                params.push(search, search);
+            const buildQuery = (isDeletedFilter) => {
+                let where = isDeletedFilter
+                    ? 'WHERE p.is_active = 1 AND p.is_deleted = 0'
+                    : 'WHERE p.is_active = 1';
+                const params = [];
+                if (search) {
+                    where += ' AND (p.name LIKE ? OR p.product_code LIKE ?)';
+                    params.push(search, search);
+                }
+                return { where, params };
+            };
+
+            let { where, params } = buildQuery(true);
+            const tryQuery = async (w, p) => {
+                const baseFrom = `
+                    FROM sarga_products p
+                    LEFT JOIN sarga_product_subcategories s ON p.subcategory_id = s.id
+                    LEFT JOIN sarga_product_categories c ON s.category_id = c.id
+                    ${w}`;
+                const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, p);
+                const [rows] = await pool.query(`
+                    SELECT p.*, s.name AS subcategory_name, c.name AS category_name
+                    ${baseFrom}
+                    ORDER BY p.name ASC
+                    LIMIT ? OFFSET ?
+                `, [...p, limit, offset]);
+                return { rows, total };
+            };
+
+            try {
+                const result = await tryQuery(where, params);
+                return res.json(response(result.rows, result.total));
+            } catch (_) {
+                // Fallback if is_deleted column doesn't exist yet (migration pending)
+                const fallback = buildQuery(false);
+                const result = await tryQuery(fallback.where, fallback.params);
+                return res.json(response(result.rows, result.total));
             }
-
-            const baseFrom = `
-                FROM sarga_products p
-                LEFT JOIN sarga_product_subcategories s ON p.subcategory_id = s.id
-                LEFT JOIN sarga_product_categories c ON s.category_id = c.id
-                ${where}`;
-
-            const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, params);
-            const [rows] = await pool.query(`
-                SELECT p.*, s.name AS subcategory_name, c.name AS category_name
-                ${baseFrom}
-                ORDER BY p.name ASC
-                LIMIT ? OFFSET ?
-            `, [...params, limit, offset]);
-            
-            res.json(response(rows, total));
         } catch (err) {
             console.error('Get products error:', err);
             res.status(500).json({ message: 'Database error' });

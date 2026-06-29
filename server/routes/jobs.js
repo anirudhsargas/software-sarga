@@ -52,8 +52,17 @@ const getHierarchyData = async () => {
     try {
         const categories = await connection.query(`SELECT ${CATEGORY_COLUMNS} FROM sarga_product_categories`).then(r => r[0]);
         const subcategories = await connection.query(`SELECT ${SUBCATEGORY_COLUMNS} FROM sarga_product_subcategories`).then(r => r[0]);
-        const products = await connection.query(`SELECT ${PRODUCT_COLUMNS} FROM sarga_products WHERE is_deleted = 0`).then(r => r[0]);
-        const inventory = await connection.query("SELECT i.id, i.name, i.sku, i.sell_price, i.category, p.id as linked_product_id FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id WHERE i.is_deleted = 0").then(r => r[0]);
+
+        // Use is_deleted filter if column exists (migration may not have run yet)
+        let products, inventory;
+        try {
+            products = await connection.query(`SELECT ${PRODUCT_COLUMNS} FROM sarga_products WHERE is_deleted = 0`).then(r => r[0]);
+            inventory = await connection.query("SELECT i.id, i.name, i.sku, i.sell_price, i.category, p.id as linked_product_id FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id WHERE i.is_deleted = 0").then(r => r[0]);
+        } catch (_) {
+            // Fallback if is_deleted column doesn't exist yet
+            products = await connection.query(`SELECT ${PRODUCT_COLUMNS} FROM sarga_products`).then(r => r[0]);
+            inventory = await connection.query("SELECT i.id, i.name, i.sku, i.sell_price, i.category, p.id as linked_product_id FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id").then(r => r[0]);
+        }
         const slabs = await connection.query("SELECT id, product_id, min_qty, max_qty, unit_rate, base_value, double_side_unit_rate FROM sarga_product_slabs ORDER BY product_id, min_qty ASC").then(r => r[0]);
         const extras = await connection.query("SELECT id, product_id, purpose AS extra_name, amount AS unit_rate, 1 as is_active FROM sarga_product_extras_template").then(r => r[0]);
         const links = await connection.query("SELECT id, product_id, name, url FROM sarga_product_links ORDER BY id ASC").then(r => r[0]);
