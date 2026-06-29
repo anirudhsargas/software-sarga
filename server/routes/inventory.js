@@ -552,7 +552,7 @@ router.get('/inventory/by-sku/:sku', authenticateToken, async (req, res) => {
         const gstRate = Number(item.gst_rate) || 0;
         const gstAmount = (costPrice * gstRate) / 100;
         const calculatedMrp = (costPrice + gstAmount) * 2;
-        const finalMrp = (item.mrp != null ? Number(item.mrp) : null) ?? sellPrice || calculatedMrp || 0;
+        const finalMrp = (item.mrp != null ? Number(item.mrp) : sellPrice) || calculatedMrp || 0;
 
         res.json({ ...item, scanned_code: normalized, mrp: finalMrp % 1 === 0 ? finalMrp.toFixed(0) : finalMrp.toFixed(2) });
     } catch (_err) {
@@ -1279,7 +1279,7 @@ router.post('/inventory/generate-labels', authenticateToken, authorizeRoles('Adm
             const gstRate = Number(item.gst_rate) || 0;
             const gstAmount = (costPrice * gstRate) / 100;
             const calculatedMrp = (costPrice + gstAmount) * 2;
-            const mrp = (item.mrp != null ? Number(item.mrp) : null) ?? sellPrice || calculatedMrp || 0;
+            const mrp = (item.mrp != null ? Number(item.mrp) : sellPrice) || calculatedMrp || 0;
 
             // QR encodes just the unique product SKU (or fallback ID) for direct scanning in billing
             const qrData = normalizeScannedCode(item.sku) || `ITEM-${item.id}`;
