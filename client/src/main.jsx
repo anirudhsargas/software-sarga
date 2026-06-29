@@ -38,10 +38,14 @@ if (import.meta.env.PROD) {
       const currentVersion = getMetaVersion() || '1.0.0';
       if (data.version && data.version !== currentVersion) {
         if (data.critical) {
-          window.location.reload();
-        } else {
-          window.dispatchEvent(new CustomEvent('app.update', { detail: { version: data.version } }));
+          const lastReloaded = sessionStorage.getItem('sarga_critical_reloaded');
+          if (lastReloaded !== data.version) {
+            sessionStorage.setItem('sarga_critical_reloaded', data.version);
+            window.location.reload();
+            return;
+          }
         }
+        window.dispatchEvent(new CustomEvent('app.update', { detail: { version: data.version } }));
       }
     } catch (err) {
       console.error('Failed to check app version:', err);
