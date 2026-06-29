@@ -1,15 +1,25 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useState, useCallback, useMemo } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react';
 import auth from '../services/auth';
 import { useTheme } from '../theme/ThemeProvider';
 import { syncManager } from '../services/syncWorkerManager';
 import { preloadStaticData } from '../services/api';
+import { connectSocket, disconnectSocket } from '../services/socketClient';
 
 export const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(() => auth.getUser());
     const { setTheme } = useTheme();
+
+    // Connect socket on mount if token exists (page refresh scenario)
+    useEffect(() => {
+        const token = auth.getToken();
+        if (token) {
+            connectSocket();
+        }
+        return () => disconnectSocket();
+    }, []);
 
     const login = useCallback(async (userId, password) => {
         const data = await auth.login(userId, password);
@@ -30,18 +40,20 @@ export const AuthProvider = ({ children }) => {
         }
 
         // Start sync worker and preload now that we have a valid token.
-        // App.jsx's one-time useEffect skipped these when there was no token.
         const token = auth.getToken();
         if (token) {
             syncManager.init();
             syncManager.updateToken(token);
             preloadStaticData();
+            connectSocket();
         }
         
         return data;
     }, [setUser, setTheme]);
 
     const logout = useCallback(() => {
+        disconnectSocket();
+        syncManager.terminate();
         auth.logout();
         setUser(null);
     }, [setUser]);

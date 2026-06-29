@@ -25,6 +25,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import toast from 'react-hot-toast';
+import { onSocketEvent } from '../services/socketClient';
 import ImageCropModal from '../components/ImageCropModal';
 import PageContainer from '../components/ui/PageContainer';
 
@@ -183,6 +184,14 @@ const ProductLibrary = () => {
     useEffect(() => {
         fetchHierarchy();
         fetchVendors();
+    }, []);
+
+    // Listen for real-time product/inventory changes from other sessions
+    useEffect(() => {
+        const unsub = onSocketEvent('productDeleted', () => {
+            fetchHierarchy();
+        });
+        return unsub;
     }, []);
 
     async function fetchVendors() {

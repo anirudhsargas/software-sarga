@@ -190,9 +190,13 @@ api.interceptors.response.use(
             // 2. Tell sync worker to invalidate offline DB
             const url = response.config?.url || '';
             try {
-                if (url.includes('product') || url.includes('categor')) syncManager.invalidateCache('products');
-                else if (url.includes('customer')) syncManager.invalidateCache('customers');
-                else if (url.includes('inventory')) syncManager.invalidateCache('inventory');
+                if (url.includes('product') || url.includes('categor')) {
+                    syncManager.invalidateCache('products');
+                    syncManager.invalidateCache('inventory');
+                } else if (url.includes('inventory')) {
+                    syncManager.invalidateCache('inventory');
+                    syncManager.invalidateCache('products');
+                } else if (url.includes('customer')) syncManager.invalidateCache('customers');
                 else if (url.includes('staff')) syncManager.invalidateCache('staff');
                 else if (url.includes('job') && !url.includes('bulk')) syncManager.invalidateCache('jobs');
                 else if (url.includes('branch')) syncManager.invalidateCache('branches');

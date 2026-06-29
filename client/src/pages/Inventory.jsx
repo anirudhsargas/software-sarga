@@ -12,6 +12,7 @@ import InventoryImageSettings from '../components/InventoryImageSettings';
 import { useConfirm } from '../contexts/ConfirmContext';
 import toast from 'react-hot-toast';
 import SmartBillUpload from './expense-manager/SmartBillUpload';
+import { onSocketEvent } from '../services/socketClient';
 import './InventoryModern.css';
 
 const ScannerModal = React.lazy(() => import('../components/ScannerModal'));
@@ -248,6 +249,14 @@ const Inventory = () => {
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [showSelectPrintModal, showAddModal, showEditModal, showPrintModal, showConsumeModal, showRestockModal, showSmartUpload, showScanner, showDetailModal, showStockRequestModal, showStockRequestsPanel]);
+
+    // Listen for real-time product/inventory changes from other sessions
+    useEffect(() => {
+        const unsub = onSocketEvent('productDeleted', () => {
+            fetchInventory();
+        });
+        return unsub;
+    }, []);
 
     async function fetchInventory() {
         setLoading(true);
@@ -664,6 +673,9 @@ const Inventory = () => {
             // If this was the only item on the page, go back a page to avoid empty list
             if ((prevItems || []).length === 1 && page > 1) setPage((p) => p - 1);
             // otherwise avoid calling fetchInventory() to prevent a full reload
+
+            // Refresh hierarchy (Product Library data) so deleted products disappear immediately
+            fetchHierarchy().catch(() => {});
         } catch (err) {
             // Revert optimistic update
             setItems(prevItems);

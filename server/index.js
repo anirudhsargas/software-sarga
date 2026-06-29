@@ -8,6 +8,7 @@ require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 
 
 const express = require('express');
+const http = require('http');
 const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
@@ -19,6 +20,7 @@ const { initDb, pool } = require('./database');
 const { getTodayDate } = require('./helpers');
 const logger = require('./helpers/logger');
 const verifyWithAnySecret = require('./middleware/auth').verifyWithAnySecret;
+const { initSocket } = require('./services/socketManager');
 
 // Express app and basic config
 const app = express();
@@ -563,7 +565,9 @@ if (process.env.NODE_ENV !== 'test') {
             })
             .catch(err => console.error('[STARTUP] DB check failed:', err.message));
 
-        const _server = app.listen(PORT, '0.0.0.0', () => {
+        const server = http.createServer(app);
+        initSocket(server, app);
+        server.listen(PORT, '0.0.0.0', () => {
             const mode = process.env.NODE_ENV || 'development';
             const dbHost = (process.env.DB_HOST || 'localhost').replace(/^(.{0,20}).*$/, '$1…');
             logger.info(`Server running on port ${PORT} (${mode}, DB: ${dbHost})`);

@@ -193,7 +193,7 @@ module.exports = (upload, removeUploadFile) => {
             const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
             const search = req.query.search ? `%${req.query.search}%` : null;
 
-            let where = 'WHERE p.is_active = 1';
+            let where = 'WHERE p.is_active = 1 AND p.is_deleted = 0';
             const params = [];
             
             if (search) {
@@ -877,16 +877,14 @@ module.exports = (upload, removeUploadFile) => {
             }
 
             try {
-                // Check if inventory item has stock
-                const [invRows] = await pool.query("SELECT quantity FROM sarga_inventory WHERE id = ?", [inventoryId]);
+                const [invRows] = await pool.query("SELECT id, quantity FROM sarga_inventory WHERE id = ? AND is_deleted = 0", [inventoryId]);
                 if (!invRows[0]) return res.status(404).json({ message: 'Inventory item not found' });
-                if (Number(invRows[0].quantity) > 0) {
-                    return res.status(400).json({ message: `Cannot delete inventory item. It has ${invRows[0].quantity} unit(s) remaining.` });
-                }
 
-                await pool.query("DELETE FROM sarga_inventory WHERE id = ?", [inventoryId]);
+                await pool.query("UPDATE sarga_inventory SET is_deleted = 1 WHERE id = ?", [inventoryId]);
+                await pool.query('DELETE FROM sarga_branch_stock WHERE inventory_item_id = ?', [inventoryId]);
+                await pool.query('DELETE FROM sarga_stock_requests WHERE inventory_item_id = ?', [inventoryId]);
                 invalidateHierarchyCache();
-                auditLog(req.user.id, 'INVENTORY_DELETE', `Deleted inventory item #${inventoryId} via Product Library`, { entity_type: 'inventory', entity_id: inventoryId });
+                auditLog(req.user.id, 'INVENTORY_SOFT_DELETE', `Soft-deleted inventory item #${inventoryId} via Product Library`, { entity_type: 'inventory', entity_id: inventoryId });
                 return res.json({ message: 'Inventory item deleted successfully' });
             } catch (err) {
                 console.error('Delete inventory error:', err);
@@ -928,18 +926,31 @@ module.exports = (upload, removeUploadFile) => {
         }
 
         try {
-            // Check if the product has stock in inventory
-            const [prodRows] = await pool.query("SELECT inventory_item_id FROM sarga_products WHERE id = ?", [productId]);
-            if (prodRows.length > 0 && prodRows[0].inventory_item_id) {
-                const [invRows] = await pool.query("SELECT quantity FROM sarga_inventory WHERE id = ?", [prodRows[0].inventory_item_id]);
-                if (invRows.length > 0 && Number(invRows[0].quantity) > 0) {
-                    return res.status(400).json({ message: `Cannot delete product. It has ${invRows[0].quantity} unit(s) of stock remaining in inventory.` });
-                }
+            const [prodRows] = await pool.query("SELECT id, inventory_item_id, sync_enabled FROM sarga_products WHERE id = ? AND is_deleted = 0", [productId]);
+            if (!prodRows.length) return res.status(404).json({ message: 'Product not found or already deleted' });
+            const prod = prodRows[0];
+
+            // Soft-delete the product
+            await pool.query("UPDATE sarga_products SET is_deleted = 1 WHERE id = ?", [productId]);
+
+            // If sync_enabled and linked to inventory, soft-delete inventory too (linked mode)
+            if (prod.sync_enabled && prod.inventory_item_id) {
+                await pool.query('UPDATE sarga_inventory SET is_deleted = 1 WHERE id = ? AND is_deleted = 0', [prod.inventory_item_id]);
+                // Clear operational data for the linked inventory
+                await pool.query('DELETE FROM sarga_branch_stock WHERE inventory_item_id = ?', [prod.inventory_item_id]);
+                await pool.query('DELETE FROM sarga_stock_requests WHERE inventory_item_id = ?', [prod.inventory_item_id]);
+                auditLog(req.user.id, 'INVENTORY_SOFT_DELETE', `Cascade soft-deleted inventory #${prod.inventory_item_id} after product #${productId} deletion (linked mode)`);
             }
 
-            await pool.query("DELETE FROM sarga_products WHERE id = ?", [productId]);
             invalidateHierarchyCache();
-            auditLog(req.user.id, 'PRODUCT_DELETE', `Deleted product #${productId}`, { entity_type: 'product', entity_id: productId });
+            auditLog(req.user.id, 'PRODUCT_SOFT_DELETE', `Soft-deleted product #${productId}`, { entity_type: 'product', entity_id: productId });
+
+            // Notify connected clients in real-time
+            try {
+                const { emitProductEvent } = require('../services/socketManager');
+                emitProductEvent('productDeleted', { productId, inventoryId: prod.inventory_item_id });
+            } catch (_) { /* socket not available */ }
+
             res.json({ message: 'Product deleted successfully' });
         } catch (err) {
             console.error('Delete product error:', err);

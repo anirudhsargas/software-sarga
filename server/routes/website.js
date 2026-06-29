@@ -78,7 +78,7 @@ router.get('/products', async (req, res) => {
 
     const offset = (page - 1) * limit;
     const params = [];
-    let where = 'WHERE p.is_active = 1 AND sc.is_active = 1 AND c.is_active = 1';
+    let where = 'WHERE p.is_active = 1 AND p.is_deleted = 0 AND sc.is_active = 1 AND c.is_active = 1';
     if (q) {
       where += ' AND (p.name LIKE ? OR p.description LIKE ? OR sc.name LIKE ? OR c.name LIKE ?)';
       const like = '%' + q + '%';

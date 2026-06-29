@@ -167,6 +167,10 @@ const initDb = async () => {
     // Run legacy column removal migration (drops vendors.type and vendors.gstin after data verification)
     const migrateDropLegacy = require('./migrations/034_drop_legacy_vendor_columns');
     await migrateDropLegacy(connection);
+
+    // Run is_deleted / sync_enabled migration for Inventory ↔ Product Library sync
+    const migrateIsDeleted = require('./migrations/035_add_is_deleted');
+    await migrateIsDeleted(connection);
     
     console.log('Database schema migration completed successfully');
   } catch (err) {

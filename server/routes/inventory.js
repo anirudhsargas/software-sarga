@@ -113,7 +113,7 @@ router.get('/inventory', authenticateToken, authorizeRoles('Admin', 'Front Offic
             });
         }
 
-        let whereClauses = [];
+        let whereClauses = ['i.is_deleted = 0'];
         let params = [];
         let joinClauses = [];
         let selectExtra = '';
@@ -1338,8 +1338,7 @@ router.delete('/inventory/all', authenticateToken, authorizeRoles('Admin'), asyn
     try {
         await connection.beginTransaction();
 
-        // Check if there are any items to delete
-        const [countRows] = await connection.query('SELECT COUNT(*) as total FROM sarga_inventory');
+        const [countRows] = await connection.query('SELECT COUNT(*) as total FROM sarga_inventory WHERE is_deleted = 0');
         const total = countRows[0].total;
 
         if (total === 0) {
@@ -1347,17 +1346,20 @@ router.delete('/inventory/all', authenticateToken, authorizeRoles('Admin'), asyn
             return res.status(400).json({ message: 'Inventory is already empty.' });
         }
 
-        // Unlink products that reference inventory items
-        await connection.query('UPDATE sarga_products SET inventory_item_id = NULL, is_physical_product = 0');
+        // Soft-delete all active inventory items
+        await connection.query('UPDATE sarga_inventory SET is_deleted = 1 WHERE is_deleted = 0');
 
-        // Delete movement log (no FK cascade from inventory deletion in all cases)
-        await connection.query('DELETE FROM sarga_inventory_movement_log');
+        // Clear operational/current-state data
+        await connection.query('DELETE FROM sarga_branch_stock');
+        await connection.query('DELETE FROM sarga_stock_requests');
 
-        // Delete all items from sarga_inventory (cascades to other tables)
-        await connection.query('DELETE FROM sarga_inventory');
+        // Soft-delete linked products that have sync_enabled
+        await connection.query(
+            'UPDATE sarga_products SET is_deleted = 1 WHERE inventory_item_id IS NOT NULL AND is_deleted = 0 AND sync_enabled = 1'
+        );
 
         await connection.commit();
-        auditLog(req.user.id, 'INVENTORY_CLEAR_ALL', `Cleared all inventory (${total} items deleted)`);
+        auditLog(req.user.id, 'INVENTORY_CLEAR_ALL', `Soft-deleted all inventory (${total} items)`);
         res.json({ message: `Inventory cleared successfully (${total} items).` });
     } catch (err) {
         await connection.rollback();
@@ -1373,26 +1375,37 @@ router.delete('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Acco
     const { id } = req.params;
 
     try {
-        // Check current stock and unlink any product references before deleting
-        const [rows] = await pool.query('SELECT name, quantity FROM sarga_inventory WHERE id = ?', [id]);
+        const [rows] = await pool.query('SELECT id, name, quantity FROM sarga_inventory WHERE id = ? AND is_deleted = 0', [id]);
         if (!rows.length) return res.status(404).json({ message: 'Inventory item not found' });
 
-        // Unlink products that reference this inventory item
-        await pool.query('UPDATE sarga_products SET inventory_item_id = NULL, is_physical_product = 0 WHERE inventory_item_id = ?', [id]);
+        // Find linked products that have sync_enabled
+        const [linkedProducts] = await pool.query('SELECT id, name, sync_enabled FROM sarga_products WHERE inventory_item_id = ? AND is_deleted = 0', [id]);
 
-        // Manually delete dependencies to avoid FK constraint failures (for legacy schemas without ON DELETE CASCADE)
+        // Soft-delete the inventory item (keep historical references intact)
+        await pool.query('UPDATE sarga_inventory SET is_deleted = 1 WHERE id = ?', [id]);
+
+        // Clear operational/current-state data (not historical data)
         await pool.query('DELETE FROM sarga_branch_stock WHERE inventory_item_id = ?', [id]);
-        await pool.query('DELETE FROM sarga_inventory_movement_log WHERE inventory_item_id = ?', [id]);
-        await pool.query('DELETE FROM sarga_inventory_reorders WHERE inventory_item_id = ?', [id]);
-        await pool.query('DELETE FROM sarga_inventory_consumption WHERE inventory_item_id = ?', [id]);
-        await pool.query('DELETE FROM sarga_paper_cut_map WHERE parent_inventory_item_id = ?', [id]);
         await pool.query('DELETE FROM sarga_stock_requests WHERE inventory_item_id = ?', [id]);
-        await pool.query('DELETE FROM sarga_vendor_bill_items WHERE inventory_item_id = ?', [id]);
-        await pool.query('DELETE FROM sarga_stock_verification_items WHERE inventory_item_id = ?', [id]);
-        await pool.query('DELETE FROM sarga_purchase_order_items WHERE inventory_item_id = ?', [id]);
 
-        await pool.query("DELETE FROM sarga_inventory WHERE id = ?", [id]);
-        auditLog(req.user.id, 'INVENTORY_DELETE', `Deleted item ${id} (${rows[0].name}), had qty=${rows[0].quantity}`);
+        // Soft-delete linked products that have sync_enabled = TRUE (linked mode)
+        const syncLinkedProducts = linkedProducts.filter(p => p.sync_enabled);
+        if (syncLinkedProducts.length > 0) {
+            const syncIds = syncLinkedProducts.map(p => p.id);
+            await pool.query('DELETE FROM sarga_product_update_requests WHERE product_id IN (?)', [syncIds]);
+            await pool.query('UPDATE sarga_products SET is_deleted = 1 WHERE id IN (?)', [syncIds]);
+            const names = syncLinkedProducts.map(p => p.name).join(', ');
+            auditLog(req.user.id, 'PRODUCTS_SOFT_DELETED', `Soft-deleted ${syncLinkedProducts.length} linked product(s) after inventory #${id} (${rows[0].name}) was deleted: ${names}`);
+        }
+
+        auditLog(req.user.id, 'INVENTORY_SOFT_DELETE', `Soft-deleted item #${id} (${rows[0].name}), had qty=${rows[0].quantity}`);
+
+        // Notify connected clients in real-time
+        try {
+            const { emitProductEvent } = require('../services/socketManager');
+            emitProductEvent('productDeleted', { inventoryId: id, linkedProductIds: syncLinkedProducts.map(p => p.id) });
+        } catch (_) { /* socket not available */ }
+
         res.json({ message: 'Inventory item deleted' });
     } catch (_err) {
         res.status(500).json({ message: 'Database error' });
