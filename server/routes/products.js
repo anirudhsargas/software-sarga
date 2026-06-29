@@ -59,6 +59,23 @@ module.exports = (upload, removeUploadFile) => {
         let inventoryId;
         if (existingInv.length > 0) {
             inventoryId = existingInv[0].id;
+            // Update existing inventory entry with latest product prices
+            await pool.query(
+                `UPDATE sarga_inventory 
+                 SET name = ?, sku = COALESCE(?, sku), category = ?, unit = ?, cost_price = ?, sell_price = ?, 
+                     source_code = ?, model_name = ?, size_code = ?, hsn = ?, gst_rate = ?, vendor_name = ?
+                 WHERE id = ?`,
+                [
+                    productName, sku, inventoryCategory,
+                    extraInv.unit || 'pcs',
+                    parsedCostPrice, parsedSellPrice,
+                    sourceCode, productName, sizeCode,
+                    extraInv.hsn || null,
+                    Number(extraInv.gst_rate) || 0,
+                    extraInv.vendor_name || null,
+                    inventoryId
+                ]
+            );
         } else {
             const [invResult] = await pool.query(
                 `INSERT INTO sarga_inventory (name, sku, category, unit, quantity, reorder_level, cost_price, sell_price, item_type, source_code, model_name, size_code, hsn, gst_rate, vendor_name)
@@ -1714,6 +1731,82 @@ module.exports = (upload, removeUploadFile) => {
             });
         } catch (_err) {
             res.status(500).json({ message: 'Database error' });
+        }
+    });
+
+    // ────────────────────────────────────────────────────────────
+    // Repair: scan all linked products and sync inventory prices
+    // ────────────────────────────────────────────────────────────
+    router.post('/admin/repair-inventory-prices', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+        try {
+            // Get all products that are linked to inventory items
+            const [products] = await pool.query(
+                `SELECT p.id, p.name, p.subcategory_id, p.product_code, p.company_name, p.company_code, p.size,
+                        p.inventory_item_id, p.extra_inv
+                 FROM sarga_products p
+                 WHERE p.inventory_item_id IS NOT NULL`
+            );
+
+            const repaired = [];
+            const skipped = [];
+
+            for (const prod of products) {
+                const extraInv = prod.extra_inv ? (
+                    typeof prod.extra_inv === 'string' ? JSON.parse(prod.extra_inv) : prod.extra_inv
+                ) : {};
+
+                // Get slabs for this product
+                const [slabs] = await pool.query(
+                    'SELECT * FROM sarga_product_slabs WHERE product_id = ? ORDER BY min_qty ASC LIMIT 1',
+                    [prod.id]
+                );
+
+                const slabSellPrice = slabs.length > 0
+                    ? Number(slabs[0].unit_rate) || Number(slabs[0].base_value) || 0
+                    : 0;
+
+                const isSet = (v) => v != null && v !== '';
+                const parsedCostPrice = isSet(extraInv.cost_price) ? Number(extraInv.cost_price) : 0;
+                const parsedSellPrice = isSet(extraInv.sell_price) ? Number(extraInv.sell_price) : slabSellPrice;
+
+                // Get current inventory values
+                const [invRows] = await pool.query(
+                    'SELECT id, cost_price, sell_price FROM sarga_inventory WHERE id = ?',
+                    [prod.inventory_item_id]
+                );
+                if (invRows.length === 0) { skipped.push({ id: prod.id, reason: 'inventory_not_found' }); continue; }
+
+                const inv = invRows[0];
+                const currentCost = Number(inv.cost_price) || 0;
+                const currentSell = Number(inv.sell_price) || 0;
+
+                if (currentCost !== parsedCostPrice || currentSell !== parsedSellPrice) {
+                    await pool.query(
+                        `UPDATE sarga_inventory
+                         SET cost_price = ?, sell_price = ?, size_code = ?
+                         WHERE id = ?`,
+                        [parsedCostPrice, parsedSellPrice, prod.size || null, prod.inventory_item_id]
+                    );
+                    repaired.push({
+                        product_id: prod.id,
+                        product_name: prod.name,
+                        inventory_id: prod.inventory_item_id,
+                        cost_price_was: currentCost,
+                        cost_price_now: parsedCostPrice,
+                        sell_price_was: currentSell,
+                        sell_price_now: parsedSellPrice
+                    });
+                }
+            }
+
+            res.json({
+                message: `Repair complete. ${repaired.length} items fixed, ${skipped.length} skipped.`,
+                repaired,
+                skipped
+            });
+        } catch (err) {
+            console.error('[RepairInventoryPrices] Error:', err);
+            res.status(500).json({ message: err.message || 'Repair failed' });
         }
     });
 

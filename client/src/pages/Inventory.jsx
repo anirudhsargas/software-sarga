@@ -101,8 +101,7 @@ const Inventory = () => {
     // Select & Print Labels modal state
     const [showSelectPrintModal, setShowSelectPrintModal] = useState(false);
     const [selectPrintSearch, setSelectPrintSearch] = useState('');
-    const [selectPrintSelectedId, setSelectPrintSelectedId] = useState(null);
-    const [selectPrintQty, setSelectPrintQty] = useState(1);
+    const [selectPrintSelectedIds, setSelectPrintSelectedIds] = useState([]);
 
     // Consumables actions state
     const [showConsumeModal, setShowConsumeModal] = useState(false);
@@ -2542,13 +2541,12 @@ const Inventory = () => {
                 <div className="modal-backdrop">
                     <div className="modal" style={{ maxWidth: '600px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', borderRadius: 'var(--radius-xl)' }}>
 
-                        {/* ── Header ── */}
                         <div className="modal-header" style={{ padding: 'var(--space-20) var(--space-24)', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-12)' }}>
                                 <div style={{ width: 38, height: 38, borderRadius: 'var(--radius-md)', background: 'var(--accent-alpha)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🖨️</div>
                                 <div>
                                     <h2 style={{ margin: 0, fontSize: 'var(--text-lg)', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-heading)' }}>Print Labels</h2>
-                                    <p style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Search for an item, set quantity, then generate a PDF label sheet</p>
+                                    <p style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Select items to print labels. Quantities are set in the next step.</p>
                                 </div>
                             </div>
                             <button className="modal-close modal-close--static" onClick={() => setShowSelectPrintModal(false)} style={{ position: 'static', flexShrink: 0 }}>
@@ -2556,15 +2554,11 @@ const Inventory = () => {
                             </button>
                         </div>
 
-                        {/* ── Body ── */}
                         <div className="modal-body" style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-20) var(--space-24)', display: 'flex', flexDirection: 'column', gap: 'var(--space-16)' }}>
 
-                            {/* Search bar */}
-                            <div style={{
-                                display: 'flex', alignItems: 'center', gap: 'var(--space-10)',
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-10)',
                                 padding: '0 var(--space-14)', borderRadius: 'var(--radius-md)',
                                 border: '1px solid var(--border)', background: 'var(--surface-alt)',
-                                transition: 'border-color var(--transition-fast)',
                             }}>
                                 <Search size={15} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
                                 <input
@@ -2572,25 +2566,49 @@ const Inventory = () => {
                                     value={selectPrintSearch}
                                     onChange={e => {
                                         setSelectPrintSearch(e.target.value);
-                                        setSelectPrintSelectedId(null);
+                                        setSelectPrintSelectedIds([]);
                                     }}
                                     style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', padding: '11px 0', fontSize: 'var(--text-sm)', color: 'var(--text-primary)' }}
                                     autoFocus
                                 />
                                 {selectPrintSearch && (
                                     <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4, display: 'flex', borderRadius: 4 }}
-                                        onClick={() => { setSelectPrintSearch(''); setSelectPrintSelectedId(null); }}>
+                                        onClick={() => { setSelectPrintSearch(''); setSelectPrintSelectedIds([]); }}>
                                         <X size={14} />
                                     </button>
                                 )}
                             </div>
 
-                            {/* Product list */}
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-8)' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-6)', cursor: 'pointer', fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-muted)' }}>
+                                    <input type="checkbox"
+                                        onChange={(e) => {
+                                            const filtered = items.filter(item => {
+                                                const q = selectPrintSearch.toLowerCase();
+                                                if (!q) return !isPaperCategory(item.category);
+                                                return !isPaperCategory(item.category) &&
+                                                    ((item.name || '').toLowerCase().includes(q) || (item.sku || '').toLowerCase().includes(q));
+                                            }).slice(0, 30);
+                                            if (e.target.checked) setSelectPrintSelectedIds(filtered.map(i => i.id));
+                                            else setSelectPrintSelectedIds([]);
+                                        }}
+                                        checked={(() => {
+                                            const filtered = items.filter(item => {
+                                                const q = selectPrintSearch.toLowerCase();
+                                                if (!q) return !isPaperCategory(item.category);
+                                                return !isPaperCategory(item.category) &&
+                                                    ((item.name || '').toLowerCase().includes(q) || (item.sku || '').toLowerCase().includes(q));
+                                            }).slice(0, 30);
+                                            return filtered.length > 0 && filtered.every(i => selectPrintSelectedIds.includes(i.id));
+                                        })()}
+                                    /> Select All ({selectPrintSelectedIds.length} selected)
+                                </label>
+                            </div>
+
                             <div style={{
                                 borderRadius: 'var(--radius-md)',
                                 border: '1px solid var(--border)',
-                                overflow: 'hidden',
-                                maxHeight: '240px',
+                                maxHeight: '260px',
                                 overflowY: 'auto',
                             }}>
                                 {(() => {
@@ -2599,33 +2617,30 @@ const Inventory = () => {
                                             const q = selectPrintSearch.toLowerCase();
                                             if (!q) return !isPaperCategory(item.category);
                                             return !isPaperCategory(item.category) &&
-                                                ((item.name || '').toLowerCase().includes(q) ||
-                                                 (item.sku || '').toLowerCase().includes(q));
+                                                ((item.name || '').toLowerCase().includes(q) || (item.sku || '').toLowerCase().includes(q));
                                         })
                                         .slice(0, 30);
                                     return filtered.length > 0 ? filtered.map((item, idx) => {
-                                        const isSelected = selectPrintSelectedId === item.id;
+                                        const isChecked = selectPrintSelectedIds.includes(item.id);
                                         return (
                                             <div
                                                 key={item.id}
-                                                onClick={() => {
-                                                    setSelectPrintSelectedId(item.id);
-                                                    setSelectPrintQty(getStockBasedPrintQty(item));
-                                                }}
                                                 style={{
-                                                    cursor: 'pointer',
-                                                    padding: 'var(--space-12) var(--space-16)',
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-12)',
-                                                    background: isSelected ? 'var(--accent-alpha)' : idx % 2 === 0 ? 'var(--surface)' : 'var(--surface-alt)',
-                                                    borderLeft: isSelected ? '3px solid var(--accent)' : '3px solid transparent',
+                                                    padding: 'var(--space-10) var(--space-16)',
+                                                    display: 'flex', alignItems: 'center', gap: 'var(--space-12)',
+                                                    background: isChecked ? 'var(--accent-alpha)' : idx % 2 === 0 ? 'var(--surface)' : 'var(--surface-alt)',
                                                     borderBottom: '1px solid var(--border-subtle)',
-                                                    transition: 'background 0.12s, border-color 0.12s',
+                                                    cursor: 'pointer',
                                                 }}
-                                                onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = 'var(--surface-hover)'; }}
-                                                onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = idx % 2 === 0 ? 'var(--surface)' : 'var(--surface-alt)'; }}
+                                                onClick={() => {
+                                                    setSelectPrintSelectedIds(prev =>
+                                                        prev.includes(item.id) ? prev.filter(id => id !== item.id) : [...prev, item.id]
+                                                    );
+                                                }}
                                             >
+                                                <input type="checkbox" checked={isChecked} readOnly style={{ flexShrink: 0 }} />
                                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                                    <div style={{ fontSize: 'var(--text-sm)', fontWeight: isSelected ? 700 : 600, color: 'var(--text-primary)', lineHeight: 1.3, marginBottom: 3 }}>{item.name}</div>
+                                                    <div style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.3, marginBottom: 2 }}>{item.name}</div>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)' }}>
                                                         {item.sku && (
                                                             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--text-muted)', background: 'var(--surface-2)', padding: '1px 5px', borderRadius: 3, border: '1px solid var(--border)' }}>
@@ -2637,11 +2652,6 @@ const Inventory = () => {
                                                         </span>
                                                     </div>
                                                 </div>
-                                                {isSelected && (
-                                                    <div style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--accent)', color: 'var(--on-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                        <Check size={12} />
-                                                    </div>
-                                                )}
                                             </div>
                                         );
                                     }) : (
@@ -2653,81 +2663,24 @@ const Inventory = () => {
                                     );
                                 })()}
                             </div>
-
-                            {/* Selected item — quantity control */}
-                            {selectPrintSelectedId && (() => {
-                                const selItem = items.find(i => i.id === selectPrintSelectedId);
-                                return selItem ? (
-                                    <div style={{
-                                        borderRadius: 'var(--radius-md)',
-                                        border: '1px solid var(--accent-light)',
-                                        background: 'var(--accent-alpha)',
-                                        padding: 'var(--space-16) var(--space-20)',
-                                    }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-10)', marginBottom: 'var(--space-14)' }}>
-                                            <div style={{ flex: 1, minWidth: 0 }}>
-                                                <div style={{ fontSize: 'var(--text-sm)', fontWeight: 700, color: 'var(--text-primary)' }}>{selItem.name}</div>
-                                                {selItem.sku && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 2 }}>{selItem.sku}</div>}
-                                            </div>
-                                        </div>
-                                        <label style={{ fontSize: 'var(--text-xs)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', display: 'block', marginBottom: 'var(--space-10)' }}>Number of labels to print</label>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-10)' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', background: 'var(--surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', overflow: 'hidden' }}>
-                                                <button
-                                                    className="icon-button"
-                                                    type="button"
-                                                    style={{ width: 36, height: 36, borderRadius: 0, border: 'none' }}
-                                                    onClick={() => setSelectPrintQty(q => Math.max(1, q - 1))}
-                                                >
-                                                    <Minus size={14} />
-                                                </button>
-                                                <input
-                                                    type="number"
-                                                    style={{ width: 64, padding: '6px 4px', fontSize: 'var(--text-sm)', fontWeight: 700, border: 'none', background: 'transparent', outline: 'none', textAlign: 'center', color: 'var(--text-primary)' }}
-                                                    min={1}
-                                                    max={5000}
-                                                    value={selectPrintQty}
-                                                    onChange={e => setSelectPrintQty(Math.max(1, Number(e.target.value) || 1))}
-                                                />
-                                                <button
-                                                    className="icon-button"
-                                                    type="button"
-                                                    style={{ width: 36, height: 36, borderRadius: 0, border: 'none' }}
-                                                    onClick={() => setSelectPrintQty(q => q + 1)}
-                                                >
-                                                    <Plus size={14} />
-                                                </button>
-                                            </div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-6)', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
-                                                <FileText size={13} />
-                                                <span>
-                                                    <strong style={{ color: 'var(--text-primary)' }}>{Math.ceil(selectPrintQty / 48)}</strong> A4 page{Math.ceil(selectPrintQty / 48) !== 1 ? 's' : ''}
-                                                    {selectPrintQty % 48 !== 0 && <span> · {selectPrintQty % 48}/48 on last page</span>}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ) : null;
-                            })()}
                         </div>
 
-                        {/* ── Footer ── */}
                         <div className="modal-footer" style={{ padding: 'var(--space-16) var(--space-24)', borderTop: '1px solid var(--border)', flexShrink: 0, display: 'flex', gap: 'var(--space-10)', justifyContent: 'flex-end' }}>
                             <button className="btn btn-secondary" onClick={() => setShowSelectPrintModal(false)}>Cancel</button>
                             <button
                                 className="btn btn-primary"
-                                disabled={!selectPrintSelectedId || printingLabel}
+                                disabled={selectPrintSelectedIds.length === 0 || printingLabel}
                                 onClick={() => {
-                                    if (!selectPrintSelectedId) return;
-                                    setSelectedIds([selectPrintSelectedId]);
-                                    setPrintQuantities({ [selectPrintSelectedId]: selectPrintQty });
+                                    if (selectPrintSelectedIds.length === 0) return;
+                                    setSelectedIds(selectPrintSelectedIds);
+                                    setPrintQuantities(Object.fromEntries(selectPrintSelectedIds.map(id => [id, 1])));
                                     setShowSelectPrintModal(false);
                                     setShowPrintModal(true);
                                 }}
                                 style={{ minWidth: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-8)', fontWeight: 700 }}
                             >
                                 <Printer size={16} />
-                                Continue to Generate PDF
+                                Print {selectPrintSelectedIds.length} item{selectPrintSelectedIds.length !== 1 ? 's' : ''}
                             </button>
                         </div>
                     </div>
