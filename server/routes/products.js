@@ -35,8 +35,12 @@ module.exports = (upload, removeUploadFile) => {
         const parsedCostPrice = isSet(extraInv.cost_price) ? Number(extraInv.cost_price) : 0;
         const parsedSellPrice = isSet(extraInv.sell_price) ? Number(extraInv.sell_price) : slabSellPrice;
 
-        // Use product_code as SKU, or auto-generate from companyCode+name+size
-        let sku = productCode ? `${productCode}-${productId}` : null;
+        // Use product_code as SKU if unique, otherwise append productId
+        let sku = productCode || null;
+        if (sku) {
+            const [dup] = await pool.query('SELECT id FROM sarga_inventory WHERE sku = ?', [sku]);
+            if (dup.length > 0) sku = `${sku}-${productId}`;
+        }
         if (!sku) {
             const c = String(companyCode || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
             const p = String(productName || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -60,7 +64,7 @@ module.exports = (upload, removeUploadFile) => {
                 sourceCode, productName, sizeCode,
                 extraInv.hsn || null,
                 Number(extraInv.gst_rate) || 0,
-                extraInv.vendor_name || null
+                extraInv.vendor_name || companyName || null
             ]
         );
         const inventoryId = invResult.insertId;
@@ -109,7 +113,12 @@ module.exports = (upload, removeUploadFile) => {
         const parsedSellPrice = isSet(extraInv.sell_price) ? Number(extraInv.sell_price) : slabSellPrice;
 
         // Use product_code as SKU with unique suffix, or auto-generate
-        let sku = productCode ? `${productCode}-${productId}` : null;
+        // Use product_code as SKU if unique, otherwise append productId
+        let sku = productCode || null;
+        if (sku) {
+            const [dup] = await connection.query('SELECT id FROM sarga_inventory WHERE sku = ? AND id != ?', [sku, inventoryId]);
+            if (dup.length > 0) sku = `${sku}-${productId}`;
+        }
         if (!sku) {
             const c = String(companyCode || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
             const p = String(productName || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -138,7 +147,7 @@ module.exports = (upload, removeUploadFile) => {
                 sourceCode, productName, sizeCode,
                 extraInv.hsn || null,
                 Number(extraInv.gst_rate) || 0,
-                extraInv.vendor_name || null,
+                extraInv.vendor_name || companyName || null,
                 inventoryId
             ]
         );

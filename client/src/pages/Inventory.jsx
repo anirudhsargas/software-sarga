@@ -2084,81 +2084,95 @@ const Inventory = () => {
             {
                 showEditModal && selectedItem && (
                     <div className="modal-backdrop">
-                        <div className="modal">
-                            <button
-                                className="modal-close"
-                                onClick={() => {
-                                    setShowEditModal(false);
-                                    setSelectedItem(null);
-                                }}
-                            >
-                                <X size={22} />
-                            </button>
-                            <h2 className="section-title mb-16">Edit Inventory Item</h2>
-
-                            <div className="mb-16">
-                                <label className="label">Rematch with Product Library (Optional)</label>
-                                <div className="search-input-container">
-                                    <Search size={18} className="search-icon" />
-                                    <input
-                                        name="editProductSearch"
-                                        className="input-field"
-                                        placeholder="Search product from library..."
-                                        value={productSearch}
-                                        onChange={(e) => setProductSearch(e.target.value)}
-                                    />
-                                </div>
-                                {filteredProducts.length > 0 && (
-                                    <div className="dropdown mt-4">
-                                        {filteredProducts.map(p => (
-                                            <div role="button" tabIndex={0} key={p.id} className="dropdown-item" onClick={() => selectProduct(p, true)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectProduct(p, true); } }}>
-                                                <div className="text-sm font-medium">{p.name}</div>
-                                                <div className="muted text-xs">{p.category_name} &rsaquo; {p.subcategory_name}</div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
+                        <div className="modal modal--large">
+                            <div className="modal-header">
+                                <h2 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ fontSize: '14px', opacity: 0.5 }}>#</span>
+                                    Edit Inventory Item
+                                    <span style={{ fontSize: '12px', fontWeight: 400, opacity: 0.4, marginLeft: '4px' }}>
+                                        ID: {selectedItem.id}
+                                    </span>
+                                </h2>
+                                <button
+                                    className="modal-close modal-close--static"
+                                    onClick={() => {
+                                        setShowEditModal(false);
+                                        setSelectedItem(null);
+                                    }}
+                                >
+                                    <X size={20} />
+                                </button>
                             </div>
 
-                            <form onSubmit={handleUpdateItem} className="stack-md">
-                                <div className="mb-16 panel panel--tight" style={{ background: 'var(--surface-alt)' }}>
-                                    <label className="label">Item Type</label>
-                                    <div className="row gap-md mt-4">
-                                        <label className="row items-center gap-sm cursor-pointer">
-                                            <input type="radio" name="edit_item_type" value="Retail" checked={selectedItem.item_type === 'Retail'} onChange={(e) => setSelectedItem({ ...selectedItem, item_type: e.target.value })} />
-                                            <span>Retail Product</span>
+                            <form onSubmit={handleUpdateItem}>
+                                <div className="modal-body">
+                                    {/* Rematch with Product Library */}
+                                    <div className="mb-20">
+                                        <label className="label" style={{ fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <span style={{ fontSize: '16px' }}>&#9679;</span>
+                                            Rematch with Product Library
+                                            <span style={{ fontSize: '11px', fontWeight: 400, opacity: 0.4 }}>(Optional)</span>
                                         </label>
-                                    </div>
-                                </div>
-                                <div className="row gap-sm">
-                                    <div className="flex-1">
-                                        <label className="label">Item Name</label>
-                                        <input
-                                            name="editItemName"
-                                            className="input-field"
-                                            value={selectedItem.name}
-                                            onChange={(e) => setSelectedItem({ ...selectedItem, name: e.target.value })}
-                                            required
-                                        />
-                                    </div>
-                                    {selectedItem.item_type === 'Retail' && (
-                                        <div className="flex-1">
-                                            <label className="label">SKU (Unique Code)</label>
+                                        <div className="search-input-container" style={{ marginTop: '6px' }}>
+                                            <Search size={16} className="search-icon" />
                                             <input
-                                                name="editItemSku"
+                                                name="editProductSearch"
                                                 className="input-field"
-                                                style={{ fontWeight: 700, letterSpacing: '0.5px' }}
-                                                value={selectedItem.sku || ''}
-                                                onChange={(e) => setSelectedItem({ ...selectedItem, sku: e.target.value.toUpperCase() })}
-                                                placeholder="AUTOGENERATED"
+                                                placeholder="Search product from library..."
+                                                value={productSearch}
+                                                onChange={(e) => setProductSearch(e.target.value)}
                                             />
                                         </div>
-                                    )}
-                                </div>
+                                        {filteredProducts.length > 0 && (
+                                            <div className="dropdown mt-4">
+                                                {filteredProducts.map(p => (
+                                                    <div role="button" tabIndex={0} key={p.id} className="dropdown-item" onClick={() => selectProduct(p, true)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectProduct(p, true); } }}>
+                                                        <div className="text-sm font-medium">{p.name}</div>
+                                                        <div className="muted text-xs">{p.category_name} &rsaquo; {p.subcategory_name}</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
 
-                                {selectedItem.item_type === 'Retail' && (
-                                    <>
-                                        <div className="row gap-sm panel panel--tight" style={{ background: 'var(--surface-alt)', border: '1px dashed var(--border)' }}>
+                                    {/* Section: Basic Information */}
+                                    <div className="mb-20" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-16)', background: 'var(--surface-2)' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', paddingBottom: '10px', borderBottom: '1px solid var(--border)' }}>
+                                            <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>&#9998;</div>
+                                            <span style={{ fontSize: '13px', fontWeight: 600 }}>Basic Information</span>
+                                        </div>
+                                        <div className="row gap-sm" style={{ marginBottom: '10px' }}>
+                                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                <label className="row items-center gap-sm cursor-pointer" style={{ fontSize: '13px' }}>
+                                                    <input type="radio" name="edit_item_type" value="Retail" checked={selectedItem.item_type === 'Retail'} onChange={(e) => setSelectedItem({ ...selectedItem, item_type: e.target.value })} />
+                                                    <span>Retail Product</span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div className="row gap-sm">
+                                            <div className="flex-1">
+                                                <label className="label">Item Name</label>
+                                                <input
+                                                    name="editItemName"
+                                                    className="input-field"
+                                                    value={selectedItem.name}
+                                                    onChange={(e) => setSelectedItem({ ...selectedItem, name: e.target.value })}
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="flex-1">
+                                                <label className="label">SKU (Unique Code)</label>
+                                                <input
+                                                    name="editItemSku"
+                                                    className="input-field"
+                                                    style={{ fontWeight: 700, letterSpacing: '0.5px' }}
+                                                    value={selectedItem.sku || ''}
+                                                    onChange={(e) => setSelectedItem({ ...selectedItem, sku: e.target.value.toUpperCase() })}
+                                                    placeholder="AUTOGENERATED"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="row gap-sm" style={{ marginTop: '10px' }}>
                                             <div style={{ width: '80px' }}>
                                                 <label className="label">Source</label>
                                                 <input
@@ -2204,7 +2218,7 @@ const Inventory = () => {
                                                 />
                                             </div>
                                         </div>
-                                        <div className="row gap-sm">
+                                        <div className="row gap-sm" style={{ marginTop: '10px' }}>
                                             <div className="flex-1">
                                                 <label className="label">Category</label>
                                                 <select
@@ -2233,97 +2247,41 @@ const Inventory = () => {
                                                 />
                                             </div>
                                         </div>
-                                    </>
-                                )}
-                                <div className="row gap-sm">
-                                    {branches && branches.length > 0 ? (
-                                        <div className="flex-1" style={{ minWidth: '100%' }}>
-                                            <div className="panel panel--tight mb-8" style={{ background: 'var(--surface-alt)', border: '1px solid var(--border)' }}>
-                                                <label className="label mb-8 font-semibold" style={{ color: 'var(--accent-2)' }}>Branch Stock Distribution</label>
-                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-12)' }}>
-                                                    {selectedItem.branch_stocks?.map((bs, index) => (
-                                                        <div key={bs.branch_id} className="row items-center justify-between gap-sm p-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                                                            <span className="text-xs font-medium text-muted">{bs.branch_name} ({bs.short_name})</span>
-                                                            <input
-                                                                type="number"
-                                                                className="input-field text-right"
-                                                                style={{ width: '80px', padding: 'var(--space-4) var(--space-8)', minHeight: '30px' }}
-                                                                value={bs.quantity}
-                                                                min="0"
-                                                                onChange={(e) => {
-                                                                    const val = Math.max(0, parseInt(e.target.value) || 0);
-                                                                    const updatedStocks = [...(selectedItem.branch_stocks || [])];
-                                                                    updatedStocks[index] = { ...bs, quantity: val };
-                                                                    const totalQty = updatedStocks.reduce((sum, s) => sum + s.quantity, 0);
-                                                                    setSelectedItem({
-                                                                        ...selectedItem,
-                                                                        branch_stocks: updatedStocks,
-                                                                        quantity: String(totalQty)
-                                                                    });
-                                                                }}
-                                                            />
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                                <div className="row items-center justify-between mt-8 pt-8" style={{ borderTop: '1px solid var(--border)' }}>
-                                                    <span className="text-xs font-semibold">Total Stock Available</span>
-                                                    <span className="text-sm font-bold text-accent">
-                                                        {selectedItem.quantity || '0'} {selectedItem.unit}
-                                                    </span>
-                                                </div>
-                                            </div>
+                                    </div>
+
+                                    {/* Section: Pricing & Tax */}
+                                    <div className="mb-20" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-16)', background: 'var(--surface-2)' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', paddingBottom: '10px', borderBottom: '1px solid var(--border)' }}>
+                                            <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'var(--accent-2, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>&#8377;</div>
+                                            <span style={{ fontSize: '13px', fontWeight: 600 }}>Pricing &amp; Tax</span>
                                         </div>
-                                    ) : (
-                                        <div className="flex-1">
-                                            <label className="label">Quantity</label>
-                                            <input
-                                                name="editItemQty"
-                                                type="number"
-                                                className="input-field"
-                                                value={selectedItem.quantity}
-                                                onChange={(e) => setSelectedItem({ ...selectedItem, quantity: e.target.value })}
-                                                min="0"
-                                            />
-                                        </div>
-                                    )}
-                                    <div className="flex-1">
-                                        <label className="label">Unit</label>
-                                        <input
-                                            name="editItemUnit"
-                                            className="input-field"
-                                            value={selectedItem.unit || ''}
-                                            onChange={(e) => setSelectedItem({ ...selectedItem, unit: e.target.value })}
-                                        />
-                                    </div>
-                                    <div className="flex-1">
-                                        <label className="label">Reorder Level</label>
-                                        <input
-                                            name="editItemReorderLevel"
-                                            type="number"
-                                            className="input-field"
-                                            value={selectedItem.reorder_level}
-                                            onChange={(e) => setSelectedItem({ ...selectedItem, reorder_level: e.target.value })}
-                                            min="0"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="row gap-sm">
-                                    <div className="flex-1">
-                                        <label className="label">Cost Price</label>
-                                        <input
-                                            name="editItemCostPrice"
-                                            type="number"
-                                            step="0.01"
-                                            className="input-field"
-                                            value={selectedItem.cost_price}
-                                            onChange={(e) => setSelectedItem({ ...selectedItem, cost_price: e.target.value })}
-                                            min="0"
-                                        />
-                                    </div>
-                                    {selectedItem.item_type === 'Retail' && (
-                                        <>
+                                        <div className="row gap-sm">
                                             <div className="flex-1">
-                                                <label className="label">GST Rate %</label>
+                                                <label className="label">Cost Price (&#8377;)</label>
+                                                <input
+                                                    name="editItemCostPrice"
+                                                    type="number"
+                                                    step="0.01"
+                                                    className="input-field"
+                                                    value={selectedItem.cost_price}
+                                                    onChange={(e) => setSelectedItem({ ...selectedItem, cost_price: e.target.value })}
+                                                    min="0"
+                                                />
+                                            </div>
+                                            <div className="flex-1">
+                                                <label className="label">Sell Price (&#8377;)</label>
+                                                <input
+                                                    name="editItemSellPrice"
+                                                    type="number"
+                                                    step="0.01"
+                                                    className="input-field"
+                                                    value={selectedItem.sell_price}
+                                                    onChange={(e) => setSelectedItem({ ...selectedItem, sell_price: e.target.value })}
+                                                    min="0"
+                                                />
+                                            </div>
+                                            <div className="flex-1">
+                                                <label className="label">GST Rate (%)</label>
                                                 <input
                                                     name="editItemGstRate"
                                                     type="number"
@@ -2334,7 +2292,7 @@ const Inventory = () => {
                                                 />
                                             </div>
                                             <div className="flex-1">
-                                                <label className="label">Discount %</label>
+                                                <label className="label">Discount (%)</label>
                                                 <input
                                                     name="editItemDiscount"
                                                     type="number"
@@ -2344,59 +2302,151 @@ const Inventory = () => {
                                                     min="0"
                                                 />
                                             </div>
-                                        </>
-                                    )}
-                                </div>
-                                {selectedItem.item_type === 'Retail' && (
-                                    <div>
-                                        <label className="label">Sell Price</label>
-                                        <input
-                                            name="editItemSellPrice"
-                                            type="number"
-                                            step="0.01"
-                                            className="input-field"
-                                            value={selectedItem.sell_price}
-                                            onChange={(e) => setSelectedItem({ ...selectedItem, sell_price: e.target.value })}
-                                            min="0"
-                                        />
+                                        </div>
                                     </div>
-                                )}
-                                <div className="row gap-sm">
-                                    <div className="flex-1">
-                                        <label className="label">Vendor Name</label>
-                                        <input
-                                            name="editItemVendorName"
-                                            className="input-field"
-                                            placeholder="Where do we buy this?"
-                                            value={selectedItem.vendor_name || ''}
-                                            onChange={(e) => setSelectedItem({ ...selectedItem, vendor_name: e.target.value })}
-                                        />
+
+                                    {/* Section: Stock & Supply */}
+                                    <div className="mb-20" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-16)', background: 'var(--surface-2)' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', paddingBottom: '10px', borderBottom: '1px solid var(--border)' }}>
+                                            <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>&#9776;</div>
+                                            <span style={{ fontSize: '13px', fontWeight: 600 }}>Stock &amp; Supply</span>
+                                        </div>
+                                        {branches && branches.length > 0 ? (
+                                            <div className="row gap-sm" style={{ marginBottom: '10px' }}>
+                                                <div className="flex-1">
+                                                    <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', overflow: 'hidden' }}>
+                                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 1fr', gap: '1px', background: 'var(--border)' }}>
+                                                            <div style={{ padding: '8px 12px', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', opacity: 0.6, background: 'var(--surface)' }}>Branch</div>
+                                                            <div style={{ padding: '8px 12px', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', opacity: 0.6, textAlign: 'right', background: 'var(--surface)' }}>Qty</div>
+                                                            <div style={{ padding: '8px 12px', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', opacity: 0.6, background: 'var(--surface)' }}>Branch</div>
+                                                            {selectedItem.branch_stocks?.map((bs, index) => (
+                                                                <div key={bs.branch_id} className="row items-center justify-between" style={{ padding: '6px 12px', background: index % 2 === 0 ? 'var(--surface)' : 'var(--surface-2)', gridColumn: index % 2 === 0 ? '1 / 2' : '3 / 4', borderTop: '1px solid var(--border)' }}>
+                                                                    <span className="text-xs font-medium">{bs.branch_name}</span>
+                                                                    <input
+                                                                        type="number"
+                                                                        className="input-field text-right"
+                                                                        style={{ width: '70px', minHeight: '28px', fontSize: '12px', padding: '2px 6px' }}
+                                                                        value={bs.quantity}
+                                                                        min="0"
+                                                                        onChange={(e) => {
+                                                                            const val = Math.max(0, parseInt(e.target.value) || 0);
+                                                                            const updatedStocks = [...(selectedItem.branch_stocks || [])];
+                                                                            updatedStocks[index] = { ...bs, quantity: val };
+                                                                            const totalQty = updatedStocks.reduce((sum, s) => sum + s.quantity, 0);
+                                                                            setSelectedItem({
+                                                                                ...selectedItem,
+                                                                                branch_stocks: updatedStocks,
+                                                                                quantity: String(totalQty)
+                                                                            });
+                                                                        }}
+                                                                    />
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                        <div className="row items-center justify-between" style={{ padding: '8px 12px', borderTop: '2px solid var(--border)', background: 'var(--surface-2)' }}>
+                                                            <span className="text-xs font-semibold">Total Stock</span>
+                                                            <span className="text-sm font-bold" style={{ color: 'var(--accent)' }}>
+                                                                {selectedItem.quantity || '0'} {selectedItem.unit}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="row gap-sm" style={{ marginBottom: '10px' }}>
+                                                <div className="flex-1">
+                                                    <label className="label">Quantity</label>
+                                                    <input
+                                                        name="editItemQty"
+                                                        type="number"
+                                                        className="input-field"
+                                                        value={selectedItem.quantity}
+                                                        onChange={(e) => setSelectedItem({ ...selectedItem, quantity: e.target.value })}
+                                                        min="0"
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+                                        <div className="row gap-sm">
+                                            <div className="flex-1">
+                                                <label className="label">Unit</label>
+                                                <input
+                                                    name="editItemUnit"
+                                                    className="input-field"
+                                                    value={selectedItem.unit || ''}
+                                                    onChange={(e) => setSelectedItem({ ...selectedItem, unit: e.target.value })}
+                                                />
+                                            </div>
+                                            <div className="flex-1">
+                                                <label className="label">Reorder Level</label>
+                                                <input
+                                                    name="editItemReorderLevel"
+                                                    type="number"
+                                                    className="input-field"
+                                                    value={selectedItem.reorder_level}
+                                                    onChange={(e) => setSelectedItem({ ...selectedItem, reorder_level: e.target.value })}
+                                                    min="0"
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="flex-1">
-                                        <label className="label">Vendor Contact</label>
-                                        <input
-                                            name="editItemVendorContact"
-                                            className="input-field"
-                                            placeholder="Phone or Email"
-                                            value={selectedItem.vendor_contact || ''}
-                                            onChange={(e) => setSelectedItem({ ...selectedItem, vendor_contact: e.target.value })}
-                                        />
+
+                                    {/* Section: Supplier */}
+                                    <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-16)', background: 'var(--surface-2)' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', paddingBottom: '10px', borderBottom: '1px solid var(--border)' }}>
+                                            <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>&#9741;</div>
+                                            <span style={{ fontSize: '13px', fontWeight: 600 }}>Supplier</span>
+                                        </div>
+                                        <div className="row gap-sm" style={{ marginBottom: '10px' }}>
+                                            <div className="flex-1">
+                                                <label className="label">Vendor Name</label>
+                                                <input
+                                                    name="editItemVendorName"
+                                                    className="input-field"
+                                                    placeholder="Where do we buy this?"
+                                                    value={selectedItem.vendor_name || ''}
+                                                    onChange={(e) => setSelectedItem({ ...selectedItem, vendor_name: e.target.value })}
+                                                />
+                                            </div>
+                                            <div className="flex-1">
+                                                <label className="label">Vendor Contact</label>
+                                                <input
+                                                    name="editItemVendorContact"
+                                                    className="input-field"
+                                                    placeholder="Phone or Email"
+                                                    value={selectedItem.vendor_contact || ''}
+                                                    onChange={(e) => setSelectedItem({ ...selectedItem, vendor_contact: e.target.value })}
+                                                />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="label">Purchase Link</label>
+                                            <input
+                                                name="editItemPurchaseLink"
+                                                className="input-field"
+                                                placeholder="https://amazon.in/..."
+                                                value={selectedItem.purchase_link || ''}
+                                                onChange={(e) => setSelectedItem({ ...selectedItem, purchase_link: e.target.value })}
+                                            />
+                                        </div>
                                     </div>
-                                </div>
-                                <div>
-                                    <label className="label">Purchase Link</label>
-                                    <input
-                                        name="editItemPurchaseLink"
-                                        className="input-field"
-                                        placeholder="https://amazon.in/..."
-                                        value={selectedItem.purchase_link || ''}
-                                        onChange={(e) => setSelectedItem({ ...selectedItem, purchase_link: e.target.value })}
-                                    />
                                 </div>
 
-                                <button type="submit" className="btn btn-primary btn--full" disabled={saving}>
-                                    {saving ? 'Saving...' : 'Save Changes'}
-                                </button>
+                                <div className="modal-footer">
+                                    <button type="button" className="btn btn-secondary" onClick={() => { setShowEditModal(false); setSelectedItem(null); }}>
+                                        Cancel
+                                    </button>
+                                    <button type="submit" className="btn btn-primary" disabled={saving} style={{ minWidth: '120px' }}>
+                                        {saving ? (
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center' }}>
+                                                <span className="spinner" />
+                                                Saving...
+                                            </span>
+                                        ) : (
+                                            'Save Changes'
+                                        )}
+                                    </button>
+                                </div>
                             </form>
                         </div>
                     </div>

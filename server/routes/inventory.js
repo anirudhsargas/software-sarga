@@ -155,8 +155,8 @@ router.get('/inventory', authenticateToken, authorizeRoles('Admin', 'Front Offic
         const vendorName = req.query.vendor_name ? String(req.query.vendor_name).trim() : null;
         if (vendorName) {
             const v = vendorName.substring(0, 100);
-            whereClauses.push(`i.vendor_name LIKE ?`);
-            params.push(`%${v}%`);
+            whereClauses.push(`(i.vendor_name LIKE ? OR p.company_name LIKE ?)`);
+            params.push(`%${v}%`, `%${v}%`);
         }
 
         // Status filter — use branch stock when branch is specified
