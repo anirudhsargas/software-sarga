@@ -27,6 +27,7 @@ import BranchSelect from '../components/ui/BranchSelect';
 import useTranslation from '../hooks/useTranslation';
 import { useBranches } from '../contexts/BranchContext';
 import '../styles/profile-edit.css';
+import '../styles/dashboard-redesign.css';
 
 // Lazy-loaded pages — each becomes a separate chunk
 const StaffManagement = React.lazy(() => import('./StaffManagement'));

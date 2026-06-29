@@ -1,0 +1,99 @@
+- generic [ref=e2]:
+  - link "Skip to main content" [ref=e3] [cursor=pointer]:
+    - /url: "#main-content"
+  - main [ref=e5]:
+    - generic [ref=e82]:
+      - link "Skip to main content" [ref=e83] [cursor=pointer]:
+        - /url: "#main-content"
+      - banner [ref=e84]:
+        - generic [ref=e85]:
+          - link "SARGA" [ref=e86] [cursor=pointer]:
+            - /url: /
+            - generic [ref=e87]: SARGA
+          - navigation "Main navigation" [ref=e88]:
+            - link "Services" [ref=e89] [cursor=pointer]:
+              - /url: /services
+            - link "Products" [ref=e90] [cursor=pointer]:
+              - /url: /products
+            - link "Design" [ref=e91] [cursor=pointer]:
+              - /url: /design
+            - link "Track Order" [ref=e92] [cursor=pointer]:
+              - /url: /track
+            - link "Contact" [ref=e93] [cursor=pointer]:
+              - /url: /contact
+            - link "Sign In" [ref=e94] [cursor=pointer]:
+              - /url: /signin
+      - main [ref=e95]:
+        - generic [ref=e97]:
+          - heading "Print Beyond the Ordinary" [level=1] [ref=e98]
+          - paragraph [ref=e99]: Premium offset printing, packaging, and branding solutions crafted with precision. From business cards to large-format packaging, we bring your vision to life.
+          - generic [ref=e100]:
+            - link "Get a Quote" [ref=e101] [cursor=pointer]:
+              - /url: /contact
+              - text: Get a Quote
+              - img [ref=e102]
+            - link "Our Services" [ref=e104] [cursor=pointer]:
+              - /url: /services
+        - generic [ref=e107]:
+          - generic [ref=e108]:
+            - img [ref=e110]
+            - heading "Offset Printing" [level=3] [ref=e114]
+            - paragraph [ref=e115]: High-quality offset printing for brochures, catalogs, posters, and marketing materials with vibrant colors.
+          - generic [ref=e116]:
+            - img [ref=e118]
+            - heading "Packaging Solutions" [level=3] [ref=e122]
+            - paragraph [ref=e123]: Custom packaging boxes, cartons, and wraps designed to protect your products and elevate your brand.
+          - generic [ref=e124]:
+            - img [ref=e126]
+            - heading "Design Studio" [level=3] [ref=e132]
+            - paragraph [ref=e133]: Professional design support for logos, brand identity, packaging layouts, and print-ready artwork.
+          - generic [ref=e134]:
+            - img [ref=e136]
+            - heading "Fast Delivery" [level=3] [ref=e141]
+            - paragraph [ref=e142]: Quick turnaround times with reliable delivery across India. Track your orders in real time.
+        - generic [ref=e144]:
+          - heading "Ready to Start Your Print Project?" [level=2] [ref=e145]
+          - paragraph [ref=e146]: Get in touch with our team for a free consultation and quote.
+          - generic [ref=e147]:
+            - link "Contact Us" [ref=e148] [cursor=pointer]:
+              - /url: /contact
+              - img [ref=e149]
+              - text: Contact Us
+            - link "View Products" [ref=e151] [cursor=pointer]:
+              - /url: /products
+      - contentinfo [ref=e152]:
+        - generic [ref=e153]:
+          - generic [ref=e154]:
+            - generic [ref=e155]:
+              - heading "SARGA" [level=3] [ref=e156]
+              - paragraph [ref=e157]: Print Beyond the Ordinary
+              - paragraph [ref=e158]:
+                - text: Offset Printing & Packaging Solutions
+                - text: India
+            - generic [ref=e159]:
+              - heading "Services" [level=4] [ref=e160]
+              - link "Offset Printing" [ref=e161] [cursor=pointer]:
+                - /url: /services
+              - link "Digital Printing" [ref=e162] [cursor=pointer]:
+                - /url: /services
+              - link "Packaging" [ref=e163] [cursor=pointer]:
+                - /url: /services
+              - link "Labels" [ref=e164] [cursor=pointer]:
+                - /url: /services
+            - generic [ref=e165]:
+              - heading "Company" [level=4] [ref=e166]
+              - link "Contact Us" [ref=e167] [cursor=pointer]:
+                - /url: /contact
+              - link "Privacy Policy" [ref=e168] [cursor=pointer]:
+                - /url: /privacy
+              - link "Terms of Service" [ref=e169] [cursor=pointer]:
+                - /url: /terms
+            - generic [ref=e170]:
+              - heading "Get Started" [level=4] [ref=e171]
+              - link "Sign In" [ref=e172] [cursor=pointer]:
+                - /url: /signin
+              - link "Track Order" [ref=e173] [cursor=pointer]:
+                - /url: /track
+              - link "Request Quote" [ref=e174] [cursor=pointer]:
+                - /url: /contact
+          - paragraph [ref=e176]: © 2026 Sarga Offset Printing. All rights reserved.
