@@ -353,6 +353,7 @@ app.get('/api/server-time', (req, res, next) => {
     }
     next();
 }, asyncHandler((req, res) => {
+    logger.info(`[ServerTime] UA="${(req.headers['user-agent'] || '').slice(0, 120)}" IP=${req.ip} Origin=${req.headers.origin || '-'}`);
     const now = new Date();
     const today = getTodayDate();
     res.json({
@@ -508,6 +509,7 @@ app.get('/api/ping', async (req, res) => {
 
 // App version endpoint
 app.get('/api/version', (req, res) => {
+    logger.info(`[VersionCheck] UA="${(req.headers['user-agent'] || '').slice(0, 120)}" IP=${req.ip} Origin=${req.headers.origin || '-'}`);
     res.json({
         version: process.env.APP_VERSION || '1.0.0',
         critical: process.env.APP_VERSION_CRITICAL === 'true'
