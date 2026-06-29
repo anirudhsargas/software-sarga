@@ -108,14 +108,14 @@ module.exports = (upload, removeUploadFile) => {
         const parsedCostPrice = isSet(extraInv.cost_price) ? Number(extraInv.cost_price) : 0;
         const parsedSellPrice = isSet(extraInv.sell_price) ? Number(extraInv.sell_price) : slabSellPrice;
 
-        // Use product_code as SKU, or auto-generate
-        let sku = productCode || null;
+        // Use product_code as SKU with unique suffix, or auto-generate
+        let sku = productCode ? `${productCode}-${productId}` : null;
         if (!sku) {
             const c = String(companyCode || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
             const p = String(productName || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
             const s = String(size || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
             const parts = [c, p, s].filter(Boolean);
-            if (parts.length > 0) sku = parts.join('-');
+            if (parts.length > 0) sku = `${parts.join('-')}-${productId}`;
         }
         if (!sku) {
             const catPart = (inventoryCategory || 'INV').substring(0, 3).toUpperCase().replace(/[^A-Z]/g, '') || 'INV';
