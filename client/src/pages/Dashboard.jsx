@@ -12,6 +12,7 @@ import RequiresConnection from '../components/RequiresConnection';
 const ImageCropModal = lazy(() => import('../components/ImageCropModal'));
 const ScannerModal = lazy(() => import('../components/ScannerModal'));
 import SectionErrorBoundary from '../components/SectionErrorBoundary';
+import ErrorBoundary from '../components/ErrorBoundary';
 import { useConfirm } from '../contexts/ConfirmContext';
 import { useTheme } from '../theme/ThemeProvider';
 const AnomalyPanel = React.lazy(() => import('../components/AnomalyPanel'));
@@ -1138,16 +1139,17 @@ const Dashboard = () => {
 
 
 
-                {/* AI Panels */}
-                {['Admin', 'Accountant', 'Front Office'].includes(user?.role) && (
-                    <div className="ai-panels">
-                        <InsightsPanel />
-                        <AnomalyPanel />
-                    </div>
-                )}
-
                     <div className={`content-container ${isNavigating ? 'page-enter' : 'page-enter-active'}`} key={location.pathname}>
+
+                    {['Admin', 'Accountant', 'Front Office'].includes(user?.role) && (
+                        <div className="ai-panels">
+                            <InsightsPanel />
+                            <AnomalyPanel />
+                        </div>
+                    )}
+
                     <Suspense fallback={<SuspenseFallback />}>
+                        <ErrorBoundary>
                         <Routes>
                             <Route path="" element={<DashboardHome />} />
                             {/* Sales Consolidated Workspace */}
@@ -1244,6 +1246,7 @@ const Dashboard = () => {
                             <Route path="*" element={<NotFound />} />
 
                         </Routes>
+                        </ErrorBoundary>
                     </Suspense>
                 </div>
             </main>
