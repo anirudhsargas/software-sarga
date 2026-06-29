@@ -122,11 +122,10 @@ const corsOptions = {
 // Preflight (OPTIONS) requests must return 204 before any other
 // middleware runs. Without this, Render's reverse-proxy may emit
 // 520/502 on preflight timeouts or CORS-header absence.
-app.options('*', cors(corsOptions));
 app.use(cors(corsOptions));
 
-// Catch-all OPTIONS handler — returns 204 immediately for any
-// preflight that the cors middleware didn't already handle.
+// Catch-all OPTIONS handler — returns 204 immediately after CORS
+// headers are attached by the cors middleware above.
 app.use((req, res, next) => {
     if (req.method === 'OPTIONS') return res.sendStatus(204);
     next();
