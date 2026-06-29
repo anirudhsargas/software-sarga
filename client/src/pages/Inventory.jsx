@@ -2087,10 +2087,9 @@ const Inventory = () => {
                         <div className="modal modal--large">
                             <div className="modal-header">
                                 <h2 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span style={{ fontSize: '14px', opacity: 0.5 }}>#</span>
                                     Edit Inventory Item
                                     <span style={{ fontSize: '12px', fontWeight: 400, opacity: 0.4, marginLeft: '4px' }}>
-                                        ID: {selectedItem.id}
+                                        #{selectedItem.id}
                                     </span>
                                 </h2>
                                 <button
@@ -2104,24 +2103,24 @@ const Inventory = () => {
                                 </button>
                             </div>
 
-                            <form onSubmit={handleUpdateItem}>
+                            <form id="editForm" onSubmit={handleUpdateItem} style={{ display: 'contents' }}>
                                 <div className="modal-body">
                                     {/* Rematch with Product Library */}
                                     <div className="mb-20">
                                         <label className="label" style={{ fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                            <span style={{ fontSize: '16px' }}>&#9679;</span>
                                             Rematch with Product Library
                                             <span style={{ fontSize: '11px', fontWeight: 400, opacity: 0.4 }}>(Optional)</span>
                                         </label>
-                                        <div className="search-input-container" style={{ marginTop: '6px' }}>
-                                            <Search size={16} className="search-icon" />
+                                        <div style={{ position: 'relative', marginTop: '6px' }}>
                                             <input
                                                 name="editProductSearch"
                                                 className="input-field"
+                                                style={{ paddingLeft: '32px' }}
                                                 placeholder="Search product from library..."
                                                 value={productSearch}
                                                 onChange={(e) => setProductSearch(e.target.value)}
                                             />
+                                            <Search size={16} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', opacity: 0.4, pointerEvents: 'none' }} />
                                         </div>
                                         {filteredProducts.length > 0 && (
                                             <div className="dropdown mt-4">
@@ -2140,14 +2139,6 @@ const Inventory = () => {
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', paddingBottom: '10px', borderBottom: '1px solid var(--border)' }}>
                                             <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>&#9998;</div>
                                             <span style={{ fontSize: '13px', fontWeight: 600 }}>Basic Information</span>
-                                        </div>
-                                        <div className="row gap-sm" style={{ marginBottom: '10px' }}>
-                                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                                <label className="row items-center gap-sm cursor-pointer" style={{ fontSize: '13px' }}>
-                                                    <input type="radio" name="edit_item_type" value="Retail" checked={selectedItem.item_type === 'Retail'} onChange={(e) => setSelectedItem({ ...selectedItem, item_type: e.target.value })} />
-                                                    <span>Retail Product</span>
-                                                </label>
-                                            </div>
                                         </div>
                                         <div className="row gap-sm">
                                             <div className="flex-1">
@@ -2431,23 +2422,23 @@ const Inventory = () => {
                                         </div>
                                     </div>
                                 </div>
-
-                                <div className="modal-footer">
-                                    <button type="button" className="btn btn-secondary" onClick={() => { setShowEditModal(false); setSelectedItem(null); }}>
-                                        Cancel
-                                    </button>
-                                    <button type="submit" className="btn btn-primary" disabled={saving} style={{ minWidth: '120px' }}>
-                                        {saving ? (
-                                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center' }}>
-                                                <span className="spinner" />
-                                                Saving...
-                                            </span>
-                                        ) : (
-                                            'Save Changes'
-                                        )}
-                                    </button>
-                                </div>
                             </form>
+
+                            <div className="modal-footer">
+                                <button type="button" className="btn btn-secondary" onClick={() => { setShowEditModal(false); setSelectedItem(null); }}>
+                                    Cancel
+                                </button>
+                                <button type="submit" form="editForm" className="btn btn-primary" disabled={saving} style={{ minWidth: '120px' }}>
+                                    {saving ? (
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center' }}>
+                                            <span className="spinner" />
+                                            Saving...
+                                        </span>
+                                    ) : (
+                                        'Save Changes'
+                                    )}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )
