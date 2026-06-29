@@ -269,7 +269,7 @@ const AssignedJobs = () => {
       const res = await api.get('/design-workspace/bookings');
       return res.data || [];
     },
-    refetchInterval: 45000,
+    refetchInterval: 60000,
   });
 
   const { mutate: updateStatus, isLoading: isUpdating } = useMutation({
@@ -278,7 +278,7 @@ const AssignedJobs = () => {
     onSuccess: (_, { status }) => {
       const label = COLUMNS.find(c => c.id === status)?.label || status;
       toast.success(`Moved to ${label}`);
-      queryClient.invalidateQueries(['designer_bookings']);
+      queryClient.invalidateQueries({ queryKey: ['designer_bookings'] });
     },
     onError: () => toast.error('Failed to update status'),
   });

@@ -1201,9 +1201,12 @@ const ProductLibrary = () => {
             setSelectedSubId(prod.subcategory_id);
             setSelectedCatId(parentCategory?.id || null);
 
-            setNewProduct({
+            const duplicated = {
                 name: `${prod.name} (Copy)`,
                 product_code: '',
+                company_name: prod.company_name || '',
+                company_code: prod.company_code || '',
+                size: prod.size || '',
                 calculation_type: prod.calculation_type,
                 description: prod.description || '',
                 has_paper_rate: !!prod.has_paper_rate,
@@ -1213,10 +1216,11 @@ const ProductLibrary = () => {
                 isPhysicalProduct: prod.is_physical_product === 1 || prod.is_physical_product === true,
                 slabs: prod.slabs && prod.slabs.length > 0 ? prod.slabs.map(s => ({ ...s, id: undefined })) : [{ min_qty: 0, max_qty: '', base_value: 0, unit_rate: 0, offset_unit_rate: 0, double_side_unit_rate: 0 }],
                 extras: prod.extras ? prod.extras.map(e => ({ ...e, id: undefined })) : [],
-                image_url: prod.image_url, // Retain image ref if possible, or leave blank if we want fresh upload. Usually better to copy.
+                image_url: prod.image_url,
                 isManualCompanyCode: false,
-                extraInv: prod.extraInv || { hsn: '', quantity: '', unit: 'pcs', gst_rate: '0', cost_price: '', sell_price: '', vendor_name: '' }
-            });
+                extraInv: { hsn: (prod.extraInv?.hsn || ''), quantity: (prod.extraInv?.quantity || ''), unit: (prod.extraInv?.unit || 'pcs'), gst_rate: (prod.extraInv?.gst_rate || '0'), cost_price: '', sell_price: '', vendor_name: (prod.extraInv?.vendor_name || '') }
+            };
+            setNewProduct(duplicated);
             // For duplicate, we might not want to carry over the image unless user explicitly re-uploads or we backend supports copying. 
             // For now, let's keep it simple and NOT copy the image file itself to avoid complexity, but we can show it as "current" if we wanted.
             // Actually, best to perform a clean start for image to avoid confusion.

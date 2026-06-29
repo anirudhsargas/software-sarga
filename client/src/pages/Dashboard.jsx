@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, Suspense, useCallback, useRef, lazy } from 'react';
 import usePolling from '../hooks/usePolling';
-import { Routes, Route, NavLink, useNavigate, Navigate, useParams } from 'react-router-dom';
+import { Routes, Route, NavLink, useNavigate, Navigate, useParams, useLocation } from 'react-router-dom';
 import {
     Users, ClipboardList, Box, ShieldAlert, Receipt, LogOut, Grid, UserSquare, Building2, ChevronLeft, ChevronRight, Settings, BookOpen, Loader2, Store,
     Brain, Search, FileCheck, Layers, Zap, TrendingUp, Camera, X, Sparkles, ScanLine, Package, Tag, Clock, FileText, MessageSquare, Star, Upload,
@@ -9,25 +9,23 @@ import {
 import useAuth from '../hooks/useAuth';
 import api, {} from '../services/api';
 import RequiresConnection from '../components/RequiresConnection';
-import SecureImage from '../components/SecureImage';
 const ImageCropModal = lazy(() => import('../components/ImageCropModal'));
-import ScannerModal from '../components/ScannerModal';
+const ScannerModal = lazy(() => import('../components/ScannerModal'));
 import SectionErrorBoundary from '../components/SectionErrorBoundary';
 import { useConfirm } from '../contexts/ConfirmContext';
 import { useTheme } from '../theme/ThemeProvider';
-import { useLocation } from 'react-router-dom';
-import ProgressBar from '../components/ProgressBar';
 const AnomalyPanel = React.lazy(() => import('../components/AnomalyPanel'));
 const InsightsPanel = React.lazy(() => import('../components/InsightsPanel'));
-import PaperSidePanel from '../components/PaperSidePanel';
-import Button from '../components/Button';
-import useTranslation from '../hooks/useTranslation';
+const PaperSidePanel = lazy(() => import('../components/PaperSidePanel'));
+const SmartSearch = lazy(() => import('../components/SmartSearch'));
 import SkeletonLoader from '../components/SkeletonLoader';
-import '../styles/dashboard-redesign.css';
-import '../styles/profile-edit.css';
-import SmartSearch from '../components/SmartSearch';
-import { useBranches } from '../contexts/BranchContext';
+import ProgressBar from '../components/ProgressBar';
+import SecureImage from '../components/SecureImage';
+import Button from '../components/Button';
 import BranchSelect from '../components/ui/BranchSelect';
+import useTranslation from '../hooks/useTranslation';
+import { useBranches } from '../contexts/BranchContext';
+import '../styles/profile-edit.css';
 
 // Lazy-loaded pages — each becomes a separate chunk
 const StaffManagement = React.lazy(() => import('./StaffManagement'));

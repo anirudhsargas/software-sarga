@@ -26,7 +26,8 @@ const LeaveManagement = () => {
         queryFn: async () => {
             const res = await api.get('/staff-portal/leaves');
             return res.data;
-        }
+        },
+        staleTime: 300000
     });
 
     const submitMutation = useMutation({
@@ -45,7 +46,7 @@ const LeaveManagement = () => {
         },
         onSuccess: () => {
             toast.success('Leave request submitted successfully');
-            queryClient.invalidateQueries(['staff_leaves']);
+            queryClient.invalidateQueries({ queryKey: ['staff_leaves'] });
             setShowForm(false);
             setFormData({ leave_type: 'Sick Leave', start_date: '', end_date: '', reason: '', attachment: null });
         },
@@ -58,7 +59,7 @@ const LeaveManagement = () => {
         mutationFn: async (id) => api.put(`/staff-portal/leaves/${id}/cancel`),
         onSuccess: () => {
             toast.success('Leave cancelled');
-            queryClient.invalidateQueries(['staff_leaves']);
+            queryClient.invalidateQueries({ queryKey: ['staff_leaves'] });
         },
         onError: () => toast.error('Failed to cancel leave')
     });

@@ -24,7 +24,7 @@ const iconMap = {
   tag: Tag,
 };
 
-const ShortcutCard = ({ shortcut, onTap, onEdit, onDelete, editable }) => {
+const ShortcutCard = React.memo(({ shortcut, onTap, onEdit, onDelete, editable }) => {
   const colors = colorMap[shortcut.color] || colorMap.purple;
   const Icon = iconMap[shortcut.icon_name] || Zap;
 
@@ -148,6 +148,6 @@ const ShortcutCard = ({ shortcut, onTap, onEdit, onDelete, editable }) => {
       </div>
     </div>
   );
-};
+});
 
 export default ShortcutCard;

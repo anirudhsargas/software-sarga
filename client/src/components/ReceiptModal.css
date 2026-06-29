@@ -246,7 +246,7 @@
         margin: 0 !important;
         padding: 0 !important;
         overflow: visible !important;
-        background: white !important;
+        background: var(--card) !important;
     }
 
     /* 4. Position the receipt (now a direct child of body) at the top */
@@ -257,7 +257,7 @@
         width: 100% !important;
         height: auto !important;
         display: block !important;
-        background: white !important;
+        background: var(--card) !important;
         padding: 0 !important;
         margin: 0 !important;
         z-index: 1 !important;

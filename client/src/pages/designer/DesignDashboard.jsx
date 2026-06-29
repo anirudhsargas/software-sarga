@@ -90,6 +90,7 @@ const DesignDashboard = () => {
       const res = await api.get('/design-workspace/assets');
       return res.data || [];
     },
+    staleTime: 300000,
   });
 
   // Keyboard shortcuts

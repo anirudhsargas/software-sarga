@@ -176,7 +176,7 @@ div.sv-status-badge--draft,
 span.sv-status-badge--draft {
   background: color-mix(in srgb, var(--warning) 15%, transparent);
   border: 1px solid color-mix(in srgb, var(--warning) 30%, transparent);
-  color: rgb(202, 138, 4);
+  color: var(--warning);
 }
 
 div.sv-status-badge--verified,
@@ -188,9 +188,9 @@ span.sv-status-badge--verified {
 
 div.sv-status-badge--partial,
 span.sv-status-badge--partial {
-  background: rgba(249, 115, 22, 0.15);
-  border: 1px solid rgba(249, 115, 22, 0.3);
-  color: rgb(234, 88, 12);
+  background: color-mix(in srgb, var(--warning) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warning) 30%, transparent);
+  color: var(--warning);
 }
 
 /* ── Settings Page Toggle Alignment ── */

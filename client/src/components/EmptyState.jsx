@@ -1,6 +1,6 @@
 import React from 'react';
 
-const EmptyState = ({ 
+const EmptyState = React.memo(({ 
   icon: Icon, 
   title = 'Nothing here yet', 
   description, 
@@ -51,6 +51,6 @@ const EmptyState = ({
       </button>
     )}
   </div>
-);
+));
 
 export default EmptyState;

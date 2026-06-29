@@ -12,6 +12,13 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      # Render injects this automatically — used by the internal self-ping keep-alive
+      # so the server pings itself every 10 min to prevent cold-start spindown.
+      - key: RENDER_EXTERNAL_URL
+        fromService:
+          type: web
+          name: sarga-backend
+          property: host
       - key: VITE_FIREBASE_API_KEY
         fromSecret: VITE_FIREBASE_API_KEY
       - key: VITE_FIREBASE_AUTH_DOMAIN
@@ -28,6 +35,8 @@ services:
         fromSecret: VITE_FIREBASE_MEASUREMENT_ID
       - key: VITE_API_URL
         fromSecret: VITE_API_URL
+      # Comma-separated list of allowed CORS origins, e.g.:
+      # https://software-sarga.vercel.app,https://sargaoffset.vercel.app
       - key: CORS_ORIGIN
         fromSecret: CORS_ORIGIN
       - key: JWT_SECRET
@@ -42,3 +51,4 @@ services:
       # Example using a secret reference:
       # - key: DATABASE_URL
       #   fromSecret: database_url
+

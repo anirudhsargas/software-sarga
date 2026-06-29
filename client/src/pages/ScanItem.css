@@ -642,7 +642,7 @@
 .si-stock-dot {
     width: 8px;
     height: 8px;
-    border-radius: 50%;
+    border-radius: var(--radius-full);
     flex-shrink: 0;
 }
 .si-stock-badge--in .si-stock-dot  { background: var(--success); }

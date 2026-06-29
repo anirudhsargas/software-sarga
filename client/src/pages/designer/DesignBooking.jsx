@@ -108,6 +108,7 @@ const DesignBooking = () => {
         return res.data?.designers || [];
       } catch { return []; }
     },
+    staleTime: 300000,
   });
 
   /* ── Create booking mutation ── */
@@ -117,7 +118,7 @@ const DesignBooking = () => {
       toast.success('Booking created!');
       setForm({ ...EMPTY_FORM });
       setShowForm(false);
-      queryClient.invalidateQueries(['designer_bookings']);
+      queryClient.invalidateQueries({ queryKey: ['designer_bookings'] });
     },
     onError: () => toast.error('Failed to create booking'),
   });
@@ -127,7 +128,7 @@ const DesignBooking = () => {
     mutationFn: ({ id, status }) => api.put(`/design-workspace/bookings/${id}/status`, { status }),
     onSuccess: () => {
       toast.success('Status updated');
-      queryClient.invalidateQueries(['designer_bookings']);
+      queryClient.invalidateQueries({ queryKey: ['designer_bookings'] });
     },
     onError: () => toast.error('Failed to update status'),
   });

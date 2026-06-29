@@ -24,7 +24,8 @@ const BlockJournal = () => {
         queryFn: async () => {
             const res = await api.get('/design-workspace/blocks');
             return res.data;
-        }
+        },
+        staleTime: 300000
     });
 
     const { data: customers } = useQuery({
@@ -32,14 +33,15 @@ const BlockJournal = () => {
         queryFn: async () => {
             const res = await api.get('/customers');
             return res.data;
-        }
+        },
+        staleTime: 300000
     });
 
     const addMutation = useMutation({
         mutationFn: async (data) => api.post('/design-workspace/blocks', data),
         onSuccess: () => {
             toast.success('Block registered');
-            queryClient.invalidateQueries(['designer_blocks']);
+            queryClient.invalidateQueries({ queryKey: ['designer_blocks'] });
             setShowForm(false);
             setFormData({ block_number: '', customer_id: '', block_type: 'Physical', location: '', remarks: '' });
         },

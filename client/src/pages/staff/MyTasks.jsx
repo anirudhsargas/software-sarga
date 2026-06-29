@@ -13,7 +13,8 @@ const MyTasks = () => {
         queryFn: async () => {
             const res = await api.get('/staff-portal/tasks');
             return res.data;
-        }
+        },
+        staleTime: 300000
     });
 
     const getCount = (status) => tasks?.filter(t => t.status === status).length || 0;

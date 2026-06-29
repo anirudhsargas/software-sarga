@@ -3467,13 +3467,6 @@ const Inventory = () => {
                         </div>
                     </div>
                 </div>
-            )}/div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
-                </div>
             )}
 
             <div style={{ display: showScanner ? '' : 'none' }}>

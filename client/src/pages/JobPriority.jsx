@@ -89,7 +89,7 @@ const ScoreBar = ({ score, max = 140 }) => {
 };
 
 // ────────────── Job Row ──────────────
-const JobRow = ({ job, position, onPriorityChange }) => {
+const JobRow = React.memo(({ job, position, onPriorityChange }) => {
     const [changing, setChanging] = useState(false);
 
     const handlePriorityChange = async (newPriority) => {
@@ -181,10 +181,10 @@ const JobRow = ({ job, position, onPriorityChange }) => {
             </select>
         </div>
     );
-};
+});
 
 // ────────────── Machine Queue Card ──────────────
-const MachineQueueCard = ({ queue, onRefresh }) => {
+const MachineQueueCard = React.memo(({ queue, onRefresh }) => {
     const [expanded, setExpanded] = useState(true);
     const jobCount = queue.jobs.length;
     const criticalCount = queue.jobs.filter(j => j.urgency === 'critical').length;
@@ -281,7 +281,7 @@ const MachineQueueCard = ({ queue, onRefresh }) => {
             )}
         </div>
     );
-};
+});
 
 // ────────────── Performance Stats Panel ──────────────
 const StatsPanel = ({ stats }) => {

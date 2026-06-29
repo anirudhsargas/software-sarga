@@ -26,11 +26,15 @@ module.exports = (upload, removeUploadFile) => {
         // Use subcategory name as inventory category (e.g., WOODEN MEMENTO)
         const inventoryCategory = subRows.length > 0 ? subRows[0].sub_name : null;
 
-        // Extract sell_price from first slab unit_rate
-        let sellPrice = 0;
+        // Extract cost and sell price from first slab and extraInv
+        let slabSellPrice = 0;
         if (slabs && slabs.length > 0) {
-            sellPrice = Number(slabs[0].unit_rate) || Number(slabs[0].base_value) || 0;
+            slabSellPrice = Number(slabs[0].unit_rate) || Number(slabs[0].base_value) || 0;
         }
+
+        const isSet = (v) => v != null && v !== '';
+        const parsedCostPrice = isSet(extraInv.cost_price) ? Number(extraInv.cost_price) : 0;
+        const parsedSellPrice = isSet(extraInv.sell_price) ? Number(extraInv.sell_price) : slabSellPrice;
 
         // Use product_code as SKU, or auto-generate from companyCode+name+size
         let sku = productCode || null;
@@ -63,8 +67,8 @@ module.exports = (upload, removeUploadFile) => {
                     productName, sku, inventoryCategory, 
                     extraInv.unit || 'pcs', 
                     Number(extraInv.quantity) || 0, 
-                    Number(extraInv.cost_price) || 0, 
-                    Number(extraInv.sell_price) || sellPrice, 
+                    parsedCostPrice, 
+                    parsedSellPrice, 
                     sourceCode, productName, sizeCode,
                     extraInv.hsn || null,
                     Number(extraInv.gst_rate) || 0,
@@ -107,11 +111,15 @@ module.exports = (upload, removeUploadFile) => {
         );
         const inventoryCategory = subRows.length > 0 ? subRows[0].sub_name : null;
 
-        // Extract sell_price from first slab unit_rate
-        let sellPrice = 0;
+        // Extract cost and sell price from first slab and extraInv
+        let slabSellPrice = 0;
         if (slabs && slabs.length > 0) {
-            sellPrice = Number(slabs[0].unit_rate) || Number(slabs[0].base_value) || 0;
+            slabSellPrice = Number(slabs[0].unit_rate) || Number(slabs[0].base_value) || 0;
         }
+
+        const isSet = (v) => v != null && v !== '';
+        const parsedCostPrice = isSet(extraInv.cost_price) ? Number(extraInv.cost_price) : 0;
+        const parsedSellPrice = isSet(extraInv.sell_price) ? Number(extraInv.sell_price) : slabSellPrice;
 
         // Use product_code as SKU, or auto-generate
         let sku = productCode || null;
@@ -138,8 +146,8 @@ module.exports = (upload, removeUploadFile) => {
             [
                 productName, sku, inventoryCategory,
                 extraInv.unit || 'pcs',
-                Number(extraInv.cost_price) || 0,
-                Number(extraInv.sell_price) || sellPrice,
+                parsedCostPrice,
+                parsedSellPrice,
                 sourceCode, productName, sizeCode,
                 extraInv.hsn || null,
                 Number(extraInv.gst_rate) || 0,

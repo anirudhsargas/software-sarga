@@ -177,7 +177,7 @@
   align-items: center;
   justify-content: center;
   padding: 4px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   transition: background 0.15s;
 }
 
@@ -761,7 +761,7 @@
 .fo-priority-dot {
   width: 6px;
   height: 6px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
 }
 
 .fo-priority--urgent { background: var(--danger); }
@@ -1408,7 +1408,7 @@
 .os-success__icon {
   width: 64px;
   height: 64px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: var(--success-bg);
   color: var(--success);
   display: grid;

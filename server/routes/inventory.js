@@ -98,7 +98,7 @@ router.get('/inventory', authenticateToken, authorizeRoles('Admin', 'Front Offic
         const sortBy = req.query.sort_by ? String(req.query.sort_by).toLowerCase().trim() : 'created_at';
         const sortOrder = req.query.sort_order ? String(req.query.sort_order).toUpperCase().trim() : 'DESC';
         
-        const validSortFields = ['id', 'name', 'sku', 'quantity', 'cost_price', 'mrp', 'category', 'created_at', 'updated_at'];
+        const validSortFields = ['id', 'name', 'sku', 'quantity', 'cost_price', 'category', 'created_at', 'updated_at'];
         const validSortOrders = ['ASC', 'DESC'];
         const finalSortBy = validSortFields.includes(sortBy) ? `i.${sortBy}` : 'i.created_at';
         const finalSortOrder = validSortOrders.includes(sortOrder) ? sortOrder : 'DESC';
@@ -546,12 +546,13 @@ router.get('/inventory/by-sku/:sku', authenticateToken, async (req, res) => {
         const { normalized, item } = await findInventoryByScannedCode(rawSku);
         if (!item) return res.status(404).json({ message: `No item found for code: ${rawSku}` });
 
-        // Use stored mrp first; fall back to formula
+        // MRP priority: stored → sell_price → formula (Cost + GST) * 2
         const costPrice = Number(item.cost_price) || 0;
+        const sellPrice = Number(item.sell_price) || 0;
         const gstRate = Number(item.gst_rate) || 0;
         const gstAmount = (costPrice * gstRate) / 100;
         const calculatedMrp = (costPrice + gstAmount) * 2;
-        const finalMrp = Number(item.mrp) || calculatedMrp || 0;
+        const finalMrp = (item.mrp != null ? Number(item.mrp) : null) ?? sellPrice || calculatedMrp || 0;
 
         res.json({ ...item, scanned_code: normalized, mrp: finalMrp % 1 === 0 ? finalMrp.toFixed(0) : finalMrp.toFixed(2) });
     } catch (_err) {
@@ -1272,12 +1273,13 @@ router.post('/inventory/generate-labels', authenticateToken, authorizeRoles('Adm
             doc.fillColor('#000000');
 
             // QR Code generation
-            // Use stored MRP first; fallback to formula: (Cost + GST) * 2
+            // MRP priority: stored → sell_price → formula (Cost + GST) * 2
             const costPrice = Number(item.cost_price) || 0;
+            const sellPrice = Number(item.sell_price) || 0;
             const gstRate = Number(item.gst_rate) || 0;
             const gstAmount = (costPrice * gstRate) / 100;
             const calculatedMrp = (costPrice + gstAmount) * 2;
-            const mrp = Number(item.mrp) || calculatedMrp || 0;
+            const mrp = (item.mrp != null ? Number(item.mrp) : null) ?? sellPrice || calculatedMrp || 0;
 
             // QR encodes just the unique product SKU (or fallback ID) for direct scanning in billing
             const qrData = normalizeScannedCode(item.sku) || `ITEM-${item.id}`;

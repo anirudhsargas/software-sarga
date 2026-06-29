@@ -118,6 +118,23 @@ const corsOptions = {
     optionsSuccessStatus: 200 // Some legacy browsers (IE11) choke on 204
 };
 
+// ── CORS safety-net: fires BEFORE all other middleware so the
+// Access-Control-Allow-Origin header is injected on every response,
+// including error responses (e.g. 403 CORS-blocked, 429 rate-limit, 500 crash).
+// Without this, browsers interpret any headerless error as a CORS failure.
+app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    if (origin) {
+        const normalizedOrigin = origin.replace(/\/$/, '');
+        if (allowedOrigins.includes(normalizedOrigin)) {
+            res.setHeader('Access-Control-Allow-Origin', normalizedOrigin);
+            res.setHeader('Vary', 'Origin');
+            res.setHeader('Access-Control-Allow-Credentials', 'true');
+        }
+    }
+    next();
+});
+
 // Respond to preflight OPTIONS requests immediately — before all other middleware.
 // This ensures CORS headers are present even if the server is under load or
 // a downstream middleware throws, which would otherwise produce a 520 with no headers.
@@ -595,7 +612,55 @@ if (process.env.NODE_ENV !== 'test') {
         process.exit(0);
     };
     process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+    process.on('SIGINT',  () => gracefulShutdown('SIGINT'));
+
+    // ── Process-level crash guards ──────────────────────────────────────────
+    // Without these, a single unhandled promise rejection kills Node and Render
+    // returns a 520 with no headers — which browsers misreport as a CORS error.
+    process.on('unhandledRejection', (reason, promise) => {
+        logger.error('[CRASH GUARD] Unhandled Promise Rejection — process kept alive', {
+            reason: reason instanceof Error ? reason.message : String(reason),
+            stack:  reason instanceof Error ? reason.stack  : undefined,
+            promise: String(promise),
+        });
+        // Do NOT call process.exit() here — let the server keep running.
+    });
+
+    process.on('uncaughtException', (err) => {
+        logger.error('[CRASH GUARD] Uncaught Exception — process kept alive', {
+            message: err.message,
+            stack:   err.stack,
+        });
+        // Only exit on truly fatal errors (e.g. out of memory)
+        // For most uncaught errors we log and continue.
+    });
+
+    // ── Internal self-ping keep-alive ────────────────────────────────────────
+    // Render free/starter tier spins down after 15 min of inactivity.
+    // We ping our own /api/ping every 10 minutes to stay warm.
+    // This also ensures the DB connection pool stays alive.
+    const RENDER_SELF_URL = process.env.RENDER_EXTERNAL_URL || process.env.SERVER_URL || null;
+    if (RENDER_SELF_URL && process.env.NODE_ENV === 'production') {
+        const http  = require('http');
+        const https = require('https');
+        const selfPing = () => {
+            const url = `${RENDER_SELF_URL}/api/ping`;
+            const client = url.startsWith('https') ? https : http;
+            const req = client.get(url, { timeout: 8000 }, (res) => {
+                logger.info(`[KeepAlive] Self-ping OK — HTTP ${res.statusCode}`);
+                res.resume();
+            });
+            req.on('error', (err) => {
+                logger.warn(`[KeepAlive] Self-ping failed: ${err.message}`);
+            });
+            req.end();
+        };
+        // First ping 30s after startup (let DB warm up first)
+        setTimeout(selfPing, 30_000);
+        // Then every 10 minutes
+        setInterval(selfPing, 10 * 60 * 1000);
+        logger.info(`[KeepAlive] Self-ping scheduled every 10 min → ${RENDER_SELF_URL}/api/ping`);
+    }
 }
 
 module.exports = app;

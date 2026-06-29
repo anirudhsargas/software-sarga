@@ -202,7 +202,7 @@ const ProductionTracker = () => {
 };
 
 /* ─── Job Card ─── */
-const JobCard = ({ job, onNavigate }) => {
+const JobCard = React.memo(({ job, onNavigate }) => {
     const priColor = PRIORITY_COLORS[job.priority] || PRIORITY_COLORS.Medium;
 
     return (
@@ -273,7 +273,7 @@ const JobCard = ({ job, onNavigate }) => {
             </div>
         </div>
     );
-};
+});
 
 /* ─── Small Components ─── */
 const SummaryChip = ({ label, value, color, icon }) => (

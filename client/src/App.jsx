@@ -60,7 +60,8 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
-      staleTime: 30000,
+      staleTime: 120000,
+      gcTime: 1000 * 60 * 10,
       retry: 1
     }
   }
@@ -195,7 +196,7 @@ function App() {
             toastOptions={{
               duration: 3000,
               style: {
-                fontSize: '14px',
+                fontSize: 'var(--text-base)',
                 background: 'var(--toast-bg)',
                 color: 'var(--toast-text)',
                 border: '1px solid var(--border)',

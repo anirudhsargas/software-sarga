@@ -25,7 +25,8 @@ const ProductLibrary = () => {
         queryFn: async () => {
             const res = await api.get('/design-workspace/assets');
             return res.data;
-        }
+        },
+        staleTime: 300000
     });
 
     const uploadMutation = useMutation({
@@ -47,7 +48,7 @@ const ProductLibrary = () => {
         },
         onSuccess: () => {
             toast.success('Asset uploaded successfully');
-            queryClient.invalidateQueries(['designer_assets']);
+            queryClient.invalidateQueries({ queryKey: ['designer_assets'] });
             setShowUpload(false);
             setFormData({ asset_name: '', drive_link: '', editable_source_url: '', tags: '', preview: null, final_pdf: null });
         },

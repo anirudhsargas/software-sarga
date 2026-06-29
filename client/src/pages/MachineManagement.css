@@ -912,7 +912,7 @@
 .mm-book-type-dot {
     width: 8px;
     height: 8px;
-    border-radius: 50%;
+    border-radius: var(--radius-full);
     display: inline-block;
     flex-shrink: 0;
 }
@@ -955,7 +955,7 @@
 .mm-staff-avatar-small {
     width: 28px;
     height: 28px;
-    border-radius: 50%;
+    border-radius: var(--radius-full);
     display: flex;
     align-items: center;
     justify-content: center;

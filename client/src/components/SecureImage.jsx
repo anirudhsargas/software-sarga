@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { imgUrl, FILE_BASE } from '../services/api';
 import { Image as ImageIcon } from 'lucide-react';
 
@@ -13,7 +13,7 @@ const IS_CROSS_ORIGIN = !IS_LOCAL_DEV;
  * Authorization header to avoid CORS issues, then renders via a blob URL.
  * In local dev, just uses a normal <img> (Vite proxy handles auth via query param).
  */
-export default function SecureImage({ src, alt, className, style, loading, decoding, width, height }) {
+const SecureImage = React.memo(({ src, alt, className, style, loading = 'lazy', decoding, width, height }) => {
     const [displaySrc, setDisplaySrc] = useState(null);
     const [error, setError] = useState(false);
 
@@ -86,10 +86,10 @@ export default function SecureImage({ src, alt, className, style, loading, decod
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        background: 'var(--surface-2, #1e293b)',
-                        border: '1px solid var(--border, #334155)',
-                        borderRadius: '8px',
-                        color: 'var(--text-muted, #64748b)'
+                        background: 'var(--surface-2)',
+                        border: '1px solid var(--border)',
+                        borderRadius: 'var(--radius-md)',
+                        color: 'var(--text-muted)'
                     }}
                 >
                     <ImageIcon size={24} />
@@ -115,4 +115,6 @@ export default function SecureImage({ src, alt, className, style, loading, decod
             }}
         />
     );
-}
+});
+
+export default SecureImage;

@@ -749,7 +749,7 @@
 .staff-avatar {
   width: 56px;
   height: 56px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: var(--info-bg);
   color: var(--info);
   font-size: 22px;

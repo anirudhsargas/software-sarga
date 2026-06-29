@@ -1,5 +1,6 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { syncManager } from './syncWorkerManager';
 
 const normalizeApiUrl = (url) => {
     const raw = String(url || '').trim();
@@ -186,7 +187,7 @@ api.interceptors.response.use(
             
             // 2. Tell sync worker to invalidate offline DB
             const url = response.config?.url || '';
-            import('./syncWorkerManager').then(({ syncManager }) => {
+            try {
                 if (url.includes('product') || url.includes('categor')) syncManager.invalidateCache('products');
                 else if (url.includes('customer')) syncManager.invalidateCache('customers');
                 else if (url.includes('inventory')) syncManager.invalidateCache('inventory');
@@ -194,7 +195,7 @@ api.interceptors.response.use(
                 else if (url.includes('job') && !url.includes('bulk')) syncManager.invalidateCache('jobs');
                 else if (url.includes('branch')) syncManager.invalidateCache('branches');
                 else if (url.includes('machine')) syncManager.invalidateCache('machines');
-            }).catch(err => console.error('Error invalidating syncManager cache', err));
+            } catch (err) { console.error('Error invalidating syncManager cache', err); }
         }
         return response;
     },

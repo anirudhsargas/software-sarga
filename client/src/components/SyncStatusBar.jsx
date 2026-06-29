@@ -64,15 +64,15 @@ export const SyncStatusBar = () => {
       style={{
         cursor: status !== 'syncing' && isOnline ? 'pointer' : 'default',
         position: 'fixed',
-        bottom: '20px',
-        right: '20px',
+        bottom: 'var(--space-20)',
+        right: 'var(--space-20)',
         zIndex: 'var(--z-toast)',
         display: 'inline-flex',
         alignItems: 'center',
-        gap: '6px',
-        padding: '8px 14px',
-        borderRadius: '999px',
-        fontSize: '12px',
+        gap: 'var(--space-6)',
+        padding: 'var(--space-8) var(--space-14)',
+        borderRadius: 'var(--radius-full)',
+        fontSize: 'var(--text-xs)',
         fontWeight: 500,
         background: 'var(--card)',
         border: '1px solid var(--border)',
@@ -89,17 +89,17 @@ export const SyncStatusBar = () => {
       />
       <span style={{ color }}>{label}</span>
       {pendingCount > 0 && isOnline && (
-        <span 
-          className="sync-bar__badge"
-          style={{
-            background: 'var(--accent)',
-            color: 'var(--text-inverse)',
-            borderRadius: '999px',
-            padding: '1px 6px',
-            fontSize: '10px',
-            fontWeight: 700,
-            marginLeft: '4px',
-          }}
+          <span 
+            className="sync-bar__badge"
+            style={{
+              background: 'var(--accent)',
+              color: 'var(--text-inverse)',
+              borderRadius: 'var(--radius-full)',
+              padding: '1px var(--space-6)',
+              fontSize: 'var(--text-3xs)',
+              fontWeight: 700,
+              marginLeft: 'var(--space-4)',
+            }}
         >
           {pendingCount}
         </span>

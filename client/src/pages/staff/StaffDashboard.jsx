@@ -15,7 +15,8 @@ const StaffDashboard = () => {
         queryFn: async () => {
             const res = await api.get('/staff-portal/attendance');
             return res.data;
-        }
+        },
+        staleTime: 300000
     });
 
     const { data: timeline, isLoading: timelineLoading } = useQuery({
@@ -23,7 +24,8 @@ const StaffDashboard = () => {
         queryFn: async () => {
             const res = await api.get('/staff-portal/timeline');
             return res.data;
-        }
+        },
+        staleTime: 300000
     });
 
     const { data: tasks, isLoading: tasksLoading } = useQuery({
@@ -31,7 +33,8 @@ const StaffDashboard = () => {
         queryFn: async () => {
             const res = await api.get('/staff-portal/tasks');
             return res.data;
-        }
+        },
+        staleTime: 300000
     });
 
     const pendingTasks = tasks?.filter(t => t.status !== 'Completed') || [];

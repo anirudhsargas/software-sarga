@@ -91,6 +91,7 @@ const DesignAnalytics = () => {
         return res.data?.designers || [];
       } catch { return []; }
     },
+    staleTime: 300000,
   });
 
   /* ── Computed metrics ── */

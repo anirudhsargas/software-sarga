@@ -115,7 +115,7 @@ const SeasonalHeatmap = ({ data }) => {
 };
 
 // ──────────────── Insight Card ────────────────
-const InsightCard = ({ insight }) => (
+const InsightCard = React.memo(({ insight }) => (
     <div className="sp-insight-card">
         <span className="sp-insight-card-icon">{insight.icon}</span>
         <div>
@@ -123,7 +123,7 @@ const InsightCard = ({ insight }) => (
             <div className="sp-insight-card-detail">{insight.detail}</div>
         </div>
     </div>
-);
+));
 
 // ──────────────── Stock Alert Row ────────────────
 const StockRow = ({ item }) => {
@@ -167,7 +167,7 @@ const urgencyConfig = {
     ok:       { label: 'OK',         color: 'var(--success)', bg: 'var(--muted-foreground)',  border: 'var(--border)' }
 };
 
-const PurchaseCard = ({ item, _index }) => {
+const PurchaseCard = React.memo(({ item, _index }) => {
     const cardClass = item.urgency === 'critical' ? 'sp-purchase-card--critical' : item.urgency === 'low_stock' ? 'sp-purchase-card--low-stock' : item.urgency === 'reorder' ? 'sp-purchase-card--reorder' : item.urgency === 'plan' ? 'sp-purchase-card--plan' : '';
     const badgeClass = item.urgency === 'critical' ? 'sp-purchase-urgency-badge--critical' : item.urgency === 'low_stock' ? 'sp-purchase-urgency-badge--low-stock' : item.urgency === 'reorder' ? 'sp-purchase-urgency-badge--reorder' : item.urgency === 'plan' ? 'sp-purchase-urgency-badge--plan' : 'sp-purchase-urgency-badge--ok';
     const stockValueClass = item.current_stock === 0 ? 'sp-purchase-metric-value--error' : item.current_stock <= item.reorder_level ? 'sp-purchase-metric-value--warning' : '';
@@ -263,7 +263,7 @@ const PurchaseCard = ({ item, _index }) => {
             )}
         </div>
     );
-};
+});
 
 // ════════════════════════════════════════════════════════════════════
 //  Main Component
