@@ -118,28 +118,19 @@ const corsOptions = {
     optionsSuccessStatus: 200 // Some legacy browsers (IE11) choke on 204
 };
 
-// ── CORS safety-net: fires BEFORE all other middleware so the
-// Access-Control-Allow-Origin header is injected on every response,
-// including error responses (e.g. 403 CORS-blocked, 429 rate-limit, 500 crash).
-// Without this, browsers interpret any headerless error as a CORS failure.
+// ── CORS — MUST be the first middleware after trust-proxy ──
+// Preflight (OPTIONS) requests must return 204 before any other
+// middleware runs. Without this, Render's reverse-proxy may emit
+// 520/502 on preflight timeouts or CORS-header absence.
+app.options('*', cors(corsOptions));
+app.use(cors(corsOptions));
+
+// Catch-all OPTIONS handler — returns 204 immediately for any
+// preflight that the cors middleware didn't already handle.
 app.use((req, res, next) => {
-    const origin = req.headers.origin;
-    if (origin) {
-        const normalizedOrigin = origin.replace(/\/$/, '');
-        if (allowedOrigins.includes(normalizedOrigin)) {
-            res.setHeader('Access-Control-Allow-Origin', normalizedOrigin);
-            res.setHeader('Vary', 'Origin');
-            res.setHeader('Access-Control-Allow-Credentials', 'true');
-        }
-    }
+    if (req.method === 'OPTIONS') return res.sendStatus(204);
     next();
 });
-
-// Respond to preflight OPTIONS requests immediately — before all other middleware.
-// This ensures CORS headers are present even if the server is under load or
-// a downstream middleware throws, which would otherwise produce a 520 with no headers.
-app.options('/{*path}', cors(corsOptions));
-app.use(cors(corsOptions));
 
 // Security headers
 app.use(helmet({
@@ -171,13 +162,25 @@ app.use('/api/website/designs', express.urlencoded({ extended: true, limit: '50m
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
-// Request logger
+// Request diagnostics logger — logs method, URL, status code, response time
 app.use((req, res, next) => {
-    logger.info(`[REQUEST] ${req.method} ${req.url}`);
+    const start = Date.now();
+    res.on('finish', () => {
+        const duration = Date.now() - start;
+        logger.info(`[REQUEST] ${req.method} ${req.originalUrl} → ${res.statusCode} (${duration}ms)`);
+    });
     next();
 });
 
 const isProduction = process.env.NODE_ENV === 'production';
+
+// Shared rate-limit skip conditions
+const skipRateLimit = (req) => {
+    if (req.method === 'OPTIONS') return true;
+    const path = req.path || req.url;
+    if (path === '/api/company-settings' || path.startsWith('/api/i18n/') || path === '/api/health' || path === '/api/version') return true;
+    return false;
+};
 
 // General API rate limit
 const generalLimiter = rateLimit({
@@ -185,6 +188,7 @@ const generalLimiter = rateLimit({
     max: isProduction ? 200 : 2000,
     standardHeaders: true,
     legacyHeaders: false,
+    skip: skipRateLimit,
     message: { message: 'Too many requests. Please slow down.' }
 });
 app.use('/api', generalLimiter);
@@ -195,6 +199,7 @@ const writeLimiter = rateLimit({
     max: isProduction ? 60 : 600,
     standardHeaders: true,
     legacyHeaders: false,
+    skip: skipRateLimit,
     message: { message: 'Too many write requests. Please slow down.' }
 });
 app.use('/api', (req, res, next) => {
@@ -210,6 +215,7 @@ const uploadLimiter = rateLimit({
     max: isProduction ? 20 : 120,
     standardHeaders: true,
     legacyHeaders: false,
+    skip: skipRateLimit,
     message: { message: 'Too many file uploads. Please slow down.' }
 });
 app.use('/api', (req, res, next) => {
@@ -235,6 +241,7 @@ const versionLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: (req) => req.ip,
+    skip: (req) => req.method === 'OPTIONS',
     handler: (req, res) => {
         const retryAfter = Math.ceil((req.rateLimit.resetTime - Date.now()) / 1000);
         logger.info(`[RateLimit] version IP=${req.ip} UA="${(req.headers['user-agent'] || '').slice(0, 80)}" count=${req.rateLimit.current}`);
@@ -250,6 +257,7 @@ const serverTimeLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: (req) => req.ip,
+    skip: (req) => req.method === 'OPTIONS',
     handler: (req, res) => {
         const retryAfter = Math.ceil((req.rateLimit.resetTime - Date.now()) / 1000);
         logger.info(`[RateLimit] server-time IP=${req.ip} UA="${(req.headers['user-agent'] || '').slice(0, 80)}" count=${req.rateLimit.current}`);
