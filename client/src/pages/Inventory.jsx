@@ -627,7 +627,8 @@ const Inventory = () => {
                 product_id: selectedItem.product_id || null,
                 source_code: selectedItem.source_code || null,
                 model_name: selectedItem.model_name || null,
-                size_code: selectedItem.size_code || null
+                size_code: selectedItem.size_code || null,
+                item_type: selectedItem.item_type || 'Retail'
             });
             setShowEditModal(false);
             setSelectedItem(null);
@@ -2172,10 +2173,18 @@ const Inventory = () => {
                                                     maxLength={3}
                                                     placeholder="ABC"
                                                     value={selectedItem.source_code || ''}
-                                                    onChange={(e) => {
+                                                    onChange={async (e) => {
                                                         const val = e.target.value.toUpperCase();
                                                         const newSku = `${val}-${selectedItem.model_name}-${selectedItem.size_code}`.replace(/-+$/, '').replace(/^-+/, '');
-                                                        setSelectedItem({ ...selectedItem, source_code: val, sku: newSku });
+                                                        const updates = { source_code: val, sku: newSku };
+                                                        if (val.length === 3 && !selectedItem.vendor_name) {
+                                                            try {
+                                                                const res = await api.get('/vendors', { params: { search: val, limit: 1 } });
+                                                                const vendor = res.data?.data?.[0] || res.data?.[0];
+                                                                if (vendor?.name) updates.vendor_name = vendor.name;
+                                                            } catch (_) {}
+                                                        }
+                                                        setSelectedItem({ ...selectedItem, ...updates });
                                                     }}
                                                 />
                                             </div>

@@ -146,8 +146,8 @@ router.get('/vendors', authenticateToken, async (req, res) => {
     const params = [];
 
     if (search) {
-      whereClause += ' AND (v.name LIKE ? OR v.contact_person LIKE ? OR v.phone LIKE ?)';
-      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+      whereClause += ' AND (v.name LIKE ? OR v.contact_person LIKE ? OR v.phone LIKE ? OR v.vendor_code LIKE ?)';
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
     }
 
     if (category) {
