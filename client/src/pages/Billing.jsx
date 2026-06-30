@@ -931,14 +931,14 @@ const Billing = () => {
           </div>
         </div>
         <div className="billing-header__right">
-          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/dashboard/shortcuts')} title="Quick Bill Shortcuts">
-            <Zap size={15} aria-hidden="true" /> Shortcuts
+          <button className="btn btn-secondary btn-with-icon" onClick={() => navigate('/dashboard/shortcuts')} title="Quick Bill Shortcuts" aria-label="Quick Bill Shortcuts">
+            <Zap size={16} /> Shortcuts
           </button>
-          <button className="btn btn-ghost btn-sm" onClick={() => { setShowRecentBills(true); fetchRecentBills(); }}>
-            <Clock size={15} aria-hidden="true" /> Recent
+          <button className="btn btn-secondary btn-with-icon" onClick={() => { setShowRecentBills(true); fetchRecentBills(); }} title="Recent Invoices" aria-label="Recent Invoices">
+            <Clock size={16} /> Recent
           </button>
-          <button className="btn btn-secondary btn-sm" onClick={handleChangeCustomer}>
-            <User size={15} aria-hidden="true" /> New Customer
+          <button className="btn btn-secondary btn-with-icon" onClick={handleChangeCustomer} title="Change Customer" aria-label="Change or add customer">
+            <User size={16} /> Change Customer
           </button>
           <button
             className="btn btn-primary billing-header__cta"

@@ -1368,7 +1368,8 @@
 }
 
 @media (max-width: 480px) {
-  .billing-header__right .btn-ghost {
+  .billing-header__right .btn-ghost,
+  .billing-header__right .btn-secondary {
     display: none;
   }
 
