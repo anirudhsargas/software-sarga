@@ -294,11 +294,17 @@ const kuriPaymentSchema = z.object({
 });
 
 const staffSalaryUpdateSchema = z.object({
+    name: z.string().min(1, 'Name is required').optional(),
+    mobile: z.string().optional(),
+    role: z.string().optional(),
+    branch_id: z.union([z.number(), z.string()]).optional(),
+    email: z.string().optional(),
+    address: z.string().optional(),
     salary_type: z.enum(['Monthly', 'Daily']).optional(),
     base_salary: positiveDecimal.nullable(),
     daily_rate: positiveDecimal.nullable(),
     settings: z.any().optional()
-});
+}).passthrough();
 
 // ---- Vendor Invoice & Payment Schemas ----
 const addInvoiceSchema = z.object({
