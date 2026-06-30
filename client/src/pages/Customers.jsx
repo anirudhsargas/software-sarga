@@ -20,7 +20,7 @@ import BranchSelect from '../components/ui/BranchSelect';
 import './Customers.css';
 import PageContainer from '../components/ui/PageContainer';
 
-const CUSTOMER_TYPES = ['Retail', 'Offset'];
+const CUSTOMER_TYPES = ['Retail', 'Offset', 'Walk-in'];
 const ADMIN_ROLES = ['admin', 'super_admin'];
 
 const Customers = () => {
@@ -70,41 +70,11 @@ const Customers = () => {
     const [total, setTotal] = useState(0);
     const fetchAbortRef = useRef(null);
 
-    // Advanced search state
-    const [isSearchPanelOpen, setSearchPanelOpen] = useState(false);
-    const [showWalkinForm, setShowWalkinForm] = useState(false);
-    const [walkinName, setWalkinName] = useState('');
-    const [walkinMobile, setWalkinMobile] = useState('');
-    const [walkinCreating, setWalkinCreating] = useState(false);
-    const [searchStatus, setSearchStatus] = useState('idle');
-    const [recentSearches, setRecentSearches] = useState(() => {
-        try {
-            const saved = localStorage.getItem('sarga_recent_searches');
-            return saved ? JSON.parse(saved) : [];
-        } catch { return []; }
-    });
-    const [advancedFilters, setAdvancedFilters] = useState({
-        customerId: '', orderNumber: '', invoiceNumber: '',
-        branch: '', outstandingMin: '', outstandingMax: '',
-        lastOrderFrom: '', lastOrderTo: '', status: ''
-    });
-    const searchPanelRef = useRef(null);
+    // Search suggestions (inline dropdown)
+    const [searchSuggestions, setSearchSuggestions] = useState([]);
+    const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
+    const searchSuggestRef = useRef(null);
     const searchInputRef = useRef(null);
-
-    const activeFilterCount = (searchQuery ? 1 : 0) + (typeFilter ? 1 : 0)
-        + ['customerId', 'orderNumber', 'invoiceNumber', 'branch', 'status']
-            .filter(k => advancedFilters[k]).length
-        + (advancedFilters.outstandingMin || advancedFilters.outstandingMax ? 1 : 0)
-        + (advancedFilters.lastOrderFrom || advancedFilters.lastOrderTo ? 1 : 0);
-
-    const searchModeLabel = (() => {
-        const q = searchQuery || '';
-        if (!q) return '';
-        if (/^\d{10}$/.test(q)) return 'Searching by mobile number';
-        if (/^\d+$/.test(q)) return 'Searching by ID / Order';
-        if (q.length >= 3) return 'Searching by customer name';
-        return 'Searching...';
-    })();
 
     // Autocomplete state
     const [suggestions, setSuggestions] = useState([]);
@@ -312,6 +282,50 @@ const Customers = () => {
             fetchSuggestions(mobileSearchQuery, true);
         }
     }, [mobileSearchQuery, showAddModal, showEditModal]);
+
+    // Search suggestions for main search (shows inline below search input)
+    useEffect(() => {
+        if (!searchQuery || searchQuery.length < 2) {
+            setSearchSuggestions([]);
+            setShowSearchSuggestions(false);
+            return;
+        }
+        const timer = setTimeout(async () => {
+            try {
+                const params = new URLSearchParams();
+                params.append('search', searchQuery);
+                params.append('limit', '6');
+                const res = await api.get(`/customers?${params.toString()}`);
+                const data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+                const filtered = data.filter(c => c.client_type !== 'internal');
+                setSearchSuggestions(filtered);
+                setShowSearchSuggestions(filtered.length > 0);
+            } catch {
+                setSearchSuggestions([]);
+            }
+        }, 200);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
+
+    // Close search suggestions on outside click
+    useEffect(() => {
+        if (!showSearchSuggestions) return;
+        const handleClick = (e) => {
+            if (searchSuggestRef.current && !searchSuggestRef.current.contains(e.target) &&
+                searchInputRef.current && !searchInputRef.current.contains(e.target)) {
+                setShowSearchSuggestions(false);
+            }
+        };
+        window.addEventListener('mousedown', handleClick);
+        return () => window.removeEventListener('mousedown', handleClick);
+    }, [showSearchSuggestions]);
+
+    const handleSearchSuggestionSelect = useCallback((customer) => {
+        setSearchInput(customer.name || customer.mobile || '');
+        setShowSearchSuggestions(false);
+        setTypeFilter(customer.type || '');
+        setPage(1);
+    }, []);
 
     const handleSuggestionSelect = (customer) => {
         if (showAddModal) {
@@ -623,125 +637,6 @@ const Customers = () => {
 
     const [searchFocused, setSearchFocused] = useState(false);
 
-    // ── Advanced Search Handlers ──
-    const openSearchPanel = useCallback(() => {
-        setSearchPanelOpen(true);
-    }, []);
-
-    const closeSearchPanel = useCallback(() => {
-        setSearchPanelOpen(false);
-    }, []);
-
-    const toggleSearchPanel = useCallback(() => {
-        setSearchPanelOpen(prev => !prev);
-    }, []);
-
-    const addRecentSearch = useCallback((term) => {
-        if (!term || term.length < 2) return;
-        setRecentSearches(prev => {
-            const next = [term, ...prev.filter(t => t !== term)].slice(0, 8);
-            try { localStorage.setItem('sarga_recent_searches', JSON.stringify(next)); } catch {}
-            return next;
-        });
-    }, []);
-
-    const handleRecentSearchClick = useCallback((term) => {
-        setSearchInput(term);
-        setSearchPanelOpen(false);
-        addRecentSearch(term);
-    }, [addRecentSearch]);
-
-    const updateAdvancedFilter = useCallback((key, value) => {
-        setAdvancedFilters(prev => ({ ...prev, [key]: value }));
-    }, []);
-
-    const clearAdvancedFilters = useCallback(() => {
-        setAdvancedFilters({
-            customerId: '', orderNumber: '', invoiceNumber: '',
-            branch: '', outstandingMin: '', outstandingMax: '',
-            lastOrderFrom: '', lastOrderTo: '', status: ''
-        });
-        setSearchInput('');
-        setTypeFilter('');
-        setPage(1);
-    }, []);
-
-    const removeFilter = useCallback((key) => {
-        if (key === 'search') { setSearchInput(''); setPage(1); return; }
-        if (key === 'type') { setTypeFilter(''); setPage(1); return; }
-        updateAdvancedFilter(key, '');
-    }, [updateAdvancedFilter]);
-
-    // ── Walk-in Handlers ──
-    const handleWalkinCreate = async () => {
-        if (!walkinName.trim()) return toast.error('Please enter a customer name');
-        const mobile = walkinMobile.trim();
-        setWalkinCreating(true);
-        try {
-            const customerData = {
-                name: walkinName.trim(),
-                mobile: mobile || '0000000000',
-                countryCode: '+91',
-                type: 'Walk-in',
-                email: '', gst: '', address: ''
-            };
-            const response = await localDb.createCustomer(customerData);
-            toast.success('Walk-in customer created');
-            setShowWalkinForm(false);
-            setWalkinName('');
-            setWalkinMobile('');
-            if (response?.id) {
-                navigate('/dashboard/sales/invoices', {
-                    state: {
-                        action: 'create',
-                        customer: { id: response.id, name: customerData.name, mobile: customerData.mobile, type: 'Walk-in', email: '', address: '', gst: '' }
-                    }
-                });
-            } else {
-                fetchCustomers(1);
-            }
-        } catch (err) {
-            toast.error('Failed to create walk-in customer');
-        } finally {
-            setWalkinCreating(false);
-        }
-    };
-
-    // ── Keyboard shortcut for search panel ──
-    useEffect(() => {
-        const handleKey = (e) => {
-            if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-                e.preventDefault();
-                setSearchPanelOpen(prev => !prev);
-            }
-        };
-        window.addEventListener('keydown', handleKey);
-        return () => window.removeEventListener('keydown', handleKey);
-    }, []);
-
-    // Close search panel on Escape
-    useEffect(() => {
-        if (!isSearchPanelOpen) return;
-        const handleEsc = (e) => {
-            if (e.key === 'Escape') setSearchPanelOpen(false);
-        };
-        window.addEventListener('keydown', handleEsc);
-        return () => window.removeEventListener('keydown', handleEsc);
-    }, [isSearchPanelOpen]);
-
-    // Click outside to close search panel
-    useEffect(() => {
-        if (!isSearchPanelOpen) return;
-        const handleClick = (e) => {
-            if (searchPanelRef.current && !searchPanelRef.current.contains(e.target) &&
-                searchInputRef.current && !searchInputRef.current.contains(e.target)) {
-                setSearchPanelOpen(false);
-            }
-        };
-        window.addEventListener('mousedown', handleClick);
-        return () => window.removeEventListener('mousedown', handleClick);
-    }, [isSearchPanelOpen]);
-
     return (
         <PageContainer>
             {/* ═══ Premium Header ═══ */}
@@ -784,7 +679,7 @@ const Customers = () => {
                 </div>
             </header>
 
-            {/* ═══ Filter Toolbar with Advanced Search ═══ */}
+            {/* ═══ Filter Toolbar ═══ */}
             <div className="customer-filters">
                 <div className="customer-search" ref={searchInputRef}>
                     <Search size={18} className="search-icon" />
@@ -793,37 +688,72 @@ const Customers = () => {
                         id="customer-search"
                         type="text"
                         className="search-input"
-                        placeholder="Search name, phone, ID, order..."
+                        placeholder="Search by name, phone, or customer ID..."
                         value={searchInput}
-                        onChange={e => {
-                            setSearchInput(e.target.value);
-                            setSearchStatus(e.target.value ? 'searching' : 'idle');
-                        }}
-                        onFocus={() => {
-                            setSearchFocused(true);
-                            if (searchInput) setSearchPanelOpen(true);
-                        }}
-                        onBlur={() => setSearchFocused(false)}
-                        onClick={() => { if (!isSearchPanelOpen) setSearchPanelOpen(true); }}
+                        onChange={e => setSearchInput(e.target.value)}
+                        onFocus={() => setSearchFocused(true)}
+                        onBlur={() => setTimeout(() => setShowSearchSuggestions(false), 200)}
                         autoComplete="off"
-                        aria-haspopup="dialog"
-                        aria-expanded={isSearchPanelOpen}
-                        aria-controls="adv-search-panel"
+                        aria-haspopup="listbox"
+                        aria-expanded={showSearchSuggestions}
+                        aria-controls="search-suggestions-list"
                     />
                     <button
                         className={`search-clear ${searchInput ? 'search-clear--visible' : ''}`}
-                        onClick={() => { setSearchInput(''); setSearchPanelOpen(true); }}
+                        onClick={() => { setSearchInput(''); setSearchSuggestions([]); setShowSearchSuggestions(false); }}
                         aria-label="Clear search"
                     >
                         <X size={14} />
                     </button>
-                    {!searchInput && !searchFocused && !isSearchPanelOpen && (
-                        <span className="search-shortcut">⌘K</span>
+                    {!searchInput && !searchFocused && (
+                        <span className="search-shortcut">Search</span>
                     )}
-                    {searchModeLabel && searchInput && (
-                        <span style={{ position: 'absolute', right: 48, top: '50%', transform: 'translateY(-50%)', fontSize: 10, fontWeight: 600, color: 'var(--accent)', background: 'var(--accent-alpha)', padding: '2px 8px', borderRadius: 'var(--radius-xs)', pointerEvents: 'none', whiteSpace: 'nowrap' }}>
-                            {searchModeLabel}
-                        </span>
+                    {/* Search suggestions dropdown */}
+                    {showSearchSuggestions && searchSuggestions.length > 0 && (
+                        <div className="autocomplete-dropdown" ref={searchSuggestRef} role="listbox" aria-label="Search suggestions" id="search-suggestions-list" style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 'var(--z-dropdown)', marginTop: 4 }}>
+                            {searchSuggestions.map((c, i) => (
+                                <div
+                                    key={c.id}
+                                    className="autocomplete-item"
+                                    onClick={() => handleSearchSuggestionSelect(c)}
+                                    role="option"
+                                    aria-selected={false}
+                                >
+                                    <div className="autocomplete-item__avatar">{c.name?.charAt(0) || '?'}</div>
+                                    <div className="autocomplete-item__info">
+                                        <div className="autocomplete-item__name">{c.name}</div>
+                                        <div className="autocomplete-item__meta">
+                                            <span>{c.mobile ? formatForDisplay(c.mobile) : '—'}</span>
+                                            <span className={`customer-type-badge customer-type-badge--${(c.type || 'walk-in').toLowerCase().replace(' ', '-')}`}>
+                                                {c.type || 'Walk-in'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                            <div
+                                className="autocomplete-item"
+                                onClick={() => {
+                                    navigate('/dashboard/sales/invoices', {
+                                        state: {
+                                            action: 'create',
+                                            customer: { id: null, name: 'Walk-in', mobile: '', type: 'Walk-in', email: '', address: '', gst: '' }
+                                        }
+                                    });
+                                }}
+                                role="option"
+                            >
+                                <div className="autocomplete-item__avatar" style={{ background: 'var(--warning-bg)', color: 'var(--warning)' }}>
+                                    <Plus size={14} />
+                                </div>
+                                <div className="autocomplete-item__info">
+                                    <div className="autocomplete-item__name">New Walk-in Customer</div>
+                                    <div className="autocomplete-item__meta">
+                                        <span>Create a walk-in order</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     )}
                 </div>
 
@@ -842,366 +772,12 @@ const Customers = () => {
                 </div>
 
                 <button
-                    className={`btn-filters-advanced ${activeFilterCount > 0 ? 'btn-filters-advanced--active' : ''}`}
-                    onClick={() => setSearchPanelOpen(prev => !prev)}
-                    aria-label="Advanced filters"
+                    className={`btn-clear-filters ${searchQuery || typeFilter ? '' : 'btn-clear-filters--hidden'}`}
+                    onClick={() => { setSearchInput(''); setTypeFilter(''); setPage(1); }}
                 >
-                    <SlidersHorizontal size={14} />
-                    <span>Filters</span>
-                    {activeFilterCount > 0 && <span className="adv-filter-badge">{activeFilterCount}</span>}
-                </button>
-
-                <button
-                    className="btn btn-secondary"
-                    style={{ height: 44, flexShrink: 0 }}
-                    onClick={() => setShowWalkinForm(prev => !prev)}
-                    aria-label={showWalkinForm ? 'Close walk-in form' : 'Create walk-in customer'}
-                >
-                    <UserPlus size={16} />
-                    <span>Walk-in</span>
-                    <ChevronDown size={12} style={{ transform: showWalkinForm ? 'rotate(180deg)' : 'none', transition: 'transform var(--transition-fast)' }} />
+                    <X size={14} /> Clear
                 </button>
             </div>
-
-            {/* ═══ Advanced Search Panel ═══ */}
-            {isSearchPanelOpen && (
-                <>
-                    <div className="adv-search-backdrop" onClick={closeSearchPanel} />
-                    <div className="customer-filters" style={{ position: 'relative', padding: 0, border: 'none', background: 'transparent', boxShadow: 'none' }} id="adv-search-panel" role="dialog" aria-label="Advanced search and filters">
-                        <div className="adv-search-panel" ref={searchPanelRef}>
-                            <div className="adv-search-panel-header">
-                                <h3>Advanced Search</h3>
-                                <button className="adv-search-close" onClick={closeSearchPanel} aria-label="Close search panel">
-                                    <X size={16} />
-                                </button>
-                            </div>
-                            <div className="adv-search-body">
-                                {/* Search Mode */}
-                                {searchModeLabel && (
-                                    <div className="search-mode-bar">
-                                        <Search size={14} className="search-mode-icon" />
-                                        <span>{searchModeLabel}</span>
-                                    </div>
-                                )}
-
-                                {/* Basic Search */}
-                                <div className="adv-search-section">
-                                    <h4 className="adv-search-section-title">Basic Search</h4>
-                                    <div className="adv-search-field-group">
-                                        <div className="adv-search-field">
-                                            <label>Customer Name</label>
-                                            <input
-                                                type="text"
-                                                placeholder="Search by name..."
-                                                value={searchQuery}
-                                                onChange={e => setSearchInput(e.target.value)}
-                                                autoComplete="off"
-                                            />
-                                        </div>
-                                        <div className="adv-search-field">
-                                            <label>Mobile Number</label>
-                                            <input
-                                                type="tel"
-                                                placeholder="10-digit mobile..."
-                                                value={/^\d{10}$/.test(searchQuery) ? searchQuery : ''}
-                                                onChange={e => {
-                                                    const v = e.target.value.replace(/\D/g, '').slice(0, 10);
-                                                    if (v) setSearchInput(v);
-                                                }}
-                                                autoComplete="off"
-                                            />
-                                        </div>
-                                        <div className="adv-search-field">
-                                            <label>Customer ID</label>
-                                            <input
-                                                type="text"
-                                                placeholder="e.g. CUST-001"
-                                                value={advancedFilters.customerId}
-                                                onChange={e => updateAdvancedFilter('customerId', e.target.value)}
-                                                autoComplete="off"
-                                            />
-                                        </div>
-                                        <div className="adv-search-field">
-                                            <label>Order / Invoice</label>
-                                            <input
-                                                type="text"
-                                                placeholder="Order or invoice #"
-                                                value={advancedFilters.orderNumber || advancedFilters.invoiceNumber}
-                                                onChange={e => updateAdvancedFilter('orderNumber', e.target.value)}
-                                                autoComplete="off"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Quick Filters */}
-                                <div className="adv-search-section">
-                                    <h4 className="adv-search-section-title">Quick Filters</h4>
-                                    <div className="quick-filters-grid">
-                                        <button
-                                            className={`quick-filter-btn ${typeFilter === 'Retail' ? 'quick-filter-btn--active' : ''}`}
-                                            onClick={() => { setTypeFilter(typeFilter === 'Retail' ? '' : 'Retail'); setPage(1); }}
-                                        >
-                                            <Check size={12} />
-                                            Retail
-                                        </button>
-                                        <button
-                                            className={`quick-filter-btn ${typeFilter === 'Offset' ? 'quick-filter-btn--active' : ''}`}
-                                            onClick={() => { setTypeFilter(typeFilter === 'Offset' ? '' : 'Offset'); setPage(1); }}
-                                        >
-                                            <Check size={12} />
-                                            Offset
-                                        </button>
-                                        <button
-                                            className={`quick-filter-btn ${typeFilter === 'Walk-in' ? 'quick-filter-btn--active' : ''}`}
-                                            onClick={() => { setTypeFilter(typeFilter === 'Walk-in' ? '' : 'Walk-in'); setPage(1); }}
-                                        >
-                                            <Check size={12} />
-                                            Walk-in
-                                        </button>
-                                        <button
-                                            className="quick-filter-btn"
-                                            onClick={() => {
-                                                setSearchInput('');
-                                                setTypeFilter('');
-                                                setAdvancedFilters(prev => ({ ...prev, outstandingMin: '1' }));
-                                                setPage(1);
-                                            }}
-                                        >
-                                            <Check size={12} />
-                                            Outstanding
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {/* Customer Filters */}
-                                <div className="adv-search-section">
-                                    <h4 className="adv-search-section-title">Customer Filters</h4>
-                                    <div className="adv-search-field-group">
-                                        <div className="adv-search-field">
-                                            <label>Branch</label>
-                                            <select
-                                                value={advancedFilters.branch}
-                                                onChange={e => updateAdvancedFilter('branch', e.target.value)}
-                                            >
-                                                <option value="">All Branches</option>
-                                                {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                                            </select>
-                                        </div>
-                                        <div className="adv-search-field">
-                                            <label>Status</label>
-                                            <select
-                                                value={advancedFilters.status}
-                                                onChange={e => updateAdvancedFilter('status', e.target.value)}
-                                            >
-                                                <option value="">All</option>
-                                                <option value="active">Active</option>
-                                                <option value="inactive">Inactive</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Financial Filters */}
-                                <div className="adv-search-section">
-                                    <h4 className="adv-search-section-title">Financial Filters</h4>
-                                    <div className="adv-search-field-group">
-                                        <div className="adv-search-field">
-                                            <label>Min Outstanding (₹)</label>
-                                            <input
-                                                type="number"
-                                                min="0"
-                                                placeholder="0"
-                                                value={advancedFilters.outstandingMin}
-                                                onChange={e => updateAdvancedFilter('outstandingMin', e.target.value)}
-                                            />
-                                        </div>
-                                        <div className="adv-search-field">
-                                            <label>Max Outstanding (₹)</label>
-                                            <input
-                                                type="number"
-                                                min="0"
-                                                placeholder="No limit"
-                                                value={advancedFilters.outstandingMax}
-                                                onChange={e => updateAdvancedFilter('outstandingMax', e.target.value)}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Date Filters */}
-                                <div className="adv-search-section">
-                                    <h4 className="adv-search-section-title">Date Filters</h4>
-                                    <div className="adv-search-field-group">
-                                        <div className="adv-search-field">
-                                            <label>Last Order From</label>
-                                            <input
-                                                type="date"
-                                                value={advancedFilters.lastOrderFrom}
-                                                onChange={e => updateAdvancedFilter('lastOrderFrom', e.target.value)}
-                                            />
-                                        </div>
-                                        <div className="adv-search-field">
-                                            <label>Last Order To</label>
-                                            <input
-                                                type="date"
-                                                value={advancedFilters.lastOrderTo}
-                                                onChange={e => updateAdvancedFilter('lastOrderTo', e.target.value)}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Recent Searches */}
-                                {recentSearches.length > 0 && (
-                                    <div className="adv-search-section">
-                                        <h4 className="adv-search-section-title">
-                                            <Clock size={12} style={{ marginRight: 4, verticalAlign: 'middle' }} />
-                                            Recent Searches
-                                        </h4>
-                                        <div className="recent-searches">
-                                            {recentSearches.map((term, i) => (
-                                                <button
-                                                    key={i}
-                                                    className="recent-search-chip"
-                                                    onClick={() => handleRecentSearchClick(term)}
-                                                >
-                                                    <Clock size={10} />
-                                                    {term}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Saved Views */}
-                                <div className="adv-search-section">
-                                    <h4 className="adv-search-section-title">Saved Views</h4>
-                                    <div className="saved-views-row">
-                                        <button className="save-view-btn" onClick={() => toast.success('View saved!')}>
-                                            <Plus size={12} /> Save Current View
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </>
-            )}
-
-            {/* ═══ Walk-in Inline Form ═══ */}
-            {showWalkinForm && (
-                <div className="walkin-panel">
-                    <div className="walkin-panel-header">
-                        <h3><UserPlus size={16} /> New Walk-in Customer</h3>
-                        <button className="adv-search-close" onClick={() => setShowWalkinForm(false)} aria-label="Close walk-in form">
-                            <X size={16} />
-                        </button>
-                    </div>
-                    <div className="walkin-panel-body">
-                        <div className="walkin-form-row">
-                            <div className="adv-search-field">
-                                <label htmlFor="walkin-name">Customer Name <span aria-hidden="true">*</span></label>
-                                <input
-                                    id="walkin-name"
-                                    type="text"
-                                    placeholder="e.g. Walk-in Customer"
-                                    value={walkinName}
-                                    onChange={e => setWalkinName(e.target.value)}
-                                    autoFocus
-                                    autoComplete="off"
-                                    onKeyDown={e => { if (e.key === 'Enter' && walkinName.trim()) handleWalkinCreate(); }}
-                                />
-                            </div>
-                            <div className="adv-search-field">
-                                <label htmlFor="walkin-mobile">Mobile Number</label>
-                                <input
-                                    id="walkin-mobile"
-                                    type="tel"
-                                    placeholder="Optional"
-                                    value={walkinMobile}
-                                    onChange={e => setWalkinMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                                    autoComplete="tel"
-                                    onKeyDown={e => { if (e.key === 'Enter' && walkinName.trim()) handleWalkinCreate(); }}
-                                />
-                            </div>
-                        </div>
-                        <div className="walkin-form-actions">
-                            <button className="btn btn-ghost" onClick={() => setShowWalkinForm(false)}>Cancel</button>
-                            <button
-                                className="btn-walkin-create"
-                                onClick={handleWalkinCreate}
-                                disabled={walkinCreating || !walkinName.trim()}
-                            >
-                                {walkinCreating ? <Loader2 size={16} className="animate-spin" /> : <UserPlus size={16} />}
-                                {walkinCreating ? 'Creating...' : 'Create & Start Order'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* ═══ Filter Chips ═══ */}
-            {activeFilterCount > 0 && (
-                <div className="filter-chips">
-                    {searchQuery && (
-                        <span className="filter-chip">
-                            <span className="filter-chip-label">Search:</span> {searchQuery}
-                            <button className="filter-chip-remove" onClick={() => removeFilter('search')} aria-label="Remove search filter">
-                                <X size={10} />
-                            </button>
-                        </span>
-                    )}
-                    {typeFilter && (
-                        <span className="filter-chip">
-                            <span className="filter-chip-label">Type:</span> {typeFilter}
-                            <button className="filter-chip-remove" onClick={() => removeFilter('type')} aria-label="Remove type filter">
-                                <X size={10} />
-                            </button>
-                        </span>
-                    )}
-                    {advancedFilters.customerId && (
-                        <span className="filter-chip">
-                            <span className="filter-chip-label">ID:</span> {advancedFilters.customerId}
-                            <button className="filter-chip-remove" onClick={() => removeFilter('customerId')} aria-label="Remove ID filter">
-                                <X size={10} />
-                            </button>
-                        </span>
-                    )}
-                    {advancedFilters.branch && (
-                        <span className="filter-chip">
-                            <span className="filter-chip-label">Branch:</span> {branches.find(b => String(b.id) === String(advancedFilters.branch))?.name || advancedFilters.branch}
-                            <button className="filter-chip-remove" onClick={() => removeFilter('branch')} aria-label="Remove branch filter">
-                                <X size={10} />
-                            </button>
-                        </span>
-                    )}
-                    {advancedFilters.status && (
-                        <span className="filter-chip">
-                            <span className="filter-chip-label">Status:</span> {advancedFilters.status}
-                            <button className="filter-chip-remove" onClick={() => removeFilter('status')} aria-label="Remove status filter">
-                                <X size={10} />
-                            </button>
-                        </span>
-                    )}
-                    {(advancedFilters.outstandingMin || advancedFilters.outstandingMax) && (
-                        <span className="filter-chip">
-                            <span className="filter-chip-label">Balance:</span>
-                            {advancedFilters.outstandingMin ? `₹${advancedFilters.outstandingMin}+` : ''}
-                            {advancedFilters.outstandingMin && advancedFilters.outstandingMax ? ' – ' : ''}
-                            {advancedFilters.outstandingMax ? `₹${advancedFilters.outstandingMax}` : ''}
-                            <button className="filter-chip-remove" onClick={() => updateAdvancedFilter('outstandingMin', '') || updateAdvancedFilter('outstandingMax', '')} aria-label="Remove balance filter">
-                                <X size={10} />
-                            </button>
-                        </span>
-                    )}
-                    {activeFilterCount > 1 && (
-                        <button className="btn btn-ghost btn-xs" onClick={clearAdvancedFilters} style={{ color: 'var(--text-muted)' }}>
-                            <X size={10} /> Clear All
-                        </button>
-                    )}
-                </div>
-            )}
 
             {/* ═══ Table Toolbar ═══ */}
             <div className="customer-table-toolbar">

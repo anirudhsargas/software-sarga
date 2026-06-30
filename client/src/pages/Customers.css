@@ -337,6 +337,10 @@
   border-color: var(--border);
 }
 
+.btn-clear-filters--hidden {
+  display: none;
+}
+
 /* ── Table Toolbar ── */
 .customer-table-toolbar {
   display: flex;
