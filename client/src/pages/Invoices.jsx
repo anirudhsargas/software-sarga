@@ -1,30 +1,31 @@
 import { useSEO } from '../hooks/useSEO';
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { 
-  Receipt, Plus, Search, Calendar, FileText, Printer, Download, 
-  CreditCard, Loader2, ArrowLeft, X, AlertTriangle, Eye, CheckCircle2, ChevronRight,
-  RefreshCw
+import {
+  Receipt, Plus, Search, Calendar, Printer, Download,
+  CreditCard, Loader2, ArrowLeft, X, AlertTriangle, Eye,
+  RefreshCw, Keyboard, Clock, UserPlus, FilterX
 } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import useTranslation from '../hooks/useTranslation';
+import './Invoices.css';
 const Billing = React.lazy(() => import('./Billing'));
-// pdfUtils loaded lazily in handlePrint/handleDownload
 import { formatCurrency } from '../constants';
 import SectionErrorBoundary from '../components/SectionErrorBoundary';
 import PageContainer from '../components/ui/PageContainer';
+import Pagination from '../components/Pagination';
 
-const statusColors = {
-  draft: 'var(--text-muted)',
-  pending: 'var(--warning)',
-  sent: 'var(--accent)',
-  paid: 'var(--success)',
-  partially_paid: 'var(--text-muted)',
-  overdue: 'var(--error)',
-  cancelled: 'var(--error)',
-  refunded: 'var(--text-muted)',
-  on_hold: 'var(--warning)'
+const STATUS_CONFIG = {
+  draft: { class: 'badge--default', label: 'Draft' },
+  pending: { class: 'badge--warning', label: 'Pending Payment' },
+  sent: { class: 'badge--info', label: 'Sent' },
+  paid: { class: 'badge--success', label: 'Paid' },
+  partially_paid: { class: 'badge--warning', label: 'Partial Paid' },
+  overdue: { class: 'badge--danger', label: 'Overdue' },
+  cancelled: { class: 'badge--danger', label: 'Cancelled' },
+  refunded: { class: 'badge--default', label: 'Refunded' },
+  on_hold: { class: 'badge--warning', label: 'On Hold' }
 };
 
 const Invoices = () => {
@@ -33,7 +34,6 @@ const Invoices = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Mode state: 'list' | 'create'
   const [viewMode, setViewMode] = useState('list');
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -41,23 +41,19 @@ const Invoices = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(15);
 
-  // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  // Details Modal
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
-  // Tracking edit states inside modal
   const [statusInput, setStatusInput] = useState('draft');
   const [dueDateInput, setDueDateInput] = useState('');
   const [notesInput, setNotesInput] = useState('');
   const [pageError, setPageError] = useState(null);
 
-  // Intercept incoming router state to auto-switch to Create mode
   useEffect(() => {
     if (location.state?.action === 'create' || location.state?.job || location.state?.customer) {
       setViewMode('create');
@@ -66,6 +62,15 @@ const Invoices = () => {
     }
   }, [location.state]);
 
+  const hasActiveFilters = searchQuery || startDate || endDate;
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setStartDate('');
+    setEndDate('');
+    setCurrentPage(1);
+  };
+
   const fetchInvoices = useCallback(async () => {
     setLoading(true);
     try {
@@ -73,21 +78,19 @@ const Invoices = () => {
       params.append('page', currentPage);
       params.append('limit', pageSize);
       if (searchQuery.trim()) {
-        params.append('customer_id', ''); // Server does not search by text directly, but we can query overall
+        params.append('customer_id', '');
       }
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
 
       const res = await api.get(`/customer-payments?${params.toString()}`);
-      
+
       let rows = res.data?.data || res.data || [];
-      // Filter out internal departmental bills
       rows = rows.filter(r => !r.is_internal);
 
-      // Simple frontend search query filter for safety (since customer-payments does not filter text queries in DB)
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        rows = rows.filter(r => 
+        rows = rows.filter(r =>
           (r.customer_name && r.customer_name.toLowerCase().includes(q)) ||
           (r.customer_mobile && r.customer_mobile.includes(q)) ||
           (r.invoice_number && r.invoice_number.toLowerCase().includes(q))
@@ -111,7 +114,8 @@ const Invoices = () => {
     }
   }, [fetchInvoices, viewMode]);
 
-  // Format helper for PDF generation
+  const totalPages = Math.ceil(totalCount / pageSize);
+
   const buildBillData = (invoice) => {
     let orderLines = [];
     try {
@@ -127,7 +131,7 @@ const Invoices = () => {
       customer: {
         name: invoice.customer_name,
         mobile: invoice.customer_mobile,
-        type: 'Retail', // Default customer type
+        type: 'Retail',
         email: null,
         address: null,
         gst: null,
@@ -178,7 +182,6 @@ const Invoices = () => {
   const openInvoiceDetails = (invoice) => {
     setSelectedInvoice(invoice);
     setStatusInput(invoice.invoice_status || 'draft');
-    // Format date string to YYYY-MM-DD
     const rawDate = invoice.invoice_due_date || '';
     setDueDateInput(rawDate ? new Date(rawDate).toISOString().split('T')[0] : '');
     setNotesInput(invoice.description || '');
@@ -218,12 +221,11 @@ const Invoices = () => {
     });
   };
 
-  // Safe JSON rendering helper
   const parsedOrderLines = useMemo(() => {
     if (!selectedInvoice) return [];
     try {
-      return (typeof selectedInvoice.order_lines === 'string' 
-        ? JSON.parse(selectedInvoice.order_lines) 
+      return (typeof selectedInvoice.order_lines === 'string'
+        ? JSON.parse(selectedInvoice.order_lines)
         : selectedInvoice.order_lines) || [];
     } catch (e) {
       console.error('Failed to parse order lines', e);
@@ -232,36 +234,26 @@ const Invoices = () => {
   }, [selectedInvoice]);
 
   const InvoiceSkeleton = () => (
-    <div className="stack-lg">
-      <div className="flex-center-y justify-between">
-        <div className="stack-xs">
-          <div style={{ width: 180, height: 24, borderRadius: 6, background: 'var(--surface-2)' }} />
-          <div style={{ width: 260, height: 14, borderRadius: 4, marginTop: 6, background: 'var(--surface-2)' }} />
-        </div>
-        <div style={{ width: 130, height: 38, borderRadius: 8, background: 'var(--surface-2)' }} />
+    <div className="inv-skeleton">
+      <div className="inv-skeleton__toolbar">
+        <div className="inv-skeleton__block" style={{ width: 200, height: 22 }} />
+        <div className="inv-skeleton__block" style={{ width: 130, height: 38, borderRadius: 8 }} />
       </div>
-      <div className="panel" style={{ padding: 20 }}>
-        <div className="form-row--3">
-          {[1,2,3].map(i => (
-            <div key={i}>
-              <div style={{ width: 100, height: 12, borderRadius: 4, marginBottom: 8, background: 'var(--surface-2)' }} />
-              <div style={{ width: '100%', height: 38, borderRadius: 8, background: 'var(--surface-2)' }} />
-            </div>
+      <div className="inv-skeleton__filters">
+        {[1, 2, 3].map(i => (
+          <div key={i} className="inv-skeleton__block" style={{ height: 38 }} />
+        ))}
+      </div>
+      <div className="inv-skeleton__table">
+        <div className="inv-skeleton__header">
+          {[1, 2, 3, 4, 5, 6, 7].map(i => (
+            <div key={i} className="inv-skeleton__block" style={{ width: 80, height: 14 }} />
           ))}
         </div>
-      </div>
-      <div className="panel" style={{ overflowX: 'auto', padding: 0 }}>
-        <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
-          <div style={{ display: 'flex', gap: 24 }}>
-            {[1,2,3,4,5,6,7].map(i => (
-              <div key={i} style={{ width: 80, height: 14, borderRadius: 4, background: 'var(--surface-2)' }} />
-            ))}
-          </div>
-        </div>
-        {[1,2,3,4,5].map(r => (
-          <div key={r} style={{ display: 'flex', gap: 24, padding: '16px 16px', borderBottom: '1px solid var(--border)' }}>
-            {[1,2,3,4,5,6,7].map(c => (
-              <div key={c} style={{ width: c === 4 || c === 5 ? 70 : 80, height: 14, borderRadius: 4, background: 'var(--surface-2)' }} />
+        {[1, 2, 3, 4, 5].map(r => (
+          <div key={r} className="inv-skeleton__row">
+            {[1, 2, 3, 4, 5, 6, 7].map(c => (
+              <div key={c} className="inv-skeleton__block" style={{ width: c === 4 || c === 5 ? 70 : 80, height: 14 }} />
             ))}
           </div>
         ))}
@@ -272,113 +264,172 @@ const Invoices = () => {
   if (pageError && !loading && invoices.length === 0) {
     return (
       <SectionErrorBoundary name="InvoicesPage">
-        <div className="stack-lg fade-in">
-          <div className="flex-center-y justify-between">
-            <div className="stack-xs">
-              <h1>{t('invoices', 'Customer Invoices')}</h1>
-              <p className="muted">{t('manage_invoices_desc', 'Track customer billing payments, due tracking, and print receipts')}</p>
+        <PageContainer>
+          <div className="inv-page">
+            <div className="inv-error-state">
+              <div className="inv-error-state__icon">
+                <AlertTriangle size={32} />
+              </div>
+              <h3>{pageError}</h3>
+              <p className="muted">Check your connection and try again.</p>
+              <button className="btn btn-primary" onClick={() => { setPageError(null); fetchInvoices(); }}>
+                <RefreshCw size={16} /> Retry
+              </button>
             </div>
-            <button className="btn btn-primary btn-with-icon" onClick={() => { setPageError(null); fetchInvoices(); }}>
-              <RefreshCw size={18} /> Retry
-            </button>
           </div>
-          <div className="panel" style={{ padding: '48px 20px', textAlign: 'center' }}>
-            <AlertTriangle size={40} style={{ opacity: 0.4, marginBottom: 12 }} />
-            <h3>{pageError}</h3>
-            <p className="muted" style={{ marginTop: 8 }}>Check your connection and try again.</p>
-          </div>
-        </div>
+        </PageContainer>
       </SectionErrorBoundary>
     );
   }
 
   return (
     <SectionErrorBoundary name="InvoicesPage">
-    <PageContainer className="fade-in">
+    <PageContainer>
+      <div className="inv-page">
       {viewMode === 'create' ? (
-        <div className="stack-md">
-          <div className="flex-center-y justify-between">
-            <button className="btn btn-ghost flex-center-y gap-xs" onClick={() => navigate('/dashboard/sales/invoices')}>
-              <ArrowLeft size={16} /> {t('back_to_list', 'Back to Invoices')}
+        <div className="inv-create-view">
+          <div className="inv-create-header">
+            <button className="btn btn-secondary btn-with-icon" onClick={() => navigate('/dashboard/sales/invoices')}>
+              <ArrowLeft size={16} /> Back to Invoices
             </button>
-            <h2>{t('create_invoice', 'New Customer Invoice')}</h2>
+            <h2>New Customer Invoice</h2>
           </div>
-          <React.Suspense fallback={<div className="p-20 text-center"><Loader2 className="animate-spin" size={20} /> Loading billing…</div>}>
-              <SectionErrorBoundary name="BillingForm" title="Failed to load billing form" message="The billing form encountered an error. Please try again.">
-                <Billing />
-              </SectionErrorBoundary>
-            </React.Suspense>
+          <React.Suspense fallback={
+            <div className="inv-create-loading">
+              <Loader2 className="spin" size={20} /> Loading billing…
+            </div>
+          }>
+            <SectionErrorBoundary name="BillingForm" title="Failed to load billing form" message="The billing form encountered an error. Please try again.">
+              <Billing />
+            </SectionErrorBoundary>
+          </React.Suspense>
         </div>
       ) : (
         <>
-          <div className="flex-center-y justify-between">
-            <div className="stack-xs">
-              <h1>{t('invoices', 'Customer Invoices')}</h1>
-              <p className="muted">{t('manage_invoices_desc', 'Track customer billing payments, due tracking, and print receipts')}</p>
+          {/* ── Page Header ── */}
+          <div className="inv-header">
+            <div className="inv-header__left">
+              <button
+                className="btn btn-secondary btn-with-icon"
+                onClick={() => navigate('/dashboard')}
+                title="Back to Dashboard"
+                aria-label="Back to Dashboard"
+              >
+                <ArrowLeft size={16} />
+                <span className="inv-header__back-text">Back</span>
+              </button>
+              <div className="inv-header__titles">
+                <h1>Customer Invoices</h1>
+                <p className="muted">Track customer billing payments, due tracking, and print receipts</p>
+              </div>
             </div>
-            <button className="btn btn-primary btn-with-icon" onClick={() => setViewMode('create')}>
-              <Plus size={18} /> {t('create_invoice', 'Create Invoice')}
-            </button>
+            <div className="inv-header__actions">
+              <button
+                className="btn btn-secondary btn-with-icon"
+                onClick={() => navigate('/dashboard/shortcuts')}
+                title="Keyboard Shortcuts"
+                aria-label="Keyboard Shortcuts"
+              >
+                <Keyboard size={16} /> Shortcuts
+              </button>
+              <button
+                className="btn btn-secondary btn-with-icon"
+                onClick={() => navigate('/dashboard/jobs')}
+                title="Recent Jobs"
+                aria-label="Recent Jobs"
+              >
+                <Clock size={16} /> Recent
+              </button>
+              <button
+                className="btn btn-accent btn-with-icon"
+                onClick={() => navigate('/dashboard/customers/new')}
+                title="Add New Customer"
+                aria-label="Add New Customer"
+              >
+                <UserPlus size={16} /> New Customer
+              </button>
+              <button className="btn btn-primary btn-with-icon" onClick={() => setViewMode('create')}>
+                <Plus size={18} /> Create Invoice
+              </button>
+            </div>
           </div>
 
-          {/* Filters Bar */}
-          <div className="panel stack-md">
-            <div className="form-row--3">
-                  <div className="stack-xs">
-                    <label className="label" htmlFor="invoiceSearch">{t('search', 'Search Customer / Mobile / Invoice')}</label>
-                    <div className="search-input-wrapper">
-                      <Search className="search-input-icon" size={16} aria-hidden="true" />
-                      <input 
-                        id="invoiceSearch"
-                        name="invoiceSearch"
-                        type="text" 
-                        className="input-field" 
-                        placeholder={t('search_placeholder', 'Type customer name, invoice #...')} 
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        autoComplete="off"
-                      />
-                    </div>
-                  </div>
-              <div className="stack-xs">
-                <label className="label" htmlFor="invoiceStartDate">{t('start_date', 'Start Date')}</label>
-                <input 
+          {/* ── Filters ── */}
+          <div className="inv-filters">
+            <div className="inv-filters__row">
+              <div className="inv-filters__search">
+                <div className="search-input-wrapper">
+                  <Search className="search-input-icon" size={16} aria-hidden="true" />
+                  <input
+                    id="invoiceSearch"
+                    type="text"
+                    className="input-field"
+                    placeholder="Search customer, invoice #, phone..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    autoComplete="off"
+                  />
+                  {searchQuery && (
+                    <button className="inv-filters__clear-search" onClick={() => setSearchQuery('')} aria-label="Clear search">
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="inv-filters__date">
+                <Calendar size={14} className="inv-filters__date-icon" aria-hidden="true" />
+                <input
                   id="invoiceStartDate"
-                  name="invoiceStartDate"
-                  type="date" 
-                  className="input-field" 
+                  type="date"
+                  className="input-field"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  autoComplete="off"
+                  aria-label="Start date"
+                  title="Start date"
                 />
               </div>
-              <div className="stack-xs">
-                <label className="label" htmlFor="invoiceEndDate">{t('end_date', 'End Date')}</label>
-                <input 
+              <div className="inv-filters__date">
+                <Calendar size={14} className="inv-filters__date-icon" aria-hidden="true" />
+                <input
                   id="invoiceEndDate"
-                  name="invoiceEndDate"
-                  type="date" 
-                  className="input-field" 
+                  type="date"
+                  className="input-field"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  autoComplete="off"
+                  aria-label="End date"
+                  title="End date"
                 />
               </div>
+              {hasActiveFilters && (
+                <button className="btn btn-ghost btn-with-icon btn-sm" onClick={clearFilters} title="Clear all filters">
+                  <FilterX size={14} /> Clear
+                </button>
+              )}
             </div>
           </div>
 
-          {/* Invoices List Table */}
-          <div className="panel table-responsive" style={{ padding: 0 }}>
+          {/* ── Table ── */}
+          <div className="inv-table-wrap">
             {loading ? (
               <InvoiceSkeleton />
             ) : invoices.length === 0 ? (
-              <div className="p-40 text-center muted stack-xs flex-center">
-                <Receipt size={48} className="mb-md" />
+              <div className="inv-empty">
+                <Receipt size={48} />
                 <h3>No Customer Invoices Found</h3>
-                <p>Add invoices or adjust search parameters.</p>
+                <p className="muted">Add invoices or adjust search parameters.</p>
+                <div className="inv-empty__actions">
+                  <button className="btn btn-primary" onClick={() => setViewMode('create')}>
+                    <Plus size={16} /> Create Invoice
+                  </button>
+                  {hasActiveFilters && (
+                    <button className="btn btn-secondary" onClick={clearFilters}>
+                      <FilterX size={16} /> Clear Filters
+                    </button>
+                  )}
+                </div>
               </div>
             ) : (
-              <table className="table">
+              <table className="inv-table">
                 <thead>
                   <tr>
                     <th scope="col">Invoice No.</th>
@@ -393,76 +444,77 @@ const Invoices = () => {
                 <tbody>
                   {invoices.map((inv) => {
                     const isDue = Number(inv.balance_amount) > 0;
+                    const statusKey = inv.invoice_status || 'draft';
+                    const statusCfg = STATUS_CONFIG[statusKey] || STATUS_CONFIG.draft;
                     return (
-                      <tr key={inv.id} className="cursor-pointer hover-row" onClick={() => openInvoiceDetails(inv)}>
+                      <tr key={inv.id} className="inv-row" onClick={() => openInvoiceDetails(inv)}>
                         <td>
-                          <div className="font-bold text-accent">
-                            {inv.invoice_number || `INV-${inv.id}`}
+                          <div className="inv-row__invoice">
+                            <span className="inv-row__number">{inv.invoice_number || `INV-${inv.id}`}</span>
+                            {inv.invoice_due_date && isDue && (
+                              <span className="inv-row__due">
+                                <AlertTriangle size={10} aria-hidden="true" />
+                                Due: {new Date(inv.invoice_due_date).toLocaleDateString()}
+                              </span>
+                            )}
                           </div>
-                          {inv.invoice_due_date && isDue && (
-                            <div className="text-xs text-danger flex-center-y gap-xxs mt-xxs">
-                              <AlertTriangle size={10} aria-hidden="true" />
-                              Due: {new Date(inv.invoice_due_date).toLocaleDateString()}
-                            </div>
-                          )}
                         </td>
-                        <td>{new Date(inv.payment_date || inv.created_at).toLocaleDateString()}</td>
                         <td>
-                          <div>{inv.customer_name}</div>
-                          <div className="text-xs muted">{inv.customer_mobile || 'No Mobile'}</div>
+                          <span className="inv-row__date">{new Date(inv.payment_date || inv.created_at).toLocaleDateString()}</span>
                         </td>
-                        <td className="text-right font-semibold">{formatCurrency(inv.total_amount, true)}</td>
+                        <td>
+                          <div className="inv-row__customer">
+                            <span className="inv-row__name">{inv.customer_name}</span>
+                            <span className="inv-row__mobile">{inv.customer_mobile || 'No Mobile'}</span>
+                          </div>
+                        </td>
                         <td className="text-right">
-                          <span className={`font-bold ${isDue ? 'text-danger' : 'text-success'}`}>
+                          <span className="inv-row__amount">{formatCurrency(inv.total_amount, true)}</span>
+                        </td>
+                        <td className="text-right">
+                          <span className={`inv-row__balance ${isDue ? 'inv-row__balance--due' : 'inv-row__balance--paid'}`}>
                             {formatCurrency(inv.balance_amount, true)}
                           </span>
                         </td>
                         <td className="text-center">
-                          <span 
-                            className="badge text-xs"
-                            style={{ 
-                              background: `${statusColors[inv.invoice_status || 'draft']}20`, 
-                              color: statusColors[inv.invoice_status || 'draft'],
-                              borderColor: statusColors[inv.invoice_status || 'draft']
-                            }}
-                          >
-                            {(inv.invoice_status || 'draft').toUpperCase().replace('_', ' ')}
+                          <span className={`badge badge--pill ${statusCfg.class}`}>
+                            {statusCfg.label}
                           </span>
                         </td>
                         <td className="text-center" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex-center gap-xs">
-                            <button 
-                              className="btn btn-ghost btn-icon touch-target" 
+                          <div className="inv-row__actions">
+                            <button
+                              className="btn btn-secondary btn-icon"
                               onClick={() => openInvoiceDetails(inv)}
                               title="View Details"
                               aria-label={`View details for invoice ${inv.invoice_number}`}
                             >
-                              <Eye size={16} aria-hidden="true" />
+                              <Eye size={15} aria-hidden="true" />
                             </button>
-                            <button 
-                              className="btn btn-ghost btn-icon touch-target" 
+                            <button
+                              className="btn btn-secondary btn-icon"
                               onClick={(e) => handlePrint(inv, e)}
                               title="Print Invoice"
                               aria-label={`Print invoice ${inv.invoice_number}`}
                             >
-                              <Printer size={16} aria-hidden="true" />
+                              <Printer size={15} aria-hidden="true" />
                             </button>
-                            <button 
-                              className="btn btn-ghost btn-icon touch-target" 
+                            <button
+                              className="btn btn-secondary btn-icon"
                               onClick={(e) => handleDownload(inv, e)}
                               title="Download PDF"
                               aria-label={`Download PDF for invoice ${inv.invoice_number}`}
                             >
-                              <Download size={16} aria-hidden="true" />
+                              <Download size={15} aria-hidden="true" />
                             </button>
                             {isDue && (
-                              <button 
-                                className="btn btn-ghost btn-icon text-accent touch-target" 
+                              <button
+                                className="btn btn-accent btn-icon"
                                 onClick={(e) => handleRecordPayment(inv, e)}
                                 title="Record Payment"
                                 aria-label={`Record payment for invoice ${inv.invoice_number}`}
                               >
-                                <CreditCard size={16} aria-hidden="true" />
+                                <CreditCard size={15} aria-hidden="true" />
                               </button>
                             )}
                           </div>
@@ -475,67 +527,47 @@ const Invoices = () => {
             )}
           </div>
 
-          {/* Pagination */}
-          {totalCount > pageSize && (
-            <div className="flex justify-between items-center mt-md">
-              <span className="text-sm muted">Showing {invoices.length} of {totalCount} Invoices</span>
-              <div className="flex gap-xs">
-                <button 
-                  className="btn btn-outline" 
-                  disabled={currentPage === 1}
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                >
-                  Previous
-                </button>
-                <button 
-                  className="btn btn-outline"
-                  disabled={invoices.length < pageSize}
-                  onClick={() => setCurrentPage(prev => prev + 1)}
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          )}
+          {/* ── Pagination ── */}
+          <Pagination
+            page={currentPage}
+            totalPages={totalPages}
+            total={totalCount}
+            limit={pageSize}
+            onPageChange={setCurrentPage}
+            loading={loading}
+          />
         </>
       )}
 
-      {/* Invoice Details & Status Modal */}
+      {/* ── Invoice Details Modal ── */}
       {showDetailsModal && selectedInvoice && (
-        <div className="modal-backdrop">
-          <div className="modal modal--large fade-in">
+        <div className="modal-backdrop" onClick={() => setShowDetailsModal(false)} role="dialog" aria-modal="true" aria-label="Invoice details">
+          <div className="modal modal--large inv-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Invoice details: {selectedInvoice.invoice_number || `INV-${selectedInvoice.id}`}</h3>
+              <h3>Invoice: {selectedInvoice.invoice_number || `INV-${selectedInvoice.id}`}</h3>
               <button className="btn btn-ghost btn-icon" onClick={() => setShowDetailsModal(false)} aria-label="Close invoice details">
                 <X size={20} aria-hidden="true" />
               </button>
             </div>
-            <div className="modal-body stack-md">
-              <div className="form-row--2">
-                <div className="stack-xs">
-                  <span className="font-semibold text-accent">Customer Information</span>
-                  <div className="panel stack-xs bg-surface-2">
-                    <div><strong>Name:</strong> {selectedInvoice.customer_name}</div>
-                    <div><strong>Mobile:</strong> {selectedInvoice.customer_mobile || '—'}</div>
+            <div className="modal-body">
+              <div className="inv-modal__grid">
+                <div className="inv-modal__section">
+                  <span className="inv-modal__section-title">Customer Information</span>
+                  <div className="inv-modal__card">
+                    <div className="inv-modal__field"><strong>Name:</strong> {selectedInvoice.customer_name}</div>
+                    <div className="inv-modal__field"><strong>Mobile:</strong> {selectedInvoice.customer_mobile || '—'}</div>
                     {selectedInvoice.description && (
-                      <div><strong>Internal Notes:</strong> {selectedInvoice.description}</div>
+                      <div className="inv-modal__field"><strong>Notes:</strong> {selectedInvoice.description}</div>
                     )}
                   </div>
                 </div>
-
-                <div className="stack-xs">
-                  <span className="font-semibold text-accent">Invoice Tracking Details</span>
-                  <div className="panel stack-sm">
-                    <div className="form-row--2">
-                      <div className="stack-xs">
-                        <label htmlFor="invoice-status" className="label">Invoice Status</label>
-                        <select 
-                          id="invoice-status"
-                          name="invoiceStatus"
-                          className="input-field" 
-                          value={statusInput} 
-                          onChange={(e) => setStatusInput(e.target.value)}
-                        >
+                <div className="inv-modal__section">
+                  <span className="inv-modal__section-title">Invoice Tracking</span>
+                  <div className="inv-modal__card">
+                    <div className="inv-modal__field-row">
+                      <div className="inv-modal__field stack-xs">
+                        <label htmlFor="invoice-status" className="label">Status</label>
+                        <select id="invoice-status" className="input-field" value={statusInput} onChange={(e) => setStatusInput(e.target.value)}>
                           <option value="draft">Draft</option>
                           <option value="pending">Pending Payment</option>
                           <option value="sent">Sent to Customer</option>
@@ -547,54 +579,35 @@ const Invoices = () => {
                           <option value="on_hold">On Hold</option>
                         </select>
                       </div>
-                      <div className="stack-xs">
+                      <div className="inv-modal__field stack-xs">
                         <label htmlFor="invoice-due-date" className="label">Due Date</label>
-                        <input 
-                          id="invoice-due-date"
-                          name="invoiceDueDate"
-                          type="date" 
-                          className="input-field" 
-                          value={dueDateInput}
-                          onChange={(e) => setDueDateInput(e.target.value)}
-                        />
+                        <input id="invoice-due-date" type="date" className="input-field" value={dueDateInput} onChange={(e) => setDueDateInput(e.target.value)} />
                       </div>
                     </div>
-                    <div className="stack-xs">
-                      <label htmlFor="invoice-notes" className="label">Notes / Follow-up Notes</label>
-                      <input 
-                        id="invoice-notes"
-                        name="invoiceNotes"
-                        type="text" 
-                        className="input-field" 
-                        placeholder="Add details, email logs, calls..." 
-                        value={notesInput}
-                        onChange={(e) => setNotesInput(e.target.value)}
-                        autoComplete="off"
-                      />
+                    <div className="inv-modal__field stack-xs">
+                      <label htmlFor="invoice-notes" className="label">Notes</label>
+                      <input id="invoice-notes" type="text" className="input-field" placeholder="Add details, email logs, calls..." value={notesInput} onChange={(e) => setNotesInput(e.target.value)} autoComplete="off" />
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Order Items Table */}
-              <div className="stack-xs">
-                <span className="font-semibold text-accent">Line Items</span>
-                <div className="table-responsive">
+              <div className="inv-modal__section">
+                <span className="inv-modal__section-title">Line Items</span>
+                <div className="inv-modal__table-wrap">
                   <table className="table" style={{ width: '100%', fontSize: 13 }}>
                     <caption className="sr-only">Invoice line items</caption>
                     <thead>
                       <tr>
                         <th scope="col">Item Description</th>
-                        <th scope="col" className="text-right">Quantity</th>
+                        <th scope="col" className="text-right">Qty</th>
                         <th scope="col" className="text-right">Unit Price</th>
                         <th scope="col" className="text-right">Total</th>
                       </tr>
                     </thead>
                     <tbody>
                       {parsedOrderLines.length === 0 ? (
-                        <tr>
-                          <td colSpan="4" className="text-center muted">No detailed items recorded (Bulk Payment)</td>
-                        </tr>
+                        <tr><td colSpan="4" className="text-center muted">No detailed items recorded (Bulk Payment)</td></tr>
                       ) : (
                         parsedOrderLines.map((line, idx) => (
                           <tr key={idx}>
@@ -604,17 +617,10 @@ const Invoices = () => {
                                 const details = [];
                                 if (line.colour) details.push(`Color: ${line.colour}`);
                                 if (line.paper_preference) details.push(`Paper: ${line.paper_preference}`);
-                                if (line.numbering_from || line.numbering_to) {
-                                  details.push(`No: ${line.numbering_from || ''} - ${line.numbering_to || ''}`);
-                                }
+                                if (line.numbering_from || line.numbering_to) details.push(`No: ${line.numbering_from || ''} - ${line.numbering_to || ''}`);
                                 if (line.description) details.push(line.description);
                                 if (line.special_instructions) details.push(`Note: ${line.special_instructions}`);
-                                
-                                return details.length > 0 ? (
-                                  <div className="text-xs muted" style={{ marginTop: 2 }}>
-                                    {details.join(' | ')}
-                                  </div>
-                                ) : null;
+                                return details.length > 0 ? <div className="text-xs muted" style={{ marginTop: 2 }}>{details.join(' | ')}</div> : null;
                               })()}
                             </td>
                             <td className="text-right">{line.quantity}</td>
@@ -628,84 +634,71 @@ const Invoices = () => {
                 </div>
               </div>
 
-              {/* GST and Breakdown Summary */}
-              <div className="flex justify-end">
-                <div className="stack-xs" style={{ width: '320px', fontSize: 14 }}>
-                  <div className="flex-center-y justify-between">
+              <div className="inv-modal__totals">
+                <div className="inv-modal__totals-inner">
+                  <div className="inv-modal__total-row">
                     <span className="muted">Subtotal:</span>
                     <span>{formatCurrency(selectedInvoice.bill_amount || selectedInvoice.total_amount || 0, true)}</span>
                   </div>
                   {Number(selectedInvoice.discount_amount) > 0 && (
-                    <div className="flex-center-y justify-between text-success">
+                    <div className="inv-modal__total-row inv-modal__total-row--discount">
                       <span>Discount ({selectedInvoice.discount_percent}%):</span>
                       <span>-{formatCurrency(selectedInvoice.discount_amount, true)}</span>
                     </div>
                   )}
-                  <div className="flex-center-y justify-between font-semibold mt-xs">
+                  <div className="inv-modal__total-row inv-modal__total-row--sub">
                     <span>Taxable Amount (Net):</span>
                     <span>{formatCurrency(selectedInvoice.net_amount || (selectedInvoice.total_amount / 1.18), true)}</span>
                   </div>
-                  <div className="flex-center-y justify-between text-xs muted pl-sm">
+                  <div className="inv-modal__total-row inv-modal__total-row--tax">
                     <span>CGST (9%):</span>
                     <span>{formatCurrency(selectedInvoice.cgst_amount || ((selectedInvoice.total_amount / 1.18) * 0.09), true)}</span>
                   </div>
-                  <div className="flex-center-y justify-between text-xs muted pl-sm">
+                  <div className="inv-modal__total-row inv-modal__total-row--tax">
                     <span>SGST (9%):</span>
                     <span>{formatCurrency(selectedInvoice.sgst_amount || ((selectedInvoice.total_amount / 1.18) * 0.09), true)}</span>
                   </div>
-                  <div className="summary-divider mt-xs mb-xs"></div>
-                  <div className="flex-center-y justify-between font-bold text-lg">
+                  <div className="inv-modal__divider" />
+                  <div className="inv-modal__total-row inv-modal__total-row--grand">
                     <span>Invoice Total:</span>
                     <span className="text-accent">{formatCurrency(selectedInvoice.total_amount, true)}</span>
                   </div>
-                  <div className="flex-center-y justify-between text-success text-sm">
+                  <div className="inv-modal__total-row inv-modal__total-row--paid">
                     <span>Amount Paid:</span>
                     <span>{formatCurrency(selectedInvoice.advance_paid, true)}</span>
                   </div>
-                  <div className="flex-center-y justify-between text-danger font-bold text-sm">
+                  <div className="inv-modal__total-row inv-modal__total-row--balance">
                     <span>Balance Due:</span>
                     <span>{formatCurrency(selectedInvoice.balance_amount, true)}</span>
                   </div>
                 </div>
               </div>
             </div>
-            <div className="modal-footer flex-center-y justify-between">
-              <div className="flex gap-xs">
-                <button 
-                  className="btn btn-outline btn-with-icon" 
-                  onClick={() => handlePrint(selectedInvoice)}
-                >
+            <div className="modal-footer">
+              <div className="inv-modal__footer-left">
+                <button className="btn btn-secondary btn-with-icon" onClick={() => handlePrint(selectedInvoice)}>
                   <Printer size={16} /> Print
                 </button>
-                <button 
-                  className="btn btn-outline btn-with-icon" 
-                  onClick={() => handleDownload(selectedInvoice)}
-                >
+                <button className="btn btn-secondary btn-with-icon" onClick={() => handleDownload(selectedInvoice)}>
                   <Download size={16} /> Download PDF
                 </button>
               </div>
-              <div className="flex gap-xs">
+              <div className="inv-modal__footer-right">
                 {Number(selectedInvoice.balance_amount) > 0 && (
-                  <button 
-                    className="btn btn-accent btn-with-icon" 
-                    onClick={(e) => handleRecordPayment(selectedInvoice, e)}
-                  >
+                  <button className="btn btn-accent btn-with-icon" onClick={(e) => handleRecordPayment(selectedInvoice, e)}>
                     <CreditCard size={16} /> Record Payment
                   </button>
                 )}
-                <button 
-                  className="btn btn-primary" 
-                  onClick={handleUpdateInvoiceTracking}
-                  disabled={updatingStatus}
-                >
-                  {updatingStatus ? <Loader2 className="animate-spin mr-xxs" size={16} /> : null}
-                  Save Tracking Changes
+                <button className="btn btn-primary" onClick={handleUpdateInvoiceTracking} disabled={updatingStatus}>
+                  {updatingStatus ? <Loader2 className="spin" size={16} /> : null}
+                  {updatingStatus ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
             </div>
           </div>
         </div>
       )}
+      </div>
     </PageContainer>
     </SectionErrorBoundary>
   );
