@@ -1241,19 +1241,19 @@ tbody tr:last-child td { border-bottom: none; }
 
 .input-field:hover {
   border-color: var(--text-muted);
-  box-shadow: var(--input-shadow-hover, 0 1px 4px rgba(0,0,0,0.06));
+  box-shadow: var(--input-shadow-hover, 0 1px 4px rgba(0,0,0,0.08));
 }
 
 .input-field:focus {
   border-color: var(--ring);
   background: var(--surface);
-  box-shadow: var(--input-shadow-focus, 0 0 0 3px rgba(var(--accent-rgb), 0.1));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 20%, transparent);
 }
 
 .input-field:focus-visible {
   outline: none;
   border-color: var(--ring);
-  box-shadow: var(--input-shadow-focus, 0 0 0 3px rgba(var(--accent-rgb), 0.1));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 20%, transparent);
 }
 
 .input-field--icon { padding-left: 40px; }

@@ -140,7 +140,12 @@
 
 .inv-filters__clear-search:hover {
   background: var(--hover);
-  color: var(--text-primary);
+  color: var(--text-heading);
+  transform: scale(1.15);
+}
+
+.inv-filters__clear-search:active {
+  transform: scale(0.9);
 }
 
 .inv-filters__date {
@@ -209,16 +214,24 @@
 
 .inv-row {
   cursor: pointer;
-  transition: background var(--transition-fast);
+  transition: background 100ms ease, transform 80ms ease;
 }
 
 .inv-row:hover {
   background: var(--table-row-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+
+.inv-row:active {
+  transform: scale(0.995) translateY(0);
+  background: var(--surface-2);
 }
 
 .inv-row:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: -2px;
+  outline: 3px solid var(--ring);
+  outline-offset: -3px;
+  box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--ring) 20%, transparent);
 }
 
 .inv-row__invoice {

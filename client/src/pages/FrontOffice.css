@@ -63,13 +63,19 @@
   cursor: pointer;
   display: grid;
   place-items: center;
-  transition: all 0.15s;
+  transition: all 0.12s;
 }
 
 .fo-header-btn:hover {
-  background: var(--hover);
-  color: var(--text-primary);
-  border-color: var(--text-muted);
+  background: var(--surface-2);
+  color: var(--text-heading);
+  border-color: var(--text-heading);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.fo-header-btn:active {
+  transform: scale(0.92);
 }
 
 /* ── Alert Banner ── */
@@ -135,7 +141,7 @@
 
 .fo-search-input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(var(--accent-rgb, 99, 102, 241), 0.15);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 99, 102, 241), 0.2);
 }
 
 .fo-search-meta {
@@ -182,8 +188,13 @@
 }
 
 .fo-search-clear:hover {
-  background: var(--surface-hover);
-  color: var(--text-primary);
+  background: var(--hover);
+  color: var(--text-heading);
+  transform: scale(1.15);
+}
+
+.fo-search-clear:active {
+  transform: scale(0.9);
 }
 
 .fo-search-spinner {
@@ -285,13 +296,15 @@
 }
 
 .fo-primary-btn:hover {
-  filter: brightness(1.1);
-  transform: translateY(-0.5px);
-  box-shadow: 0 4px 12px rgba(var(--accent-rgb, 99, 102, 241), 0.3);
+  filter: brightness(1.15);
+  transform: translateY(-1.5px);
+  box-shadow: 0 6px 16px rgba(var(--accent-rgb, 99, 102, 241), 0.35);
 }
 
 .fo-primary-btn:active {
-  transform: scale(0.97);
+  transform: scale(0.95);
+  filter: brightness(0.9);
+  box-shadow: 0 2px 4px rgba(var(--accent-rgb, 99, 102, 241), 0.2);
 }
 
 .fo-primary-btn__kbd {
@@ -331,13 +344,15 @@
 }
 
 .fo-quick-action-card:hover {
-  transform: translateY(-1px);
+  transform: translateY(-2px);
   border-color: var(--text-muted);
   background: var(--surface-2);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 
 .fo-quick-action-card:active {
-  transform: scale(0.96);
+  transform: scale(0.94);
+  box-shadow: none;
 }
 
 .fo-quick-action-card--primary {
@@ -360,7 +375,7 @@
 }
 
 .fo-quick-action-card:hover .fo-quick-action-card__icon {
-  transform: scale(1.08);
+  transform: scale(1.15);
 }
 
 .fo-quick-action-card__label {
@@ -404,7 +419,12 @@
 
 .fo-kpi:hover {
   border-color: var(--text-muted);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.fo-kpi:active {
+  transform: scale(0.97);
 }
 
 .fo-kpi__icon {
@@ -484,6 +504,11 @@
 .fo-tab:hover {
   color: var(--text-primary);
   background: var(--surface);
+  transform: translateY(-1px);
+}
+
+.fo-tab:active {
+  transform: scale(0.96);
 }
 
 .fo-tab--active {
@@ -584,7 +609,12 @@
 }
 
 .fo-active-tab:hover {
-  color: var(--text-secondary);
+  color: var(--text-primary);
+  background: var(--surface);
+}
+
+.fo-active-tab:active {
+  transform: scale(0.95);
 }
 
 .fo-active-tab--active {
@@ -656,7 +686,11 @@
 }
 
 .fo-table tbody tr:hover {
-  background: var(--hover);
+  background: var(--table-row-hover);
+}
+
+.fo-table tbody tr:active {
+  background: var(--surface-2);
 }
 
 .fo-table tbody tr:last-child td {
@@ -860,18 +894,26 @@
 
 .fo-action-btn:hover {
   background: var(--hover);
-  color: var(--text-primary);
+  color: var(--text-heading);
   border-color: var(--text-muted);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+
+.fo-action-btn:active {
+  transform: scale(0.9);
 }
 
 .fo-action-btn--pay { color: var(--success); border-color: transparent; background: rgba(16, 185, 129, 0.08); }
-.fo-action-btn--pay:hover { background: rgba(16, 185, 129, 0.15); color: var(--success); }
+.fo-action-btn--pay:hover { background: rgba(16, 185, 129, 0.2); color: var(--success); border-color: var(--success); }
+.fo-action-btn--pay:active { background: rgba(16, 185, 129, 0.3); }
 
 .fo-action-btn--complete { color: var(--accent); border-color: transparent; background: rgba(var(--accent-rgb, 99, 102, 241), 0.08); }
-.fo-action-btn--complete:hover { background: rgba(var(--accent-rgb, 99, 102, 241), 0.15); color: var(--accent); }
+.fo-action-btn--complete:hover { background: rgba(var(--accent-rgb, 99, 102, 241), 0.2); color: var(--accent); border-color: var(--accent); }
+.fo-action-btn--complete:active { background: rgba(var(--accent-rgb, 99, 102, 241), 0.3); }
 
 .fo-action-btn--view { }
-.fo-action-btn--view:hover { color: var(--info); border-color: var(--info); }
+.fo-action-btn--view:hover { color: var(--info); border-color: var(--info); background: var(--surface); }
 
 /* ── Due Collection Cards ── */
 .fo-due-list {
@@ -894,6 +936,8 @@
 
 .fo-due-card:hover {
   border-color: var(--text-muted);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.06);
 }
 
 .fo-due-card__info {
@@ -987,6 +1031,7 @@
 
 .fo-payment-item:hover {
   border-color: var(--text-muted);
+  transform: translateX(2px);
 }
 
 .fo-payment-item__icon {
@@ -1049,6 +1094,10 @@
 }
 
 .fo-group-card__header:hover {
+  background: var(--surface-2);
+}
+
+.fo-group-card__header:active {
   background: var(--hover);
 }
 
@@ -1092,6 +1141,7 @@
 
 .fo-group-job:last-child { border-bottom: none; }
 .fo-group-job:hover { background: var(--hover); }
+.fo-group-job:active { background: var(--surface-2); }
 
 .fo-group-job__info {
   display: flex;
@@ -1286,6 +1336,12 @@
   background: var(--accent);
   color: var(--on-accent);
   border-color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.os-chip:active {
+  transform: scale(0.93);
 }
 
 .os-machines-table {
@@ -1307,7 +1363,8 @@
   transition: background 0.15s;
 }
 
-.os-machine-row:hover { background: var(--surface); }
+.os-machine-row:hover { background: var(--surface); transform: translateX(2px); }
+.os-machine-row:active { background: var(--hover); }
 .os-machine-row--error, .os-machine-row--invalid { background: var(--error-bg); }
 
 .os-machine-row__name {
