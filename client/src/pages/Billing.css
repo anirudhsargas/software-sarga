@@ -65,35 +65,80 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-6) 0 var(--space-2);
+  padding: var(--space-12) var(--space-20);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  gap: var(--space-12);
   flex-wrap: wrap;
-  gap: var(--space-8);
+  position: relative;
+}
+
+.billing-header::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(135deg, var(--accent-alpha) 0%, transparent 50%);
+  opacity: 0.4;
 }
 
 .billing-header__left {
   display: flex;
   align-items: center;
-  gap: var(--space-10);
+  gap: var(--space-12);
+  position: relative;
+  z-index: 1;
+}
+
+.billing-header__back {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.billing-header__back:hover {
+  background: var(--surface-2);
+  border-color: var(--text-muted);
+  color: var(--text);
+}
+
+.billing-header__back:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }
 
 .billing-header__title-group {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
 }
 
 .billing-header__title {
-  font-size: var(--text-xl);
+  font-size: var(--text-lg);
   font-weight: 700;
   margin: 0;
   letter-spacing: -0.02em;
+  color: var(--text-heading);
+  line-height: 1.3;
 }
 
 .billing-header__subtitle {
   font-size: var(--text-xs);
-  color: var(--muted);
+  color: var(--text-muted);
   margin: 0;
-  line-height: 1.3;
+  line-height: 1.4;
 }
 
 .billing-header__right {
@@ -101,6 +146,36 @@
   align-items: center;
   gap: var(--space-8);
   flex-wrap: wrap;
+  position: relative;
+  z-index: 1;
+}
+
+.billing-header__cta {
+  height: 40px;
+  padding: 0 var(--space-20);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  border-radius: var(--radius-md);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-fast);
+  letter-spacing: 0.01em;
+}
+
+.billing-header__cta:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.billing-header__cta:not(:disabled):active {
+  transform: translateY(0);
+}
+
+.billing-header__cta:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* ── Sticky Summary Bar ── */
@@ -1087,25 +1162,163 @@
   padding-top: var(--space-4);
 }
 
+/* ── Customer Type Selector ── */
+.customer-type-selector {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-12) var(--space-14);
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.customer-type-selector__label {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.customer-type-selector__chips {
+  display: flex;
+  gap: var(--space-8);
+  flex-wrap: wrap;
+}
+
+.customer-type-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-8) var(--space-16);
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-family: inherit;
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+.customer-type-chip:hover {
+  border-color: var(--text-muted);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.customer-type-chip:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.customer-type-chip--active {
+  border-color: var(--accent);
+  background: var(--accent-alpha);
+  color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-alpha);
+}
+
+.customer-type-chip--active:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.customer-type-chip__check {
+  flex-shrink: 0;
+}
+
+.customer-type-chip__label {
+  line-height: 1;
+}
+
+/* ── Create Invoice CTA (Summary) ── */
+.billing-cta {
+  width: 100%;
+  padding: var(--space-16) var(--space-24);
+  font-size: var(--text-base);
+  font-weight: 700;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-10);
+  margin-top: var(--space-8);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-fast);
+  min-height: 52px;
+}
+
+.billing-cta:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.billing-cta:not(:disabled):active {
+  transform: translateY(0);
+}
+
+.billing-cta:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.billing-cta:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
 /* ── Responsive ── */
+@media (max-width: 1024px) {
+  .billing-header__title {
+    font-size: var(--text-base);
+  }
+
+  .billing-header__subtitle {
+    display: none;
+  }
+}
+
 @media (max-width: 768px) {
   .billing-header {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
+    padding: var(--space-12) var(--space-16);
+    gap: var(--space-10);
+  }
+
+  .billing-header__left {
+    gap: var(--space-10);
   }
 
   .billing-header__title {
-    font-size: var(--text-lg);
+    font-size: var(--text-base);
+  }
+
+  .billing-header__subtitle {
+    display: none;
   }
 
   .billing-header__right {
     width: 100%;
+    justify-content: flex-end;
+  }
+
+  .billing-header__cta {
+    height: 36px;
+    padding: 0 var(--space-14);
+    font-size: var(--text-xs);
   }
 
   .billing-summary-bar {
     flex-wrap: wrap;
     gap: var(--space-8);
     top: 0;
+    padding: var(--space-6) var(--space-10);
   }
 
   .billing-section {
@@ -1134,56 +1347,269 @@
   .billing-bottom-bar__right .btn {
     width: 100%;
   }
+
+  .customer-type-selector {
+    padding: var(--space-10) var(--space-12);
+  }
+
+  .customer-type-chip {
+    flex: 1;
+    justify-content: center;
+    min-height: 40px;
+    padding: var(--space-6) var(--space-10);
+    font-size: var(--text-xs);
+  }
+
+  .billing-cta {
+    padding: var(--space-14) var(--space-20);
+    font-size: var(--text-sm);
+    min-height: 48px;
+  }
 }
 
-/* ── Tabs (segmented control style) ── */
-.billing-tabs {
+@media (max-width: 480px) {
+  .billing-header__right .btn-ghost {
+    display: none;
+  }
+
+  .billing-header__back {
+    width: 32px;
+    height: 32px;
+  }
+
+  .customer-type-selector__chips {
+    gap: var(--space-6);
+  }
+
+  .customer-type-chip {
+    padding: var(--space-4) var(--space-8);
+    font-size: 11px;
+    min-height: 36px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .billing-step,
+  .billing-step-number,
+  .billing-steps-progress-bar,
+  .billing-header__cta,
+  .billing-cta,
+  .customer-type-chip,
+  .billing-header__back {
+    transition: none !important;
+  }
+
+  .billing-steps-progress-bar {
+    transition: none !important;
+  }
+}
+
+/* ── Premium Step Progress ── */
+.billing-steps {
   display: flex;
-  width: 100%;
-  background: var(--surface-2);
+  align-items: flex-start;
+  position: relative;
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
-  gap: var(--space-4);
-  margin-bottom: var(--space-8);
+  border-radius: var(--radius-lg);
+  padding: var(--space-16) var(--space-20);
+  gap: 0;
+  overflow: hidden;
 }
 
-.billing-tab {
-  flex: 1;
-  display: inline-flex;
+.billing-step {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  gap: var(--space-8);
-  padding: var(--space-10) var(--space-16);
-  border-radius: var(--radius-sm);
-  border: 1px solid transparent;
+  gap: var(--space-10);
+  padding: var(--space-10) var(--space-14);
+  border: none;
   background: transparent;
   cursor: pointer;
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  transition: all var(--transition-fast);
+  border-radius: var(--radius-md);
+  font-family: inherit;
+}
+
+.billing-step:hover {
+  background: var(--surface-2);
+}
+
+.billing-step:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.billing-step--active {
+  background: var(--accent-alpha);
+}
+
+.billing-step--active:hover {
+  background: var(--accent-soft);
+}
+
+.billing-step-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+.billing-step-number {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  border: 2px solid var(--border);
+  transition: all var(--transition-fast);
+}
+
+.billing-step--active .billing-step-number {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-alpha);
+}
+
+.billing-step--completed .billing-step-number {
+  background: var(--success);
+  color: var(--on-accent);
+  border-color: var(--success);
+}
+
+.billing-step-icon-completed {
+  color: var(--success);
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.1));
+}
+
+.billing-step-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.billing-step-label {
   font-size: var(--text-sm);
   font-weight: 600;
-  color: var(--muted);
-  transition: all 0.2s ease-in-out;
-  text-align: center;
+  color: var(--text-muted);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color var(--transition-fast);
 }
 
-.billing-tab:hover {
-  background: var(--surface);
-  color: var(--text);
-}
-
-.billing-tab--active {
-  background: var(--surface);
+.billing-step--active .billing-step-label {
   color: var(--accent);
-  border-color: var(--border);
-  box-shadow: var(--shadow-sm);
+  font-weight: 700;
 }
 
-.dark .billing-tab--active {
-  background: var(--surface);
-  color: var(--secondary);
+.billing-step--completed .billing-step-label {
+  color: var(--success);
+}
+
+.billing-step-desc {
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  max-height: 0;
+  transition: all var(--transition-fast);
+}
+
+.billing-step--active .billing-step-desc {
+  opacity: 0.8;
+  max-height: 20px;
+}
+
+.billing-step--completed .billing-step-desc {
+  opacity: 0.6;
+  max-height: 20px;
+  color: var(--success);
+}
+
+.billing-step-connector {
+  display: none;
+}
+
+/* Progress bar at bottom of steps */
+.billing-steps-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--surface-2);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  overflow: hidden;
+}
+
+.billing-steps-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent) 0%, var(--accent-soft) 100%);
+  border-radius: inherit;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 @media (max-width: 768px) {
-  .billing-toolbar { flex-direction: column; gap: var(--space-12); }
-  .billing-grid { grid-template-columns: 1fr; }
+  .billing-steps {
+    padding: var(--space-12);
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+
+  .billing-step {
+    flex: 1 1 auto;
+    padding: var(--space-8) var(--space-10);
+    min-width: 0;
+  }
+
+  .billing-step-content {
+    display: none;
+  }
+
+  .billing-step--active .billing-step-content {
+    display: flex;
+  }
+
+  .billing-step-indicator {
+    width: 28px;
+    height: 28px;
+  }
+
+  .billing-step-number {
+    width: 24px;
+    height: 24px;
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .billing-step {
+    flex: 1;
+    justify-content: center;
+    padding: var(--space-6);
+  }
+
+  .billing-step-content {
+    display: none;
+  }
+
+  .billing-step--active .billing-step-content {
+    display: flex;
+  }
 }

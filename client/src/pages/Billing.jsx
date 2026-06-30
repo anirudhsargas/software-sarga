@@ -6,14 +6,15 @@ import {
   Search, X, Plus, Minus, Trash2, Copy, Camera, QrCode, Clock, Star, FileText, Printer,
   ChevronDown, ChevronUp, ShoppingCart, User, CreditCard, Save, Eye, Check, AlertCircle,
   Loader2, Building2, Hash, Calendar, UserCheck, Phone, Mail, MapPin, Percent, IndianRupee,
-  RotateCcw, MessageSquare, Zap, ScanLine, Image, Package, Tag, Upload, ArrowLeft, Users
+  RotateCcw, MessageSquare, Zap, ScanLine, Image, Package, Tag, Upload, ArrowLeft, Users,
+  ChevronRight, Circle, CheckCircle2
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import QRCode from 'qrcode';
 import api from '../services/api';
 import localDb from '../services/localDb';
 import auth from '../services/auth';
-import {} from '../constants';
+import { CUSTOMER_TYPES } from '../constants';
 import { printInvoicePDF } from '../utils/invoicePdf';
 import { useConfirm } from '../contexts/ConfirmContext';
 import { calculateProductPrice } from '../utils/pricing';
@@ -66,6 +67,14 @@ const DEFAULT_DISCOUNT_LIMIT = 15;
 
 // Job type options
 const JOB_TYPE_OPTIONS = ['Offset', 'Laser', 'Digital', 'Flex', 'ID Card', 'Binding', 'Lamination', 'Other'];
+
+// Customer types usable in invoice creation (from constants + Billing compat)
+const BILLING_CUSTOMER_TYPES = [
+  { value: 'Retail', label: 'Retail', description: 'Regular walk-in retail customer' },
+  { value: 'Walk-in', label: 'Walk-in', description: 'One-time walk-in with full payment' },
+  { value: 'Offset', label: 'Offset', description: 'Offset printing customer' },
+  { value: 'Credit', label: 'Credit', description: 'Business / credit account customer' },
+];
 
 // Billing tabs definition
 const BILLING_TABS = [
@@ -292,6 +301,28 @@ const Billing = () => {
       setStaffOptions(all.filter(s => s.role !== 'Front Office' && s.role !== 'Accountant'));
     }).catch(() => {});
   }, []);
+
+  // ── Customer Prefill from Customers page (Walk-in Job, New Job buttons) ──
+  useEffect(() => {
+    const customer = location.state?.customer;
+    if (customer) {
+      const prefillType = BILLING_CUSTOMER_TYPES.find(t => t.value === customer.type) ? customer.type : form.type;
+      setForm(p => ({
+        ...p,
+        type: prefillType,
+        mobile: customer.mobile || p.mobile,
+        name: customer.name || p.name,
+        email: customer.email || p.email,
+        address: customer.address || p.address,
+        gst: customer.gst || customer.gstin || p.gst,
+      }));
+      if (customer.id) {
+        setExistingCustomer({ id: customer.id, name: customer.name, mobile: customer.mobile, type: customer.type });
+      }
+      // Clear state so re-render doesn't re-trigger
+      window.history.replaceState({}, document.title);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Shortcut Prefill ──
   useEffect(() => {
@@ -886,13 +917,37 @@ const Billing = () => {
     <PageContainer className="billing-page">
       {/* HEADER */}
       <header className="billing-header">
-        <div className="billing-header__left" />
+        <div className="billing-header__left">
+          <button
+            className="btn btn-ghost btn-sm billing-header__back"
+            onClick={() => navigate('/dashboard/sales/invoices')}
+            aria-label="Back to invoices"
+          >
+            <ArrowLeft size={16} aria-hidden="true" />
+          </button>
+          <div className="billing-header__title-group">
+            <h1 className="billing-header__title">New Customer Invoice</h1>
+            <p className="billing-header__subtitle">Create a new invoice for retail, walk-in, offset or credit customer</p>
+          </div>
+        </div>
         <div className="billing-header__right">
-          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/dashboard/shortcuts')} title="Quick Bill Shortcuts"><Zap size={15} aria-hidden="true" /> Shortcuts</button>
-          <button className="btn btn-ghost btn-sm" onClick={() => { setShowRecentBills(true); fetchRecentBills(); }}><Clock size={15} aria-hidden="true" /> Recent</button>
-          <button className="btn btn-ghost btn-sm" onClick={handleChangeCustomer}><User size={15} aria-hidden="true" /> New Customer</button>
-          <button className="btn btn-primary btn-sm" onClick={handleAddOrder} disabled={saving || !canProceed}>
-            {saving ? <Loader2 size={15} className="animate-spin" aria-hidden="true" /> : <Zap size={15} aria-hidden="true" />} Create Invoice
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/dashboard/shortcuts')} title="Quick Bill Shortcuts">
+            <Zap size={15} aria-hidden="true" /> Shortcuts
+          </button>
+          <button className="btn btn-ghost btn-sm" onClick={() => { setShowRecentBills(true); fetchRecentBills(); }}>
+            <Clock size={15} aria-hidden="true" /> Recent
+          </button>
+          <button className="btn btn-secondary btn-sm" onClick={handleChangeCustomer}>
+            <User size={15} aria-hidden="true" /> New Customer
+          </button>
+          <button
+            className="btn btn-primary billing-header__cta"
+            onClick={handleAddOrder}
+            disabled={saving || !canProceed}
+            aria-label="Create Invoice"
+          >
+            {saving ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <Zap size={16} aria-hidden="true" />}
+            <span>Create Invoice</span>
           </button>
         </div>
       </header>
@@ -936,29 +991,71 @@ const Billing = () => {
       {/* ERROR */}
       {error && <div className="billing-error"><AlertCircle size={16} aria-hidden="true" /> {error}</div>}
 
-      {/* TABS NAVIGATION */}
-      <div className="billing-tabs">
-        {BILLING_TABS.map(t => {
+      {/* PREMIUM STEP PROGRESS NAVIGATION */}
+      <nav className="billing-steps" aria-label="Invoice creation steps">
+        {BILLING_TABS.map((t, idx) => {
           const Icon = t.icon;
+          const isActive = activeTab === t.key;
+          const isCompleted = BILLING_TABS.findIndex(s => s.key === activeTab) > idx;
+          const stepNumber = idx + 1;
           return (
             <button
               key={t.key}
               type="button"
-              className={`billing-tab ${activeTab === t.key ? 'billing-tab--active' : ''}`}
+              className={`billing-step ${isActive ? 'billing-step--active' : ''} ${isCompleted ? 'billing-step--completed' : ''}`}
               onClick={() => setActiveTab(t.key)}
+              aria-current={isActive ? 'step' : undefined}
+              aria-label={`${t.label}${isCompleted ? ' (completed)' : ''}${isActive ? ' (current step)' : ''}`}
             >
-              <Icon size={14} />
-              <span>{t.label}</span>
+              <span className="billing-step-indicator">
+                {isCompleted ? (
+                  <CheckCircle2 size={18} aria-hidden="true" className="billing-step-icon-completed" />
+                ) : (
+                  <span className="billing-step-number">{stepNumber}</span>
+                )}
+              </span>
+              <span className="billing-step-content">
+                <span className="billing-step-label">{t.label}</span>
+                <span className="billing-step-desc">{isActive ? 'Current step' : isCompleted ? 'Completed' : ''}</span>
+              </span>
+              {idx < BILLING_TABS.length - 1 && (
+                <span className="billing-step-connector" aria-hidden="true" />
+              )}
             </button>
           );
         })}
-      </div>
+        <div className="billing-steps-progress" role="progressbar" aria-valuenow={BILLING_TABS.findIndex(s => s.key === activeTab) + 1} aria-valuemin={1} aria-valuemax={BILLING_TABS.length}>
+          <div className="billing-steps-progress-bar" style={{ width: `${((BILLING_TABS.findIndex(s => s.key === activeTab) + 1) / BILLING_TABS.length) * 100}%` }} />
+        </div>
+      </nav>
 
       {/* CUSTOMER SECTION */}
       <div className="billing-section billing-section--customer" style={{ display: activeTab === 'customer' ? 'flex' : 'none' }}>
         <div className="billing-section__header"><User size={16} aria-hidden="true" /> <h2>Customer</h2></div>
 
-
+        {/* CUSTOMER TYPE SELECTOR */}
+        <div className="customer-type-selector" role="radiogroup" aria-label="Customer type">
+          <span className="customer-type-selector__label">Customer Type</span>
+          <div className="customer-type-selector__chips">
+            {BILLING_CUSTOMER_TYPES.map(ct => {
+              const isSelected = form.type === ct.value;
+              return (
+                <button
+                  key={ct.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={isSelected}
+                  className={`customer-type-chip ${isSelected ? 'customer-type-chip--active' : ''}`}
+                  onClick={() => setForm(p => ({ ...p, type: ct.value }))}
+                  title={ct.description}
+                >
+                  {isSelected && <Check size={12} aria-hidden="true" className="customer-type-chip__check" />}
+                  <span className="customer-type-chip__label">{ct.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
         {/* Search existing customer */}
         <div className="autocomplete-wrapper" style={{ position: 'relative' }}>
@@ -1617,14 +1714,16 @@ const Billing = () => {
 
         {/* Primary Create Invoice CTA */}
         <button
-          className="btn btn-primary billing-summary-final__cta"
+          className="btn btn-primary billing-cta"
           onClick={handleAddOrder}
           disabled={saving || !canProceed}
           aria-label="Create Invoice"
         >
-          {saving
-            ? <><Loader2 size={18} className="animate-spin" aria-hidden="true" /> Creating Invoice...</>
-            : <><Zap size={18} aria-hidden="true" /> Create Invoice</>}
+          {saving ? (
+            <><Loader2 size={20} className="animate-spin" aria-hidden="true" /> Creating Invoice...</>
+          ) : (
+            <><Zap size={20} aria-hidden="true" /> <span>Create Invoice</span></>
+          )}
         </button>
 
         {!canProceed && orderLines.length === 0 && (
