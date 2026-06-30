@@ -414,7 +414,7 @@ const EmployeeDetail = () => {
     const handleSaveProfile = async () => {
         setSaving(true);
         try {
-            await api.put(`/users/${staffId}`, editData);
+            await api.put(`/staff/${staffId}`, editData);
             setEmployee(prev => ({ ...prev, ...editData }));
             setEditMode(false);
             toast.success('Profile updated');
