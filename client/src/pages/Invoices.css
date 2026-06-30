@@ -177,20 +177,7 @@
 .inv-create-view {
   display: flex;
   flex-direction: column;
-  gap: var(--space-16);
-}
-
-.inv-create-header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-16);
-}
-
-.inv-create-header h2 {
-  font-size: var(--text-lg);
-  font-weight: 700;
-  color: var(--text-heading);
-  margin: 0;
+  gap: 0;
 }
 
 .inv-create-loading {

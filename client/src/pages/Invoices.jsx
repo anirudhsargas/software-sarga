@@ -288,12 +288,6 @@ const Invoices = () => {
       <div className="inv-page">
       {viewMode === 'create' ? (
         <div className="inv-create-view">
-          <div className="inv-create-header">
-            <button className="btn btn-secondary btn-with-icon" onClick={() => navigate('/dashboard/sales/invoices')}>
-              <ArrowLeft size={16} /> Back to Invoices
-            </button>
-            <h2>New Customer Invoice</h2>
-          </div>
           <React.Suspense fallback={
             <div className="inv-create-loading">
               <Loader2 className="spin" size={20} /> Loading billing…

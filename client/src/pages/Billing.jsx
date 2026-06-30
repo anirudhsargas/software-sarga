@@ -919,11 +919,12 @@ const Billing = () => {
       <header className="billing-header">
         <div className="billing-header__left">
           <button
-            className="btn btn-ghost btn-sm billing-header__back"
+            className="btn btn-secondary btn-with-icon"
             onClick={() => navigate('/dashboard/sales/invoices')}
-            aria-label="Back to invoices"
+            title="Back to Invoices"
+            aria-label="Back to Invoices"
           >
-            <ArrowLeft size={16} aria-hidden="true" />
+            <ArrowLeft size={16} /> Back to Invoices
           </button>
           <div className="billing-header__title-group">
             <h1 className="billing-header__title">New Customer Invoice</h1>

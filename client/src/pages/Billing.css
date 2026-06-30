@@ -93,32 +93,6 @@
   z-index: 1;
 }
 
-.billing-header__back {
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  flex-shrink: 0;
-}
-
-.billing-header__back:hover {
-  background: var(--surface-2);
-  border-color: var(--text-muted);
-  color: var(--text);
-}
-
-.billing-header__back:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: 2px;
-}
-
 .billing-header__title-group {
   display: flex;
   flex-direction: column;
@@ -1373,11 +1347,6 @@
     display: none;
   }
 
-  .billing-header__back {
-    width: 32px;
-    height: 32px;
-  }
-
   .customer-type-selector__chips {
     gap: var(--space-6);
   }
@@ -1395,8 +1364,7 @@
   .billing-steps-progress-bar,
   .billing-header__cta,
   .billing-cta,
-  .customer-type-chip,
-  .billing-header__back {
+  .customer-type-chip {
     transition: none !important;
   }
 
