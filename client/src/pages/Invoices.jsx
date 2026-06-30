@@ -320,7 +320,6 @@ const Invoices = () => {
               </button>
               <div className="inv-header__titles">
                 <h1>Customer Invoices</h1>
-                <p className="muted">Track customer billing payments, due tracking, and print receipts</p>
               </div>
             </div>
             <div className="inv-header__actions">
