@@ -60,3 +60,5 @@ test_*.js
 tools/config.json
 tools/images/
 tools/attendance_log.txt
+
+opencode.json
