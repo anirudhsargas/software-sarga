@@ -2,7 +2,7 @@ import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useDebounce } from '../hooks/useDebounce';
 import { useNavigate } from 'react-router-dom';
-import { Users, Search, Phone, User, Loader2, Plus, X, Edit2, Trash2, Filter, Mail, MapPin, ChevronDown } from 'lucide-react';
+import { Users, Search, Phone, User, Loader2, Plus, X, Edit2, Trash2, Filter, Mail, MapPin, ChevronDown, SlidersHorizontal, RefreshCw, Download, Columns, LayoutGrid, List, ChevronRight, UserPlus, Briefcase } from 'lucide-react';
 import auth from '../services/auth';
 import api from '../services/api';
 import localDb from '../services/localDb';
@@ -577,17 +577,32 @@ const Customers = () => {
         calculateDynamicPrice(selectedProduct, jobData.quantity, next, jobData.customPaperRate);
     };
 
+    const hasActiveFilters = searchQuery || typeFilter;
+    const getOutstandingStatus = (amount) => {
+        if (amount <= 0) return 'none';
+        if (amount > 10000) return 'due';
+        if (amount > 0) return 'partial';
+        return 'none';
+    };
+
+    const [searchFocused, setSearchFocused] = useState(false);
+
     return (
         <PageContainer>
-            <header className="page-header flex justify-between items-center flex-wrap gap-md p-16 rounded-xl shadow-sm mb-24" style={{ background: 'var(--card)' }}>
-                <div className="flex items-center gap-sm">
-                    <h1 className="page-title" style={{ fontSize: 20 }}>
-                        <Users className="text-heading" aria-hidden="true" size={20} /> Customer Management
-                    </h1>
+            {/* ═══ Premium Header ═══ */}
+            <header className="customer-header">
+                <div className="customer-header-left">
+                    <div className="customer-header-icon">
+                        <Users size={24} />
+                    </div>
+                    <div className="customer-header-text">
+                        <h1>Customer Management</h1>
+                        <p>Manage customers, quotations, invoices and walk-in jobs</p>
+                    </div>
                 </div>
-                <div className="flex gap-sm flex-wrap">
+                <div className="customer-header-actions">
                     <button
-                        className="btn btn-ghost touch-target"
+                        className="btn-walkin"
                         onClick={() => {
                             navigate('/dashboard/sales/invoices', {
                                 state: {
@@ -606,34 +621,45 @@ const Customers = () => {
                         }}
                         aria-label="Create walk-in job"
                     >
-                        <Plus size={18} aria-hidden="true" /> Walk-in Job
+                        <Briefcase size={18} /> Walk-in Job
                     </button>
-                    <button className="btn btn-primary" onClick={() => { setAddFormDirty(false); setShowAddModal(true); }}>
-                        <Plus size={18} aria-hidden="true" /> Add Customer
+                    <button className="btn-add-customer" onClick={() => { setAddFormDirty(false); setShowAddModal(true); }}>
+                        <UserPlus size={18} /> Add Customer
                     </button>
                 </div>
             </header>
 
-            <div className="customer-search-bar">
-                <div className="search-input-wrapper">
-                    <Search size={16} className="search-input-icon" aria-hidden="true" />
+            {/* ═══ Filter Toolbar ═══ */}
+            <div className="customer-filters">
+                <div className="customer-search">
+                    <Search size={18} className="search-icon" />
                     <label htmlFor="customer-search" className="sr-only">Search customers</label>
                     <input
                         id="customer-search"
-                        name="customerSearch"
                         type="text"
-                        className="input-field"
-                        placeholder="Search by name or mobile..."
+                        className="search-input"
+                        placeholder="Search customer name, phone, jobs..."
                         value={searchInput}
                         onChange={e => setSearchInput(e.target.value)}
+                        onFocus={() => setSearchFocused(true)}
+                        onBlur={() => setSearchFocused(false)}
                         autoComplete="off"
                     />
+                    <button
+                        className={`search-clear ${searchInput ? 'search-clear--visible' : ''}`}
+                        onClick={() => setSearchInput('')}
+                        aria-label="Clear search"
+                    >
+                        <X size={14} />
+                    </button>
+                    {!searchInput && !searchFocused && (
+                        <span className="search-shortcut">⌘K</span>
+                    )}
                 </div>
-                <div className="flex items-center gap-xs bg-surface-2 border rounded-lg px-3" style={{ flexShrink: 0, height: 44 }}>
-                    <Filter size={14} aria-hidden="true" style={{ color: 'var(--muted)' }} />
+
+                <div className="filter-control">
+                    <Filter size={14} className="filter-control-icon" />
                     <select
-                        className="input-field"
-                        style={{ border: 'none', background: 'transparent', height: '100%', padding: '0 4px', minWidth: 130, fontSize: 13 }}
                         value={typeFilter}
                         onChange={e => { setTypeFilter(e.target.value); setPage(1); }}
                         aria-label="Filter by customer type"
@@ -644,113 +670,171 @@ const Customers = () => {
                         ))}
                     </select>
                 </div>
-                <button className="btn btn-ghost" style={{ height: 44, width: 44, padding: 0 }} onClick={() => { setSearchInput(''); setTypeFilter(''); setPage(1); }} aria-label="Clear filters">
-                    <X size={14} aria-hidden="true" />
+
+                <button
+                    className={`btn-filter-advanced ${hasActiveFilters ? 'btn-filter-advanced--active' : ''}`}
+                    onClick={() => { setSearchInput(''); setTypeFilter(''); setPage(1); }}
+                >
+                    <SlidersHorizontal size={14} />
+                    <span>Filters</span>
+                    {hasActiveFilters && <span className="filter-badge">1</span>}
                 </button>
-                <div className="density-toggle-container" style={{ height: 44, display: 'flex', alignItems: 'center', marginLeft: 'auto' }}>
-                    <button
-                        className={`density-btn ${density === 'comfortable' ? 'density-btn--active' : ''}`}
-                        onClick={() => toggleDensity('comfortable')}
-                        title="Comfortable view"
-                    >
-                        Comfortable
+
+                {hasActiveFilters && (
+                    <button className="btn-clear-filters" onClick={() => { setSearchInput(''); setTypeFilter(''); setPage(1); }}>
+                        <X size={14} /> Clear
                     </button>
-                    <button
-                        className={`density-btn ${density === 'compact' ? 'density-btn--active' : ''}`}
-                        onClick={() => toggleDensity('compact')}
-                        title="Compact view"
-                    >
-                        Compact
+                )}
+            </div>
+
+            {/* ═══ Table Toolbar ═══ */}
+            <div className="customer-table-toolbar">
+                <div className="customer-table-toolbar-left">
+                    <span className="customer-count">{total}</span> customer{total !== 1 ? 's' : ''}
+                    {loading && <Loader2 size={14} className="animate-spin" />}
+                </div>
+                <div className="customer-table-toolbar-right">
+                    <div className="density-toggle">
+                        <button
+                            className={`density-btn ${density === 'comfortable' ? 'density-btn--active' : ''}`}
+                            onClick={() => toggleDensity('comfortable')}
+                            title="Comfortable view"
+                        >
+                            <List size={14} /> Normal
+                        </button>
+                        <button
+                            className={`density-btn ${density === 'compact' ? 'density-btn--active' : ''}`}
+                            onClick={() => toggleDensity('compact')}
+                            title="Compact view"
+                        >
+                            <LayoutGrid size={14} /> Compact
+                        </button>
+                    </div>
+                    <button className="toolbar-btn toolbar-btn--icon" title="Export" onClick={() => {}}>
+                        <Download size={14} />
+                    </button>
+                    <button className="toolbar-btn toolbar-btn--icon" title="Columns" onClick={() => {}}>
+                        <Columns size={14} />
+                    </button>
+                    <button className="toolbar-btn toolbar-btn--icon" title="Refresh" onClick={() => fetchCustomers(page)}>
+                        <RefreshCw size={14} />
                     </button>
                 </div>
             </div>
 
-            <div className="card p-0 overflow-hidden shadow-sm" style={{ contain: 'layout', minHeight: '600px' }}>
-                <div className="customer-table-header">
-                    <div></div> {/* Avatar */}
-                    <div>Customer</div>
-                    <div>Phone</div>
-                    <div>Outstanding</div>
-                    <div className="customer-col-lastorder">Last Order</div>
-                    <div>Actions</div>
-                    <div></div> {/* Expand */}
-                </div>
-                <div className="customer-list" style={{ display: 'flex', flexDirection: 'column' }}>
+            {/* ═══ Customer Table Card ═══ */}
+            <div className="customer-table-card">
+                {!loading && customers.length > 0 && (
+                    <div className="customer-table-grid">
+                        <div className="customer-table-header-cell"></div>
+                        <div className="customer-table-header-cell">Customer</div>
+                        <div className="customer-table-header-cell">Phone</div>
+                        <div className="customer-table-header-cell">Outstanding</div>
+                        <div className="customer-table-header-cell">Last Order</div>
+                        <div className="customer-table-header-cell">Actions</div>
+                        <div className="customer-table-header-cell"></div>
+                    </div>
+                )}
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
                 {loading && customers.length === 0 ? (
-                    <SkeletonLoader type="customer-list" count={8} />
+                    Array.from({ length: 8 }).map((_, i) => (
+                        <div key={i} className="customer-skeleton-row">
+                            <div><div className="skeleton-pulse skeleton-circle" /></div>
+                            <div>
+                                <div className="skeleton-pulse skeleton-text" />
+                                <div className="skeleton-pulse skeleton-text-sm" />
+                            </div>
+                            <div><div className="skeleton-pulse skeleton-text-short" /></div>
+                            <div><div className="skeleton-pulse skeleton-text-short" /></div>
+                            <div><div className="skeleton-pulse skeleton-text" style={{ width: '40%' }} /></div>
+                            <div><div className="skeleton-pulse skeleton-text" style={{ width: '50%' }} /></div>
+                            <div><div className="skeleton-pulse" style={{ width: 24, height: 24, borderRadius: 6 }} /></div>
+                        </div>
+                    ))
                 ) : error && customers.length === 0 ? (
                     <ServerError onRetry={fetchCustomers} message={error} />
                 ) : customers.length === 0 ? (
-                    <div className="text-center p-40 muted">No customers found.</div>
+                    <div className="customer-empty-state">
+                        <div className="customer-empty-icon">
+                            <Users size={32} />
+                        </div>
+                        <h2 className="customer-empty-title">No customers found</h2>
+                        <p className="customer-empty-text">
+                            {searchQuery || typeFilter
+                                ? 'Try adjusting your search or filter criteria to find what you\'re looking for.'
+                                : 'Get started by adding your first customer to manage orders, quotations and invoices.'}
+                        </p>
+                        <div className="customer-empty-action">
+                            {searchQuery || typeFilter ? (
+                                <button className="btn-clear-filters" onClick={() => { setSearchInput(''); setTypeFilter(''); setPage(1); }}>
+                                    <X size={14} /> Clear Filters
+                                </button>
+                            ) : (
+                                <button className="btn-add-customer" onClick={() => { setAddFormDirty(false); setShowAddModal(true); }}>
+                                    <UserPlus size={18} /> Add Customer
+                                </button>
+                            )}
+                        </div>
+                    </div>
                 ) : customers.map((c, _idx) => {
                     const isExpanded = !!expandedRows[c.id];
                     const outstanding = Number(c.outstanding_balance || 0);
+                    const outstandingStatus = getOutstandingStatus(outstanding);
                     const formattedLastOrder = c.last_order_date
                         ? new Date(c.last_order_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-                        : 'Never ordered';
+                        : null;
                     
                     return (
-                        <div key={c.id} className="customer-table-row-container">
+                        <div key={c.id} className="customer-row-container">
                             <div
-                                className={`customer-table-row customer-table-row--${density}`}
+                                className={`customer-row customer-row--${density}`}
                                 onClick={() => navigate(`/dashboard/customers/${c.id}`)}
-                                style={{ cursor: 'pointer' }}
                             >
                                 {/* Avatar */}
-                                <div className="customer-col-avatar">
-                                    <div className="avatar-wrap" style={{
-                                        width: density === 'compact' ? 32 : 40,
-                                        height: density === 'compact' ? 32 : 40,
-                                        borderRadius: '50%',
-                                        background: 'var(--accent-soft)',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        fontWeight: 700,
-                                        color: 'var(--accent)',
-                                        textTransform: 'uppercase',
-                                        fontSize: density === 'compact' ? 12 : 14
-                                    }}>
+                                <div className="customer-avatar">
+                                    <div className="avatar-circle">
                                         {c.name?.charAt(0) || '?'}
                                     </div>
                                 </div>
 
                                 {/* Customer Info */}
-                                <div className="customer-col-info">
-                                    <span className="customer-col-name" title={c.name}>{c.name}</span>
-                                    <div className="customer-col-type">
-                                        <span className={`badge badge--${c.type.toLowerCase().replace(' ', '')}`} style={{ fontSize: 10, padding: '2px 6px' }}>
-                                            {c.type}
-                                        </span>
-                                    </div>
+                                <div className="customer-info" onClick={e => e.stopPropagation()}>
+                                    <span className="customer-name" title={c.name}>{c.name}</span>
+                                    <span className={`customer-type-badge customer-type-badge--${(c.type || 'walk-in').toLowerCase().replace(' ', '-')}`}>
+                                        {c.type || 'Walk-in'}
+                                    </span>
                                 </div>
 
                                 {/* Phone */}
-                                <div className="customer-col-phone" onClick={e => e.stopPropagation()}>
-                                    <span>{formatForDisplay(c.mobile)}</span>
-                                    <a href={telHref(c.mobile)} title="Call" style={{ color: 'var(--success)', display: 'flex', alignItems: 'center' }}>
-                                        <Phone size={14} aria-hidden="true" />
-                                    </a>
-                                    <a href={whatsappUrl(c.mobile, `Dear ${c.name || 'Customer'},\n\nGreetings from Sarga! 🙏`)} target="_blank" rel="noopener noreferrer" title="WhatsApp" style={{ color: 'var(--success)', display: 'flex', alignItems: 'center' }}>
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                                    </a>
+                                <div className="customer-phone" onClick={e => e.stopPropagation()}>
+                                    <span className="phone-number">{formatForDisplay(c.mobile)}</span>
+                                    <span className="phone-actions">
+                                        <a href={telHref(c.mobile)} title="Call" className="phone-action-btn" onClick={e => e.stopPropagation()}>
+                                            <Phone size={13} />
+                                        </a>
+                                        <a href={whatsappUrl(c.mobile, `Dear ${c.name || 'Customer'},\n\nGreetings from Sarga! 🙏`)} target="_blank" rel="noopener noreferrer" title="WhatsApp" className="phone-action-btn" onClick={e => e.stopPropagation()}>
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                                        </a>
+                                    </span>
                                 </div>
 
                                 {/* Outstanding */}
-                                <div className={`customer-col-outstanding ${outstanding > 0 ? 'customer-col-outstanding--due' : 'customer-col-outstanding--none'}`} onClick={e => e.stopPropagation()}>
-                                    {outstanding > 0 ? `₹${outstanding.toLocaleString('en-IN')}` : '—'}
+                                <div className={`customer-outstanding customer-outstanding--${outstandingStatus}`} onClick={e => e.stopPropagation()}>
+                                    <span className="outstanding-indicator">
+                                        <span className={`outstanding-dot outstanding-dot--${outstandingStatus}`} />
+                                        <span>{outstanding > 0 ? `₹${outstanding.toLocaleString('en-IN')}` : '—'}</span>
+                                    </span>
                                 </div>
 
                                 {/* Last Order */}
-                                <div className="customer-col-lastorder">
-                                    {formattedLastOrder}
+                                <div className={`customer-last-order ${!formattedLastOrder ? 'customer-last-order--empty' : ''}`}>
+                                    {formattedLastOrder || 'Never ordered'}
                                 </div>
 
                                 {/* Actions */}
-                                <div className="customer-col-actions" onClick={e => e.stopPropagation()}>
+                                <div className="customer-actions" onClick={e => e.stopPropagation()}>
                                     <button
-                                        className="btn btn-ghost touch-target"
-                                        style={{ fontSize: 11, background: 'var(--accent-soft)', color: 'var(--accent)', padding: '4px 8px', height: 'auto' }}
+                                        className="action-btn action-btn--job"
                                         onClick={() => {
                                             navigate('/dashboard/sales/invoices', {
                                                 state: {
@@ -759,35 +843,33 @@ const Customers = () => {
                                                 }
                                             });
                                         }}
-                                        title="Quick Add Job"
+                                        title="New Job"
                                     >
-                                        + Job
+                                        <Plus size={13} /> Job
                                     </button>
                                     <button
-                                        className="btn btn-ghost touch-target"
-                                        style={{ padding: 4 }}
+                                        className="action-icon-btn"
                                         onClick={() => { setSelectedCustomer(c); setEditFormDirty(false); setShowEditModal(true); }}
                                         title={isAdmin ? 'Edit Customer' : 'Request Edit'}
                                     >
-                                        <Edit2 size={13} aria-hidden="true" />
+                                        <Edit2 size={14} />
                                     </button>
                                     <button
-                                        className="btn btn-ghost text-error touch-target"
-                                        style={{ padding: 4 }}
+                                        className="action-icon-btn action-icon-btn--danger"
                                         onClick={() => handleDeleteCustomer(c.id)}
                                         title={isAdmin ? 'Delete Customer' : 'Request Delete'}
                                     >
-                                        <Trash2 size={13} aria-hidden="true" />
+                                        <Trash2 size={14} />
                                     </button>
                                 </div>
 
-                                {/* Expand Button */}
+                                {/* Expand */}
                                 <button
-                                    className={`customer-col-expand ${isExpanded ? 'customer-col-expand--rotated' : ''}`}
+                                    className={`btn-expand ${isExpanded ? 'btn-expand--rotated' : ''}`}
                                     onClick={(e) => toggleRowExpanded(c.id, e)}
                                     title="View Details"
                                 >
-                                    <ChevronDown size={16} aria-hidden="true" />
+                                    <ChevronDown size={16} />
                                 </button>
                             </div>
 

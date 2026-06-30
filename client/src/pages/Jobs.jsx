@@ -1,6 +1,6 @@
 import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Search, FileText, Loader2, Plus, Trash2, IndianRupee, RotateCcw, Zap, ChevronDown, Building2, Users } from 'lucide-react';
+import { Search, FileText, Loader2, Plus, Trash2, IndianRupee, RotateCcw, Zap, ChevronDown, Building2, Users, Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import auth from '../services/auth';
 import api from '../services/api';
@@ -17,29 +17,24 @@ import PageContainer from '../components/ui/PageContainer';
 
 // ── Priority helpers ──
 const URGENCY_CONFIG = {
-    critical: { label: 'Critical', color: 'var(--error)', bg: 'var(--destructive)', border: 'var(--destructive)', icon: '🔴' },
-    high: { label: 'High', color: 'var(--warning)', bg: 'var(--warning)', border: 'var(--warning)', icon: '🟠' },
-    medium: { label: 'Medium', color: 'var(--muted)', bg: 'var(--muted-foreground)', border: 'var(--muted-foreground)', icon: '🟡' },
-    low: { label: 'Low', color: 'var(--success)', bg: 'var(--muted-foreground)', border: 'var(--muted-foreground)', icon: '🟢' },
+    critical: { label: 'Critical', color: 'urgency-badge--critical' },
+    high: { label: 'High', color: 'urgency-badge--high' },
+    medium: { label: 'Medium', color: 'urgency-badge--medium' },
+    low: { label: 'Low', color: 'urgency-badge--low' },
 };
 
 function computeClientPriority(job) {
     let score = 0;
     const now = new Date();
-    // Delivery urgency (0-60)
     if (job.delivery_date) {
         const hrs = (new Date(job.delivery_date) - now) / 36e5;
         score += hrs <= 0 ? 60 : hrs <= 3 ? 55 : hrs <= 6 ? 50 : hrs <= 12 ? 40 : hrs <= 24 ? 30 : hrs <= 48 ? 20 : hrs <= 72 ? 10 : 5;
     } else { score += 15; }
-    // Amount (0-20)
     const amt = Number(job.total_amount) || 0;
     score += amt >= 10000 ? 20 : amt >= 5000 ? 15 : amt >= 1000 ? 10 : 5;
-    // Priority override (0-25)
     const p = (job.priority || 'Medium').toLowerCase();
     score += p === 'urgent' ? 25 : p === 'high' ? 18 : p === 'medium' ? 10 : 3;
-    // Payment (0-10)
     score += job.payment_status === 'Paid' ? 10 : job.payment_status === 'Partial' ? 5 : 0;
-    // Age (0-10)
     if (job.created_at) {
         const age = (now - new Date(job.created_at)) / 36e5;
         score += age > 72 ? 10 : age > 48 ? 7 : age > 24 ? 4 : 0;
@@ -51,8 +46,9 @@ function computeClientPriority(job) {
 const UrgencyBadge = ({ urgency }) => {
     const c = URGENCY_CONFIG[urgency] || URGENCY_CONFIG.medium;
     return (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 12, fontSize: 10, fontWeight: 600, background: c.bg, color: c.color, border: `1px solid ${c.border}`, whiteSpace: 'nowrap' }}>
-            {c.icon} {c.label}
+        <span className={`urgency-badge ${c.color}`}>
+            <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor" aria-hidden="true"><circle cx="4" cy="4" r="3" /></svg>
+            {c.label}
         </span>
     );
 };
@@ -127,7 +123,7 @@ const Jobs = () => {
     const [debouncedFilterInput, setDebouncedFilterInput] = useState(filterInput);
     const [branches, setBranches] = useState([]);
     const [error, setError] = useState('');
-    const [activeTab, _setActiveTab] = useState('active'); // active, completed, delivered, due, overdue, payments
+    const [activeTab, _setActiveTab] = useState('active');
     const [sortByPriority, setSortByPriority] = useState(false);
     const [deliveryDueModal, setDeliveryDueModal] = useState({
         isOpen: false,
@@ -161,19 +157,16 @@ const Jobs = () => {
             params.append('page', pageNum);
             params.append('limit', PAGE_SIZE);
 
-            // Filters
             if (debouncedFilterInput.search) params.append('search', debouncedFilterInput.search);
             if (debouncedFilterInput.status && debouncedFilterInput.status !== 'all') params.append('status', debouncedFilterInput.status);
             if (debouncedFilterInput.branch) params.append('branch_id', debouncedFilterInput.branch);
             if (debouncedFilterInput.category) params.append('category', debouncedFilterInput.category);
             if (debouncedFilterInput.customerType) params.append('customer_type', debouncedFilterInput.customerType);
 
-            // Tab support (for backend server-side filtering)
             const isFrontOffice = isFinanceRole(userRole);
             if (isFrontOffice) {
                 params.append('tab', activeTab);
             } else {
-                // For staff, adjust tab if needed (backend handles staff visibility)
                 params.append('tab', activeTab === 'active' ? 'active' : 'history');
             }
 
@@ -250,7 +243,6 @@ const Jobs = () => {
         }
     }, [fetchBranches, fetchJobs]);
 
-    // bfcache: reconnect on page show / cleanup on hide
     useEffect(() => {
         const handlePageShow = (e) => {
             if (e.persisted) fetchJobs(pageRef.current);
@@ -319,7 +311,6 @@ const Jobs = () => {
             errorMsg: 'Failed to update job status'
         });
         
-        // Re-fetch so server-side tab filtering removes the job from the current tab
         fetchJobs(page);
     };
 
@@ -378,7 +369,6 @@ const Jobs = () => {
     const handleDeleteJob = async (e, jobId) => {
         e.stopPropagation();
         if (!window.confirm('Delete this job permanently?\n\nThis will also delete all associated payments, proofs, staff assignments, and other linked records.\n\nThis cannot be undone.')) return;
-        // Optimistic UI Update
         setJobs(prev => prev.filter(job => job.id !== jobId));
         setTotal(prev => Math.max(0, prev - 1));
         try {
@@ -403,6 +393,18 @@ const Jobs = () => {
         return colors[status] || 'badge--default';
     };
 
+    const getStatusCssClass = (status) => {
+        const m = {
+            'Pending': 'job-status--pending',
+            'Processing': 'job-status--processing',
+            'Approval Pending': 'job-status--approval-pending',
+            'Completed': 'job-status--completed',
+            'Delivered': 'job-status--delivered',
+            'Cancelled': 'job-status--cancelled'
+        };
+        return m[status] || 'job-status--pending';
+    };
+
     const displayJobs = useMemo(() => getDisplayJobs(jobs, sortByPriority), [jobs, sortByPriority]);
     const renderItems = useMemo(() => getRenderItems(displayJobs), [displayJobs]);
     const _visibleRenderItems = useMemo(() => renderItems.slice(0, PAGE_SIZE), [renderItems]);
@@ -410,22 +412,26 @@ const Jobs = () => {
 
     return (
         <PageContainer>
-            <header className="page-header flex justify-between items-center flex-wrap gap-md p-12 rounded-lg shadow-sm">
-                <div className="flex items-center gap-sm">
-                    <h1 className="page-title">
-                        <FileText className="text-heading" size={20} aria-hidden="true" /> Jobs & Work Orders
-                    </h1>
+            {/* ── Premium Header ── */}
+            <header className="jobs-header">
+                <div className="jobs-header-left">
+                    <div className="jobs-header-icon">
+                        <FileText size={24} aria-hidden="true" />
+                    </div>
+                    <div className="jobs-header-text">
+                        <h1>Jobs & Work Orders</h1>
+                        <p>Manage and track all production jobs</p>
+                    </div>
                 </div>
-                <div className="flex gap-sm flex-wrap">
-                    <button className="btn btn-primary" onClick={() => navigate('/dashboard/sales/invoices', { state: { action: 'create' } })}>
-                        <Plus size={18} aria-hidden="true" /> Create Job
-                    </button>
-                </div>
+                <button className="btn btn-primary" onClick={() => navigate('/dashboard/sales/invoices', { state: { action: 'create' } })}>
+                    <Plus size={18} aria-hidden="true" /> Create Job
+                </button>
             </header>
 
-            <div className="flex flex-wrap gap-sm items-center p-3 rounded-lg border" style={{ background: 'var(--surface)' }}>
-                <div className="relative flex-1 min-w-[200px]" style={{ maxWidth: '400px' }}>
-                    <Search size={16} aria-hidden="true" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', pointerEvents: 'none' }} />
+            {/* ── Filter Toolbar ── */}
+            <div className="jobs-filters">
+                <div className="jobs-search">
+                    <Search size={16} className="jobs-search-icon" aria-hidden="true" />
                     <label htmlFor="job-search" className="sr-only">Search jobs</label>
                     <input
                         id="job-search"
@@ -433,67 +439,66 @@ const Jobs = () => {
                         placeholder="Search by Job No, Name, or Customer..."
                         value={filterInput.search}
                         onChange={(e) => updateFilter('search', e.target.value)}
-                        className="input-field"
-                        style={{ paddingLeft: 36, width: '100%', height: 36, fontSize: 14 }}
+                        className="jobs-search-input"
                     />
                 </div>
+
                 <button
                     onClick={() => setSortByPriority(v => !v)}
                     title={sortByPriority ? 'Sort by date (default)' : 'Sort by priority'}
-                    className={`btn btn-sm ${sortByPriority ? 'btn-primary' : 'btn-ghost'}`}
+                    className={`btn-priority ${sortByPriority ? 'btn-priority--active' : ''}`}
                 >
-                    <Zap size={14} /> Priority
+                    <Zap size={14} />
+                    <span>Priority</span>
                 </button>
-                <div className="relative flex-1" style={{ maxWidth: 180, minWidth: 155 }}>
-                    <Building2 size={16} aria-hidden="true" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', pointerEvents: 'none' }} />
-                    <label htmlFor="job-branch-filter" className="sr-only">Filter by branch</label>
+
+                <div className="filter-select">
+                    <Building2 size={14} className="filter-select-icon" />
                     <select
-                        id="job-branch-filter"
                         value={filterInput.branch}
                         onChange={(e) => updateFilter('branch', e.target.value)}
-                        className="input-field"
-                        style={{ paddingLeft: 32, width: '100%', height: 36, fontSize: 14, appearance: 'none' }}
                         aria-label="Filter by branch"
                     >
                         <option value="">All Branches</option>
                         {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                     </select>
+                    <ChevronDown size={12} className="filter-select-icon" />
                 </div>
-                <div className="relative flex-1" style={{ maxWidth: 180, minWidth: 155 }}>
-                    <Users size={16} aria-hidden="true" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', pointerEvents: 'none' }} />
-                    <label htmlFor="job-customer-type-filter" className="sr-only">Filter by customer type</label>
+
+                <div className="filter-select">
+                    <Users size={14} className="filter-select-icon" />
                     <select
-                        id="job-customer-type-filter"
                         value={filterInput.customerType}
                         onChange={(e) => updateFilter('customerType', e.target.value)}
-                        className="input-field"
-                        style={{ paddingLeft: 32, width: '100%', height: 36, fontSize: 14, appearance: 'none' }}
                         aria-label="Filter by customer type"
                     >
-                        <option value="">All Customer Types</option>
+                        <option value="">All Customers</option>
                         <option value="Walk-in">Walk-in</option>
                         <option value="Retail">Retail</option>
                         <option value="Offset">Offset</option>
                     </select>
+                    <ChevronDown size={12} className="filter-select-icon" />
                 </div>
             </div>
 
-            <div className="flex flex-wrap gap-sm p-3 rounded-lg border" style={{ background: 'var(--surface)' }}>
-                <span className="text-sm text-muted" style={{ fontWeight: 700, minWidth: 'fit-content' }}>Type:</span>
-                <button onClick={() => updateFilter('category', '')} className={`btn btn-chip ${categoryFilter === '' ? 'active' : ''}`}>All</button>
-                <button onClick={() => updateFilter('category', 'OFFSET')} className={`btn btn-chip ${categoryFilter === 'OFFSET' ? 'active' : ''}`}>Offset</button>
-                <button onClick={() => updateFilter('category', 'LASER')} className={`btn btn-chip ${categoryFilter === 'LASER' ? 'active' : ''}`}>Laser</button>
-                <button onClick={() => updateFilter('category', 'OTHER')} className={`btn btn-chip ${categoryFilter === 'OTHER' ? 'active' : ''}`}>Others</button>
+            {/* ── Category Pills ── */}
+            <div className="jobs-filters" style={{ paddingTop: 0, paddingBottom: 'var(--space-12)', borderTop: 'none', borderTopLeftRadius: 0, borderTopRightRadius: 0, marginTop: -1, boxShadow: 'none' }}>
+                <span style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Type:</span>
+                <button onClick={() => updateFilter('category', '')} className={`btn btn-sm ${categoryFilter === '' ? 'btn-primary' : 'btn-ghost'}`}>All</button>
+                <button onClick={() => updateFilter('category', 'OFFSET')} className={`btn btn-sm ${categoryFilter === 'OFFSET' ? 'btn-primary' : 'btn-ghost'}`}>Offset</button>
+                <button onClick={() => updateFilter('category', 'LASER')} className={`btn btn-sm ${categoryFilter === 'LASER' ? 'btn-primary' : 'btn-ghost'}`}>Laser</button>
+                <button onClick={() => updateFilter('category', 'OTHER')} className={`btn btn-sm ${categoryFilter === 'OTHER' ? 'btn-primary' : 'btn-ghost'}`}>Others</button>
             </div>
 
-            <div className="flex justify-between items-center text-sm text-muted" style={{ padding: '8px 0' }}>
-                <span>{loading ? 'Loading...' : `Showing ${((page-1)*LIMIT)+1}–${Math.min(page*LIMIT, total)} of ${total} jobs`}</span>
-                <span>{totalPages} pages total</span>
+            {/* ── Data Summary ── */}
+            <div className="jobs-summary">
+                <span>{loading ? 'Loading...' : <><span className="jobs-summary-count">{total}</span> jobs &middot; page {page} of {totalPages}</>}</span>
             </div>
 
-            <div className="panel panel--tight">
+            {/* ── Table Card ── */}
+            <div className="jobs-table-card">
                 <div className="table-scroll">
-                    <table className="table">
+                    <table className="jobs-table">
                         <thead>
                             <tr>
                                 <th scope="col">Job Details</th>
@@ -510,7 +515,6 @@ const Jobs = () => {
                         </thead>
                         <tbody>
                             {(() => {
-                                // Use the memoized displayJobs (already sorted/prioritized by getDisplayJobs)
                                 if (loading && jobs.length === 0) {
                                     const cols = [
                                       { key: 'jobDetails', header: 'Job Details', width: '2fr', lines: 2 },
@@ -544,7 +548,7 @@ const Jobs = () => {
                                     );
                                 }
                                 // Group jobs by payment_id (null = standalone)
-                                const groupMap = new Map(); // payment_id -> [jobs]
+                                const groupMap = new Map();
                                 const standalones = [];
                                 displayJobs.forEach(j => {
                                     if (j.payment_id) {
@@ -554,9 +558,8 @@ const Jobs = () => {
                                         standalones.push(j);
                                     }
                                 });
-                                // Build ordered render list: preserve original order, show group once at first occurrence
                                 const seen = new Set();
-                                const renderList = []; // [{type:'single',job} | {type:'group',paymentId,jobs}]
+                                const renderList = [];
                                 displayJobs.forEach(j => {
                                     if (!j.payment_id) {
                                         renderList.push({ type: 'single', job: j });
@@ -578,19 +581,20 @@ const Jobs = () => {
                                         <tr
                                             key={j.id}
                                             onDoubleClick={() => !isSummaryRow && navigate(`/dashboard/sales/orders/${j.id}`)}
+                                            className={isSummaryRow ? 'job-summary-row' : ''}
                                             style={{
                                                 cursor: 'pointer',
-                                                ...(isSubRow ? { background: 'var(--surface2, rgba(255,255,255,0.03))' } : {}),
+                                                ...(isSubRow ? { background: 'var(--surface-alt)' } : {}),
                                             }}
                                         >
                                             <td>
-                                                <div className="stack-xs" style={isSubRow ? { paddingLeft: 18, borderLeft: '3px solid var(--border)' } : {}}>
+                                                <div className="job-details-cell" style={isSubRow ? { paddingLeft: 18, borderLeft: '3px solid var(--border)' } : {}}>
                                                     {isSummaryRow ? (
                                                         <>
-                                                            <div className="row items-center gap-xs">
+                                                            <div className="job-number-line">
                                                                 <button
                                                                     className="btn btn-ghost"
-                                                                    style={{ padding: '2px 4px', minWidth: 0 }}
+                                                                    style={{ padding: '2px 4px', minWidth: 0, height: 'auto' }}
                                                                     title={expandedPayments.has(j.payment_id) ? 'Collapse' : 'Expand'}
                                                                     onClick={e => {
                                                                         e.stopPropagation();
@@ -603,20 +607,20 @@ const Jobs = () => {
                                                                 >
                                                                     <ChevronDown size={14} style={{ transform: expandedPayments.has(j.payment_id) ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} aria-hidden="true" />
                                                                 </button>
-                                                                <span className="font-bold text-sm">{groupJobs.map(g => g.job_number).join(', ')}</span>
+                                                                <span className="job-number">{groupJobs.map(g => g.job_number).join(', ')}</span>
                                                             </div>
-                                                            <span className="text-xs text-muted">{groupJobs.length} jobs · single bill</span>
+                                                            <span className="job-product">{groupJobs.length} jobs &middot; single bill</span>
                                                         </>
                                                     ) : (
                                                         <>
-                                                            <div className="row items-center gap-xs">
-                                                                <span className="font-bold text-sm">{j.job_number}</span>
-                                                                <span className="text-xs text-muted" style={{ opacity: 0.7 }}>• {j.product_name || 'Service'}</span>
+                                                            <div className="job-number-line">
+                                                                <span className="job-number">{j.job_number}</span>
+                                                                <span className="job-product">{j.product_name || 'Service'}</span>
                                                             </div>
-                                                            <span className="text-sm font-medium">{j.job_name}</span>
+                                                            <span className="job-name">{j.job_name}</span>
                                                             
                                                             {j.description && (
-                                                                <div className="row wrap gap-xs mt-4" style={{ marginTop: 4 }}>
+                                                                <div className="job-tags">
                                                                     {j.description.split(' | ').filter(p => p && p.trim()).map((part, i) => {
                                                                         const isTagged = part.includes(':');
                                                                         const [label, ...rest] = isTagged ? part.split(':') : ['', part];
@@ -627,23 +631,11 @@ const Jobs = () => {
                                                                         const isNumbering = tagLabel === 'numbering' || tagLabel.includes('from') || tagLabel.includes('to');
                                                                         const isMatter = tagLabel === 'matter';
                                                                         
+                                                                        const tagClass = isColour ? 'job-tag--colour' : isNumbering ? 'job-tag--numbering' : isMatter ? 'job-tag--matter' : 'job-tag--default';
+                                                                        
                                                                         return (
-                                                                            <span key={i} style={{
-                                                                                fontSize: '10px',
-                                                                                padding: '1px 6px',
-                                                                                borderRadius: '4px',
-                                                                                background: isColour ? 'var(--destructive)' : isNumbering ? 'var(--primary)' : isMatter ? 'var(--primary)' : 'var(--muted-foreground)',
-                                                                                color: isColour ? 'var(--destructive)' : isNumbering ? 'var(--primary)' : isMatter ? 'var(--primary)' : 'var(--text-muted)',
-                                                                                border: `1px solid ${isColour ? 'var(--destructive)' : isNumbering ? 'var(--primary)' : isMatter ? 'var(--primary)' : 'var(--muted-foreground)'}`,
-                                                                                fontWeight: 600,
-                                                                                maxWidth: '120px',
-                                                                                overflow: 'hidden',
-                                                                                textOverflow: 'ellipsis',
-                                                                                whiteSpace: 'nowrap'
-                                                                            }}>
-                                                                                {isColour && '🎨 '}
-                                                                                {isNumbering && '🔢 '}
-                                                                                {isMatter && '📝 '}
+                                                                            <span key={i} className={`job-tag ${tagClass}`}>
+                                                                                {isNumbering && '#'}
                                                                                 {tagLabel && <span style={{ textTransform: 'capitalize' }}>{tagLabel}: </span>}
                                                                                 {value}
                                                                             </span>
@@ -655,7 +647,7 @@ const Jobs = () => {
                                                                             const extras = typeof j.applied_extras === 'string' ? JSON.parse(j.applied_extras) : j.applied_extras;
                                                                             if (Array.isArray(extras) && extras.length > 0) {
                                                                                 return (
-                                                                                    <span style={{ fontSize: '9px', color: 'var(--accent)', fontWeight: 700, background: 'var(--accent-soft)', padding: '1px 4px', borderRadius: '4px' }}>
+                                                                                    <span className="job-tag job-tag--default" style={{ background: 'var(--accent-alpha)', color: 'var(--accent)', border: '1px solid color-mix(in srgb, var(--accent) 25%, transparent)' }}>
                                                                                         +{extras.length} Extras
                                                                                     </span>
                                                                                 );
@@ -670,27 +662,29 @@ const Jobs = () => {
                                                 </div>
                                             </td>
                                             <td>
-                                                <div className="stack-xs">
-                                                    <span className="text-sm font-medium">{j.customer_name}</span>
-                                                    <span className="text-xs text-muted">{formatForDisplay(j.customer_mobile)}</span>
+                                                <div className="job-customer">
+                                                    <span className="job-customer-name">{j.customer_name}</span>
+                                                    <span className="job-customer-phone">{formatForDisplay(j.customer_mobile)}</span>
                                                 </div>
                                             </td>
-                                            <td className="text-sm">
+                                            <td className="job-branch">
                                                 {j.branch_name || 'Main'}
                                             </td>
                                             <td>
                                                 {isSummaryRow ? (
-                                                    <div className="stack-xs">
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                                                         {[...new Set(groupJobs.map(g => g.status))].map(s => (
-                                                            <span key={s} className={`badge ${getStatusColor(s)}`} style={{ fontSize: 10 }}>{s}</span>
+                                                            <span key={s} className={`job-status ${getStatusCssClass(s)}`}>
+                                                                <span className="job-status-dot" />
+                                                                {s}
+                                                            </span>
                                                         ))}
                                                     </div>
                                                 ) : (
                                                     <>
                                                         {['Admin', 'Front Office', 'front office'].includes(userRole) ? (
                                                             <select
-                                                                className={`badge ${getStatusColor(j.status)}`}
-                                                                style={{ border: 'none', cursor: 'pointer', outline: 'none' }}
+                                                                className={`job-status job-status-select ${getStatusCssClass(j.status)}`}
                                                                 value={j.status}
                                                                 onChange={(e) => handleUpdateStatus(j, e.target.value)}
                                                                 aria-label={`Change order status for ${j.job_number}`}
@@ -698,9 +692,12 @@ const Jobs = () => {
                                                                 {JOB_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                                                             </select>
                                                         ) : (
-                                                            <span className={`badge ${getStatusColor(j.status)}`}>{j.status}</span>
+                                                            <span className={`job-status ${getStatusCssClass(j.status)}`}>
+                                                                <span className="job-status-dot" />
+                                                                {j.status}
+                                                            </span>
                                                         )}
-                                                        {j._updating && <Loader2 size={12} className="animate-spin ml-4 inline-block" style={{ verticalAlign: 'middle' }} aria-hidden="true" />}
+                                                        {j._updating && <Loader2 size={12} className="animate-spin" style={{ verticalAlign: 'middle', marginLeft: 4 }} aria-hidden="true" />}
                                                     </>
                                                 )}
                                             </td>
@@ -715,31 +712,28 @@ const Jobs = () => {
                                                     const used = Number(j.used_sheets) || 0;
                                                     const waste = req > 0 ? Math.max(0, used - req) : 0;
                                                     const pct = req > 0 ? ((waste / req) * 100).toFixed(0) : null;
-                                                    const color = pct === null ? 'var(--muted)' : Number(pct) <= 3 ? 'var(--success)' : Number(pct) <= 8 ? 'var(--warning)' : 'var(--text-muted)';
                                                     return (
-                                                        <div className="stack-xs">
-                                                            <span style={{ fontSize: '11px', fontWeight: 600, color }}>
+                                                        <div className="job-production">
+                                                            <span className={`job-sheets ${pct === null ? 'job-sheets--bad' : Number(pct) <= 3 ? 'job-sheets--good' : Number(pct) <= 8 ? 'job-sheets--warn' : 'job-sheets--bad'}`}>
                                                                 {used} / {req} sheets
                                                             </span>
                                                             {pct !== null && (
-                                                                <span className="text-muted" style={{ fontSize: '10px' }}>
-                                                                    {pct}% waste
-                                                                </span>
+                                                                <span className="job-waste">{pct}% waste</span>
                                                             )}
                                                         </div>
                                                     );
                                                 })() : (
-                                                    <span className="text-muted text-xs">—</span>
+                                                    <span className="job-waste">—</span>
                                                 )}
                                             </td>
                                             {isFinancialsVisible && (
                                                 <td>
-                                                    <div className="row items-center gap-xs text-sm">
+                                                    <span className="job-amount job-amount--positive">
                                                         <IndianRupee size={12} aria-hidden="true" />
                                                         {isSummaryRow
                                                             ? groupJobs.reduce((s, g) => s + (Number(g.total_amount) || 0), 0).toFixed(2)
                                                             : j.total_amount}
-                                                    </div>
+                                                    </span>
                                                 </td>
                                             )}
                                             {isFinancialsVisible && (
@@ -747,55 +741,55 @@ const Jobs = () => {
                                                     {isSummaryRow ? (() => {
                                                         const bal = groupJobs.reduce((s, g) => s + (Number(g.balance_amount) || 0), 0);
                                                         return (
-                                                            <div className={`row items-center gap-xs text-sm font-bold ${bal > 0 ? 'text-danger' : 'text-success'}`}>
+                                                            <span className={`job-amount ${bal > 0 ? 'job-amount--danger' : 'job-amount--success'}`}>
                                                                 <IndianRupee size={12} aria-hidden="true" />{bal.toFixed(2)}
-                                                            </div>
+                                                            </span>
                                                         );
                                                     })() : (
-                                                        <div className={`row items-center gap-xs text-sm font-bold ${j.balance_amount > 0 ? 'text-danger' : 'text-success'}`}>
+                                                        <span className={`job-amount ${j.balance_amount > 0 ? 'job-amount--danger' : 'job-amount--success'}`}>
                                                             <IndianRupee size={12} aria-hidden="true" />
                                                             {j.balance_amount}
-                                                        </div>
+                                                        </span>
                                                     )}
                                                 </td>
                                             )}
-                                            <td className="text-sm text-muted">
-                                                {j.delivery_date ? new Date(j.delivery_date).toLocaleDateString() : 'Not Set'}
+                                            <td>
+                                                <span className={`job-delivery ${!j.delivery_date ? 'job-delivery--empty' : ''}`}>
+                                                    {j.delivery_date ? new Date(j.delivery_date).toLocaleDateString() : 'Not Set'}
+                                                </span>
                                             </td>
                                             <td>
                                                 {isSummaryRow ? (
-                                                    <span className="text-xs text-muted">expand ↑↓</span>
+                                                    <span className="job-waste">expand &uarr;&darr;</span>
                                                 ) : (
-                                                    <div className="row gap-sm">
+                                                    <div className="job-actions">
                                                         <button
-                                                            className="btn btn-ghost touch-target"
-                                                            style={{ color: 'var(--text-secondary)' }}
+                                                            className="btn-view"
                                                             title="View Details"
                                                             aria-label={`View details for job ${j.job_number}`}
-                                                            onClick={() => navigate(`/dashboard/jobs/${j.id}`)}
+                                                            onClick={(e) => { e.stopPropagation(); navigate(`/dashboard/jobs/${j.id}`); }}
                                                         >
-                                                            <FileText size={16} aria-hidden="true" />
+                                                            <Eye size={14} aria-hidden="true" />
+                                                            <span>View</span>
                                                         </button>
                                                         {['Admin', 'Front Office', 'front office'].includes(userRole) && (
                                                             <button
-                                                                className="btn btn-ghost touch-target"
-                                                                style={{ color: 'var(--accent)' }}
+                                                                className="btn-job-action btn-job-action--repeat"
                                                                 title="Repeat Order"
                                                                 aria-label={`Repeat order ${j.job_number}`}
                                                                 onClick={(e) => { e.stopPropagation(); handleRepeatOrder(j.id); }}
                                                             >
-                                                                <RotateCcw size={16} aria-hidden="true" />
+                                                                <RotateCcw size={14} aria-hidden="true" />
                                                             </button>
                                                         )}
                                                         {['Admin', 'Accountant'].includes(userRole) && (
                                                             <button
-                                                                className="btn btn-ghost touch-target"
-                                                                style={{ color: 'var(--error)' }}
+                                                                className="btn-job-action btn-job-action--danger"
                                                                 title="Delete Job"
                                                                 aria-label={`Delete job ${j.job_number}`}
                                                                 onClick={(e) => handleDeleteJob(e, j.id)}
                                                             >
-                                                                <Trash2 size={16} aria-hidden="true" />
+                                                                <Trash2 size={14} aria-hidden="true" />
                                                             </button>
                                                         )}
                                                     </div>
@@ -822,7 +816,7 @@ const Jobs = () => {
                     </table>
                 </div>
             </div>
-            
+
             <Pagination
                 page={page}
                 totalPages={totalPages}
@@ -842,10 +836,6 @@ const Jobs = () => {
                             <div className="row" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
                                 <span className="text-muted">Job</span>
                                 <strong>{deliveryDueModal.job?.job_number} - {deliveryDueModal.job?.job_name}</strong>
-                            </div>
-                            <div className="row" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
-                                <span className="text-muted">Customer</span>
-                                <strong>{deliveryDueModal.job?.customer_name || 'Walk-in'}</strong>
                             </div>
                             <div className="row" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
                                 <span className="text-muted">Total Amount</span>
