@@ -95,32 +95,21 @@
 
 /* ── Secondary ── */
 .btn-secondary {
-  font-weight: 700;
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
-  border: 1px solid color-mix(in srgb, var(--accent) 15%, var(--border));
+  background: var(--surface);
+  color: var(--text-heading);
+  border: 1px solid var(--border);
   box-shadow: var(--shadow-sm);
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
-  border-color: var(--accent);
-  color: var(--accent);
-  transform: translateY(-1.5px);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 15%, transparent);
+  background: var(--surface-2);
+  border-color: var(--text-muted);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
 }
 
 .btn-secondary:active:not(:disabled) {
-  transform: translateY(0px) scale(0.95);
-  background: color-mix(in srgb, var(--accent) 20%, var(--surface));
-}
-
-.btn-secondary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none !important;
-  box-shadow: none !important;
-  pointer-events: none;
+  transform: translateY(0px) scale(0.96);
 }
 
 /* ── Ghost ── */

@@ -58,7 +58,38 @@
   flex-shrink: 0;
 }
 
-/* ── Icon buttons in table rows ── */
+/* ── Brighter buttons across invoices page ── */
+.inv-page .btn {
+  font-weight: 700;
+}
+
+.inv-page .btn-secondary,
+.inv-page .btn-secondary.btn-with-icon {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+  border-color: color-mix(in srgb, var(--accent) 15%, var(--border));
+}
+
+.inv-page .btn-secondary:hover:not(:disabled),
+.inv-page .btn-secondary.btn-with-icon:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.inv-page .btn-secondary svg,
+.inv-page .btn-secondary.btn-with-icon svg {
+  color: var(--accent);
+  opacity: 0.9;
+}
+
+.inv-page .btn-secondary:active:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 20%, var(--surface));
+  transform: scale(0.95);
+}
+
+/* Icon buttons in table rows */
 .inv-page .btn-secondary.btn-icon {
   background: transparent;
   border-color: transparent;
@@ -76,6 +107,39 @@
   transform: scale(0.88);
 }
 
+/* Ghost buttons */
+.inv-page .btn-ghost {
+  color: var(--accent);
+}
+
+.inv-page .btn-ghost:hover {
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.inv-page .btn-ghost:active {
+  transform: scale(0.95);
+}
+
+/* Accent buttons */
+.inv-page .btn-accent {
+  background: color-mix(in srgb, var(--accent) 90%, black);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.inv-page .btn-accent:hover {
+  filter: brightness(1.2);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 35%, transparent);
+  transform: translateY(-1.5px);
+}
+
+.inv-page .btn-accent:active {
+  transform: scale(0.95);
+  filter: brightness(0.9);
+}
+
+/* Icon-only accent */
 .inv-page .btn-accent.btn-icon {
   background: color-mix(in srgb, var(--accent) 12%, var(--surface));
   border-color: transparent;
@@ -91,6 +155,22 @@
 .inv-page .btn-accent.btn-icon:active {
   background: color-mix(in srgb, var(--accent) 30%, var(--surface));
   transform: scale(0.88);
+}
+
+/* Primary buttons */
+.inv-page .btn-primary {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.inv-page .btn-primary:hover {
+  filter: brightness(1.2);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+  transform: translateY(-1.5px);
+}
+
+.inv-page .btn-primary:active {
+  transform: scale(0.95);
+  filter: brightness(0.9);
 }
 
 /* ── Create View ── */
