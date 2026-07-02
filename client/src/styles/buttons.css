@@ -254,6 +254,35 @@
   outline-offset: -3px;
 }
 
+/* ── Ghost Icon Dark Mode ── */
+html[data-theme="dark"] .btn-ghost.btn-icon.btn-xs {
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  transition:
+    background 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
+}
+
+html[data-theme="dark"] .btn-ghost.btn-icon.btn-xs:hover {
+  background: var(--hover);
+  border-color: var(--text-muted);
+}
+
+html[data-theme="dark"] .btn-ghost.btn-icon.btn-xs:active {
+  background: var(--surface-3);
+}
+
+html[data-theme="dark"] .btn-ghost.btn-icon.btn-xs:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+html[data-theme="dark"] .btn-ghost.btn-icon.btn-xs:disabled {
+  background: transparent;
+  border-color: transparent;
+}
+
 /* ── Pill variant ── */
 .btn-pill {
   border-radius: var(--radius-full);
