@@ -2469,15 +2469,12 @@ body[data-theme="dark"] {
 }
 
 /* 2. Button text colours — semantic tokens */
-.btn,
 .btn-primary {
   color: var(--btn-primary-text);
 }
 
 /* 2b. Dark-mode button text */
-html[data-theme="dark"] .btn,
 html[data-theme="dark"] .btn-primary,
-body[data-theme="dark"] .btn,
 body[data-theme="dark"] .btn-primary {
   color: var(--btn-primary-text);
 }
