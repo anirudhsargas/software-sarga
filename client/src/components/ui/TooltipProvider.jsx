@@ -11,7 +11,6 @@ export default function TooltipProvider({ children }) {
       const text = el.getAttribute('title');
       if (!text) return;
 
-      idRef.current += 1;
       elRef.current = el;
       el.setAttribute('data-sarga-title', text);
       el.removeAttribute('title');
