@@ -104,23 +104,13 @@ afterAll(() => {
    1. Health Check
    ════════════════════════════════════════════════════════════════════════ */
 describe('Health Check', () => {
-  test('GET /api/health returns 200 when DB connected', async () => {
+  test('GET /api/health returns 200', async () => {
     const res = await request(app).get('/api/health');
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({
       status: 'ok',
-      database: 'connected',
-      service: 'sarga-mis',
     });
-    expect(res.body).toHaveProperty('time');
-  });
-
-  test('GET /api/health returns 503 when DB fails', async () => {
-    mp.clearOverrides();
-    mp.setResult('SELECT 1 AS ok', (() => { throw new Error('DB down'); })());
-    const res = await request(app).get('/api/health');
-    expect(res.status).toBe(503);
-    expect(res.body).toMatchObject({ status: 'degraded', database: 'error' });
+    expect(res.body).toHaveProperty('uptime');
   });
 
   test('GET /api/ping returns ok', async () => {

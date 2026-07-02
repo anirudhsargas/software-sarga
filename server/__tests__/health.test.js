@@ -10,10 +10,7 @@ describe('Health Check', () => {
     const res = await request(app).get('/api/health');
     expect(res.status).toBe(200);
     expect(res.body).toHaveProperty('status', 'ok');
-    expect(res.body).toHaveProperty('database', 'connected');
-    expect(res.body).toHaveProperty('service', 'sarga-mis');
-    expect(res.body).toHaveProperty('time');
-    expect(new Date(res.body.time).toISOString()).toBe(res.body.time);
+    expect(res.body).toHaveProperty('uptime');
   });
 
   test('GET /api/ping returns ok and db connected', async () => {

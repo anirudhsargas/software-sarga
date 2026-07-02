@@ -43,20 +43,10 @@ function createTestApp() {
   } catch (e) {}
 
   // Health check
-  app.get('/api/health', async (req, res) => {
-    const { pool } = require('../../database');
-    let dbStatus = 'disconnected';
-    try {
-      const [rows] = await pool.query('SELECT 1 AS ok');
-      dbStatus = rows?.[0]?.ok === 1 ? 'connected' : 'error';
-    } catch (_e) {
-      dbStatus = 'error';
-    }
-    res.status(dbStatus === 'connected' ? 200 : 503).json({
-      status: dbStatus === 'connected' ? 'ok' : 'degraded',
-      database: dbStatus,
-      service: 'sarga-mis',
-      time: new Date().toISOString(),
+  app.get('/api/health', (req, res) => {
+    res.status(200).json({
+      status: 'ok',
+      uptime: process.uptime(),
     });
   });
 

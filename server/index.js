@@ -1,3 +1,5 @@
+console.log(`[BOOT] Server process starting at ${new Date().toISOString()}`);
+
 // Polyfill browser APIs required by pdf-parse in Node.js environment
 if (typeof globalThis.DOMMatrix === 'undefined') globalThis.DOMMatrix = class DOMMatrix { constructor() {} };
 if (typeof globalThis.ImageData === 'undefined') globalThis.ImageData = class ImageData { constructor(w, h) { this.width = w; this.height = h; } };
@@ -117,19 +119,10 @@ app.use((req, res, next) => {
 });
 
 // Health check endpoint (placed after CORS so cross-origin fetches work)
-app.get('/api/health', async (req, res) => {
-    let dbStatus = 'disconnected';
-    try {
-        const [rows] = await pool.query('SELECT 1 AS ok');
-        dbStatus = rows?.[0]?.ok === 1 ? 'connected' : 'error';
-    } catch (_e) {
-        dbStatus = 'error';
-    }
-    res.status(dbStatus === 'connected' ? 200 : 503).json({
-        status: dbStatus === 'connected' ? 'ok' : 'degraded',
-        database: dbStatus,
-        service: 'sarga-mis',
-        time: new Date().toISOString()
+app.get('/api/health', (req, res) => {
+    res.status(200).json({
+        status: 'ok',
+        uptime: process.uptime()
     });
 });
 
@@ -551,6 +544,7 @@ app.use(errorHandler);
 // --------------- Start Server ---------------
 if (process.env.NODE_ENV !== 'test') {
     initDb().then(async () => {
+        console.log(`[BOOT] DB connection established at ${new Date().toISOString()}`);
         logger.info('[DB] Database initialized successfully');
 
         // Startup verification check for product_hierarchy table
@@ -568,6 +562,7 @@ if (process.env.NODE_ENV !== 'test') {
         const server = http.createServer(app);
         initSocket(server, app);
         server.listen(PORT, '0.0.0.0', () => {
+            console.log(`[BOOT] Server listening on port ${PORT} at ${new Date().toISOString()}`);
             const mode = process.env.NODE_ENV || 'development';
             const dbHost = (process.env.DB_HOST || 'localhost').replace(/^(.{0,20}).*$/, '$1…');
             logger.info(`Server running on port ${PORT} (${mode}, DB: ${dbHost})`);

@@ -23,24 +23,11 @@ describe('Health & Ping Endpoints', () => {
   });
 
   describe('GET /api/health', () => {
-    it('returns 200 when DB is connected', async () => {
-      const { pool } = require('../../database');
-      pool.query.mockResolvedValueOnce([[{ ok: 1 }]]);
-
+    it('returns 200 with ok status', async () => {
       const res = await request(app).get('/api/health');
       expect(res.status).toBe(200);
       expect(res.body.status).toBe('ok');
-      expect(res.body.database).toBe('connected');
-      expect(res.body.service).toBe('sarga-mis');
-    });
-
-    it('returns 503 when DB is down', async () => {
-      const { pool } = require('../../database');
-      pool.query.mockRejectedValueOnce(new Error('DB down'));
-
-      const res = await request(app).get('/api/health');
-      expect(res.status).toBe(503);
-      expect(res.body.database).toBe('error');
+      expect(res.body).toHaveProperty('uptime');
     });
   });
 
