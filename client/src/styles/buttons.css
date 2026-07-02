@@ -239,6 +239,11 @@
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
 
+/* When btn-ghost is combined with btn-icon, respect the ghost color */
+.btn-ghost.btn-icon {
+  color: var(--text-heading);
+}
+
 .btn-icon:active {
   transform: scale(0.88);
   background: var(--hover);
