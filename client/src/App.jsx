@@ -31,6 +31,7 @@ import { preloadStaticData } from './services/api';
 import { SyncStatusBar } from './components/SyncStatusBar';
 import UpdateNotification from './components/UpdateNotification';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import TooltipProvider from './components/ui/TooltipProvider';
 
 const PublicLayout = lazy(() => import('./pages/public/PublicLayout'));
 const HomePage = lazy(() => import('./pages/public/HomePage'));
@@ -196,6 +197,7 @@ function App() {
         <AuthProvider>
         <BranchProvider>
         <ConfirmProvider>
+          <TooltipProvider>
           <RouteChangeHandler />
           <a href="#main-content" className="skip-link">Skip to main content</a>
           <SyncStatusBar />
@@ -315,6 +317,7 @@ function App() {
             </Routes>
           </Suspense>
           </main>
+        </TooltipProvider>
         </ConfirmProvider>
         </BranchProvider>
         </AuthProvider>
