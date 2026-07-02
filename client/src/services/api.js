@@ -1,6 +1,7 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { syncManager } from './syncWorkerManager';
+import auth from './auth';
 
 const normalizeApiUrl = (url) => {
     const raw = String(url || '').trim();
@@ -242,10 +243,10 @@ export default api;
 
 /** Preload frequently used static data so it's cached before any page needs it */
 export const preloadStaticData = () => {
-    // Only preload when the user is authenticated — unauthenticated calls
-    // return 401 which triggers the interceptor and wipes localStorage,
-    // causing the login → dashboard → login redirect loop.
-    if (!localStorage.getItem('token')) return;
+    // Only preload when the user has a valid (non-expired) token —
+    // expired tokens return 401 which triggers the interceptor and wipes
+    // localStorage, causing the login → dashboard → login redirect loop.
+    if (!auth.isAuthenticated()) return;
 
     const endpoints = [
         'branches',

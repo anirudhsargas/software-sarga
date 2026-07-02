@@ -140,13 +140,12 @@ function App() {
     // Sync with server clock so staff cannot manipulate dates
     initServerTime();
 
-    const token = localStorage.getItem('token');
-
     // Only initialise the sync worker and preload data when the user is
-    // already authenticated. Starting these without a token fires 8+ API
-    // calls that all return 401, which previously wiped localStorage and
-    // caused the login → dashboard → login redirect loop.
-    if (token) {
+    // authenticated with a valid (non-expired) token. An expired token
+    // fires 8+ API calls that all return 401, which wipes localStorage
+    // and causes the login → dashboard → login redirect loop.
+    if (auth.isAuthenticated()) {
+      const token = auth.getToken();
       syncManager.init();
       syncManager.updateToken(token);
       preloadStaticData();
@@ -163,8 +162,8 @@ function App() {
       syncManager.destroy();
     };
     const handlePageShow = () => {
-      const freshToken = localStorage.getItem('token');
-      if (freshToken) {
+      if (auth.isAuthenticated()) {
+        const freshToken = auth.getToken();
         syncManager.init();
         syncManager.updateToken(freshToken);
       }

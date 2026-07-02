@@ -13,6 +13,7 @@
  */
 import api from './api';
 import { API_URL } from './api';
+import auth from './auth';
 
 let offsetMs = 0;      // server_time - client_time (milliseconds)
 let initialized = false;
@@ -50,9 +51,8 @@ export async function initServerTime() {
     isChecking = true;
     try {
         // Skip if not authenticated — server-time requires auth
-        const token = localStorage.getItem('token');
-        if (!token) {
-            console.warn('No auth token, skipping server time sync');
+        if (!auth.isAuthenticated()) {
+            console.warn('No valid auth token, skipping server time sync');
             offsetMs = 0;
             initialized = true;
             return;
