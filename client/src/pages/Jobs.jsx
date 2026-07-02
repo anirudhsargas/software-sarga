@@ -481,14 +481,7 @@ const Jobs = () => {
                 </div>
             </div>
 
-            {/* ── Category Pills ── */}
-            <div className="jobs-filters" style={{ paddingTop: 0, paddingBottom: 'var(--space-12)', borderTop: 'none', borderTopLeftRadius: 0, borderTopRightRadius: 0, marginTop: -1, boxShadow: 'none' }}>
-                <span style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Type:</span>
-                <button onClick={() => updateFilter('category', '')} className={`btn btn-sm ${categoryFilter === '' ? 'btn-primary' : 'btn-ghost'}`}>All</button>
-                <button onClick={() => updateFilter('category', 'OFFSET')} className={`btn btn-sm ${categoryFilter === 'OFFSET' ? 'btn-primary' : 'btn-ghost'}`}>Offset</button>
-                <button onClick={() => updateFilter('category', 'LASER')} className={`btn btn-sm ${categoryFilter === 'LASER' ? 'btn-primary' : 'btn-ghost'}`}>Laser</button>
-                <button onClick={() => updateFilter('category', 'OTHER')} className={`btn btn-sm ${categoryFilter === 'OTHER' ? 'btn-primary' : 'btn-ghost'}`}>Others</button>
-            </div>
+
 
             {/* ── Data Summary ── */}
             <div className="jobs-summary">
