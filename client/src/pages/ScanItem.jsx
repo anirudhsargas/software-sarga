@@ -146,6 +146,33 @@ const ScanItem = () => {
     const streamRef = useRef(null);
     const startingRef = useRef(false);
 
+    // Unified camera error handler with detailed messages
+    const handleCameraError = useCallback((err, prefix) => {
+        const name = err?.name || '';
+        const msg = err?.message || '';
+        console.error(`[Camera] ${prefix || ''} name="${name}" message="${msg}" stack=${err?.stack || 'none'}`);
+        let userMsg;
+        if (name === 'NotAllowedError' || name === 'PermissionDeniedError' || msg?.includes('Permission denied')) {
+            userMsg = 'Camera permission was denied. Open your browser settings, find this site under Permissions, allow camera access, then reload.';
+            setShowPermissionModal(true);
+        } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+            userMsg = 'No camera found on this device.';
+        } else if (name === 'NotReadableError' || name === 'TrackStartError') {
+            userMsg = 'Camera is busy. Close other apps using the camera and tap Retry.';
+        } else if (name === 'OverconstrainedError' || name === 'ConstraintNotSatisfiedError') {
+            userMsg = 'Camera could not be configured with the selected settings.';
+        } else if (name === 'AbortError') {
+            userMsg = 'Camera access was aborted. Tap Retry to try again.';
+        } else if (name === 'SecurityError' || msg?.includes('insecure')) {
+            userMsg = 'Camera requires a secure (HTTPS) connection.';
+        } else if (name === 'NotSupportedError') {
+            userMsg = 'Camera access is not supported by this browser or in this context (HTTPS required).';
+        } else {
+            userMsg = `Unable to start camera (${name || 'UnknownError'}: ${msg || 'No details available'}). Try the Upload Image tab or Manual Entry.`;
+        }
+        setCameraError(userMsg);
+    }, []);
+
     // Enumerate all video devices and find the rear camera
     const enumerateCameras = useCallback(async () => {
         try {
@@ -252,32 +279,6 @@ const ScanItem = () => {
         }
     }, [stopHeldStream]);
 
-    // Unified camera error handler with detailed messages
-    const handleCameraError = useCallback((err, prefix) => {
-        const name = err?.name || '';
-        const msg = err?.message || '';
-        console.error(`[Camera] ${prefix || ''} name="${name}" message="${msg}" stack=${err?.stack || 'none'}`);
-        let userMsg;
-        if (name === 'NotAllowedError' || name === 'PermissionDeniedError' || msg?.includes('Permission denied')) {
-            userMsg = 'Camera permission was denied. Open your browser settings, find this site under Permissions, allow camera access, then reload.';
-            setShowPermissionModal(true);
-        } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
-            userMsg = 'No camera found on this device.';
-        } else if (name === 'NotReadableError' || name === 'TrackStartError') {
-            userMsg = 'Camera is busy. Close other apps using the camera and tap Retry.';
-        } else if (name === 'OverconstrainedError' || name === 'ConstraintNotSatisfiedError') {
-            userMsg = 'Camera could not be configured with the selected settings.';
-        } else if (name === 'AbortError') {
-            userMsg = 'Camera access was aborted. Tap Retry to try again.';
-        } else if (name === 'SecurityError' || msg?.includes('insecure')) {
-            userMsg = 'Camera requires a secure (HTTPS) connection.';
-        } else if (name === 'NotSupportedError') {
-            userMsg = 'Camera access is not supported by this browser or in this context (HTTPS required).';
-        } else {
-            userMsg = `Unable to start camera (${name || 'UnknownError'}: ${msg || 'No details available'}). Try the Upload Image tab or Manual Entry.`;
-        }
-        setCameraError(userMsg);
-    }, []);
 
     // ── Lookup ─────────────────────────────────────────────────────────────────
     const handleLookup = useCallback(async (code) => {
