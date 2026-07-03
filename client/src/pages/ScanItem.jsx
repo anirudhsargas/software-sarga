@@ -384,26 +384,6 @@ const ScanItem = () => {
         } catch { return null; }
     };
 
-    const tryHtml5Qrcode = async (file) => {
-        const mod = await getHtml5QrcodeModule();
-        if (!mod) return null;
-        const tmpId = `qr-tmp-${Date.now()}`;
-        const tmpDiv = Object.assign(document.createElement('div'), {
-            id: tmpId,
-            style: 'position:fixed;left:-9999px;top:0;width:300px;height:300px'
-        });
-        document.body.appendChild(tmpDiv);
-        try {
-            const { Html5Qrcode } = mod;
-            const qr = new Html5Qrcode(tmpId, { verbose: false });
-            const result = await qr.scanFile(file, true);
-            try { qr.clear(); } catch {}
-            return result;
-        } finally {
-            if (document.body.contains(tmpDiv)) document.body.removeChild(tmpDiv);
-        }
-    };
-
     const handleFileChange = async (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -413,7 +393,6 @@ const ScanItem = () => {
         try {
             let result = await scanFileWithJsQR(file).catch(() => null);
             if (!result) result = await tryBarcodeDetector(file).catch(() => null);
-            if (!result) result = await tryHtml5Qrcode(file).catch(() => null);
             if (result) {
                 const normalized = normalizeCode(result);
                 if (normalized) handleLookup(normalized);
