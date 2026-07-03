@@ -113,6 +113,7 @@ const ScanItem = () => {
     const fileInputRef = useRef(null);
     const manualInputRef = useRef(null);
     const camDivId = `qr-cam-page-${useId()}`;
+    const camRetryRef = useRef(0);
 
     const normalizeCode = (val) => String(val || '').replace(/\s+/g, '').toUpperCase();
 
@@ -166,8 +167,9 @@ const ScanItem = () => {
         return gumPromise
             .then(stream => {
                 stream.getTracks().forEach(t => t.stop());
-                return true;
+                return new Promise(resolve => setTimeout(resolve, 500));
             })
+            .then(() => true)
             .catch(err => {
                 // Log the real error name so it appears in DevTools
                 console.error('[Camera] getUserMedia error:', err?.name, err?.message, err);
@@ -283,20 +285,28 @@ const ScanItem = () => {
             try {
                 await tryStart(selectedCamId || { facingMode: 'environment' });
             } catch (firstErr) {
-                // OverconstrainedError or camera-id failure — retry with unconstrained
                 const isConstrained = firstErr?.name === 'OverconstrainedError' ||
                     firstErr?.name === 'ConstraintNotSatisfiedError' ||
                     firstErr?.message?.includes('overconstrained');
+                const isNotReadable = firstErr?.name === 'NotReadableError' ||
+                    firstErr?.name === 'TrackStartError';
                 if (isConstrained || selectedCamId) {
                     console.warn('[Camera] Retrying with unconstrained video:', firstErr?.name);
                     await tryStart({ facingMode: 'user' }).catch(async () => {
                         await tryStart({ video: true });
                     });
+                } else if (isNotReadable && camRetryRef.current < 3) {
+                    camRetryRef.current += 1;
+                    console.warn(`[Camera] NotReadable retry ${camRetryRef.current}/3`);
+                    await new Promise(r => setTimeout(r, 700 * camRetryRef.current));
+                    await safeStop();
+                    return startCamera();
                 } else {
                     throw firstErr;
                 }
             }
 
+            camRetryRef.current = 0;
             isStartedRef.current = true;
         } catch (err) {
             if (!mountedRef.current) return;
@@ -310,7 +320,7 @@ const ScanItem = () => {
             } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
                 msg = 'No camera found on this device.';
             } else if (name === 'NotReadableError' || name === 'TrackStartError') {
-                msg = 'Camera is already in use by another app. Close other camera apps and try again.';
+                msg = 'Unable to access camera. Please close other apps using the camera and try again.';
             } else if (name === 'OverconstrainedError' || name === 'ConstraintNotSatisfiedError') {
                 msg = 'Camera could not be configured. Try the Upload Image tab instead.';
             } else if (name === 'SecurityError') {
@@ -323,6 +333,7 @@ const ScanItem = () => {
             setScanState('idle');
             isStartedRef.current = false;
             scannerRef.current = null;
+            camRetryRef.current = 0;
         }
     }, [activeTab, isCamActive, selectedCamId, cameras.length, safeStop, handleLookup]);
 
