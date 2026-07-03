@@ -71,7 +71,7 @@ const Login = () => {
                     <picture>
                       <source type="image/avif" srcSet="/icons/icon-48.avif 48w, /icons/icon-96.avif 96w" sizes="72px" />
                       <source type="image/webp" srcSet="/icons/icon-48.webp 48w, /icons/icon-96.webp 96w" sizes="72px" />
-                      <img loading="lazy" src="/icons/icon-192.png" alt="Sarga" className="login-logo" width="72" height="72" />
+                      <img loading="lazy" src="/icons/icon-96.webp" alt="Sarga" className="login-logo" width="72" height="72" />
                     </picture>
                     <h1>SARGA</h1>
                     <p>Printing Management System</p>

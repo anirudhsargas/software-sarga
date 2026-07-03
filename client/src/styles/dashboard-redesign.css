@@ -580,7 +580,7 @@
   overflow: visible;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  min-height: 0;
+  min-height: calc(100vh - 64px); /* Stable height during transitions to prevent CLS */
   display: flex;
   flex-direction: column;
   width: 100%;

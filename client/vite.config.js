@@ -135,7 +135,10 @@ export default defineConfig({
     // Increase chunk size limit to avoid many small chunks
     chunkSizeWarningLimit: 1000,
     // Emit module preload polyfill
-    modulePreload: true,
+    modulePreload: {
+      polyfill: false,
+      resolveDependencies: () => []
+    },
     // Optimize chunk size
     target: 'esnext',
     // Enable CSS minification

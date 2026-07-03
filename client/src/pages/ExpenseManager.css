@@ -58,6 +58,7 @@ a:focus-visible,
     max-width: 1200px;
     margin: 0 auto;
     width: 100%;
+    min-height: 600px; /* Reserve height for dynamic tabs to prevent CLS */
 }
 
 /* ─── Header ──────────────────────────────────────────── */

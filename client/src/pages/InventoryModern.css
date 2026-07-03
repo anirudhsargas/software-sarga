@@ -333,6 +333,7 @@
   overflow: hidden;
   box-shadow: var(--shadow-sm);
   margin-bottom: var(--space-16);
+  min-height: 520px; /* Reserve height for dynamic content to avoid CLS */
 }
 
 .inv-table-scroll {

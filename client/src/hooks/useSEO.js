@@ -39,7 +39,7 @@ export const useSEO = (title, description) => {
             favicon.rel = "icon";
             document.head.appendChild(favicon);
         }
-        favicon.setAttribute('href', '/icons/icon-192.png');
+        favicon.setAttribute('href', '/icons/icon-48.webp');
 
         let twTitle = document.querySelector('meta[name="twitter:title"]');
         if (twTitle) twTitle.setAttribute('content', fullTitle);

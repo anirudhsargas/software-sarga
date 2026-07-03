@@ -114,8 +114,9 @@ const PageLoader = React.memo(() => (
 const SuspenseFallback = () => {
     const location = useLocation();
     const path = location.pathname || '';
-    // Jobs table skeleton
-    if (path.includes('/dashboard/jobs')) {
+
+    // Jobs/Orders table skeleton
+    if (path.includes('/dashboard/jobs') || path.includes('/dashboard/sales/orders')) {
         const cols = [
             { key: 'jobDetails', header: 'Job Details', width: '2fr', lines: 2 },
             { key: 'customer', header: 'Customer', width: '1.5fr', lines: 2 },
@@ -133,7 +134,7 @@ const SuspenseFallback = () => {
     }
 
     // Customers list skeleton
-    if (path.includes('/dashboard/customers')) {
+    if (path.includes('/dashboard/customers') || path.includes('/dashboard/sales/customers')) {
         return (
             <div className="skeleton-wrapper skeleton-wrapper--list">
                 <SkeletonLoader type="customer-list" count={8} />
@@ -146,6 +147,34 @@ const SuspenseFallback = () => {
         return (
             <div className="skeleton-wrapper skeleton-wrapper--table">
                 <SkeletonLoader type="form" />
+            </div>
+        );
+    }
+
+    // Quotes and Payments table skeleton
+    if (path.includes('/dashboard/sales/quotes') || path.includes('/dashboard/sales/payments')) {
+        return (
+            <div className="skeleton-wrapper skeleton-wrapper--table">
+                <SkeletonLoader type="table" count={6} />
+            </div>
+        );
+    }
+
+    // Inventory list skeleton
+    if (path.includes('/dashboard/inventory')) {
+        const cols = [
+            { key: 'select', header: '', width: '0.3fr' },
+            { key: 'item', header: 'Item', width: '2fr', lines: 2 },
+            { key: 'category', header: 'Category', width: '1.2fr' },
+            { key: 'stock', header: 'Stock', width: '1fr' },
+            { key: 'cost', header: 'Cost', width: '1fr' },
+            { key: 'price', header: 'Price', width: '1fr' },
+            { key: 'status', header: 'Status', width: '1fr', pill: true },
+            { key: 'actions', header: 'Actions', width: '1.2fr' }
+        ];
+        return (
+            <div className="skeleton-wrapper skeleton-wrapper--table">
+                <SkeletonLoader type="table" count={6} columns={cols} />
             </div>
         );
     }
@@ -1012,7 +1041,7 @@ const Dashboard = () => {
                         {companyInfo.logo ? (
                            <img src={companyInfo.logo} alt={companyInfo.name} className="logo-img" width="32" height="32" />
                         ) : (
-                           <img src="/icons/icon-192.png" alt="Sarga" className="logo-img" width="32" height="32" />
+                           <img src="/icons/icon-48.webp" alt="Sarga" className="logo-img" width="32" height="32" />
                         )}
                         <span className="logo-text">{companyInfo.name}</span>
                     </div>

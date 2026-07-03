@@ -253,7 +253,7 @@ const ExpenseManager = () => {
 
   /* ══════════ RENDER ══════════ */
   return (
-    <PageContainer>
+    <PageContainer className="em-page">
       {/* Header */}
       <div className="em-header">
         <div className="em-header__left">
