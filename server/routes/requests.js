@@ -4,6 +4,23 @@ const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { normalizeMobileWithCountry, auditLog, hasPendingCustomerBalance, asyncHandler } = require('../helpers');
 const { paginate } = require('../helpers/pagination');
+const { redisCache } = require('../middleware/cache');
+const { invalidatePattern } = require('../services/cacheService');
+
+// Invalidation middleware for writing routes
+const invalidateRequestsCache = async (req, res, next) => {
+    if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) {
+        try {
+            await invalidatePattern('requests');
+            console.log('[Cache] Invalidated requests cache due to', req.method, req.originalUrl);
+        } catch (err) {
+            console.error('[Cache] Invalidation error:', err);
+        }
+    }
+    next();
+};
+
+router.use(invalidateRequestsCache);
 
 // --- USER ID CHANGE REQUESTS ---
 
@@ -292,7 +309,7 @@ router.post('/requests/attendance/:id/review', authenticateToken, authorizeRoles
 
 
 // Get Pending Requests Count (Admin)
-router.get('/requests/pending-count', authenticateToken, authorizeRoles('Admin', 'Accountant'), asyncHandler(async (req, res) => {
+router.get('/requests/pending-count', authenticateToken, authorizeRoles('Admin', 'Accountant'), redisCache(120, 'requests'), asyncHandler(async (req, res) => {
     const isAdmin = req.user.role === 'Admin';
     if (!isAdmin) {
         // Accountant only sees discount requests they can act on

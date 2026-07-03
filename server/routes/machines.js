@@ -4,6 +4,23 @@ const { pool } = require('../database');
 const auth = require('../middleware/auth');
 const { auditLog, asyncHandler } = require('../helpers');
 const { paginate } = require('../helpers/pagination');
+const { redisCache } = require('../middleware/cache');
+const { invalidatePattern } = require('../services/cacheService');
+
+// Invalidation middleware for writing routes
+const invalidateMachinesCache = async (req, res, next) => {
+    if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) {
+        try {
+            await invalidatePattern('machines');
+            console.log('[Cache] Invalidated machines cache due to', req.method, req.originalUrl);
+        } catch (err) {
+            console.error('[Cache] Invalidation error:', err);
+        }
+    }
+    next();
+};
+
+router.use(invalidateMachinesCache);
 
 // ==================== BOOK STAFF ASSIGNMENTS (Offset/Laser/Other) ====================
 
@@ -153,7 +170,7 @@ router.get('/:id/staff-assignments', auth.authenticate, auth.requireRole(['Admin
 
 // ==================== GET ALL MACHINES ====================
 // Staff only see machines assigned to them; Admin/Accountant default to their own branch unless specified
-router.get('/', auth.authenticate, async (req, res) => {
+router.get('/', auth.authenticate, redisCache(120, 'machines'), async (req, res) => {
     try {
         const { branch_id, is_active } = req.query;
         const user = req.user;

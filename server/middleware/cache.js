@@ -6,9 +6,10 @@ const { getCache, setCache } = require('../services/cacheService');
 function redisCache(ttl = 300, keyPrefix = 'general') {
     return async (req, res, next) => {
         try {
-            // Build cache key based on route path and query parameters
+            // Build cache key based on route path, query parameters, and user context for security isolation
             const queryPart = Object.keys(req.query).length > 0 ? JSON.stringify(req.query) : '';
-            const key = `sarga:${keyPrefix}:${req.baseUrl || ''}${req.path}:${queryPart}`;
+            const userPart = req.user ? `${req.user.role}:${req.user.branch_id || ''}:${req.user.id}` : 'public';
+            const key = `sarga:${keyPrefix}:${req.baseUrl || ''}${req.path}:${queryPart}:${userPart}`;
             
             const cached = await getCache(key);
             if (cached) {
