@@ -851,9 +851,15 @@ const Billing = () => {
   const handleAssignStaff = useCallback(async () => {
     const assignments = [];
     Object.entries(assignSelections).forEach(([jobId, roles]) => {
-      if (roles.designer) assignments.push({ job_id: Number(jobId), staff_id: roles.designer });
-      if (roles.printer) assignments.push({ job_id: Number(jobId), staff_id: roles.printer });
-      if (roles.other) assignments.push({ job_id: Number(jobId), staff_id: roles.other });
+      Object.entries(roles).forEach(([roleKey, value]) => {
+        if (!value) return;
+        if (value.startsWith('__role__')) {
+          const roleName = value.replace('__role__', '');
+          assignments.push({ job_id: Number(jobId), staff_id: 'role', role: roleName });
+        } else {
+          assignments.push({ job_id: Number(jobId), staff_id: value });
+        }
+      });
     });
     if (assignments.length === 0) { toast.error('Select at least one staff member to assign.'); return; }
     setAssignLoading(true);
@@ -1713,28 +1719,44 @@ const Billing = () => {
         </div>
 
         {/* Order Description Details */}
-        <div className="billing-summary-details" style={{ marginTop: 16, padding: '12px', border: '1px solid var(--border)', borderRadius: 8 }}>
-          <div className="text-muted" style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>Job Details</div>
+        <div className="billing-summary-details" style={{ marginTop: 16 }}>
+          <div className="billing-summary-details__header">
+            <FileText size={16} aria-hidden="true" />
+            <span>Job Details</span>
+            <span className="billing-summary-details__count">{orderLines.length} item{orderLines.length !== 1 ? 's' : ''}</span>
+          </div>
           {orderLines.map((line, idx) => (
-            <div key={line.id} style={{ marginBottom: idx < orderLines.length - 1 ? 8 : 0, padding: 8, background: 'var(--surface-2)', borderRadius: 6 }}>
-              <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 4 }}>{line.product_name}</div>
-              <div className="row gap-sm" style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                <input type="text" placeholder="Colour" value={line.colour || ''}
-                  onChange={e => updateLine(line.id, 'colour', e.target.value)}
-                  style={{ flex: 1, minWidth: 80, padding: '4px 8px', fontSize: 12, borderRadius: 4, border: '1px solid var(--border)', background: 'var(--input-bg)', color: 'var(--text)' }} />
-                <input type="text" placeholder="Paper" value={line.paper_preference || ''}
-                  onChange={e => updateLine(line.id, 'paper_preference', e.target.value)}
-                  style={{ flex: 1, minWidth: 80, padding: '4px 8px', fontSize: 12, borderRadius: 4, border: '1px solid var(--border)', background: 'var(--input-bg)', color: 'var(--text)' }} />
-                <input type="text" inputMode="numeric" placeholder="From" value={line.numbering_from || ''}
-                  onChange={e => updateLine(line.id, 'numbering_from', e.target.value)}
-                  style={{ width: 70, padding: '4px 8px', fontSize: 12, borderRadius: 4, border: '1px solid var(--border)', background: 'var(--input-bg)', color: 'var(--text)' }} />
-                <input type="text" inputMode="numeric" placeholder="To" value={line.numbering_to || ''}
-                  onChange={e => updateLine(line.id, 'numbering_to', e.target.value)}
-                  style={{ width: 70, padding: '4px 8px', fontSize: 12, borderRadius: 4, border: '1px solid var(--border)', background: 'var(--input-bg)', color: 'var(--text)' }} />
+            <div key={line.id} className="billing-summary-details__card">
+              <div className="billing-summary-details__card-title">
+                <span className="billing-summary-details__card-number">#{idx + 1}</span>
+                {line.product_name}
               </div>
-              <input type="text" placeholder="Special instructions..." value={line.special_instructions || ''}
-                onChange={e => updateLine(line.id, 'special_instructions', e.target.value)}
-                style={{ width: '100%', marginTop: 4, padding: '4px 8px', fontSize: 12, borderRadius: 4, border: '1px solid var(--border)', background: 'var(--input-bg)', color: 'var(--text)' }} />
+              <div className="billing-summary-details__card-body">
+                <div className="billing-summary-details__field">
+                  <label>Colour / Finish</label>
+                  <input type="text" placeholder="e.g. Full Colour, B&W" value={line.colour || ''}
+                    onChange={e => updateLine(line.id, 'colour', e.target.value)} />
+                </div>
+                <div className="billing-summary-details__field">
+                  <label>Paper Type</label>
+                  <input type="text" placeholder="e.g. Art Card, Maplitho" value={line.paper_preference || ''}
+                    onChange={e => updateLine(line.id, 'paper_preference', e.target.value)} />
+                </div>
+                <div className="billing-summary-details__field">
+                  <label>Numbering From</label>
+                  <input type="text" inputMode="numeric" placeholder="From" value={line.numbering_from || ''}
+                    onChange={e => updateLine(line.id, 'numbering_from', e.target.value)} />
+                </div>
+                <div className="billing-summary-details__field">
+                  <label>Numbering To</label>
+                  <input type="text" inputMode="numeric" placeholder="To" value={line.numbering_to || ''}
+                    onChange={e => updateLine(line.id, 'numbering_to', e.target.value)} />
+                </div>
+              </div>
+              <div className="billing-summary-details__card-footer">
+                <input type="text" placeholder="Special instructions..." value={line.special_instructions || ''}
+                  onChange={e => updateLine(line.id, 'special_instructions', e.target.value)} />
+              </div>
             </div>
           ))}
         </div>
@@ -1865,19 +1887,27 @@ const Billing = () => {
                                   aria-label={`Assign ${sectionLabel} for job ${job.job_number || job.id}`}
                                 >
                                   <option value="">— Select {sectionKey} —</option>
+                                  {sectionKey !== 'other' && (
+                                    <optgroup label="Role Assignment">
+                                      <option value={`__role__${sectionRole}`}>Any {sectionRole}</option>
+                                    </optgroup>
+                                  )}
                                   {sectionKey === 'other'
                                     ? Object.entries(staffByRole)
                                         .filter(([role]) => role !== 'Designer' && role !== 'Printer')
                                         .map(([role, staff]) => (
                                           <optgroup key={role} label={role}>
+                                            <option value={`__role__${role}`}>Any {role}</option>
                                             {staff.map(s => (
                                               <option key={s.id} value={s.id}>{s.name}</option>
                                             ))}
                                           </optgroup>
                                         ))
-                                    : staffList.map(s => (
-                                        <option key={s.id} value={s.id}>{s.name}</option>
-                                      ))
+                                    : <optgroup label="Staff">
+                                        {staffList.map(s => (
+                                          <option key={s.id} value={s.id}>{s.name}</option>
+                                        ))}
+                                      </optgroup>
                                   }
                                 </select>
                               </div>
