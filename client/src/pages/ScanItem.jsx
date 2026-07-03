@@ -114,6 +114,7 @@ const ScanItem = () => {
     const manualInputRef = useRef(null);
     const camDivId = `qr-cam-page-${useId()}`;
     const camRetryRef = useRef(0);
+    const scanLockRef = useRef(false);
 
     const normalizeCode = (val) => String(val || '').replace(/\s+/g, '').toUpperCase();
 
@@ -155,55 +156,16 @@ const ScanItem = () => {
     }, [activeTab]);
 
     // ── Camera helpers ─────────────────────────────────────────────────────────
-    // Called directly from a synchronous click handler.
-    // getUserMedia MUST be invoked in the same task as the user gesture
-    // on iOS Safari — any await before the call kills the gesture token.
+    // Returns true — html5-qrcode handles camera acquisition internally via qr.start()
     const requestCameraPermission = useCallback(() => {
-        // Start the getUserMedia call SYNCHRONOUSLY (no await before this)
-        const gumPromise = navigator.mediaDevices
-            ? navigator.mediaDevices.getUserMedia({ video: true })
-            : Promise.reject(Object.assign(new Error('getUserMedia not supported'), { name: 'SecurityError' }));
-
-        return gumPromise
-            .then(stream => {
-                stream.getTracks().forEach(t => t.stop());
-                return new Promise(resolve => setTimeout(resolve, 500));
-            })
-            .then(() => true)
-            .catch(err => {
-                // Log the real error name so it appears in DevTools
-                console.error('[Camera] getUserMedia error:', err?.name, err?.message, err);
-                const name = err?.name || '';
-                if (name === 'NotAllowedError' || name === 'PermissionDeniedError' ||
-                    err?.message?.includes('Permission denied')) {
-                    setCameraError(
-                        'Camera permission was denied. Open your browser settings, ' +
-                        'find this site under Permissions, and allow camera access. Then reload the page.'
-                    );
-                    setShowPermissionModal(true);
-                } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
-                    setCameraError('No camera found on this device.');
-                } else if (name === 'NotReadableError' || name === 'TrackStartError') {
-                    setCameraError(
-                        'Camera is already in use by another app. ' +
-                        'Close other apps using the camera and try again.'
-                    );
-                } else if (name === 'OverconstrainedError' || name === 'ConstraintNotSatisfiedError') {
-                    // Will be handled with a fallback in startCamera
-                    setCameraError('');
-                } else if (name === 'SecurityError') {
-                    setCameraError('Camera access requires a secure connection (HTTPS).');
-                } else {
-                    setCameraError('Unable to access camera. Try the Upload Image tab or Manual Entry.');
-                }
-                return false;
-            });
+        return Promise.resolve(true);
     }, []);
 
     const safeStop = useCallback(async () => {
         const qr = scannerRef.current;
         if (!qr || !isStartedRef.current || isStoppingRef.current) return;
         isStoppingRef.current = true;
+        scanLockRef.current = false;
         try { await qr.stop(); } catch (e) { console.warn('Camera stop error:', e); }
         finally {
             isStartedRef.current = false;
@@ -240,6 +202,7 @@ const ScanItem = () => {
             toast.error(err.response?.data?.message || 'Item not found.');
         } finally {
             setLookupLoading(false);
+            scanLockRef.current = false;
         }
     }, []);
 
@@ -273,10 +236,14 @@ const ScanItem = () => {
                 cameraId,
                 config,
                 (text) => {
+                    if (scanLockRef.current) return;
+                    scanLockRef.current = true;
                     const normalized = normalizeCode(text);
                     if (normalized) {
                         handleLookup(normalized);
                         setIsCamActive(false);
+                    } else {
+                        scanLockRef.current = false;
                     }
                 },
                 () => {}
