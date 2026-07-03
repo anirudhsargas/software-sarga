@@ -102,9 +102,6 @@ export default defineConfig({
       output: {
         manualChunks: (id) => {
           if (id.includes('node_modules')) {
-            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router') || id.includes('scheduler')) {
-              return 'react';
-            }
             if (id.includes('recharts') || id.includes('d3')) {
               return 'charts';
             }
@@ -115,22 +112,6 @@ export default defineConfig({
               return 'excel';
             }
             return 'vendor';
-          }
-          
-          if (id.includes('src/pages/Dashboard') || id.includes('src/pages/Summary') || id.includes('src/layouts/')) {
-            return 'dashboard';
-          }
-          if (id.includes('src/pages/Inventory') || id.includes('src/pages/Stock') || id.includes('src/pages/Consumables') || id.includes('src/pages/PaperStock') || id.includes('src/pages/PaperInward') || id.includes('src/pages/PaperOutward')) {
-            return 'inventory';
-          }
-          if (id.includes('src/pages/Billing') || id.includes('src/pages/Invoices') || id.includes('src/pages/Customers') || id.includes('src/pages/Quotes') || id.includes('src/pages/Payments') || id.includes('src/pages/CustomerPayments')) {
-            return 'sales';
-          }
-          if (id.includes('src/pages/Settings') || id.includes('src/pages/Backup')) {
-            return 'settings';
-          }
-          if (id.includes('src/pages/Reports')) {
-            return 'reports';
           }
         },
         chunkFileNames: 'assets/js/[name]-[hash].js',
