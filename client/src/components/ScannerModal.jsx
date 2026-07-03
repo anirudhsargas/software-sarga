@@ -88,6 +88,14 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
             if (!mod || cancelled || !mountedRef.current) return;
             const { Html5Qrcode } = mod;
 
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                const err = new Error('Camera API (getUserMedia) is not supported by this browser or connection. HTTPS is required.');
+                err.name = 'NotSupportedError';
+                console.warn('QR camera error:', err);
+                setCameraError('Camera access is not supported by this browser or connection (HTTPS required).');
+                return;
+            }
+
             qr = new Html5Qrcode(camDivId, { verbose: false });
             scannerRef.current = qr;
             isStartedRef.current = false;
@@ -95,8 +103,8 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
 
             const config = { fps: 12, qrbox: { width: 200, height: 200 }, aspectRatio: 1.0 };
 
-            const tryStart = (constraints) =>
-                qr.start(constraints, config,
+            const tryStart = (constraints, currentConfig = config) =>
+                qr.start(constraints, currentConfig,
                     (text) => {
                         safeStop().then(() => {
                             const normalized = normalizeScannedCode(text);
@@ -106,18 +114,56 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
                     () => { /* per-frame not-found — silenced */ }
                 );
 
-            tryStart({ facingMode: 'environment' })
-                .catch(() => tryStart({ facingMode: 'user' }))
+            const tryStartWithFallback = async (constraints) => {
+                try {
+                    await tryStart(constraints, config);
+                } catch (err) {
+                    const isOverconstrained = err?.name === 'OverconstrainedError' || err?.name === 'ConstraintNotSatisfiedError';
+                    if (isOverconstrained) {
+                        console.warn('[ScannerModal] OverconstrainedError, retrying without aspectRatio constraint:', err.message);
+                        await tryStart(constraints, { fps: 12, qrbox: { width: 200, height: 200 } });
+                    } else {
+                        throw err;
+                    }
+                }
+            };
+
+            tryStartWithFallback({ facingMode: 'environment' })
+                .catch(() => tryStartWithFallback({ facingMode: 'user' }))
+                .catch(async (err) => {
+                    console.log('[ScannerModal] facingMode start failed, trying enumerated device IDs...');
+                    try {
+                        const devices = await Html5Qrcode.getCameras();
+                        if (devices && devices.length > 0) {
+                            await tryStartWithFallback(devices[0].id);
+                        } else {
+                            throw err;
+                        }
+                    } catch (enumErr) {
+                        throw err;
+                    }
+                })
                 .then(() => { isStartedRef.current = true; })
                 .catch((err) => {
                     console.warn('QR camera error:', err);
                     if (!mountedRef.current) return;
-                    const isPermissionDenied = err?.name === 'NotAllowedError' || err?.message?.includes('Permission denied');
-                    setCameraError(isPermissionDenied
-                        ? 'Camera permission denied. Please allow camera access in your browser settings, then try again.'
-                        : 'Camera unavailable. Use "Upload Photo" instead.');
+                    const name = err?.name || '';
+                    const msg = err?.message || '';
+                    const isPermissionDenied = name === 'NotAllowedError' || name === 'PermissionDeniedError' || msg?.includes('Permission denied');
+                    
                     if (isPermissionDenied) {
+                        setCameraError('Camera permission denied. Please allow camera access in your browser settings, then try again.');
                         setShowPermissionModal(true);
+                    } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+                        setCameraError('No camera found on this device.');
+                    } else if (name === 'NotReadableError' || name === 'TrackStartError') {
+                        setCameraError('Camera is busy. Close other apps using the camera and try again.');
+                    } else if (name === 'OverconstrainedError' || name === 'ConstraintNotSatisfiedError') {
+                        setCameraError('Camera could not be configured with the selected settings.');
+                    } else if (name === 'SecurityError' || msg?.includes('insecure')) {
+                        setCameraError('Camera requires a secure (HTTPS) connection.');
+                    } else {
+                        setCameraError(`Camera unavailable (${name || 'UnknownError'}: ${msg || 'No details available'}). Use "Upload Photo" instead.`);
                     }
                     isStartedRef.current = false;
                     scannerRef.current = null;
@@ -165,18 +211,51 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
 
     const switchToCamera = async () => {
         setCameraError('');
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            setCameraError('Camera API (getUserMedia) is not supported by this browser or connection. HTTPS is required.');
+            return;
+        }
         if (permissionRequested) { setMode('camera'); return; }
         try {
-            const tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
+            let tempStream;
+            try {
+                // Try environment preference first
+                tempStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: { ideal: 'environment' } }
+                });
+            } catch (err1) {
+                try {
+                    // Try user preference
+                    tempStream = await navigator.mediaDevices.getUserMedia({
+                        video: { facingMode: 'user' }
+                    });
+                } catch (err2) {
+                    // Try unconstrained video
+                    tempStream = await navigator.mediaDevices.getUserMedia({
+                        video: true
+                    });
+                }
+            }
             tempStream.getTracks().forEach(track => track.stop());
             setPermissionRequested(true);
             setMode('camera');
         } catch (err) {
-            if (err?.name === 'NotAllowedError' || err?.message?.includes('Permission denied')) {
+            console.error('[ScannerModal] getUserMedia error:', err.name, err.message);
+            const name = err?.name || '';
+            const msg = err?.message || '';
+            if (name === 'NotAllowedError' || name === 'PermissionDeniedError' || msg?.includes('Permission denied')) {
                 setCameraError('Camera permission denied. Please allow camera access in your browser settings, then try again.');
                 setShowPermissionModal(true);
+            } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+                setCameraError('No camera found on this device.');
+            } else if (name === 'NotReadableError' || name === 'TrackStartError') {
+                setCameraError('Camera is busy. Close other apps using the camera and try again.');
+            } else if (name === 'OverconstrainedError' || name === 'ConstraintNotSatisfiedError') {
+                setCameraError('Camera could not be configured with the selected settings.');
+            } else if (name === 'SecurityError' || msg?.includes('insecure')) {
+                setCameraError('Camera requires a secure (HTTPS) connection.');
             } else {
-                setCameraError('Unable to access camera. Please check your camera device or switch to file upload.');
+                setCameraError(`Unable to access camera (${name || 'UnknownError'}: ${msg || 'No details available'}). Please check your camera device or switch to file upload.`);
             }
         }
     };
@@ -184,17 +263,50 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
     const handleRetryPermission = async () => {
         setShowPermissionModal(false);
         setCameraError('');
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            setCameraError('Camera API (getUserMedia) is not supported by this browser or connection. HTTPS is required.');
+            return;
+        }
         try {
-            const tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
+            let tempStream;
+            try {
+                // Try environment preference first
+                tempStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: { ideal: 'environment' } }
+                });
+            } catch (err1) {
+                try {
+                    // Try user preference
+                    tempStream = await navigator.mediaDevices.getUserMedia({
+                        video: { facingMode: 'user' }
+                    });
+                } catch (err2) {
+                    // Try unconstrained video
+                    tempStream = await navigator.mediaDevices.getUserMedia({
+                        video: true
+                    });
+                }
+            }
             tempStream.getTracks().forEach(track => track.stop());
             setPermissionRequested(true);
             setMode('camera');
         } catch (err) {
-            if (err?.name === 'NotAllowedError' || err?.message?.includes('Permission denied')) {
+            console.error('[ScannerModal] getUserMedia retry error:', err.name, err.message);
+            const name = err?.name || '';
+            const msg = err?.message || '';
+            if (name === 'NotAllowedError' || name === 'PermissionDeniedError' || msg?.includes('Permission denied')) {
                 setCameraError('Camera permission denied. Please allow camera access in your browser settings, then try again.');
                 setShowPermissionModal(true);
+            } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+                setCameraError('No camera found on this device.');
+            } else if (name === 'NotReadableError' || name === 'TrackStartError') {
+                setCameraError('Camera is busy. Close other apps using the camera and try again.');
+            } else if (name === 'OverconstrainedError' || name === 'ConstraintNotSatisfiedError') {
+                setCameraError('Camera could not be configured with the selected settings.');
+            } else if (name === 'SecurityError' || msg?.includes('insecure')) {
+                setCameraError('Camera requires a secure (HTTPS) connection.');
             } else {
-                setCameraError('Unable to access camera. Please check your camera device or switch to file upload.');
+                setCameraError(`Unable to access camera (${name || 'UnknownError'}: ${msg || 'No details available'}). Please check your camera device or switch to file upload.`);
             }
         }
     };

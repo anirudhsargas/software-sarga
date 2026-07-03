@@ -179,6 +179,10 @@
     overflow: hidden;
     border: 1px solid var(--border);
 }
+.si-viewport--off {
+    aspect-ratio: auto !important;
+    min-height: 280px;
+}
 
 .si-video-container { width: 100%; height: 100%; }
 .si-video-container video { width: 100% !important; height: 100% !important; object-fit: cover; }

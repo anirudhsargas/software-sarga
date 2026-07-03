@@ -185,9 +185,34 @@ const ScanItem = () => {
         stopHeldStream();
         setCameraError('');
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
-            });
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                const err = new Error('Camera API (getUserMedia) is not supported by this browser or connection. HTTPS is required.');
+                err.name = 'NotSupportedError';
+                throw err;
+            }
+
+            let stream;
+            try {
+                // Attempt 1: Environment facing mode with ideal resolution
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+                });
+            } catch (err1) {
+                console.warn('[Camera] getUserMedia environment failed, trying user camera:', err1.name, err1.message);
+                try {
+                    // Attempt 2: User facing mode with ideal resolution
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }
+                    });
+                } catch (err2) {
+                    console.warn('[Camera] getUserMedia user failed, trying unconstrained video:', err2.name, err2.message);
+                    // Attempt 3: Completely unconstrained video
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        video: true
+                    });
+                }
+            }
+
             streamRef.current = stream;
             console.log('[Camera] getUserMedia OK — stream active');
             // Enumerate cameras now that permission is granted (labels are populated)
@@ -211,7 +236,7 @@ const ScanItem = () => {
         } finally {
             startingRef.current = false;
         }
-    }, [enumerateCameras, stopHeldStream]);
+    }, [enumerateCameras, stopHeldStream, handleCameraError]);
 
     const safeStop = useCallback(async () => {
         stopHeldStream();
@@ -246,8 +271,10 @@ const ScanItem = () => {
             userMsg = 'Camera access was aborted. Tap Retry to try again.';
         } else if (name === 'SecurityError' || msg?.includes('insecure')) {
             userMsg = 'Camera requires a secure (HTTPS) connection.';
+        } else if (name === 'NotSupportedError') {
+            userMsg = 'Camera access is not supported by this browser or in this context (HTTPS required).';
         } else {
-            userMsg = 'Unable to start camera. Try the Upload Image tab or Manual Entry.';
+            userMsg = `Unable to start camera (${name || 'UnknownError'}: ${msg || 'No details available'}). Try the Upload Image tab or Manual Entry.`;
         }
         setCameraError(userMsg);
     }, []);
@@ -306,9 +333,9 @@ const ScanItem = () => {
                 aspectRatio: 1.0
             };
 
-            const tryStart = (cameraId) => qr.start(
+            const tryStart = (cameraId, currentConfig = config) => qr.start(
                 cameraId,
-                config,
+                currentConfig,
                 (text) => {
                     if (scanLockRef.current) return;
                     scanLockRef.current = true;
@@ -323,13 +350,27 @@ const ScanItem = () => {
                 () => {}
             );
 
+            const tryStartWithFallback = async (cameraIdOrConfig) => {
+                try {
+                    await tryStart(cameraIdOrConfig, config);
+                } catch (err) {
+                    const isOverconstrained = err?.name === 'OverconstrainedError' || err?.name === 'ConstraintNotSatisfiedError';
+                    if (isOverconstrained) {
+                        console.warn('[Camera] OverconstrainedError, retrying without aspectRatio constraint:', err.message);
+                        await tryStart(cameraIdOrConfig, { fps: 10, qrbox: { width: 220, height: 220 } });
+                    } else {
+                        throw err;
+                    }
+                }
+            };
+
             // Device-ID based start (most reliable on Android)
             let lastErr = null;
             const cameraId = selectedCamId;
             if (cameraId) {
                 console.log('[Camera] Starting with device ID:', cameraId.slice(0, 16) + '…');
                 try {
-                    await tryStart(cameraId);
+                    await tryStartWithFallback(cameraId);
                     lastErr = null;
                 } catch (err) {
                     console.warn('[Camera] Device-ID start failed:', err.name, err.message);
@@ -341,7 +382,7 @@ const ScanItem = () => {
             if (lastErr) {
                 console.log('[Camera] Fallback to facingMode: environment');
                 try {
-                    await tryStart({ facingMode: 'environment' });
+                    await tryStartWithFallback({ facingMode: 'environment' });
                     lastErr = null;
                 } catch (err) {
                     console.warn('[Camera] environment fallback failed:', err.name, err.message);
@@ -353,7 +394,7 @@ const ScanItem = () => {
             if (lastErr) {
                 console.log('[Camera] Fallback to facingMode: user');
                 try {
-                    await tryStart({ facingMode: 'user' });
+                    await tryStartWithFallback({ facingMode: 'user' });
                     lastErr = null;
                 } catch (err) {
                     console.warn('[Camera] user fallback failed:', err.name, err.message);
@@ -361,14 +402,26 @@ const ScanItem = () => {
                 }
             }
 
-            // Fallback 3: unconstrained
+            // Fallback 3: any enumerated camera device ID
             if (lastErr) {
-                console.log('[Camera] Fallback to unconstrained video');
+                console.log('[Camera] Fallback to any enumerated camera device ID');
                 try {
-                    await tryStart({ video: true });
-                    lastErr = null;
+                    const devices = await Html5Qrcode.getCameras();
+                    if (devices && devices.length > 0) {
+                        const fallbackCamId = devices[0].id;
+                        console.log('[Camera] Attempting start with fallback camera device ID:', fallbackCamId.slice(0, 16) + '…');
+                        try {
+                            await tryStartWithFallback(fallbackCamId);
+                            lastErr = null;
+                        } catch (err) {
+                            console.warn('[Camera] Fallback camera device ID start failed:', err.name, err.message);
+                            lastErr = err;
+                        }
+                    } else {
+                        console.warn('[Camera] No cameras found during fallback enumeration');
+                    }
                 } catch (err) {
-                    console.warn('[Camera] unconstrained fallback failed:', err.name, err.message);
+                    console.warn('[Camera] Enumeration inside startCamera failed:', err.name, err.message);
                     lastErr = err;
                 }
             }
@@ -715,7 +768,7 @@ const ScanItem = () => {
                                     </div>
                                 )}
 
-                                <div className="si-viewport">
+                                <div className={`si-viewport ${!isCamActive ? 'si-viewport--off' : ''}`}>
                                     <div id={camDivId} className="si-video-container" />
 
                                     {/* Scan overlay when active */}
