@@ -39,17 +39,32 @@ const CameraCapture = ({ onCapture, onClose }) => {
       streamRef.current.getTracks().forEach(track => track.stop());
     }
 
-    try {
-      const constraints = {
-        video: {
-          facingMode: { ideal: facingMode },
-          width: { ideal: 1920 },
-          height: { ideal: 1080 }
-        },
-        audio: false
-      };
+    // Build constraints — use 'ideal' (not 'exact') to avoid OverconstrainedError
+    // on devices that don't support specific resolutions.
+    const tryGetStream = (constraints) =>
+      navigator.mediaDevices
+        ? navigator.mediaDevices.getUserMedia(constraints)
+        : Promise.reject(Object.assign(new Error('Not supported'), { name: 'SecurityError' }));
 
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    try {
+      let stream;
+      try {
+        stream = await tryGetStream({
+          video: { facingMode: { ideal: facingMode }, width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false
+        });
+      } catch (firstErr) {
+        // OverconstrainedError or similar: retry with minimal constraints
+        const retry = firstErr?.name === 'OverconstrainedError' ||
+                      firstErr?.name === 'ConstraintNotSatisfiedError';
+        if (retry) {
+          console.warn('[CameraCapture] Retrying with unconstrained video:', firstErr?.name);
+          stream = await tryGetStream({ video: true, audio: false });
+        } else {
+          throw firstErr;
+        }
+      }
+
       streamRef.current = stream;
 
       if (videoRef.current) {
@@ -62,16 +77,31 @@ const CameraCapture = ({ onCapture, onClose }) => {
       const track = stream.getVideoTracks()[0];
       if (track && 'applyConstraints' in track) {
         try {
-          await track.applyConstraints({
-            advanced: [{ torch: isFlashOn }]
-          });
+          await track.applyConstraints({ advanced: [{ torch: isFlashOn }] });
         } catch {
-          // torch constraint unsupported
+          // torch constraint unsupported — ignore
         }
       }
     } catch (err) {
-      console.error('Camera access failed:', err);
-      setCameraError('Could not access the camera. Please ensure permissions are granted.');
+      console.error('[CameraCapture] getUserMedia error:', err?.name, err?.message, err);
+      const name = err?.name || '';
+      if (name === 'NotAllowedError' || name === 'PermissionDeniedError' ||
+          err?.message?.includes('Permission denied')) {
+        setCameraError(
+          'Camera permission was denied. Open your browser settings, allow camera ' +
+          'access for this site, and reload the page.'
+        );
+      } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+        setCameraError('No camera found on this device.');
+      } else if (name === 'NotReadableError' || name === 'TrackStartError') {
+        setCameraError('Camera is in use by another app. Close other apps and try again.');
+      } else if (name === 'OverconstrainedError' || name === 'ConstraintNotSatisfiedError') {
+        setCameraError('Camera could not start with current settings. Try switching cameras.');
+      } else if (name === 'SecurityError') {
+        setCameraError('Camera access requires a secure (HTTPS) connection.');
+      } else {
+        setCameraError('Could not access the camera. Please check your permissions and try again.');
+      }
     } finally {
       setCameraLoading(false);
     }

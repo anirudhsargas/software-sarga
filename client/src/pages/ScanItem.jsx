@@ -154,19 +154,48 @@ const ScanItem = () => {
     }, [activeTab]);
 
     // ── Camera helpers ─────────────────────────────────────────────────────────
-    const requestCameraPermission = useCallback(async () => {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            stream.getTracks().forEach(t => t.stop());
-            return true;
-        } catch (err) {
-            const isDenied = err?.name === 'NotAllowedError' || err?.message?.includes('Permission denied');
-            setCameraError(isDenied
-                ? 'Camera permission denied. Allow camera in browser settings and try again.'
-                : 'Unable to access camera. Switch to file upload or manual entry.');
-            if (isDenied) setShowPermissionModal(true);
-            return false;
-        }
+    // Called directly from a synchronous click handler.
+    // getUserMedia MUST be invoked in the same task as the user gesture
+    // on iOS Safari — any await before the call kills the gesture token.
+    const requestCameraPermission = useCallback(() => {
+        // Start the getUserMedia call SYNCHRONOUSLY (no await before this)
+        const gumPromise = navigator.mediaDevices
+            ? navigator.mediaDevices.getUserMedia({ video: true })
+            : Promise.reject(Object.assign(new Error('getUserMedia not supported'), { name: 'SecurityError' }));
+
+        return gumPromise
+            .then(stream => {
+                stream.getTracks().forEach(t => t.stop());
+                return true;
+            })
+            .catch(err => {
+                // Log the real error name so it appears in DevTools
+                console.error('[Camera] getUserMedia error:', err?.name, err?.message, err);
+                const name = err?.name || '';
+                if (name === 'NotAllowedError' || name === 'PermissionDeniedError' ||
+                    err?.message?.includes('Permission denied')) {
+                    setCameraError(
+                        'Camera permission was denied. Open your browser settings, ' +
+                        'find this site under Permissions, and allow camera access. Then reload the page.'
+                    );
+                    setShowPermissionModal(true);
+                } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+                    setCameraError('No camera found on this device.');
+                } else if (name === 'NotReadableError' || name === 'TrackStartError') {
+                    setCameraError(
+                        'Camera is already in use by another app. ' +
+                        'Close other apps using the camera and try again.'
+                    );
+                } else if (name === 'OverconstrainedError' || name === 'ConstraintNotSatisfiedError') {
+                    // Will be handled with a fallback in startCamera
+                    setCameraError('');
+                } else if (name === 'SecurityError') {
+                    setCameraError('Camera access requires a secure connection (HTTPS).');
+                } else {
+                    setCameraError('Unable to access camera. Try the Upload Image tab or Manual Entry.');
+                }
+                return false;
+            });
     }, []);
 
     const safeStop = useCallback(async () => {
@@ -226,6 +255,7 @@ const ScanItem = () => {
             const qr = new Html5Qrcode(camDivId, { verbose: false });
             scannerRef.current = qr;
 
+            // Enumerate cameras once
             if (cameras.length === 0) {
                 const devices = await Html5Qrcode.getCameras().catch(() => []);
                 if (mountedRef.current) {
@@ -234,9 +264,12 @@ const ScanItem = () => {
                 }
             }
 
-            await qr.start(
-                selectedCamId || { facingMode: 'environment' },
-                { fps: 12, qrbox: { width: 200, height: 200 }, aspectRatio: 1.6 },
+            const config = { fps: 12, qrbox: { width: 200, height: 200 }, aspectRatio: 1.6 };
+
+            // Try back camera first, then user camera, then unconstrained
+            const tryStart = (cameraId) => qr.start(
+                cameraId,
+                config,
                 (text) => {
                     const normalized = normalizeCode(text);
                     if (normalized) {
@@ -246,14 +279,46 @@ const ScanItem = () => {
                 },
                 () => {}
             );
+
+            try {
+                await tryStart(selectedCamId || { facingMode: 'environment' });
+            } catch (firstErr) {
+                // OverconstrainedError or camera-id failure — retry with unconstrained
+                const isConstrained = firstErr?.name === 'OverconstrainedError' ||
+                    firstErr?.name === 'ConstraintNotSatisfiedError' ||
+                    firstErr?.message?.includes('overconstrained');
+                if (isConstrained || selectedCamId) {
+                    console.warn('[Camera] Retrying with unconstrained video:', firstErr?.name);
+                    await tryStart({ facingMode: 'user' }).catch(async () => {
+                        await tryStart({ video: true });
+                    });
+                } else {
+                    throw firstErr;
+                }
+            }
+
             isStartedRef.current = true;
         } catch (err) {
             if (!mountedRef.current) return;
-            const isDenied = err?.name === 'NotAllowedError' || err?.message?.includes('Permission denied');
-            setCameraError(isDenied
-                ? 'Camera permission denied. Allow camera in browser settings and try again.'
-                : 'Unable to start camera. Check permissions or use manual entry.');
-            if (isDenied) setShowPermissionModal(true);
+            console.error('[Camera] startCamera error:', err?.name, err?.message, err);
+            const name = err?.name || '';
+            let msg;
+            if (name === 'NotAllowedError' || name === 'PermissionDeniedError' ||
+                err?.message?.includes('Permission denied')) {
+                msg = 'Camera permission was denied. Open browser settings and allow camera for this site, then reload.';
+                setShowPermissionModal(true);
+            } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+                msg = 'No camera found on this device.';
+            } else if (name === 'NotReadableError' || name === 'TrackStartError') {
+                msg = 'Camera is already in use by another app. Close other camera apps and try again.';
+            } else if (name === 'OverconstrainedError' || name === 'ConstraintNotSatisfiedError') {
+                msg = 'Camera could not be configured. Try the Upload Image tab instead.';
+            } else if (name === 'SecurityError') {
+                msg = 'Camera access requires a secure (HTTPS) connection.';
+            } else {
+                msg = 'Unable to start camera. Try the Upload Image tab or Manual Entry.';
+            }
+            setCameraError(msg);
             setIsCamActive(false);
             setScanState('idle');
             isStartedRef.current = false;
@@ -621,10 +686,18 @@ const ScanItem = () => {
                                                 </p>
                                                 <button
                                                     className="btn btn-primary btn-sm si-start-cam-btn"
-                                                    onClick={async () => {
+                                                    onClick={() => {
+                                                        // getUserMedia MUST be called in the very first
+                                                        // microtask of the click handler on iOS Safari.
+                                                        // Do NOT put any await before requestCameraPermission.
                                                         setCameraError('');
-                                                        const ok = await requestCameraPermission();
-                                                        if (ok) { setIsCamActive(true); setLookupResult(null); setScanState('idle'); }
+                                                        requestCameraPermission().then(ok => {
+                                                            if (ok) {
+                                                                setIsCamActive(true);
+                                                                setLookupResult(null);
+                                                                setScanState('idle');
+                                                            }
+                                                        });
                                                     }}
                                                 >
                                                     <Camera size={14} />
