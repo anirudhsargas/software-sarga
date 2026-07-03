@@ -352,30 +352,6 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
         } catch { return null; }
     };
 
-    // html5-qrcode fallback
-    const tryHtml5Qrcode = async (file) => {
-        const mod = await loadHtml5Qrcode();
-        if (!mod) return null;
-        const tmpId = `qr-tmp-${Date.now()}`;
-        const tmpDiv = document.createElement('div');
-        tmpDiv.id = tmpId;
-        tmpDiv.style.position = 'fixed';
-        tmpDiv.style.left = '-9999px';
-        tmpDiv.style.top = '0';
-        tmpDiv.style.width = '300px';
-        tmpDiv.style.height = '300px';
-        document.body.appendChild(tmpDiv);
-        try {
-            const { Html5Qrcode } = mod;
-            const qr = new Html5Qrcode(tmpId, { verbose: false });
-            const result = await qr.scanFile(file, true);
-            try { qr.clear(); } catch { /* ignore */ }
-            return result;
-        } finally {
-            if (document.body.contains(tmpDiv)) document.body.removeChild(tmpDiv);
-        }
-    };
-
     // Scan from uploaded photo
     const handleFileChange = async (e) => {
         const file = e.target.files?.[0];
@@ -390,7 +366,6 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
         try {
             let result = await scanFileWithJsQR(file).catch(() => null);
             if (!result) result = await tryBarcodeDetector(file).catch(() => null);
-            if (!result) result = await tryHtml5Qrcode(file).catch(() => null);
 
             if (result) {
                 const normalized = normalizeScannedCode(result);
