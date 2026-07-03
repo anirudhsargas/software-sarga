@@ -820,7 +820,7 @@ const Billing = () => {
       if (result.jobs && result.jobs.length > 0) {
         setAssignJobs(result.jobs);
         const init = {};
-        result.jobs.forEach(j => { init[j.id] = ''; });
+        result.jobs.forEach(j => { init[j.id] = { designer: '', printer: '', other: '' }; });
         setAssignSelections(init);
       } else {
         setAssignJobs([]);
@@ -849,14 +849,17 @@ const Billing = () => {
 
   // ── Staff assignment submit ──
   const handleAssignStaff = useCallback(async () => {
-    const assignments = Object.entries(assignSelections).filter(([, staffId]) => staffId);
+    const assignments = [];
+    Object.entries(assignSelections).forEach(([jobId, roles]) => {
+      if (roles.designer) assignments.push({ job_id: Number(jobId), staff_id: roles.designer });
+      if (roles.printer) assignments.push({ job_id: Number(jobId), staff_id: roles.printer });
+      if (roles.other) assignments.push({ job_id: Number(jobId), staff_id: roles.other });
+    });
     if (assignments.length === 0) { toast.error('Select at least one staff member to assign.'); return; }
     setAssignLoading(true);
     setAssignError('');
     try {
-      await Promise.all(assignments.map(([jobId, staffId]) =>
-        api.post(`/jobs/${jobId}/assign`, { staff_id: staffId })
-      ));
+      await api.post('/jobs/assignments/bulk', { assignments });
       toast.success('Staff assigned successfully!');
       setShowPostBillOptions(false);
     } catch (err) {
@@ -1813,7 +1816,7 @@ const Billing = () => {
 
               {/* Staff Assignment Panel */}
               <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                   <Users size={16} aria-hidden="true" style={{ color: 'var(--accent)' }} />
                   <span style={{ fontWeight: 600, fontSize: 14 }}>Assign Work to Staff</span>
                 </div>
@@ -1824,29 +1827,65 @@ const Billing = () => {
                   </div>
                 ) : (
                   <div className="billing-assign-panel">
-                    {assignJobs.map(job => (
-                      <div key={job.id} className="billing-assign-row">
-                        <div className="billing-assign-row__name" title={job.job_number || job.id}>
-                          {job.job_number || `Job #${job.id}`}
-                          {job.product_name && <span className="text-muted" style={{ marginLeft: 6, fontSize: 11 }}>· {job.product_name}</span>}
+                    {['designer', 'printer', 'other'].map(sectionKey => {
+                      const sectionLabel = sectionKey === 'designer' ? 'Design Assignment' : sectionKey === 'printer' ? 'Printing Assignment' : 'Other Assignment';
+                      const sectionRole = sectionKey === 'other' ? null : sectionKey.charAt(0).toUpperCase() + sectionKey.slice(1);
+                      const staffList = sectionRole
+                        ? (staffByRole[sectionRole] || [])
+                        : Object.entries(staffByRole)
+                            .filter(([role]) => role !== 'Designer' && role !== 'Printer')
+                            .flatMap(([, staff]) => staff);
+                      const allAssigned = assignJobs.every(j => assignSelections[j.id]?.[sectionKey]);
+                      const anyAssigned = assignJobs.some(j => assignSelections[j.id]?.[sectionKey]);
+                      return (
+                          <div key={sectionKey} className={`billing-assign-section ${allAssigned ? 'billing-assign-section--complete' : ''}`}>
+                          <div className="billing-assign-section__header">
+                            <span className="billing-assign-section__indicator" />
+                            <div className="billing-assign-section__title-group">
+                              <span className="billing-assign-section__title">{sectionLabel}</span>
+                              <span className="billing-assign-section__status">
+                                {allAssigned ? '✓ All assigned' : anyAssigned ? `⚠ ${assignJobs.filter(j => !assignSelections[j.id]?.[sectionKey]).length} pending` : 'No assignments'}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="billing-assign-section__body">
+                            {assignJobs.map(job => (
+                              <div key={job.id} className="billing-assign-row">
+                                <div className="billing-assign-row__name" title={job.job_number || job.id}>
+                                  {job.job_number || `Job #${job.id}`}
+                                  {job.product_name && <span className="text-muted" style={{ marginLeft: 6, fontSize: 11 }}>· {job.product_name}</span>}
+                                </div>
+                                <select
+                                  className={`billing-assign-row__select ${assignSelections[job.id]?.[sectionKey] ? 'billing-assign-row__select--filled' : ''}`}
+                                  value={assignSelections[job.id]?.[sectionKey] || ''}
+                                  onChange={e => setAssignSelections(prev => ({
+                                    ...prev,
+                                    [job.id]: { ...prev[job.id], [sectionKey]: e.target.value }
+                                  }))}
+                                  aria-label={`Assign ${sectionLabel} for job ${job.job_number || job.id}`}
+                                >
+                                  <option value="">— Select {sectionKey} —</option>
+                                  {sectionKey === 'other'
+                                    ? Object.entries(staffByRole)
+                                        .filter(([role]) => role !== 'Designer' && role !== 'Printer')
+                                        .map(([role, staff]) => (
+                                          <optgroup key={role} label={role}>
+                                            {staff.map(s => (
+                                              <option key={s.id} value={s.id}>{s.name}</option>
+                                            ))}
+                                          </optgroup>
+                                        ))
+                                    : staffList.map(s => (
+                                        <option key={s.id} value={s.id}>{s.name}</option>
+                                      ))
+                                  }
+                                </select>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                        <select
-                          className="billing-assign-row__select"
-                          value={assignSelections[job.id] || ''}
-                          onChange={e => setAssignSelections(prev => ({ ...prev, [job.id]: e.target.value }))}
-                          aria-label={`Assign staff for job ${job.job_number || job.id}`}
-                        >
-                          <option value="">— Assign Staff —</option>
-                          {Object.keys(staffByRole).map(role => (
-                            <optgroup key={role} label={role}>
-                              {staffByRole[role].map(s => (
-                                <option key={s.id} value={s.id}>{s.name}</option>
-                              ))}
-                            </optgroup>
-                          ))}
-                        </select>
-                      </div>
-                    ))}
+                      );
+                    })}
 
                     {assignError && (
                       <div className="billing-error" style={{ fontSize: 12 }}>
