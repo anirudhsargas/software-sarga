@@ -427,7 +427,10 @@ const Billing = () => {
   const getStepIndex = useCallback((key) => BILLING_TABS.findIndex(t => t.key === key), []);
 
   const stepValid = useMemo(() => {
-    const customer = !!form.type && (form.type === 'Walk-in' || (form.mobile.length === 10 && form.name.trim().length > 0));
+    const customer = !!form.type && (
+      form.type === 'Walk-in' || form.type === 'Retail' ||
+      (form.mobile.length === 10 && form.name.trim().length > 0)
+    );
     const products = orderLines.length > 0;
     const paymentValid = advancePaid > 0;
     const summary = true;
@@ -1223,7 +1226,9 @@ const Billing = () => {
             Next: Add Products →
           </button>
           {!stepValid[0] && (
-            <span className="billing-validation-hint">Please select customer type and enter name &amp; mobile</span>
+            <span className="billing-validation-hint">
+              {!form.type ? 'Please select a customer type' : 'Please enter customer name and 10-digit mobile number'}
+            </span>
           )}
         </div>
       </div>
