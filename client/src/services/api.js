@@ -17,6 +17,14 @@ const normalizeApiUrl = (url) => {
     return `${trimmed}/api/`;
 };
 
+const normalizeRequestUrl = (url) => {
+    if (!url) return url;
+    let normalized = String(url).trim();
+    if (normalized.startsWith('/')) normalized = normalized.replace(/^\/+/, '');
+    if (normalized.startsWith('api/')) normalized = normalized.replace(/^api\//, '');
+    return normalized;
+};
+
 // Centralized API URL for mobile/network access
 const getApiUrl = () => {
     const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
@@ -157,9 +165,9 @@ const requiresPaymentIdempotency = (url = '') => {
 
 // Automatically attach auth token to every request and fix absolute routes
 api.interceptors.request.use((config) => {
-    // Ensure URL is relative to baseURL by stripping leading slash
-    if (config.url && config.url.startsWith('/')) {
-        config.url = config.url.substring(1);
+    // Ensure URL is relative to baseURL and avoid duplicate /api segments.
+    if (config.url) {
+        config.url = normalizeRequestUrl(config.url);
     }
 
     const token = localStorage.getItem('token');
@@ -239,6 +247,7 @@ export const getAuthHeader = () => {
     return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
+export const normalizeApiRequestUrl = normalizeRequestUrl;
 export default api;
 
 /** Preload frequently used static data so it's cached before any page needs it */

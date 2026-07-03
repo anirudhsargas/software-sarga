@@ -5,7 +5,7 @@ import {
     BookOpen, Printer, Package, RefreshCw, TrendingUp, TrendingDown,
     Monitor, Hash, Building2, Check, Edit3, Lock, Send, FileText, Plus, Trash2,
     Calendar, Clock, ArrowUpRight, ArrowDownRight, X, Wallet, CreditCard,
-    IndianRupee, ChevronRight, ChevronLeft, BarChart3, Users, Sunrise
+    ChevronRight, ChevronLeft, BarChart3, Users, Sunrise
 } from 'lucide-react';
 
 const PDFExport = React.lazy(() => import('./DailyReportPDFExport'));
@@ -225,7 +225,7 @@ const DailyReport = () => {
         const d = new Date(ts);
         return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
     };
-    const _formatDateDisplay = (dateStr) => {
+    const formatDateDisplay = (dateStr) => {
         const d = new Date(dateStr + 'T00:00:00');
         return d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
     };
@@ -698,11 +698,11 @@ const DailyReport = () => {
             <div className="panel">
                 <div className="panel-header credit-list-header">
                     <h2 className="panel-title credit-list-title">
-                        <IndianRupee size={16} /> Credits — {bookKey}
+                        <CreditCard size={16} /> Credits — {bookKey}
                         <span className="badge credit-list-badge">{all.length}</span>
                     </h2>
                     <div className="row gap-sm">
-                        <span className="credit-list-total">Total: {formatCurrency(total)}</span>
+                        <span className="credit-list-total" style={{fontSize: 16}}>₹ {formatCurrency(total)}</span>
                     </div>
                 </div>
 
@@ -896,7 +896,7 @@ const DailyReport = () => {
         const [localAmount, setLocalAmount] = useState('');
         const [saving, setSaving] = useState(false);
         const [showEdit, setShowEdit] = useState(false);
-        const todayStr = new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' });
+        const todayStr = formatDateDisplay(reportDate);
 
         const handleSet = async () => {
             if (!localAmount || saving) return;
@@ -914,10 +914,12 @@ const DailyReport = () => {
             <div className="cash-opening-card">
                 <div className="cash-opening-header">
                     <div className="cash-opening-icon">
-                        <Wallet size={20} />
+                        {bookType === 'Offset' && <BookOpen size={20} />}
+                        {bookType === 'Laser' && <Printer size={20} />}
+                        {bookType === 'Other' && <Package size={20} />}
                     </div>
                     <div>
-                        <h3 className="cash-opening-title">Opening Balance — {bookType}</h3>
+                        <h3 className="cash-opening-title">{bookType} Book — Opening</h3>
                         <p className="cash-opening-subtitle">{todayStr}</p>
                     </div>
                     {isSet && !showEdit && (
@@ -1267,11 +1269,11 @@ const DailyReport = () => {
     const StatRow = ({ items }) => (
         <div className="row gap-md stat-row">
             {items.map((item, i) => (
-                <div key={i} className="stat-card stat-row-item">
+                <div key={i} className="stat-card" style={{flex: '1 1 140px', minWidth: 0}}>
                     <div className="stat-row-icon">
-                        {item.icon && <item.icon size={14} />}
+                        {item.icon && <item.icon size={16} />}
                     </div>
-                    <div className="stat-value stat-row-value">{item.value}</div>
+                    <div className="stat-value">{item.value}</div>
                     <div className="stat-label">{item.label}</div>
                 </div>
             ))}
@@ -1623,7 +1625,7 @@ const DailyReport = () => {
                         <div className="change-request-header">
                             <div className="change-request-header-left">
                                 <div className="change-request-icon">
-                                    <Send size={16} />
+                                    <Edit3 size={16} />
                                 </div>
                                 <div>
                                     <h2 className="section-title change-request-title">Request Change</h2>
@@ -1679,18 +1681,21 @@ const DailyReport = () => {
             <div className="dr-header">
                 <div className="dr-title-row">
                     <div className="dr-icon-circle" style={{ background: currentTabMeta.bg }}>
-                        <BarChart3 size={22} style={{ color: currentTabMeta.color }} />
+                        {activeTab === 'Offset' && <BookOpen size={22} style={{ color: currentTabMeta.color }} />}
+                        {activeTab === 'Laser' && <Printer size={22} style={{ color: currentTabMeta.color }} />}
+                        {activeTab === 'Other' && <Package size={22} style={{ color: currentTabMeta.color }} />}
+                        {activeTab === 'Attendance' && <Users size={22} style={{ color: currentTabMeta.color }} />}
                     </div>
                     <div>
                         <h1 className="section-title dr-title-section">Daily Report</h1>
                         <p className="dr-subtitle">
-                            Live cash book — auto-synced
+                            {formatDateDisplay(reportDate)}
                             {canViewAllBranches && branchName && (
-                                <span className="badge badge--info dr-branch-badge">{branchName}</span>
+                                <span className="badge badge--info dr-branch-badge" style={{marginLeft: 8}}>{branchName}</span>
                             )}
                             {lastRefresh && (
-                                <span className="dr-refresh-time">
-                                    <Clock size={10} /> {formatTime(lastRefresh)}
+                                <span className="dr-refresh-time" style={{marginLeft: 8}}>
+                                    <RefreshCw size={10} /> {formatTime(lastRefresh)}
                                 </span>
                             )}
                         </p>
@@ -1698,7 +1703,7 @@ const DailyReport = () => {
                 </div>
 
                 <div className="dr-controls">
-                    <button className="btn btn-ghost btn-sm dr-opening-setup-btn" onClick={triggerOpeningSetup} style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '38px', padding: '0 12px' }}>
+                    <button className="dr-opening-setup-btn" onClick={triggerOpeningSetup}>
                         <Sunrise size={15} />
                         <span>Opening Setup</span>
                     </button>
@@ -1714,28 +1719,27 @@ const DailyReport = () => {
                         </div>
                     )}
                     <div className="dr-controls-date">
-    <label htmlFor="report-date" style={{display:'flex', alignItems:'center', gap:'8px'}}>
-        <Calendar size={15} />
-        <span className="sr-only">Select Date</span>
-    </label>
-    <input id="report-date" type="date" className="input-field dr-controls-date-input" value={reportDate} onChange={(e) => setReportDate(e.target.value)} />
-</div>
+                        <label htmlFor="report-date" style={{display:'flex', alignItems:'center', gap:'8px'}}>
+                            <Calendar size={15} />
+                        </label>
+                        <input id="report-date" type="date" className="input-field dr-controls-date-input" value={reportDate} onChange={(e) => setReportDate(e.target.value)} />
+                    </div>
                     <React.Suspense fallback={<button className="btn btn-primary btn-sm dr-pdf-btn" disabled><FileText size={15} /> Loading...</button>}>
-        <PDFExport
-            branchName={branchName}
-            reportDate={reportDate}
-            offsetData={offsetData}
-            laserData={laserData}
-            otherData={otherData}
-            openingBalances={openingBalances}
-            creditTotals={creditTotals}
-            creditTransactions={creditTransactions}
-            attendanceData={attendanceData}
-            isFrontOffice={isFrontOffice}
-            user={user}
-            branches={branches}
-        />
-    </React.Suspense>
+                        <PDFExport
+                            branchName={branchName}
+                            reportDate={reportDate}
+                            offsetData={offsetData}
+                            laserData={laserData}
+                            otherData={otherData}
+                            openingBalances={openingBalances}
+                            creditTotals={creditTotals}
+                            creditTransactions={creditTransactions}
+                            attendanceData={attendanceData}
+                            isFrontOffice={isFrontOffice}
+                            user={user}
+                            branches={branches}
+                        />
+                    </React.Suspense>
                 </div>
             </div>
 
@@ -1777,62 +1781,57 @@ const DailyReport = () => {
             </div>
 
             {/* Credits Today quick view */}
-            {activeTab !== 'Attendance' && (
-            <div className="panel dr-credits-panel">
-                <div className="panel-header dr-credits-panel-header">
-                    <h2 className="panel-title">Today's Credits — {activeTab}</h2>
-                </div>
-                <div className="row gap-lg dr-credits-grid">
+            {activeTab !== 'Attendance' && (() => {
+                const book = [
+                    { key: 'Offset', credits: creditTransactions, live: offsetData.entries },
+                    { key: 'Laser', credits: laserCredits, live: laserData.entries },
+                    { key: 'Other', credits: otherCredits, live: otherData.entries }
+                ].find(b => b.key === activeTab);
+
+                const manualIn = book ? book.credits.filter(c => c.transaction_type === 'Credit In').reduce((s, c) => s + Number(c.amount), 0) : 0;
+                const manualOut = book ? book.credits.filter(c => c.transaction_type === 'Credit Out').reduce((s, c) => s + Number(c.amount), 0) : 0;
+                const liveOut = book ? (book.live || []).filter(e => {
+                    const t = Number(e.total || 0);
+                    const p = Number(e.cash_amount || 0) + Number(e.upi_amount || 0);
+                    return t > 0 && p === 0;
+                }).reduce((s, e) => s + Number(e.total), 0) : 0;
+
+                const totalOut = manualOut + liveOut;
+                const net = manualIn - totalOut;
+
+                return (
+                <div className="panel dr-credits-panel">
+                    <div className="panel-header dr-credits-panel-header">
+                        <h2 className="panel-title">
+                            <CreditCard size={15} />
+                            Today's Credits — {activeTab}
+                        </h2>
+                    </div>
                     {initialLoading ? (
                         <div className="dr-credits-skeleton">
                             <SkeletonLoader type="cards" count={3} />
                         </div>
                     ) : (
-                        <div className="dr-credits-table-wrapper">
-                            <table className="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>Book Type</th>
-                                        <th style={{ textAlign: 'right' }}>Credit Out (Sales)</th>
-                                        <th style={{ textAlign: 'right' }}>Credit In (Collections)</th>
-                                        <th style={{ textAlign: 'right' }}>Net Credit Change</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {[
-                                        { key: 'Offset', credits: creditTransactions, live: offsetData.entries },
-                                        { key: 'Laser', credits: laserCredits, live: laserData.entries },
-                                        { key: 'Other', credits: otherCredits, live: otherData.entries }
-                                    ].filter(book => book.key === activeTab).map(book => {
-                                        const manualIn = book.credits.filter(c => c.transaction_type === 'Credit In').reduce((s, c) => s + Number(c.amount), 0);
-                                        const manualOut = book.credits.filter(c => c.transaction_type === 'Credit Out').reduce((s, c) => s + Number(c.amount), 0);
-                                        const liveOut = (book.live || []).filter(e => {
-                                            const t = Number(e.total || 0);
-                                            const p = Number(e.cash_amount || 0) + Number(e.upi_amount || 0);
-                                            return t > 0 && p === 0;
-                                        }).reduce((s, e) => s + Number(e.total), 0);
-
-                                        const totalOut = manualOut + liveOut;
-                                        const net = manualIn - totalOut;
-
-                                        return (
-                                            <tr key={book.key}>
-                                                <td style={{ fontWeight: 600 }}>{book.key}</td>
-                                                <td style={{ textAlign: 'right', color: 'var(--warning)' }}>{formatCurrency(totalOut)}</td>
-                                                <td style={{ textAlign: 'right', color: 'var(--success)' }}>{formatCurrency(manualIn)}</td>
-                                                <td style={{ textAlign: 'right', fontWeight: 700, color: net >= 0 ? 'var(--success)' : 'var(--danger)' }}>
-                                                    {net >= 0 ? '+' : ''}{formatCurrency(net)}
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
+                        <div className="dr-credits-grid" style={{display: 'flex', gap: 12}}>
+                            <div className="stat-card" style={{flex: 1}}>
+                                <div className="stat-label">Credit Out</div>
+                                <div className="stat-value" style={{color: 'var(--warning)', fontSize: 22}}>₹ {formatCurrency(totalOut)}</div>
+                            </div>
+                            <div className="stat-card" style={{flex: 1}}>
+                                <div className="stat-label">Credit In</div>
+                                <div className="stat-value" style={{color: 'var(--success)', fontSize: 22}}>₹ {formatCurrency(manualIn)}</div>
+                            </div>
+                            <div className="stat-card" style={{flex: 1}}>
+                                <div className="stat-label">Net Change</div>
+                                <div className="stat-value" style={{color: net >= 0 ? 'var(--success)' : 'var(--error)', fontSize: 22}}>
+                                    {net >= 0 ? '+' : ''}₹ {formatCurrency(net)}
+                                </div>
+                            </div>
                         </div>
                     )}
                 </div>
-            </div>
-            )}
+                );
+            })()}
 
             {/* Credit Add Modal */}
             {showCreditModal && (
@@ -1907,7 +1906,7 @@ const DailyReport = () => {
                 {activeTab === 'Attendance' && <AttendanceView />}
             </>
 
-            <div style={{ textAlign: 'center', fontSize: 11, color: 'var(--muted)', padding: '4px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            <div className="dr-auto-refresh">
                 <RefreshCw size={10} /> Auto-refreshes every 30s
             </div>
         </PageContainer>

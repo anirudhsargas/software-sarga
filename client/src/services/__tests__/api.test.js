@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import api, { imgUrl, deduplicatedGet, API_URL, devFallback } from '../api';
+import api, { imgUrl, deduplicatedGet, API_URL, devFallback, normalizeApiRequestUrl } from '../api';
 
 vi.mock('react-hot-toast', () => ({
   default: { error: vi.fn(), success: vi.fn() },
@@ -65,4 +65,12 @@ describe('API Service', () => {
       expect(devFallback('/api/products')).toBe('/api/products');
     });
   });
-});
+
+    describe('normalizeApiRequestUrl', () => {
+        it('removes duplicate /api prefixes', () => {
+            expect(normalizeApiRequestUrl('/api/vendors')).toBe('vendors');
+            expect(normalizeApiRequestUrl('api/vendors')).toBe('vendors');
+            expect(normalizeApiRequestUrl('/vendors')).toBe('vendors');
+            expect(normalizeApiRequestUrl('vendors')).toBe('vendors');
+        });
+    });
