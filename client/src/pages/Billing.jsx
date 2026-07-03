@@ -255,6 +255,9 @@ const Billing = () => {
   const isWalkIn = form.type === 'Walk-in' || !form.name.trim();
   const needsGst = !isWalkIn;
   const _isInternalBill = location.state?.internal || form.type === 'Internal' || form.type === 'Stock Transfer';
+  const mobileValid = form.mobile.length === 10;
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email);
+  const gstValid = form.gst.length === 15;
 
   // ── Data loading ──
   useEffect(() => {
@@ -1198,6 +1201,7 @@ const Billing = () => {
                   value={form.mobile} onChange={e => setForm(p => ({ ...p, mobile: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
                   onKeyDown={e => { if (e.key === 'Enter') { customerNameRef.current?.focus(); } }}
                   className="billing-field__input" autoComplete="tel" />
+                {form.mobile.length > 0 && (mobileValid ? <CheckCircle2 size={16} className="billing-field__valid" aria-hidden="true" /> : <span className="billing-field__invalid" />)}
               </div>
               {needsGst && (
                 <div className="billing-field">
@@ -1208,6 +1212,7 @@ const Billing = () => {
                     value={form.gst} onChange={e => setForm(p => ({ ...p, gst: e.target.value }))}
                     onKeyDown={e => { if (e.key === 'Enter') { customerEmailRef.current?.focus(); } }}
                     className="billing-field__input" autoComplete="off" />
+                  {form.gst.length > 0 && (gstValid ? <CheckCircle2 size={16} className="billing-field__valid" aria-hidden="true" /> : <span className="billing-field__invalid" />)}
                 </div>
               )}
               <div className="billing-field">
@@ -1218,6 +1223,7 @@ const Billing = () => {
                   value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
                   onKeyDown={e => { if (e.key === 'Enter') { customerAddressRef.current?.focus(); } }}
                   className="billing-field__input" autoComplete="email" />
+                {form.email.length > 0 && (emailValid ? <CheckCircle2 size={16} className="billing-field__valid" aria-hidden="true" /> : <span className="billing-field__invalid" />)}
               </div>
             </div>
             <div className="billing-field">

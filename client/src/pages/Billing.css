@@ -346,6 +346,16 @@
   color: var(--text-muted);
 }
 
+.billing-field__valid {
+  color: var(--success);
+  flex-shrink: 0;
+}
+
+.billing-field__invalid {
+  width: 16px;
+  flex-shrink: 0;
+}
+
 /* ── Dropdown ── */
 .billing-dropdown {
   background: var(--surface);
