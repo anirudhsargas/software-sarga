@@ -1356,8 +1356,8 @@ router.delete('/inventory/all', authenticateToken, authorizeRoles('Admin'), asyn
             return res.status(400).json({ message: 'Inventory is already empty.' });
         }
 
-        // Soft-delete all active inventory items
-        await connection.query('UPDATE sarga_inventory SET is_deleted = 1 WHERE is_deleted = 0');
+        // Soft-delete all active inventory items (rename SKU to allow reuse and avoid collision by appending unique id)
+        await connection.query("UPDATE sarga_inventory SET sku = CONCAT(sku, '_deleted_', UNIX_TIMESTAMP(), '_', id), is_deleted = 1 WHERE is_deleted = 0");
 
         // Clear operational/current-state data
         await connection.query('DELETE FROM sarga_branch_stock');
@@ -1391,8 +1391,8 @@ router.delete('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Acco
         // Find linked products that have sync_enabled
         const [linkedProducts] = await pool.query('SELECT id, name, sync_enabled FROM sarga_products WHERE inventory_item_id = ? AND is_deleted = 0', [id]);
 
-        // Soft-delete the inventory item (keep historical references intact)
-        await pool.query('UPDATE sarga_inventory SET is_deleted = 1 WHERE id = ?', [id]);
+        // Soft-delete the inventory item (keep historical references intact, rename SKU to allow reuse)
+        await pool.query("UPDATE sarga_inventory SET sku = CONCAT(sku, '_deleted_', UNIX_TIMESTAMP()), is_deleted = 1 WHERE id = ?", [id]);
 
         // Clear operational/current-state data (not historical data)
         await pool.query('DELETE FROM sarga_branch_stock WHERE inventory_item_id = ?', [id]);

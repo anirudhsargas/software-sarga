@@ -874,7 +874,7 @@ module.exports = (upload, removeUploadFile) => {
                 const [invRows] = await pool.query("SELECT id, quantity FROM sarga_inventory WHERE id = ? AND is_deleted = 0", [inventoryId]);
                 if (!invRows[0]) return res.status(404).json({ message: 'Inventory item not found' });
 
-                await pool.query("UPDATE sarga_inventory SET is_deleted = 1 WHERE id = ?", [inventoryId]);
+                await pool.query("UPDATE sarga_inventory SET sku = CONCAT(sku, '_deleted_', UNIX_TIMESTAMP()), is_deleted = 1 WHERE id = ?", [inventoryId]);
                 await pool.query('DELETE FROM sarga_branch_stock WHERE inventory_item_id = ?', [inventoryId]);
                 await pool.query('DELETE FROM sarga_stock_requests WHERE inventory_item_id = ?', [inventoryId]);
                 invalidateHierarchyCache();
@@ -929,7 +929,7 @@ module.exports = (upload, removeUploadFile) => {
 
             // If sync_enabled and linked to inventory, soft-delete inventory too (linked mode)
             if (prod.sync_enabled && prod.inventory_item_id) {
-                await pool.query('UPDATE sarga_inventory SET is_deleted = 1 WHERE id = ? AND is_deleted = 0', [prod.inventory_item_id]);
+                await pool.query("UPDATE sarga_inventory SET sku = CONCAT(sku, '_deleted_', UNIX_TIMESTAMP()), is_deleted = 1 WHERE id = ? AND is_deleted = 0", [prod.inventory_item_id]);
                 // Clear operational data for the linked inventory
                 await pool.query('DELETE FROM sarga_branch_stock WHERE inventory_item_id = ?', [prod.inventory_item_id]);
                 await pool.query('DELETE FROM sarga_stock_requests WHERE inventory_item_id = ?', [prod.inventory_item_id]);
