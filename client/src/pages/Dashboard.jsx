@@ -89,6 +89,7 @@ const SettingsPage = React.lazy(() => import('./SettingsPage'));
 const BackupSettingsPage = React.lazy(() => import('./BackupSettingsPage'));
 const UploadBills = React.lazy(() => import('./UploadBills'));
 const RecurringInvoices = React.lazy(() => import('./RecurringInvoices'));
+const CreateInvoice = React.lazy(() => import('./CreateInvoice'));
 const ConnectionLedger = React.lazy(() => import('./ConnectionLedger'));
 const ChatbotTraining = React.lazy(() => import('./admin/ChatbotTraining'));
 const WebInquiries = React.lazy(() => import('./WebInquiries'));
@@ -1193,6 +1194,7 @@ const Dashboard = () => {
                                 <Route path="orders/:id" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant', 'Designer', 'Printer']}><JobDetail /></ProtectedSubRoute>} />
                                 <Route path="quotes" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><Quotes /></ProtectedSubRoute>} />
                                 <Route path="invoices" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><Invoices /></ProtectedSubRoute>} />
+                                <Route path="invoices/create" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><React.Suspense fallback={<AppShellSkeleton />}><CreateInvoice /></React.Suspense></ProtectedSubRoute>} />
                                 <Route path="payments" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><CustomerPayments /></ProtectedSubRoute>} />
                             </Route>
 

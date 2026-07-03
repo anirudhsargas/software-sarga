@@ -359,15 +359,21 @@ router.get('/jobs', authenticateToken, async (req, res) => {
         // For non-admin/non-accountant/non-front-office staff, include their personal assignment status
         const normalizedRole = userRole.toLowerCase();
         const isStaff = !['admin', 'accountant', 'front office', 'frontoffice'].includes(normalizedRole);
-        let myStatusSelect = '';
+        let myStatusJoin = '';
         const myStatusParams = [];
         if (isStaff) {
-            myStatusSelect = `, (SELECT jsa2.status FROM sarga_job_staff_assignments jsa2 WHERE jsa2.job_id = j.id AND (jsa2.staff_id = ? OR (jsa2.staff_id IS NULL AND jsa2.role = ?)) LIMIT 1) as my_assignment_status`;
+            // Replace correlated subquery with LEFT JOIN + derived table (single pass, no per-row subquery)
+            myStatusJoin = `LEFT JOIN LATERAL (
+                SELECT status FROM sarga_job_staff_assignments
+                WHERE job_id = j.id AND (staff_id = ? OR (staff_id IS NULL AND role = ?))
+                LIMIT 1
+            ) jsa ON TRUE`;
             myStatusParams.push(req.user.id, req.user.role);
         }
 
         if (isStaff) {
             // Show jobs assigned to this staff directly OR by role, restricted to their branch
+            // EXISTS is now efficient with index on (job_id, staff_id, role, status)
             if (tab === 'history') {
                 where += ' AND EXISTS (SELECT 1 FROM sarga_job_staff_assignments jsa WHERE jsa.job_id = j.id AND (jsa.staff_id = ? OR (jsa.staff_id IS NULL AND jsa.role = ?)) AND (jsa.status = "Completed" OR j.status = "Cancelled"))';
             } else {
@@ -444,13 +450,14 @@ router.get('/jobs', authenticateToken, async (req, res) => {
             FROM sarga_jobs j
             LEFT JOIN sarga_customers c ON j.customer_id = c.id
             LEFT JOIN sarga_branches b ON j.branch_id = b.id
+            ${myStatusJoin}
             WHERE 1=1 ${where}`;
 
         const countQuery = `SELECT COUNT(*) as total ${baseFrom}`;
         const [[{ total }]] = await pool.query(countQuery, params);
 
         const dataQuery = `
-            SELECT ${JOB_LIST_COL_MINIMAL}, COALESCE(c.name, 'Walk-in') as customer_name, c.mobile as customer_mobile, c.type as customer_type, b.name as branch_name${myStatusSelect}
+            SELECT ${JOB_LIST_COL_MINIMAL}, COALESCE(c.name, 'Walk-in') as customer_name, c.mobile as customer_mobile, c.type as customer_type, b.name as branch_name${isStaff ? ', jsa.status as my_assignment_status' : ''}
             ${baseFrom} ORDER BY j.created_at DESC LIMIT ? OFFSET ?
         `;
         const [rows] = await pool.query(dataQuery, [...myStatusParams, ...params, limit, offset]);

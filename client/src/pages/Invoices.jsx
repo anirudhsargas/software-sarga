@@ -345,7 +345,7 @@ const Invoices = () => {
               >
                 <UserPlus size={16} /> New Customer
               </button>
-              <button className="btn btn-primary btn-with-icon" onClick={() => setViewMode('create')}>
+              <button className="btn btn-primary btn-with-icon" onClick={() => navigate('/dashboard/sales/invoices/create')}>
                 <Plus size={18} /> Create Invoice
               </button>
             </div>
@@ -415,7 +415,7 @@ const Invoices = () => {
                 <h3>No Customer Invoices Found</h3>
                 <p className="muted">Add invoices or adjust search parameters.</p>
                 <div className="inv-empty__actions">
-                  <button className="btn btn-primary" onClick={() => setViewMode('create')}>
+                  <button className="btn btn-primary" onClick={() => navigate('/dashboard/sales/invoices/create')}>
                     <Plus size={16} /> Create Invoice
                   </button>
                   {hasActiveFilters && (

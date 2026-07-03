@@ -119,11 +119,20 @@ export const cachedGet = async (url, config) => {
     const key = getRequestKey(url, config);
     const cached = cache.get(key);
     if (cached && Date.now() - cached.time < CACHE_TTL) {
-        return cached.data; // Return cached axios response
+        return cached.data;
     }
-    const response = await origGet(url, config);
-    cache.set(key, { data: response, time: Date.now() });
-    return response;
+    // Deduplicate in-flight requests so multiple callers get one network call
+    if (pendingRequests.has(key)) return pendingRequests.get(key);
+    const p = origGet(url, config).then((response) => {
+        cache.set(key, { data: response, time: Date.now() });
+        pendingRequests.delete(key);
+        return response;
+    }).catch((err) => {
+        pendingRequests.delete(key);
+        throw err;
+    });
+    pendingRequests.set(key, p);
+    return p;
 };
 
 // Override api.get to provide automatic caching + dedup by default.
