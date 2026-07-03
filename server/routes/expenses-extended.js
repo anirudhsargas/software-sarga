@@ -2625,7 +2625,7 @@ router.get('/reports/utility-summary-by-connection', authenticateToken, authoriz
 
 // Record a utility bill
 router.post('/utility-bills', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
-  const { utility_type, amount, bill_number, bill_date, description, connection_id, connection_record_id, branch_id } = req.body;
+  const { utility_type, amount, bill_number, bill_date, description, connection_id, connection_record_id, branch_id, force_duplicate } = req.body;
   const finalBranchId = ['Admin', 'Accountant'].includes(req.user.role) ? (branch_id || req.user.branch_id) : req.user.branch_id;
 
   if (!utility_type || !amount || Number(amount) <= 0) {
@@ -2633,6 +2633,38 @@ router.post('/utility-bills', authenticateToken, authorizeRoles('Admin', 'Accoun
   }
 
   try {
+    // Period-based duplicate check for utility bills (soft block)
+    if (connection_record_id && bill_date && Number(amount) > 0 && !force_duplicate) {
+      try {
+        const [[connection]] = await pool.query(
+          'SELECT billing_cycle FROM sarga_utility_connections WHERE id = ?',
+          [connection_record_id]
+        );
+        const cycle = connection?.billing_cycle || 'monthly';
+        const windowDays = cycle === 'bimonthly' ? 30 : 15;
+
+        const [dupes] = await pool.query(
+          `SELECT id, bill_date, amount, bill_number
+           FROM sarga_utility_bills
+           WHERE connection_record_id = ?
+             AND ABS(DATEDIFF(bill_date, ?)) <= ?
+             AND ABS(COALESCE(amount, 0) - ?) < GREATEST(COALESCE(amount, 0) * 0.10, 1)`,
+          [connection_record_id, bill_date, windowDays, Number(amount)]
+        );
+
+        if (dupes.length > 0) {
+          return res.status(409).json({
+            error: 'A utility bill for this connection already exists within this billing period.',
+            code: 'POSSIBLE_DUPLICATE_UTILITY_BILL',
+            duplicate: dupes[0],
+            message: `Found existing bill from ${dupes[0].bill_date} for ₹${Number(dupes[0].amount).toFixed(2)}`
+          });
+        }
+      } catch (dupErr) {
+        console.warn('Utility bill duplicate check error:', dupErr.message);
+      }
+    }
+
     const [result] = await pool.query(
       "INSERT INTO sarga_utility_bills (utility_type, branch_id, bill_number, bill_date, amount, description, connection_id, connection_record_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
       [utility_type, finalBranchId, bill_number || null, bill_date || new Date().toISOString().split('T')[0], Number(amount), description || null, connection_id || null, connection_record_id || null]

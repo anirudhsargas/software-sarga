@@ -46,6 +46,14 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
     gst_category: ''
   });
   const [gstAnalysis, setGstAnalysis] = useState(null);
+  const [detectedType, setDetectedType] = useState('vendor');
+  const [detectionConfidence, setDetectionConfidence] = useState('low');
+  const [matchedConnection, setMatchedConnection] = useState(null);
+  const [utilityFields, setUtilityFields] = useState(null);
+  const [manualTypeOverride, setManualTypeOverride] = useState('');
+  const [manualConnectionId, setManualConnectionId] = useState('');
+  const [utilityConnections, setUtilityConnections] = useState([]);
+  const [connectionsLoading, setConnectionsLoading] = useState(false);
   const fileInputRef = useRef(null);
 
   // Fetch active vendors for vendor selector
