@@ -2,18 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import auth from '../services/auth';
-import { ArrowLeft, FileText, IndianRupee, Zap, Wifi, Phone, Droplets, ShoppingCart, Hash, Calendar, List } from 'lucide-react';
+import { ArrowLeft, FileText, IndianRupee, Zap, Wifi, Phone, Droplets, Hash, Calendar, List, Plus } from 'lucide-react';
 import { serverToday } from '../services/serverTime';
 import toast from 'react-hot-toast';
-import './VendorLedger.css';
+import './ConnectionLedger.css';
 import EmptyState from '../components/EmptyState';
 
-const ICON_MAP = {
-  'Electricity': Zap,
-  'Internet / Broadband': Wifi,
-  'Phone': Phone,
-  'Water': Droplets,
+const UTILITY_CONFIG = {
+  'Electricity': { icon: Zap, color: 'var(--warning)', bg: 'rgba(245, 158, 11, 0.1)' },
+  'Internet / Broadband': { icon: Wifi, color: 'var(--info)', bg: 'rgba(59, 130, 246, 0.1)' },
+  'Phone': { icon: Phone, color: 'var(--success)', bg: 'rgba(16, 185, 129, 0.1)' },
+  'Water': { icon: Droplets, color: 'var(--info)', bg: 'rgba(59, 130, 246, 0.1)' },
 };
+
+const DEFAULT_CONFIG = { icon: Zap, color: 'var(--primary)', bg: 'color-mix(in srgb, var(--primary) 10%, transparent)' };
 
 const ConnectionLedger = () => {
   const { id } = useParams();
@@ -59,118 +61,159 @@ const ConnectionLedger = () => {
     fetchBills(fromDate, toDate);
   };
 
-  const Icon = connection ? (ICON_MAP[connection.utility_type] || Zap) : Zap;
+  const cfg = connection ? (UTILITY_CONFIG[connection.utility_type] || DEFAULT_CONFIG) : DEFAULT_CONFIG;
+  const Icon = cfg.icon;
 
   const totalBilled = bills.reduce((s, r) => s + Number(r.amount || 0), 0);
 
+  const SkeletonRows = () => (
+    <div className="cl-skeleton">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <div key={i} className="cl-skeleton-row">
+          <div className="cl-skeleton-cell" style={{ width: '18%' }} />
+          <div className="cl-skeleton-cell" style={{ width: '22%' }} />
+          <div className="cl-skeleton-cell" style={{ width: '38%' }} />
+          <div className="cl-skeleton-cell" style={{ width: '12%' }} />
+          {isAdmin && <div className="cl-skeleton-cell" style={{ width: '10%' }} />}
+        </div>
+      ))}
+    </div>
+  );
+
   return (
-    <div className="vl-page">
-      <div className="vl-header">
-        <button className="vl-back-btn" onClick={() => navigate('/dashboard/expenses?tab=utilities')}>
-          <ArrowLeft size={18} /> Back to Utilities
-        </button>
-        <h1 className="vl-title">Connection Ledger</h1>
+    <div className="cl-page">
+      <div className="cl-header">
+        <div className="cl-header-left">
+          <button className="cl-back-btn" onClick={() => navigate('/dashboard/expenses?tab=utilities')}>
+            <ArrowLeft size={16} /> Back
+          </button>
+          <h1>Connection Ledger</h1>
+        </div>
       </div>
 
       {connection && (
-        <div className="vl-vendor-info">
-          <div className="vl-icon-badge" style={{ background: `color-mix(in srgb, ${connection.utility_type === 'Electricity' ? 'var(--warning)' : connection.utility_type === 'Water' ? 'var(--accent-2)' : connection.utility_type === 'Internet / Broadband' ? 'var(--accent)' : 'var(--primary)'} , transparent 15%)`, color: connection.utility_type === 'Electricity' ? 'var(--warning)' : connection.utility_type === 'Water' ? 'var(--accent-2)' : connection.utility_type === 'Internet / Broadband' ? 'var(--accent)' : 'var(--primary)'}}>
-            <Icon size={20} />
+        <div className="cl-hero">
+          <div className="cl-hero-icon" style={{ background: cfg.bg, color: cfg.color }}>
+            <Icon size={26} />
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span className="vl-vendor-name" style={{ fontSize: 20 }}>{connection.label || connection.connection_id}</span>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <span className="vl-type-badge">{connection.utility_type}</span>
-              {connection.provider && <span className="vl-type-badge">{connection.provider}</span>}
-              {!connection.is_active && (
-                <span className="vl-type-badge" style={{ background: 'rgba(239,68,68,0.1)', color: 'var(--error)' }}>Inactive</span>
+          <div className="cl-hero-info">
+            <span className="cl-hero-name">{connection.label || connection.connection_id}</span>
+            <div className="cl-hero-tags">
+              <span className="cl-tag" style={{ background: cfg.bg, color: cfg.color }}>{connection.utility_type}</span>
+              {connection.provider && <span className="cl-tag">{connection.provider}</span>}
+              <span className="cl-connection-id">{connection.connection_id}</span>
+              {connection.is_active ? (
+                <span className="cl-tag cl-tag--active">Active</span>
+              ) : (
+                <span className="cl-tag cl-tag--inactive">Inactive</span>
               )}
             </div>
           </div>
         </div>
       )}
 
-      <div className="vl-cards">
-        <div className="vl-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span className="vl-card-label">Total Billed</span>
-            <div className="vl-card-icon" style={{ background: 'var(--surface-2)', color: 'var(--muted)' }}><IndianRupee size={16} /></div>
+      <div className="cl-stats">
+        <div className="cl-stat">
+          <div className="cl-stat-top">
+            <span className="cl-stat-label">Total Billed</span>
+            <div className="cl-stat-icon" style={{ background: 'var(--surface-2)', color: 'var(--text-secondary)' }}>
+              <IndianRupee size={16} />
+            </div>
           </div>
-          <span className="vl-card-value" style={{ fontSize: 22 }}>₹{Number(totalBilled).toLocaleString('en-IN')}</span>
+          <div className="cl-stat-value">₹{Number(totalBilled).toLocaleString('en-IN')}</div>
+          <div className="cl-stat-sub">{bills.length} bill{bills.length !== 1 ? 's' : ''} in period</div>
         </div>
-        <div className="vl-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span className="vl-card-label">Connection ID</span>
-            <div className="vl-card-icon"><Hash size={14} /></div>
+        <div className="cl-stat">
+          <div className="cl-stat-top">
+            <span className="cl-stat-label">Connection ID</span>
+            <div className="cl-stat-icon" style={{ background: 'var(--surface-2)', color: 'var(--text-secondary)' }}>
+              <Hash size={14} />
+            </div>
           </div>
-          <span className="vl-card-value" style={{ fontSize: 16 }}>{connection?.connection_id || '—'}</span>
+          <div className="cl-stat-value" style={{ fontSize: 'var(--text-base)', fontFamily: 'var(--font-mono)' }}>
+            {connection?.connection_id || '—'}
+          </div>
         </div>
-        <div className="vl-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span className="vl-card-label">Billing Cycle</span>
-            <div className="vl-card-icon"><Calendar size={14} /></div>
+        <div className="cl-stat">
+          <div className="cl-stat-top">
+            <span className="cl-stat-label">Billing Cycle</span>
+            <div className="cl-stat-icon" style={{ background: 'var(--surface-2)', color: 'var(--text-secondary)' }}>
+              <Calendar size={14} />
+            </div>
           </div>
-          <span className="vl-card-value" style={{ fontSize: 16, textTransform: 'capitalize' }}>{connection?.billing_cycle || 'Monthly'}</span>
+          <div className="cl-stat-value" style={{ fontSize: 'var(--text-base)', textTransform: 'capitalize' }}>
+            {connection?.billing_cycle || 'Monthly'}
+          </div>
         </div>
-        <div className="vl-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span className="vl-card-label">Bill Count</span>
-            <div className="vl-card-icon"><List size={14} /></div>
+        <div className="cl-stat">
+          <div className="cl-stat-top">
+            <span className="cl-stat-label">Bill Count</span>
+            <div className="cl-stat-icon" style={{ background: cfg.bg, color: cfg.color }}>
+              <List size={14} />
+            </div>
           </div>
-          <span className="vl-card-value">{bills.length}</span>
+          <div className="cl-stat-value">{bills.length}</div>
         </div>
       </div>
 
-      <div className="vl-filter-bar">
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <label style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: 11, color: 'var(--muted)' }}>From</span>
-            <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="input-field" />
-          </label>
-          <label style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: 11, color: 'var(--muted)' }}>To</span>
-            <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="input-field" />
-          </label>
-        </div>
-        <div>
+      <div className="cl-filter-bar">
+        <div className="cl-filter-group">
+          <div className="cl-filter-field">
+            <label>From</label>
+            <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} />
+          </div>
+          <div className="cl-filter-field">
+            <label>To</label>
+            <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} />
+          </div>
           <button className="btn btn-primary btn-sm" onClick={handleApplyFilter}>Apply</button>
         </div>
       </div>
 
-      <div className="vl-table-controls">
-        <div />
-        <div className="vl-actions">
-          <button className="btn btn-primary" onClick={() => { navigate(`/dashboard/expenses?tab=utilities&addBill=${id}`); }}>
-            <FileText size={14} /> Add Bill
-          </button>
-        </div>
+      <div className="cl-toolbar">
+        <span className="cl-toolbar-count">
+          {loading ? 'Loading...' : <><strong>{bills.length}</strong> bill{bills.length !== 1 ? 's' : ''} found</>}
+        </span>
+        <button className="btn btn-primary" onClick={() => navigate(`/dashboard/expenses?tab=utilities&addBill=${id}`)}>
+          <Plus size={16} /> Add Bill
+        </button>
       </div>
 
-      <div className="vl-table-wrap">
-        <table className="vl-table">
+      <div className="cl-table-wrap">
+        <table className="cl-table">
           <thead>
             <tr>
               <th>Date</th>
               <th>Bill Number</th>
               <th>Description</th>
-              <th style={{ textAlign: 'right' }}>Amount</th>
-              {isAdmin && <th style={{ width: 50 }}>Action</th>}
+              <th className="cl-cell-amount">Amount</th>
+              {isAdmin && <th style={{ width: 50 }}></th>}
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={isAdmin ? 5 : 4} style={{ textAlign: 'center', padding: '40px', color: 'var(--muted)' }}>Loading...</td></tr>
+              <tr><td colSpan={isAdmin ? 5 : 4}>{SkeletonRows()}</td></tr>
             ) : bills.length === 0 ? (
-              <tr><td colSpan={isAdmin ? 5 : 4}><EmptyState icon={FileText} title="No bills found for this connection" description="You can add a bill to get started." actionLabel="Add Bill" onAction={() => navigate(`/dashboard/expenses?tab=utilities&addBill=${id}`)} /></td></tr>
+              <tr>
+                <td colSpan={isAdmin ? 5 : 4}>
+                  <EmptyState
+                    icon={FileText}
+                    title="No bills found"
+                    description="Add a bill for this connection to get started."
+                    actionLabel="Add Bill"
+                    onAction={() => navigate(`/dashboard/expenses?tab=utilities&addBill=${id}`)}
+                  />
+                </td>
+              </tr>
             ) : bills.map((row, idx) => (
-              <tr key={idx} className="vl-row vl-row--bill">
-                <td>{row.bill_date ? new Date(row.bill_date).toLocaleDateString('en-IN') : '-'}</td>
-                <td>{row.bill_number || '—'}</td>
-                <td>{row.description || row.connection_id || '—'}</td>
-                <td style={{ textAlign: 'right', fontWeight: 700 }}>₹{Number(row.amount || 0).toLocaleString('en-IN')}</td>
+              <tr key={idx}>
+                <td className="cl-cell-date">{row.bill_date ? new Date(row.bill_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</td>
+                <td><span className="cl-bill-number">{row.bill_number || '—'}</span></td>
+                <td>{row.description || '—'}</td>
+                <td className="cl-cell-amount">₹{Number(row.amount || 0).toLocaleString('en-IN')}</td>
                 {isAdmin && (
                   <td>
-                    <button className="btn btn-ghost btn-icon btn-sm" title="Delete"
+                    <button className="cl-delete-btn" title="Delete bill"
                       onClick={async () => {
                         if (!window.confirm('Delete this bill?')) return;
                         try {
@@ -191,9 +234,9 @@ const ConnectionLedger = () => {
           </tbody>
           {bills.length > 0 && (
             <tfoot>
-              <tr className="vl-row--total">
-                <td colSpan={3}><strong>Total</strong></td>
-                <td style={{ textAlign: 'right' }}><strong>₹{totalBilled.toLocaleString('en-IN')}</strong></td>
+              <tr>
+                <td colSpan={3}>Total</td>
+                <td className="cl-cell-amount">₹{totalBilled.toLocaleString('en-IN')}</td>
                 {isAdmin && <td></td>}
               </tr>
             </tfoot>

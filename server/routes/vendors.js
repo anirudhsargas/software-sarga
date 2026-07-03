@@ -168,7 +168,7 @@ router.get('/vendors', authenticateToken, async (req, res) => {
         COALESCE(SUM(CASE WHEN vi.invoice_date BETWEEN ? AND ? THEN vi.amount ELSE 0 END), 0) as this_month_spend,
         COALESCE(SUM(vi.amount - vi.paid_amount), 0) as pending_amount,
         COUNT(vi.id) as total_invoices,
-        COUNT(CASE WHEN vi.status = 'overdue' THEN 1 END) as overdue_invoices
+        COUNT(CASE WHEN vi.status = 'overdue' AND (vi.amount - vi.paid_amount) > 0 THEN 1 END) as overdue_invoices
       FROM vendors v
       LEFT JOIN vendor_invoices vi ON v.id = vi.vendor_id
       ${whereClause}
@@ -197,7 +197,7 @@ router.get('/vendors/summary', authenticateToken, async (req, res) => {
     const [overdue] = await pool.query(`
       SELECT COALESCE(SUM(amount - paid_amount), 0) as total_overdue
       FROM vendor_invoices
-      WHERE status = 'overdue'
+      WHERE status = 'overdue' AND (amount - paid_amount) > 0
     `);
 
     res.json({

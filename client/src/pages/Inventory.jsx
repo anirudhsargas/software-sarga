@@ -53,6 +53,8 @@ const Inventory = () => {
     const [showEditModal, setShowEditModal] = useState(false);
     const [showPrintModal, setShowPrintModal] = useState(false);
     const [showImageSettingsModal, setShowImageSettingsModal] = useState(false);
+    const [printingProgress, setPrintingProgress] = useState(null);
+    const [printingTotal, setPrintingTotal] = useState(null);
     const [selectedItem, setSelectedItem] = useState(null);
     const [newItem, setNewItem] = useState(emptyItem);
     const [error, setError] = useState('');
@@ -773,6 +775,8 @@ const Inventory = () => {
 
     const generatePDF = async () => {
         setPrintingLabel(true);
+        setPrintingProgress(null);
+        setPrintingTotal(null);
         try {
             const itemsToPrint = Object.keys(printQuantities).map(id => ({ id: Number(id), quantity_to_print: printQuantities[id] || 1 }));
 
@@ -784,8 +788,32 @@ const Inventory = () => {
 
             const response = await api.post('/inventory/generate-labels',
                 { items: itemsToPrint },
-                { responseType: 'blob' }
+                {
+                    responseType: 'blob',
+                    onDownloadProgress: (progressEvent) => {
+                        try {
+                            if (progressEvent.lengthComputable && progressEvent.total) {
+                                const percent = Math.round((progressEvent.loaded / progressEvent.total) * 100);
+                                setPrintingProgress(percent);
+                            } else {
+                                // Unknown total — keep indeterminate state
+                                setPrintingProgress(null);
+                            }
+                        } catch (e) {
+                            // ignore
+                        }
+                    }
+                }
             );
+
+            // Success confirmation before download
+            try {
+                const total = itemsToPrint.reduce((acc, it) => acc + (Number(it.quantity_to_print) || 1), 0);
+                setPrintingTotal(total);
+                toast.success(`Generated ${total} label${total !== 1 ? 's' : ''} — starting download`);
+            } catch (e) {
+                // ignore
+            }
 
             const url = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement('a');
@@ -820,6 +848,8 @@ const Inventory = () => {
             toast.error(msg);
         } finally {
             setPrintingLabel(false);
+            setPrintingProgress(null);
+            setPrintingTotal(null);
         }
     };
 
@@ -2579,8 +2609,19 @@ const Inventory = () => {
                             </div>
 
                             {/* ── Footer ── */}
+                            {printingLabel && (
+                                <div style={{ padding: 'var(--space-12) var(--space-24)', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 'var(--space-12)', background: 'var(--surface-1)' }}>
+                                    <Loader2 className="animate-spin" size={16} />
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                        <div style={{ fontSize: '13px', fontWeight: 700 }}>Generating labels — please wait</div>
+                                        <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                                            {typeof printingProgress === 'number' ? `${printingProgress}% downloaded` : 'Preparing download…'}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                             <div className="modal-footer" style={{ padding: 'var(--space-16) var(--space-24)', borderTop: '1px solid var(--border)', flexShrink: 0, display: 'flex', gap: 'var(--space-10)', justifyContent: 'flex-end' }}>
-                                <button className="btn btn-secondary" onClick={() => setShowPrintModal(false)}>Cancel</button>
+                                <button className="btn btn-secondary" onClick={() => setShowPrintModal(false)} disabled={printingLabel}>Cancel</button>
                                 <button
                                     className="btn btn-primary"
                                     onClick={generatePDF}
