@@ -1253,13 +1253,13 @@ router.post('/inventory/generate-labels', authenticateToken, authorizeRoles('Adm
         // Converts mm to points (1mm = 2.83465 points)
         const mmToPt = (mm) => mm * 2.83465;
 
-        const margin = mmToPt(4);
+        const margin = mmToPt(5);
         const colGap = mmToPt(3);
-        const rowGap = 0;
+        const rowGap = mmToPt(3);
         const labelWidth = mmToPt(48);
         const labelHeight = mmToPt(24);
         const cols = 4;
-        const rows = 12;
+        const rows = Math.floor((_pageHeight - margin * 2 + rowGap) / (labelHeight + rowGap));
         const labelsPerPage = cols * rows;
 
         res.setHeader('Content-Type', 'application/pdf');
@@ -1300,31 +1300,28 @@ router.post('/inventory/generate-labels', authenticateToken, authorizeRoles('Adm
                 width: 256 // Higher source resolution helps with cleaner downscaling in PDF
             });
 
-            // Layout Content — new design: Category / Name / MRP + QR
-            const textAreaW = labelWidth - mmToPt(19);
+            // Layout Content — Category / Name / MRP + QR with 2mm internal padding
+            const padding = mmToPt(2);
+            const textAreaW = labelWidth - mmToPt(20);
 
             // Category name 
             const categoryLabel = (item.category || 'Inventory').toUpperCase();
             const catFontSize = categoryLabel.length > 18 ? 5.5 : 7;
             doc.fontSize(catFontSize).font('Helvetica-Bold').fillColor('#000000');
-            doc.text(categoryLabel, x + 2, y + 5, { width: textAreaW, lineBreak: false });
+            doc.text(categoryLabel, x + padding, y + padding, { width: textAreaW, lineBreak: false });
 
             // Product model name (or name if model missing)
             const modelNameText = (item.model_name || item.name).toUpperCase();
-            // Allow more characters since we are wrapping to 2 lines
             const shortName = modelNameText.length > 50 ? modelNameText.substring(0, 49) + '…' : modelNameText;
             doc.fontSize(6).font('Helvetica').fillColor('#000000');
-            // Use lineBreak: true and specify a restricted height for up to 2 lines
-            doc.text(shortName, x + 2, y + 15, { width: textAreaW, lineBreak: true, height: 16 });
+            doc.text(shortName, x + padding, y + mmToPt(6), { width: textAreaW, lineBreak: true, height: mmToPt(4) });
 
-            // MRP — positioned tightly below the worst-case 2-line name spacing
+            // MRP
             doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#000000');
-            doc.text(`MRP: Rs. ${mrp % 1 === 0 ? mrp.toFixed(0) : mrp.toFixed(2)}`, x + 2, y + 30, { width: textAreaW, lineBreak: false });
-
+            doc.text(`MRP: Rs. ${mrp % 1 === 0 ? mrp.toFixed(0) : mrp.toFixed(2)}`, x + padding, y + mmToPt(11), { width: textAreaW, lineBreak: false });
 
             // Place QR Code (right side)
-            // Adjusted position due to increased QR size (16mm width)
-            doc.image(qrCodeBuffer, x + labelWidth - mmToPt(18), y + 2, {
+            doc.image(qrCodeBuffer, x + labelWidth - mmToPt(18), y + padding, {
                 width: mmToPt(16)
             });
 
@@ -1332,6 +1329,10 @@ router.post('/inventory/generate-labels', authenticateToken, authorizeRoles('Adm
             const uniqueCode = qrData;
             doc.fontSize(5).font('Helvetica').fillColor('#000000');
             doc.text(uniqueCode, x + labelWidth - mmToPt(18), y + mmToPt(18), { width: mmToPt(16), align: 'center', lineBreak: false });
+
+            // "Sarga, Mob: 9497559257" at bottom-right corner of every label
+            doc.fontSize(3).font('Helvetica').fillColor('#000000');
+            doc.text("Sarga, Mob: 9497559257", x + padding, y + labelHeight - padding - 3, { width: labelWidth - padding * 2, align: 'right', lineBreak: false });
         }
 
         doc.end();
