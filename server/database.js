@@ -3,11 +3,14 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
-const loadSchemaFiles = async (connection) => {
+const loadSchemaFiles = async (connection, appliedMigrations) => {
   const schemaDir = path.join(__dirname, 'schemas');
   if (!fs.existsSync(schemaDir)) return;
   const files = fs.readdirSync(schemaDir).filter(f => f.endsWith('.sql')).sort();
   for (const file of files) {
+    if (appliedMigrations.has(file)) {
+      continue;
+    }
     if (file === '022_add_description_to_credit_transactions.sql') {
       const [cols] = await connection.query(`
         SELECT COLUMN_NAME FROM information_schema.COLUMNS
@@ -21,6 +24,8 @@ const loadSchemaFiles = async (connection) => {
             ADD COLUMN description VARCHAR(500) NULL AFTER amount
         `);
       }
+      await connection.query('INSERT IGNORE INTO schema_migrations (migration_name) VALUES (?)', [file]);
+      appliedMigrations.add(file);
       continue;
     }
     if (file === '023_fix_credit_transactions_columns.sql') {
@@ -36,6 +41,8 @@ const loadSchemaFiles = async (connection) => {
             ADD COLUMN customer_id INT NULL AFTER description
         `);
       }
+      await connection.query('INSERT IGNORE INTO schema_migrations (migration_name) VALUES (?)', [file]);
+      appliedMigrations.add(file);
       continue;
     }
     if (file === '029_sheets_backup_jobs.sql') {
@@ -58,6 +65,8 @@ const loadSchemaFiles = async (connection) => {
           )
         `);
       }
+      await connection.query('INSERT IGNORE INTO schema_migrations (migration_name) VALUES (?)', [file]);
+      appliedMigrations.add(file);
       continue;
     }
     const rawSql = fs.readFileSync(path.join(schemaDir, file), 'utf8');
@@ -115,6 +124,8 @@ const loadSchemaFiles = async (connection) => {
         if (!ignoredCodes.includes(e.code)) throw e;
       }
     }
+    await connection.query('INSERT IGNORE INTO schema_migrations (migration_name) VALUES (?)', [file]);
+    appliedMigrations.add(file);
   }
 };
 
@@ -149,28 +160,68 @@ const pool = mysql.createPool({
 const initDb = async () => {
   const connection = await pool.getConnection();
   try {
+    // Ensure the tracking table exists
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS schema_migrations (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        migration_name VARCHAR(255) UNIQUE NOT NULL,
+        applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Fetch applied migrations
+    const [rows] = await connection.query('SELECT migration_name FROM schema_migrations');
+    const appliedMigrations = new Set(rows.map(r => r.migration_name));
+
+    console.log(`[Migration] ${appliedMigrations.size} migrations already applied, skipping DB checks`);
     console.log('Starting database schema migration...');
-    await loadSchemaFiles(connection);
+    
+    await loadSchemaFiles(connection, appliedMigrations);
     
     // Run the new sequential JS migration
-    const migrateProductHierarchy = require('./migrations/023_create_product_hierarchy');
-    await migrateProductHierarchy(connection);
+    const migrateProductHierarchyName = '023_create_product_hierarchy.js';
+    if (!appliedMigrations.has(migrateProductHierarchyName)) {
+      const migrateProductHierarchy = require('./migrations/023_create_product_hierarchy');
+      await migrateProductHierarchy(connection);
+      await connection.query('INSERT IGNORE INTO schema_migrations (migration_name) VALUES (?)', [migrateProductHierarchyName]);
+      appliedMigrations.add(migrateProductHierarchyName);
+    }
 
     // Run schema fixes migration (adds missing columns, FKs, customer sessions)
-    const migrateSchemaFixes = require('./migrations/032_schema_fixes');
-    await migrateSchemaFixes(connection);
+    const migrateSchemaFixesName = '032_schema_fixes.js';
+    if (!appliedMigrations.has(migrateSchemaFixesName)) {
+      const migrateSchemaFixes = require('./migrations/032_schema_fixes');
+      await migrateSchemaFixes(connection);
+      await connection.query('INSERT IGNORE INTO schema_migrations (migration_name) VALUES (?)', [migrateSchemaFixesName]);
+      appliedMigrations.add(migrateSchemaFixesName);
+    }
 
     // Run vendor tables fixes migration (adds missing columns, updates payments mode enum, etc.)
-    const migrateVendorTables = require('./migrations/033_fix_vendor_tables');
-    await migrateVendorTables(connection);
+    const migrateVendorTablesName = '033_fix_vendor_tables.js';
+    if (!appliedMigrations.has(migrateVendorTablesName)) {
+      const migrateVendorTables = require('./migrations/033_fix_vendor_tables');
+      await migrateVendorTables(connection);
+      await connection.query('INSERT IGNORE INTO schema_migrations (migration_name) VALUES (?)', [migrateVendorTablesName]);
+      appliedMigrations.add(migrateVendorTablesName);
+    }
 
     // Run legacy column removal migration (drops vendors.type and vendors.gstin after data verification)
-    const migrateDropLegacy = require('./migrations/034_drop_legacy_vendor_columns');
-    await migrateDropLegacy(connection);
+    const migrateDropLegacyName = '034_drop_legacy_vendor_columns.js';
+    if (!appliedMigrations.has(migrateDropLegacyName)) {
+      const migrateDropLegacy = require('./migrations/034_drop_legacy_vendor_columns');
+      await migrateDropLegacy(connection);
+      await connection.query('INSERT IGNORE INTO schema_migrations (migration_name) VALUES (?)', [migrateDropLegacyName]);
+      appliedMigrations.add(migrateDropLegacyName);
+    }
 
     // Run is_deleted / sync_enabled migration for Inventory ↔ Product Library sync
-    const migrateIsDeleted = require('./migrations/035_add_is_deleted');
-    await migrateIsDeleted(connection);
+    const migrateIsDeletedName = '035_add_is_deleted.js';
+    if (!appliedMigrations.has(migrateIsDeletedName)) {
+      const migrateIsDeleted = require('./migrations/035_add_is_deleted');
+      await migrateIsDeleted(connection);
+      await connection.query('INSERT IGNORE INTO schema_migrations (migration_name) VALUES (?)', [migrateIsDeletedName]);
+      appliedMigrations.add(migrateIsDeletedName);
+    }
     
     console.log('Database schema migration completed successfully');
   } catch (err) {

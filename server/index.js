@@ -1,4 +1,5 @@
 console.log(`[BOOT] Server process starting at ${new Date().toISOString()}`);
+global.migrationsComplete = false;
 
 // Polyfill browser APIs required by pdf-parse in Node.js environment
 if (typeof globalThis.DOMMatrix === 'undefined') globalThis.DOMMatrix = class DOMMatrix { constructor() {} };
@@ -363,6 +364,25 @@ app.get('/', (req, res) => {
     res.json({ status: 'ok', service: 'sarga-mis', message: 'API server is running.' });
 });
 
+// Middleware to return 503 if database migrations are still running in the background
+const migrationGuard = (req, res, next) => {
+    if (!global.migrationsComplete) {
+        return res.status(503).json({ message: 'Server initializing, please retry' });
+    }
+    next();
+};
+
+app.use([
+    '/api/backup',
+    '/api/vendors',
+    '/api/vendor-payments',
+    '/api/vendor-invoices',
+    '/api/inventory',
+    '/api/products',
+    '/api/paperInventory',
+    '/api/consumablesInventory'
+], migrationGuard);
+
 // Server time endpoint (tamper-proof date/time for clients)
 app.get('/api/server-time', (req, res, next) => {
     if (!req.headers.authorization) {
@@ -543,54 +563,57 @@ app.use(errorHandler);
 
 // --------------- Start Server ---------------
 if (process.env.NODE_ENV !== 'test') {
-    initDb().then(async () => {
-        console.log(`[BOOT] DB connection established at ${new Date().toISOString()}`);
-        logger.info('[DB] Database initialized successfully');
+    const server = http.createServer(app);
+    initSocket(server, app);
+    server.listen(PORT, '0.0.0.0', () => {
+        console.log('[BOOT] Port bound, server accepting requests');
+        const mode = process.env.NODE_ENV || 'development';
+        const dbHost = (process.env.DB_HOST || 'localhost').replace(/^(.{0,20}).*$/, '$1…');
+        logger.info(`Server running on port ${PORT} (${mode}, DB: ${dbHost})`);
 
-        // Startup verification check for product_hierarchy table
-        const db = pool;
-        db.query("SHOW TABLES LIKE 'product_hierarchy'")
-            .then(([rows]) => {
-                if (rows.length === 0) {
-                    console.error('[STARTUP] WARNING: product_hierarchy table does not exist!');
-                } else {
-                    console.log('[STARTUP] product_hierarchy table verified OK');
+        // DEV: list registered routes to help debugging missing endpoints
+        try {
+            const getPath = (layer) => {
+                if (layer.route && layer.route.path) return layer.route.path;
+                if (layer.regexp && layer.regexp.source) return layer.regexp.source;
+                return undefined;
+            };
+            const routes = [];
+            app._router.stack.forEach((layer) => {
+                const p = getPath(layer);
+                if (p) {
+                    routes.push(p);
+                } else if (layer.name === 'router' && layer.handle && layer.handle.stack) {
+                    layer.handle.stack.forEach((l) => {
+                        const rp = getPath(l);
+                        if (rp) routes.push(rp);
+                    });
                 }
-            })
-            .catch(err => console.error('[STARTUP] DB check failed:', err.message));
+            });
+            logger.info('[DevRoutes] Registered route patterns:');
+            routes.slice(0, 200).forEach(r => logger.info('  ', r));
+        } catch (e) {
+            logger.warn('[DevRoutes] Failed to list routes:', e.message);
+        }
 
-        const server = http.createServer(app);
-        initSocket(server, app);
-        server.listen(PORT, '0.0.0.0', () => {
-            console.log(`[BOOT] Server listening on port ${PORT} at ${new Date().toISOString()}`);
-            const mode = process.env.NODE_ENV || 'development';
-            const dbHost = (process.env.DB_HOST || 'localhost').replace(/^(.{0,20}).*$/, '$1…');
-            logger.info(`Server running on port ${PORT} (${mode}, DB: ${dbHost})`);
+        // Start background migration check
+        console.log('[Migration] Starting background migration check...');
+        initDb().then(async () => {
+            global.migrationsComplete = true;
+            console.log('[Migration] Background migrations completed');
+            logger.info('[DB] Database initialized successfully');
 
-            // DEV: list registered routes to help debugging missing endpoints
-            try {
-                const getPath = (layer) => {
-                    if (layer.route && layer.route.path) return layer.route.path;
-                    if (layer.regexp && layer.regexp.source) return layer.regexp.source;
-                    return undefined;
-                };
-                const routes = [];
-                app._router.stack.forEach((layer) => {
-                    const p = getPath(layer);
-                    if (p) {
-                        routes.push(p);
-                    } else if (layer.name === 'router' && layer.handle && layer.handle.stack) {
-                        layer.handle.stack.forEach((l) => {
-                            const rp = getPath(l);
-                            if (rp) routes.push(rp);
-                        });
+            // Startup verification check for product_hierarchy table
+            const db = pool;
+            db.query("SHOW TABLES LIKE 'product_hierarchy'")
+                .then(([rows]) => {
+                    if (rows.length === 0) {
+                        console.error('[STARTUP] WARNING: product_hierarchy table does not exist!');
+                    } else {
+                        console.log('[STARTUP] product_hierarchy table verified OK');
                     }
-                });
-                logger.info('[DevRoutes] Registered route patterns:');
-                routes.slice(0, 200).forEach(r => logger.info('  ', r));
-            } catch (e) {
-                logger.warn('[DevRoutes] Failed to list routes:', e.message);
-            }
+                })
+                .catch(err => console.error('[STARTUP] DB check failed:', err.message));
 
             // One-time migration: convert /uploads/ DB references to Cloudinary URLs
             try {
@@ -625,10 +648,10 @@ if (process.env.NODE_ENV !== 'test') {
             } catch (e) {
                 logger.warn('[Warning] Scheduler not loaded:', e.message);
             }
+        }).catch(err => {
+            logger.error("Background migration failed:", err);
+            // Do not exit the process, keep the server running
         });
-    }).catch(err => {
-        logger.error("Initialization failed:", err);
-        process.exit(1);
     });
 
     // Graceful shutdown

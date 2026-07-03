@@ -239,6 +239,9 @@ function normalizeRole(role) {
  * Returns true if session IS revoked (should reject), false if valid.
  */
 async function isCustomerSessionRevoked(token) {
+    if (global.migrationsComplete === false) {
+        return false;
+    }
     const hash = crypto.createHash('sha256').update(token).digest('hex');
     if (revokedTokens.has(hash)) {
         return true;
