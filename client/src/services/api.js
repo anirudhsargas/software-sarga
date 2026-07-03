@@ -270,6 +270,24 @@ export const preloadStaticData = () => {
     });
 };
 
+/** Preload static data with retry for cold-start resilience */
+export const preloadStaticDataWithRetry = async (retries = 2) => {
+    if (!auth.isAuthenticated()) return;
+    const endpoints = ['branches', 'product-hierarchy', 'company-settings', 'machines'];
+    for (const endpoint of endpoints) {
+        for (let attempt = 1; attempt <= retries; attempt++) {
+            try {
+                await cachedGet(endpoint);
+                break;
+            } catch {
+                if (attempt < retries) {
+                    await new Promise(r => setTimeout(r, 3000));
+                }
+            }
+        }
+    }
+};
+
 // When running locally without an auth token, point read-only requests to dev routes
 export const devFallback = (path) => {
     const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';

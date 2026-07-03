@@ -15,7 +15,7 @@ const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const StaffSettingsPage = lazy(() => import('./pages/StaffSettingsPage'));
 import auth from './services/auth';
-import { initServerTime, checkHealth } from './services/serverTime';
+import { initServerTime, checkHealth, waitForServer } from './services/serverTime';
 import OfflineBanner from './components/OfflineBanner';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ConfirmProvider } from './contexts/ConfirmContext';
@@ -27,7 +27,7 @@ import { HelmetProvider } from 'react-helmet-async';
 import { ThemeProvider } from './theme/ThemeProvider';
 
 import { syncManager } from './services/syncWorkerManager';
-import { preloadStaticData } from './services/api';
+import { preloadStaticDataWithRetry } from './services/api';
 import { SyncStatusBar } from './components/SyncStatusBar';
 import UpdateNotification from './components/UpdateNotification';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -131,15 +131,49 @@ function RouteChangeHandler() {
   return null;
 }
 
+const ConnectingScreen = () => (
+  <div style={{
+    position: 'fixed', inset: 0, zIndex: 10000,
+    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+    background: 'var(--bg, #f8f9fa)', color: 'var(--text, #212529)',
+    padding: '24px', textAlign: 'center', gap: '16px',
+  }}>
+    <div className="spin" style={{ width: 40, height: 40, border: '3px solid var(--border,#dee2e6)', borderTopColor: 'var(--accent,#4361ee)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+    <div>
+      <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>Waking up the server…</h2>
+      <p style={{ margin: '6px 0 0', fontSize: 14, color: 'var(--muted,#6c757d)' }}>
+        This may take up to a minute on the first request.
+      </p>
+    </div>
+  </div>
+);
+
 function App() {
   const [isOffline, setIsOffline] = useState(false);
+  const [serverStarting, setServerStarting] = useState(true);
 
   useEffect(() => {
     // Remove splash screen after app mounts
     document.body.classList.add('loaded');
 
+    // First ensure the backend is awake, then proceed with init
+    (async () => {
+      const ready = await waitForServer({
+        maxAttempts: 20,
+        initialDelayMs: 3000,
+        onRetry: (delay, attempt) => {
+          console.log(`[Server] Waiting for backend — attempt ${attempt}, retry in ${delay}ms`);
+        },
+      });
+      if (!ready) {
+        console.warn('[Server] Backend did not become healthy — continuing anyway');
+      }
+      setServerStarting(false);
+    })();
+
     // Sync with server clock so staff cannot manipulate dates
-    initServerTime();
+    // (runs after waitForServer completes above)
+    initServerTime().catch(() => {});
 
     // Only initialise the sync worker and preload data when the user is
     // authenticated with a valid (non-expired) token. An expired token
@@ -149,7 +183,7 @@ function App() {
       const token = auth.getToken();
       syncManager.init();
       syncManager.updateToken(token);
-      preloadStaticData();
+      preloadStaticDataWithRetry(2);
     }
 
     // Listen for online/offline
@@ -187,6 +221,10 @@ function App() {
       syncManager.destroy();
     };
   }, []);
+
+  if (serverStarting) {
+    return <ConnectingScreen />;
+  }
 
   return (
     <QueryClientProvider client={queryClient}>

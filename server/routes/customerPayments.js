@@ -52,11 +52,12 @@ const CUSTOMER_PAYMENT_LIST_COLUMNS = [
 // List Customer Payments
 router.get('/customer-payments', authenticateToken, customerCache(), async (req, res) => {
     try {
-        const { customer_id, startDate, endDate } = req.query;
+        const { customer_id, startDate, endDate, search, exclude_internal } = req.query;
         const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
 
         let whereClauses = [];
         const params = [];
+        let needsInvoiceJoin = false;
 
         // Branch filter for non-admin
         const branchScope = await branchFilter(req, { column: 'cp.branch_id', allowPrivilegedQuery: false });
@@ -77,16 +78,21 @@ router.get('/customer-payments', authenticateToken, customerCache(), async (req,
             whereClauses.push('cp.payment_date <= ?');
             params.push(endDate);
         }
-        if (req.query.search) {
-            const searchPattern = `%${req.query.search}%`;
+        if (search) {
+            needsInvoiceJoin = true;
+            const searchPattern = `%${search}%`;
             whereClauses.push('(cp.description LIKE ? OR cp.customer_name LIKE ? OR cp.reference_number LIKE ? OR i.invoice_number LIKE ?)');
             params.push(searchPattern, searchPattern, searchPattern, searchPattern);
+        }
+        if (exclude_internal === '1') {
+            whereClauses.push('(cp.is_internal IS NULL OR cp.is_internal = 0)');
         }
 
         const whereSection = whereClauses.length > 0 ? ' WHERE ' + whereClauses.join(' AND ') : '';
 
-        // Use proper destructuring for mysql2/promise
-        const [countRows] = await pool.query(`SELECT COUNT(*) as total FROM sarga_customer_payments cp LEFT JOIN sarga_invoices i ON i.payment_id = cp.id ${whereSection}`, params);
+        // Optimized COUNT — only LEFT JOIN when search references invoice_number
+        const countJoin = needsInvoiceJoin ? ' LEFT JOIN sarga_invoices i ON i.payment_id = cp.id' : '';
+        const [countRows] = await pool.query(`SELECT COUNT(*) as total FROM sarga_customer_payments cp${countJoin} ${whereSection}`, params);
         const total = countRows && countRows[0] ? countRows[0].total : 0;
         
         const [rows] = await pool.query(

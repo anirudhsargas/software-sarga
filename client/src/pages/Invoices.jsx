@@ -71,36 +71,40 @@ const Invoices = () => {
     setCurrentPage(1);
   };
 
-  const fetchInvoices = useCallback(async () => {
+  const fetchInvoices = useCallback(async (isRetry) => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
       params.append('page', currentPage);
       params.append('limit', pageSize);
+      params.append('exclude_internal', '1');
       if (searchQuery.trim()) {
-        params.append('customer_id', '');
+        params.append('search', searchQuery.trim());
       }
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
 
       const res = await api.get(`/customer-payments?${params.toString()}`);
 
-      let rows = res.data?.data || res.data || [];
-      rows = rows.filter(r => !r.is_internal);
-
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        rows = rows.filter(r =>
-          (r.customer_name && r.customer_name.toLowerCase().includes(q)) ||
-          (r.customer_mobile && r.customer_mobile.includes(q)) ||
-          (r.invoice_number && r.invoice_number.toLowerCase().includes(q))
-        );
+      if (res && res.offline) {
+        if (!isRetry) {
+          await new Promise(r => setTimeout(r, 2000));
+          return fetchInvoices(true);
+        }
+        setPageError('Server is starting up. Please try again in a moment.');
+        toast.error('Server is starting up. Retrying...');
+        return;
       }
 
+      const rows = res.data?.data || res.data || [];
       setInvoices(rows);
       setTotalCount(res.data?.total || rows.length);
     } catch (err) {
       console.error('Failed to fetch customer invoices:', err);
+      if (!isRetry) {
+        await new Promise(r => setTimeout(r, 2000));
+        return fetchInvoices(true);
+      }
       setPageError('Failed to load invoices. Please check your connection.');
       toast.error('Failed to fetch invoices');
     } finally {

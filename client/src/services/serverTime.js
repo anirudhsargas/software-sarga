@@ -23,14 +23,18 @@ let isHealthy = true;
 /**
  * Check if the server is reachable using the health endpoint.
  * Uses fetch() instead of Axios to avoid CORS preflight (no credentials).
+ * Times out after `timeoutMs` (default 8000ms) via AbortController.
  * Returns true if healthy, false otherwise.
  */
-export async function checkHealth() {
+export async function checkHealth(timeoutMs = 8000) {
     try {
         const url = API_URL.startsWith('http')
             ? `${API_URL.replace(/\/?$/, '/')}health`
             : 'https://software-sarga-2.onrender.com/api/health';
-        const res = await fetch(url);
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        const res = await fetch(url, { signal: controller.signal });
+        clearTimeout(timer);
         const healthy = res.status === 200;
         isHealthy = healthy;
         return healthy;
@@ -39,6 +43,30 @@ export async function checkHealth() {
         isHealthy = false;
         return false;
     }
+}
+
+/**
+ * Wait for the server to become healthy by retrying checkHealth().
+ * Resolves as soon as the server responds, rejects after max attempts.
+ * Calls `onRetry(delayMs, attempt)` between each attempt so the caller
+ * can update the UI.
+ */
+export async function waitForServer({
+    maxAttempts = 20,
+    initialDelayMs = 3000,
+    onRetry = () => {}
+} = {}) {
+    let delay = initialDelayMs;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        const healthy = await checkHealth(8000);
+        if (healthy) return true;
+        if (attempt < maxAttempts) {
+            onRetry(delay, attempt);
+            await new Promise(r => setTimeout(r, delay));
+            delay = Math.min(delay * 1.3, 10000);
+        }
+    }
+    return false;
 }
 
 /**
