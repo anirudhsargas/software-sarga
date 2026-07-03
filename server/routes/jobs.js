@@ -55,12 +55,13 @@ const getHierarchyData = async () => {
 
         // Use is_deleted filter if column exists (migration may not have run yet)
         let products, inventory;
+        const prefixedProductColumns = PRODUCT_COLUMNS.split(', ').map(col => `p.${col}`).join(', ');
         try {
-            products = await connection.query(`SELECT ${PRODUCT_COLUMNS} FROM sarga_products WHERE is_deleted = 0`).then(r => r[0]);
+            products = await connection.query(`SELECT ${prefixedProductColumns} FROM sarga_products p LEFT JOIN sarga_inventory i ON p.inventory_item_id = i.id WHERE p.is_deleted = 0 AND (p.inventory_item_id IS NULL OR i.is_deleted = 0)`).then(r => r[0]);
             inventory = await connection.query("SELECT i.id, i.name, i.sku, i.sell_price, i.category, p.id as linked_product_id FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id WHERE i.is_deleted = 0").then(r => r[0]);
         } catch (_) {
             // Fallback if is_deleted column doesn't exist yet
-            products = await connection.query(`SELECT ${PRODUCT_COLUMNS} FROM sarga_products`).then(r => r[0]);
+            products = await connection.query(`SELECT ${prefixedProductColumns} FROM sarga_products p LEFT JOIN sarga_inventory i ON p.inventory_item_id = i.id WHERE p.is_active = 1 AND (p.inventory_item_id IS NULL OR i.is_deleted = 0)`).then(r => r[0]);
             inventory = await connection.query("SELECT i.id, i.name, i.sku, i.sell_price, i.category, p.id as linked_product_id FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id").then(r => r[0]);
         }
         const slabs = await connection.query("SELECT id, product_id, min_qty, max_qty, unit_rate, base_value, double_side_unit_rate FROM sarga_product_slabs ORDER BY product_id, min_qty ASC").then(r => r[0]);

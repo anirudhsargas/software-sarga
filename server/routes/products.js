@@ -174,8 +174,8 @@ module.exports = (upload, removeUploadFile) => {
 
             const buildQuery = (isDeletedFilter) => {
                 let where = isDeletedFilter
-                    ? 'WHERE p.is_active = 1 AND p.is_deleted = 0'
-                    : 'WHERE p.is_active = 1';
+                    ? 'WHERE p.is_active = 1 AND p.is_deleted = 0 AND (p.inventory_item_id IS NULL OR i.is_deleted = 0)'
+                    : 'WHERE p.is_active = 1 AND (p.inventory_item_id IS NULL OR i.is_deleted = 0)';
                 const params = [];
                 if (search) {
                     where += ' AND (p.name LIKE ? OR p.product_code LIKE ?)';
@@ -190,6 +190,7 @@ module.exports = (upload, removeUploadFile) => {
                     FROM sarga_products p
                     LEFT JOIN sarga_product_subcategories s ON p.subcategory_id = s.id
                     LEFT JOIN sarga_product_categories c ON s.category_id = c.id
+                    LEFT JOIN sarga_inventory i ON p.inventory_item_id = i.id
                     ${w}`;
                 const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, p);
                 const [rows] = await pool.query(`
@@ -523,7 +524,13 @@ module.exports = (upload, removeUploadFile) => {
     // List Products for a Subcategory
     router.get('/product-subcategories/:id/products', authenticateToken, async (req, res) => {
         try {
-            const [rows] = await pool.query("SELECT * FROM sarga_products WHERE subcategory_id = ? ORDER BY name ASC", [req.params.id]);
+            const [rows] = await pool.query(
+                `SELECT p.* FROM sarga_products p
+                 LEFT JOIN sarga_inventory i ON p.inventory_item_id = i.id
+                 WHERE p.subcategory_id = ? AND p.is_deleted = 0 AND (p.inventory_item_id IS NULL OR i.is_deleted = 0)
+                 ORDER BY p.name ASC`,
+                [req.params.id]
+            );
             res.json(rows);
         } catch (_err) {
             res.status(500).json({ message: 'Database error' });
