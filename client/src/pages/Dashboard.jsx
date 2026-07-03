@@ -1194,12 +1194,12 @@ const Dashboard = () => {
                                 <Route path="orders/:id" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant', 'Designer', 'Printer']}><JobDetail /></ProtectedSubRoute>} />
                                 <Route path="quotes" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><Quotes /></ProtectedSubRoute>} />
                                 <Route path="invoices" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><Invoices /></ProtectedSubRoute>} />
-                                <Route path="invoices/create" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><React.Suspense fallback={<AppShellSkeleton />}><CreateInvoice /></React.Suspense></ProtectedSubRoute>} />
+                                <Route path="invoices/create" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><React.Suspense fallback={<SkeletonLoader rows={4} />}><CreateInvoice /></React.Suspense></ProtectedSubRoute>} />
                                 <Route path="payments" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><CustomerPayments /></ProtectedSubRoute>} />
                             </Route>
 
                             {/* Redirects for legacy/flat routes */}
-                            <Route path="billing" element={<Navigate to="/dashboard/sales/invoices" replace state={{ action: 'create' }} />} />
+                            <Route path="billing" element={<Navigate to="/dashboard/sales/invoices/create" replace />} />
                             <Route path="internal-billing" element={<Navigate to="/dashboard/sales/invoices" replace />} />
                             <Route path="customer-payments" element={<Navigate to="/dashboard/sales/payments" replace />} />
                             <Route path="quotes" element={<Navigate to="/dashboard/sales/quotes" replace />} />

@@ -425,7 +425,7 @@ const FrontOffice = () => {
       if (e.altKey && key === 'n') {
         e.preventDefault();
         e.stopImmediatePropagation();
-        navigate('/dashboard/sales/invoices', { state: { action: 'create' } });
+        navigate('/dashboard/sales/invoices/create');
       }
       if (e.altKey && key === 'p') {
         e.preventDefault();
@@ -577,7 +577,7 @@ const FrontOffice = () => {
               </div>
             )}
           </div>
-          <button className="fo-primary-btn" onClick={() => navigate('/dashboard/sales/invoices', { state: { action: 'create' } })}>
+          <button className="fo-primary-btn" onClick={() => navigate('/dashboard/sales/invoices/create')}>
             <Plus size={16} aria-hidden="true" />
             <span>New Order</span>
             <span className="fo-primary-btn__kbd">Alt+N</span>

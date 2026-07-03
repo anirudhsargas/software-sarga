@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback, Suspense } from 'react';
 import { useDebounce } from '../hooks/useDebounce';
 import SecureImage from '../components/SecureImage';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -14,12 +14,13 @@ import api from '../services/api';
 import localDb from '../services/localDb';
 import auth from '../services/auth';
 import { CUSTOMER_TYPES } from '../constants';
-import { printInvoicePDF } from '../utils/invoicePdf';
 import { useConfirm } from '../contexts/ConfirmContext';
 import { calculateProductPrice } from '../utils/pricing';
 import './Billing.css';
 import PageContainer from '../components/ui/PageContainer';
-import ScannerModal from '../components/ScannerModal';
+import ScannerErrorBoundary from '../components/ScannerErrorBoundary';
+
+const ScannerModal = React.lazy(() => import('../components/ScannerModal'));
 
 const serverToday = () => new Date().toISOString().split('T')[0];
 
@@ -227,7 +228,7 @@ const Billing = () => {
     }
   }, []);
 
-  const handlePrintRecent = useCallback((b) => {
+  const handlePrintRecent = useCallback(async (b) => {
     try {
       const printData = {
         invoice_number: b.invoice_number || b.id || 'Draft',
@@ -243,6 +244,7 @@ const Billing = () => {
         order_lines: b.orderLines || b.order_lines || [],
         description: b.description || b.notes || ''
       };
+      const { printInvoicePDF } = await import('../utils/invoicePdf');
       printInvoicePDF(printData);
     } catch {
       toast.error('Failed to print invoice');
@@ -868,8 +870,11 @@ const Billing = () => {
   }, [form, orderLines, totals]);
 
   // ── Print on save ──
-  const handlePrintLast = useCallback(() => {
-    if (lastBillData) printInvoicePDF(lastBillData);
+  const handlePrintLast = useCallback(async () => {
+    if (lastBillData) {
+      const { printInvoicePDF } = await import('../utils/invoicePdf');
+      printInvoicePDF(lastBillData);
+    }
   }, [lastBillData]);
 
   // ── Undo delete (5s) ──
@@ -1735,11 +1740,15 @@ const Billing = () => {
       </div>
 
       {/* Scanner Modal */}
-      <ScannerModal
-        isOpen={showScanner}
-        onClose={() => setShowScanner(false)}
-        onScan={handleQrLookup}
-      />
+      <ScannerErrorBoundary onClose={() => setShowScanner(false)}>
+        <Suspense fallback={null}>
+          <ScannerModal
+            isOpen={showScanner}
+            onClose={() => setShowScanner(false)}
+            onScan={handleQrLookup}
+          />
+        </Suspense>
+      </ScannerErrorBoundary>
 
       {/* Post-bill options with Staff Assignment */}
       {showPostBillOptions && (

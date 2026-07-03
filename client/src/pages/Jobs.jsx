@@ -423,7 +423,7 @@ const Jobs = () => {
                         <p>Manage and track all production jobs</p>
                     </div>
                 </div>
-                <button className="btn btn-primary" onClick={() => navigate('/dashboard/sales/invoices', { state: { action: 'create' } })}>
+                <button className="btn btn-primary" onClick={() => navigate('/dashboard/sales/invoices/create')}>
                     <Plus size={18} aria-hidden="true" /> Create Job
                 </button>
             </header>

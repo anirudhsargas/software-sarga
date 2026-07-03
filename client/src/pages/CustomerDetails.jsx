@@ -217,7 +217,7 @@ const CustomerDetails = () => {
   }, [data]);
 
   /* ───── actions ───── */
-  const handleAddWork = () => navigate('/dashboard/sales/invoices', { state: { action: 'create', customer: data?.customer } });
+  const handleAddWork = () => navigate('/dashboard/sales/invoices/create', { state: { customer: data?.customer } });
   const handleReorder = (item) => {
     navigate('/dashboard/sales/invoices', {
       state: {
@@ -546,7 +546,7 @@ const CustomerDetails = () => {
                             <FileText size={13} /> View Invoice
                           </button>
                         ) : (
-                          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/dashboard/sales/invoices', { state: { action: 'create', job: job } })} title="Generate invoice from this order">
+                           <button className="btn btn-ghost btn-sm" onClick={() => navigate('/dashboard/sales/invoices/create', { state: { job: job } })} title="Generate invoice from this order">
                             <Plus size={13} /> Generate Invoice
                           </button>
                         )}
