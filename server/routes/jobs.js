@@ -8,6 +8,7 @@ const { fileToBase64 } = require('../utils/base64');
 const { paginate } = require('../helpers/pagination');
 const { branchFilter } = require('../middleware/branchFilter');
 const { invalidateDashboardCache, invalidateCustomerCache, invalidatePattern } = require('../services/cacheService');
+const { routeCache } = require('../middleware/cache');
 
 const normalizeBookTypeFromCategory = (value) => {
     const normalized = String(value || '').trim().toLowerCase();
@@ -96,9 +97,9 @@ const getHierarchyData = async () => {
     }
 };
 
-// Invalidate hierarchy cache (call after product/category CRUD) (No-op now that Redis is removed)
+// Invalidate hierarchy cache (call after product/category CRUD)
 const invalidateHierarchyCache = () => {
-    // No-op
+    invalidatePattern('product-hierarchy').catch(err => console.error('[Cache] invalidateHierarchyCache error:', err));
 };
 
 // --- HELPER: PRICING ENGINE ---
@@ -841,7 +842,7 @@ router.post('/jobs', authenticateToken, validate(addJobSchema), async (req, res)
 });
 
 // Fetch Hierarchy Tree
-router.get('/product-hierarchy', authenticateToken, async (req, res) => {
+router.get('/product-hierarchy', authenticateToken, routeCache(3600, () => 'sarga:product-hierarchy'), async (req, res) => {
     try {
         const [usageMap, { categories, subcategories, products, inventory }] = await Promise.all([
             getUsageMap(req.user.id),

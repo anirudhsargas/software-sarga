@@ -1,26 +1,71 @@
+const { getCache, setCache } = require('../services/cacheService');
+
 /**
- * Redis-backed cache middleware (No-op now that Redis is removed).
+ * General cache middleware using the service's in-memory storage.
  */
-function redisCache(ttl, keyPrefix) {
-    return (req, res, next) => {
-        next();
+function redisCache(ttl = 300, keyPrefix = 'general') {
+    return async (req, res, next) => {
+        try {
+            // Build cache key based on route path and query parameters
+            const queryPart = Object.keys(req.query).length > 0 ? JSON.stringify(req.query) : '';
+            const key = `sarga:${keyPrefix}:${req.baseUrl || ''}${req.path}:${queryPart}`;
+            
+            const cached = await getCache(key);
+            if (cached) {
+                return res.json(cached);
+            }
+
+            // Monkey-patch res.json to capture response body for caching
+            const originalJson = res.json;
+            res.json = function (body) {
+                res.json = originalJson;
+                if (res.statusCode >= 200 && res.statusCode < 300) {
+                    setCache(key, body, ttl).catch(err => console.error('[Cache] set error:', err));
+                }
+                return originalJson.call(this, body);
+            };
+            next();
+        } catch (err) {
+            console.error('[Cache] middleware error:', err);
+            next();
+        }
     };
 }
 
 /**
- * Route cache middleware (No-op now that Redis is removed).
+ * Route-specific cache middleware using a custom key function.
  */
 function routeCache(ttl, keyFn) {
-    return (req, res, next) => {
-        next();
+    return async (req, res, next) => {
+        try {
+            const key = typeof keyFn === 'function' ? keyFn(req) : keyFn || req.originalUrl;
+            const cached = await getCache(key);
+            if (cached) {
+                return res.json(cached);
+            }
+
+            // Monkey-patch res.json to capture response body for caching
+            const originalJson = res.json;
+            res.json = function (body) {
+                res.json = originalJson;
+                if (res.statusCode >= 200 && res.statusCode < 300) {
+                    setCache(key, body, ttl).catch(err => console.error('[Cache] set error:', err));
+                }
+                return originalJson.call(this, body);
+            };
+            next();
+        } catch (err) {
+            console.error('[Cache] middleware error:', err);
+            next();
+        }
     };
 }
 
 // Pre-configured cache middlewares for common use cases
-const dashboardCache = () => redisCache();
-const customerCache = () => redisCache();
-const analyticsCache = () => redisCache();
-const searchCache = () => redisCache();
+const dashboardCache = () => redisCache(300, 'dashboard');
+const customerCache = () => redisCache(120, 'customers');
+const analyticsCache = () => redisCache(600, 'analytics');
+const searchCache = () => redisCache(60, 'search');
 
 module.exports = {
     redisCache,
@@ -30,3 +75,4 @@ module.exports = {
     searchCache,
     routeCache,
 };
+

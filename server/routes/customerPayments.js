@@ -8,6 +8,7 @@ const { paginate } = require('../helpers/pagination');
 const { validate } = require('../middleware/validate');
 const { customerPaymentSchema } = require('../schemas/paymentSchemas');
 const { invalidateDashboardCache, invalidateAnalyticsCache, invalidateCustomerCache } = require('../services/cacheService');
+const { customerCache } = require('../middleware/cache');
 
 const normalizeBookType = (value) => {
     const normalized = String(value || '').trim().toLowerCase();
@@ -49,7 +50,7 @@ const CUSTOMER_PAYMENT_LIST_COLUMNS = [
 // --- CUSTOMER PAYMENT ROUTES ---
 
 // List Customer Payments
-router.get('/customer-payments', authenticateToken, async (req, res) => {
+router.get('/customer-payments', authenticateToken, customerCache(), async (req, res) => {
     try {
         const { customer_id, startDate, endDate } = req.query;
         const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
