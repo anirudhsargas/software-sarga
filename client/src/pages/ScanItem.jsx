@@ -129,19 +129,6 @@ const ScanItem = () => {
     useEffect(() => {
         mountedRef.current = true;
         getHtml5QrcodeModule();
-        if ('permissions' in navigator) {
-            navigator.permissions.query({ name: 'camera' }).then((status) => {
-                if (status.state === 'granted') setIsCamActive(true);
-                else if (status.state === 'denied') {
-                    setCameraError('Camera access is blocked. Please allow camera in browser settings.');
-                }
-                status.addEventListener('change', () => {
-                    if (!mountedRef.current) return;
-                    if (status.state === 'granted') { setCameraError(''); setIsCamActive(true); }
-                    else if (status.state === 'denied') { setIsCamActive(false); setCameraError('Camera access blocked.'); }
-                });
-            }).catch(() => {});
-        }
         return () => {
             mountedRef.current = false;
             safeStop();
@@ -156,12 +143,78 @@ const ScanItem = () => {
     }, [activeTab]);
 
     // ── Camera helpers ─────────────────────────────────────────────────────────
-    // Returns true — html5-qrcode handles camera acquisition internally via qr.start()
-    const requestCameraPermission = useCallback(() => {
-        return Promise.resolve(true);
+    const streamRef = useRef(null);
+    const startingRef = useRef(false);
+
+    // Enumerate all video devices and find the rear camera
+    const enumerateCameras = useCallback(async () => {
+        try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const videoCams = devices.filter(d => d.kind === 'videoinput');
+            console.log('[Camera] enumerateDevices found:', videoCams.length, 'cameras');
+            videoCams.forEach((c, i) => console.log(`[Camera]  [${i}] label="${c.label}" deviceId="${c.deviceId.slice(0,16)}…"`));
+            // Rear camera heuristic: label contains "back", "rear", or "environment"
+            const rear = videoCams.find(d => {
+                const lbl = d.label.toLowerCase();
+                return lbl.includes('back') || lbl.includes('rear') || lbl.includes('environment');
+            }) || videoCams.find(d => d.label && !d.label.toLowerCase().includes('front'));
+            return { rear, allCams: videoCams };
+        } catch (err) {
+            console.warn('[Camera] enumerateDevices failed:', err.name, err.message);
+            return { rear: null, allCams: [] };
+        }
     }, []);
 
+    // Stop any held media tracks before starting a new session
+    const stopHeldStream = useCallback(() => {
+        if (streamRef.current) {
+            try {
+                streamRef.current.getTracks().forEach(t => {
+                    t.stop();
+                    console.log('[Camera] Stopped held track:', t.kind, t.label);
+                });
+            } catch (_) {}
+            streamRef.current = null;
+        }
+    }, []);
+
+    // Called synchronously from user gesture — requests camera + enumerates
+    const requestCameraPermission = useCallback(async () => {
+        if (startingRef.current) return false;
+        startingRef.current = true;
+        stopHeldStream();
+        setCameraError('');
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+            });
+            streamRef.current = stream;
+            console.log('[Camera] getUserMedia OK — stream active');
+            // Enumerate cameras now that permission is granted (labels are populated)
+            const { rear, allCams } = await enumerateCameras();
+            console.log('[Camera] Permission state: granted | Rear cam:', rear?.label || 'none');
+            if (rear) {
+                setSelectedCamId(rear.deviceId);
+                console.log('[Camera] Selected rear camera:', rear.deviceId.slice(0, 16) + '…');
+            } else if (allCams.length > 0) {
+                setSelectedCamId(allCams[0].deviceId);
+                console.log('[Camera] No rear cam found, using first:', allCams[0].deviceId.slice(0, 16) + '…');
+            }
+            setCameras(allCams);
+            // Release our stream so html5-qrcode can acquire it
+            stopHeldStream();
+            return true;
+        } catch (err) {
+            console.error('[Camera] getUserMedia error:', err.name, err.message, err.stack);
+            handleCameraError(err);
+            return false;
+        } finally {
+            startingRef.current = false;
+        }
+    }, [enumerateCameras, stopHeldStream]);
+
     const safeStop = useCallback(async () => {
+        stopHeldStream();
         const qr = scannerRef.current;
         if (!qr || !isStartedRef.current || isStoppingRef.current) return;
         isStoppingRef.current = true;
@@ -172,6 +225,31 @@ const ScanItem = () => {
             isStoppingRef.current = false;
             scannerRef.current = null;
         }
+    }, [stopHeldStream]);
+
+    // Unified camera error handler with detailed messages
+    const handleCameraError = useCallback((err, prefix) => {
+        const name = err?.name || '';
+        const msg = err?.message || '';
+        console.error(`[Camera] ${prefix || ''} name="${name}" message="${msg}" stack=${err?.stack || 'none'}`);
+        let userMsg;
+        if (name === 'NotAllowedError' || name === 'PermissionDeniedError' || msg?.includes('Permission denied')) {
+            userMsg = 'Camera permission was denied. Open your browser settings, find this site under Permissions, allow camera access, then reload.';
+            setShowPermissionModal(true);
+        } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+            userMsg = 'No camera found on this device.';
+        } else if (name === 'NotReadableError' || name === 'TrackStartError') {
+            userMsg = 'Camera is busy. Close other apps using the camera and tap Retry.';
+        } else if (name === 'OverconstrainedError' || name === 'ConstraintNotSatisfiedError') {
+            userMsg = 'Camera could not be configured with the selected settings.';
+        } else if (name === 'AbortError') {
+            userMsg = 'Camera access was aborted. Tap Retry to try again.';
+        } else if (name === 'SecurityError' || msg?.includes('insecure')) {
+            userMsg = 'Camera requires a secure (HTTPS) connection.';
+        } else {
+            userMsg = 'Unable to start camera. Try the Upload Image tab or Manual Entry.';
+        }
+        setCameraError(userMsg);
     }, []);
 
     // ── Lookup ─────────────────────────────────────────────────────────────────
@@ -209,6 +287,8 @@ const ScanItem = () => {
     // ── Camera start ───────────────────────────────────────────────────────────
     const startCamera = useCallback(async () => {
         if (!mountedRef.current || activeTab !== 'camera' || !isCamActive) return;
+        if (startingRef.current) { console.warn('[Camera] Already starting — skipping'); return; }
+        startingRef.current = true;
         await safeStop();
         setCameraError('');
         setScanState('scanning');
@@ -220,18 +300,12 @@ const ScanItem = () => {
             const qr = new Html5Qrcode(camDivId, { verbose: false });
             scannerRef.current = qr;
 
-            // Enumerate cameras once
-            if (cameras.length === 0) {
-                const devices = await Html5Qrcode.getCameras().catch(() => []);
-                if (mountedRef.current) {
-                    setCameras(devices);
-                    if (devices.length > 0) setSelectedCamId(devices[0].id);
-                }
-            }
+            const config = {
+                fps: 10,
+                qrbox: { width: 220, height: 220 },
+                aspectRatio: 1.0
+            };
 
-            const config = { fps: 12, qrbox: { width: 200, height: 200 }, aspectRatio: 1.6 };
-
-            // Try back camera first, then user camera, then unconstrained
             const tryStart = (cameraId) => qr.start(
                 cameraId,
                 config,
@@ -249,60 +323,84 @@ const ScanItem = () => {
                 () => {}
             );
 
-            try {
-                await tryStart(selectedCamId || { facingMode: 'environment' });
-            } catch (firstErr) {
-                const isConstrained = firstErr?.name === 'OverconstrainedError' ||
-                    firstErr?.name === 'ConstraintNotSatisfiedError' ||
-                    firstErr?.message?.includes('overconstrained');
-                const isNotReadable = firstErr?.name === 'NotReadableError' ||
-                    firstErr?.name === 'TrackStartError';
-                if (isConstrained || selectedCamId) {
-                    console.warn('[Camera] Retrying with unconstrained video:', firstErr?.name);
-                    await tryStart({ facingMode: 'user' }).catch(async () => {
-                        await tryStart({ video: true });
-                    });
-                } else if (isNotReadable && camRetryRef.current < 3) {
-                    camRetryRef.current += 1;
-                    console.warn(`[Camera] NotReadable retry ${camRetryRef.current}/3`);
-                    await new Promise(r => setTimeout(r, 700 * camRetryRef.current));
-                    await safeStop();
-                    return startCamera();
-                } else {
-                    throw firstErr;
+            // Device-ID based start (most reliable on Android)
+            let lastErr = null;
+            const cameraId = selectedCamId;
+            if (cameraId) {
+                console.log('[Camera] Starting with device ID:', cameraId.slice(0, 16) + '…');
+                try {
+                    await tryStart(cameraId);
+                    lastErr = null;
+                } catch (err) {
+                    console.warn('[Camera] Device-ID start failed:', err.name, err.message);
+                    lastErr = err;
                 }
+            }
+
+            // Fallback 1: environment facing mode
+            if (lastErr) {
+                console.log('[Camera] Fallback to facingMode: environment');
+                try {
+                    await tryStart({ facingMode: 'environment' });
+                    lastErr = null;
+                } catch (err) {
+                    console.warn('[Camera] environment fallback failed:', err.name, err.message);
+                    lastErr = err;
+                }
+            }
+
+            // Fallback 2: user facing mode
+            if (lastErr) {
+                console.log('[Camera] Fallback to facingMode: user');
+                try {
+                    await tryStart({ facingMode: 'user' });
+                    lastErr = null;
+                } catch (err) {
+                    console.warn('[Camera] user fallback failed:', err.name, err.message);
+                    lastErr = err;
+                }
+            }
+
+            // Fallback 3: unconstrained
+            if (lastErr) {
+                console.log('[Camera] Fallback to unconstrained video');
+                try {
+                    await tryStart({ video: true });
+                    lastErr = null;
+                } catch (err) {
+                    console.warn('[Camera] unconstrained fallback failed:', err.name, err.message);
+                    lastErr = err;
+                }
+            }
+
+            if (lastErr) {
+                // Retry on NotReadableError (often false positive on Android)
+                const isNotReadable = lastErr?.name === 'NotReadableError' || lastErr?.name === 'TrackStartError';
+                if (isNotReadable && camRetryRef.current < 3) {
+                    camRetryRef.current += 1;
+                    console.warn(`[Camera] NotReadable retry ${camRetryRef.current}/3 after ${800 * camRetryRef.current}ms`);
+                    await new Promise(r => setTimeout(r, 800 * camRetryRef.current));
+                    startingRef.current = false;
+                    return startCamera();
+                }
+                throw lastErr;
             }
 
             camRetryRef.current = 0;
             isStartedRef.current = true;
+            console.log('[Camera] Started successfully');
         } catch (err) {
             if (!mountedRef.current) return;
-            console.error('[Camera] startCamera error:', err?.name, err?.message, err);
-            const name = err?.name || '';
-            let msg;
-            if (name === 'NotAllowedError' || name === 'PermissionDeniedError' ||
-                err?.message?.includes('Permission denied')) {
-                msg = 'Camera permission was denied. Open browser settings and allow camera for this site, then reload.';
-                setShowPermissionModal(true);
-            } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
-                msg = 'No camera found on this device.';
-            } else if (name === 'NotReadableError' || name === 'TrackStartError') {
-                msg = 'Unable to access camera. Please close other apps using the camera and try again.';
-            } else if (name === 'OverconstrainedError' || name === 'ConstraintNotSatisfiedError') {
-                msg = 'Camera could not be configured. Try the Upload Image tab instead.';
-            } else if (name === 'SecurityError') {
-                msg = 'Camera access requires a secure (HTTPS) connection.';
-            } else {
-                msg = 'Unable to start camera. Try the Upload Image tab or Manual Entry.';
-            }
-            setCameraError(msg);
+            handleCameraError(err, 'startCamera');
             setIsCamActive(false);
             setScanState('idle');
             isStartedRef.current = false;
             scannerRef.current = null;
             camRetryRef.current = 0;
+        } finally {
+            startingRef.current = false;
         }
-    }, [activeTab, isCamActive, selectedCamId, cameras.length, safeStop, handleLookup]);
+    }, [activeTab, isCamActive, selectedCamId, safeStop, handleLookup, handleCameraError]);
 
     useEffect(() => {
         if (activeTab === 'camera' && isCamActive) startCamera();
@@ -504,6 +602,8 @@ const ScanItem = () => {
     const handleRetryPermission = async () => {
         setShowPermissionModal(false);
         setCameraError('');
+        camRetryRef.current = 0;
+        stopHeldStream();
         const ok = await requestCameraPermission();
         if (ok) { setIsCamActive(true); setLookupResult(null); }
     };
@@ -514,7 +614,11 @@ const ScanItem = () => {
         setScanState('idle');
         setShowRestock(false);
         setShowConsume(false);
-        if (activeTab === 'camera') setIsCamActive(true);
+        if (activeTab === 'camera') {
+            camRetryRef.current = 0;
+            stopHeldStream();
+            setIsCamActive(true);
+        }
         if (activeTab === 'manual') { setManualCode(''); manualInputRef.current?.focus(); }
     };
 
@@ -644,10 +748,8 @@ const ScanItem = () => {
                                                 <button
                                                     className="btn btn-primary btn-sm si-start-cam-btn"
                                                     onClick={() => {
-                                                        // getUserMedia MUST be called in the very first
-                                                        // microtask of the click handler on iOS Safari.
-                                                        // Do NOT put any await before requestCameraPermission.
                                                         setCameraError('');
+                                                        stopHeldStream();
                                                         requestCameraPermission().then(ok => {
                                                             if (ok) {
                                                                 setIsCamActive(true);
@@ -660,6 +762,27 @@ const ScanItem = () => {
                                                     <Camera size={14} />
                                                     Start Camera
                                                 </button>
+                                                {cameraError && (
+                                                    <button
+                                                        className="btn btn-ghost btn-sm si-retry-cam-btn"
+                                                        onClick={() => {
+                                                            setCameraError('');
+                                                            setScanState('idle');
+                                                            camRetryRef.current = 0;
+                                                            stopHeldStream();
+                                                            requestCameraPermission().then(ok => {
+                                                                if (ok) {
+                                                                    setIsCamActive(true);
+                                                                    setLookupResult(null);
+                                                                }
+                                                            });
+                                                        }}
+                                                        style={{ marginTop: 8 }}
+                                                    >
+                                                        <RefreshCw size={13} />
+                                                        Retry Camera
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
                                     )}
