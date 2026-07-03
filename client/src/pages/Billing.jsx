@@ -424,6 +424,25 @@ const Billing = () => {
     return form.mobile.length === 10 && form.name.trim().length > 0 && orderLines.length > 0;
   }, [form.mobile, form.name, form.gst, form.type, isWalkIn, orderLines.length]);
 
+  const getStepIndex = useCallback((key) => BILLING_TABS.findIndex(t => t.key === key), []);
+
+  const stepValid = useMemo(() => {
+    const customer = !!form.type && (form.type === 'Walk-in' || (form.mobile.length === 10 && form.name.trim().length > 0));
+    const products = orderLines.length > 0;
+    const paymentValid = advancePaid > 0;
+    const summary = true;
+    return [customer, products, paymentValid, summary];
+  }, [form.type, form.mobile, form.name, orderLines.length, advancePaid]);
+
+  const canVisitStep = useCallback((idx) => {
+    const currentIdx = getStepIndex(activeTab);
+    if (idx <= currentIdx) return true;
+    for (let i = 0; i < idx; i++) {
+      if (!stepValid[i]) return false;
+    }
+    return true;
+  }, [activeTab, stepValid, getStepIndex]);
+
   // ── Customer search — only show results after typing ──
   useEffect(() => {
     const q = customerSearchDebounced.trim();
@@ -1002,27 +1021,33 @@ const Billing = () => {
         {BILLING_TABS.map((t, idx) => {
           const Icon = t.icon;
           const isActive = activeTab === t.key;
-          const isCompleted = BILLING_TABS.findIndex(s => s.key === activeTab) > idx;
+          const isCompleted = stepValid[idx] && getStepIndex(activeTab) > idx;
+          const isLocked = !canVisitStep(idx) && idx > getStepIndex(activeTab);
           const stepNumber = idx + 1;
           return (
             <button
               key={t.key}
               type="button"
-              className={`billing-step ${isActive ? 'billing-step--active' : ''} ${isCompleted ? 'billing-step--completed' : ''}`}
-              onClick={() => setActiveTab(t.key)}
+              className={`billing-step ${isActive ? 'billing-step--active' : ''} ${isCompleted ? 'billing-step--completed' : ''} ${isLocked ? 'billing-step--locked' : ''}`}
+              onClick={() => { if (canVisitStep(idx)) setActiveTab(t.key); }}
+              disabled={isLocked}
               aria-current={isActive ? 'step' : undefined}
-              aria-label={`${t.label}${isCompleted ? ' (completed)' : ''}${isActive ? ' (current step)' : ''}`}
+              aria-label={`${t.label}${isCompleted ? ' (completed)' : ''}${isActive ? ' (current step)' : ''}${isLocked ? ' (locked)' : ''}`}
             >
               <span className="billing-step-indicator">
                 {isCompleted ? (
                   <CheckCircle2 size={18} aria-hidden="true" className="billing-step-icon-completed" />
+                ) : isLocked ? (
+                  <span className="billing-step-locked-icon">🔒</span>
                 ) : (
                   <span className="billing-step-number">{stepNumber}</span>
                 )}
               </span>
               <span className="billing-step-content">
                 <span className="billing-step-label">{t.label}</span>
-                <span className="billing-step-desc">{isActive ? 'Current step' : isCompleted ? 'Completed' : ''}</span>
+                <span className="billing-step-desc">
+                  {isActive ? 'Current step' : isCompleted ? 'Completed' : isLocked ? 'Fill previous step' : ''}
+                </span>
               </span>
               {idx < BILLING_TABS.length - 1 && (
                 <span className="billing-step-connector" aria-hidden="true" />
@@ -1030,8 +1055,8 @@ const Billing = () => {
             </button>
           );
         })}
-        <div className="billing-steps-progress" role="progressbar" aria-valuenow={BILLING_TABS.findIndex(s => s.key === activeTab) + 1} aria-valuemin={1} aria-valuemax={BILLING_TABS.length}>
-          <div className="billing-steps-progress-bar" style={{ width: `${((BILLING_TABS.findIndex(s => s.key === activeTab) + 1) / BILLING_TABS.length) * 100}%` }} />
+        <div className="billing-steps-progress" role="progressbar" aria-valuenow={getStepIndex(activeTab) + 1} aria-valuemin={1} aria-valuemax={BILLING_TABS.length}>
+          <div className="billing-steps-progress-bar" style={{ width: `${((getStepIndex(activeTab) + 1) / BILLING_TABS.length) * 100}%` }} />
         </div>
       </nav>
 
@@ -1194,9 +1219,12 @@ const Billing = () => {
           </div>
         )}
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-          <button type="button" className="btn btn-primary btn-sm" onClick={() => setActiveTab('products')}>
+          <button type="button" className="btn btn-primary btn-sm" disabled={!stepValid[0]} onClick={() => setActiveTab('products')}>
             Next: Add Products →
           </button>
+          {!stepValid[0] && (
+            <span className="billing-validation-hint">Please select customer type and enter name &amp; mobile</span>
+          )}
         </div>
       </div>
 
@@ -1506,9 +1534,12 @@ const Billing = () => {
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => setActiveTab('customer')}>
             ← Back: Customer
           </button>
-          <button type="button" className="btn btn-primary btn-sm" onClick={() => setActiveTab('payment')}>
+          <button type="button" className="btn btn-primary btn-sm" disabled={!stepValid[1]} onClick={() => setActiveTab('payment')}>
             Next: Payment →
           </button>
+          {!stepValid[1] && (
+            <span className="billing-validation-hint">Add at least one product to continue</span>
+          )}
         </div>
       </div>
 
@@ -1627,9 +1658,12 @@ const Billing = () => {
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => setActiveTab('products')}>
             ← Back: Products
           </button>
-          <button type="button" className="btn btn-primary btn-sm" onClick={() => setActiveTab('summary')}>
+          <button type="button" className="btn btn-primary btn-sm" disabled={!stepValid[2]} onClick={() => setActiveTab('summary')}>
             Next: Summary →
           </button>
+          {!stepValid[2] && (
+            <span className="billing-validation-hint">Enter at least one payment amount to continue</span>
+          )}
         </div>
       </div>
 
