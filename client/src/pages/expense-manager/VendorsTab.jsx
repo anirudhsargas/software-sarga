@@ -4,7 +4,7 @@ import { useDebounce } from '../../hooks/useDebounce';
 import {
   Store, IndianRupee, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ArrowLeft,
   Phone, MapPin, FileText, User, TrendingUp, TrendingDown,
-  Search, Package, Loader2, Plus, Pencil, Trash2, X, ShoppingCart, Calendar
+  Search, Package, Loader2, Plus, Pencil, Trash2, X, ShoppingCart, Calendar, Printer
 } from 'lucide-react';
 import api from '../../services/api';
 import localDb from '../../services/localDb';
@@ -15,7 +15,6 @@ import { serverToday } from '../../services/serverTime';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import toast from 'react-hot-toast';
 import FullBillModal from './FullBillModal';
-import DOMPurify from 'dompurify';
 
 const emptyVendorForm = { name: '', vendor_type: 'other', contact_person: '', phone: '', address: '', gst_number: '', order_link: '' };
 
@@ -622,220 +621,53 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
     }
   };
 
+  // ── Download vendor statement as a styled PDFKit PDF (server-generated) ─────
   const downloadVendorStatementPdf = async () => {
     if (!selectedVendor) { toast.error('No vendor selected'); return; }
     try {
-      let ledgerData = vendorLedger;
       const params = new URLSearchParams();
       if (statementFrom) params.append('from', statementFrom);
-      if (statementTo) params.append('to', statementTo);
-
-      if (navigator.onLine) {
-        try {
-          const r = await api.get(`/vendors/${selectedVendor.id}/statement${params.toString() ? `?${params.toString()}` : ''}`);
-          ledgerData = r.data || ledgerData;
-        } catch {
-          try { ledgerData = await localDb.getVendorLedger(selectedVendor.id); } catch { ledgerData = { rows: [], payments: [], purchases: [] }; }
-        }
-      } else {
-        try { ledgerData = await localDb.getVendorLedger(selectedVendor.id); } catch { ledgerData = { rows: [], payments: [], purchases: [] }; }
-      }
-
-      // apply client-side date filtering if needed
-      const fromDate = statementFrom ? new Date(statementFrom) : null;
-      const toDate = statementTo ? new Date(new Date(statementTo).setHours(23,59,59,999)) : null;
-      const filterByRange = (arr, fields = ['_date','bill_date','payment_date']) => {
-        if (!Array.isArray(arr)) return [];
-        if (!fromDate && !toDate) return arr;
-        return arr.filter(item => {
-          const ds = fields.map(f => item[f]).find(Boolean);
-          if (!ds) return false;
-          const d = new Date(ds);
-          if (fromDate && d < fromDate) return false;
-          if (toDate && d > toDate) return false;
-          return true;
-        });
-      };
-
-      const rows = filterByRange(ledgerData?.rows || []);
-
-      // Build statement HTML
-      const companyName = (window?.SARGA_COMPANY_NAME || document.title || 'Sarga Print Centre');
-      const companyAddr = (window?.SARGA_COMPANY_ADDR || '');
-      const toName = selectedVendor.name || '';
-      const asOf = new Date().toISOString().slice(0,10);
-
-      // Compute running balance
-      let running = 0;
-      const tableRowsHtml = (rows.length ? rows : []).map(r => {
-        const date = fmtDate(r.payment_date || r.bill_date || r._date);
-        const type = r._entry_type || '';
-        const ref = r.reference_number || r.bill_number || '';
-        const desc = r.description || r.payee_name || '';
-        const amt = Number(r.amount || r.total_amount || 0);
-        const debit = type === 'Purchase' ? amt : 0;
-        const credit = type === 'Payment' ? amt : 0;
-        running = running + credit - debit;
-        return `<tr>
-          <td style="padding:6px 8px;white-space:nowrap">${date}</td>
-          <td style="padding:6px 8px">${type}</td>
-          <td style="padding:6px 8px">${ref}</td>
-          <td style="padding:6px 8px">${desc}</td>
-          <td style="padding:6px 8px;text-align:right">${debit ? '₹' + fmt(debit) : ''}</td>
-          <td style="padding:6px 8px;text-align:right">${credit ? '₹' + fmt(credit) : ''}</td>
-          <td style="padding:6px 8px;text-align:right">₹${fmt(Math.abs(running))}</td>
-        </tr>`;
-      }).join('');
-
-      const summaryHtml = `
-        <div style="font-family:Arial, Helvetica, sans-serif; color:#000; padding:16px;">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
-            <div>
-              <h2 style="margin:0;">STATEMENT OF ACCOUNT</h2>
-              <div style="margin-top:8px;font-size:12px">
-                <div>To: ${toName}</div>
-                ${selectedVendor.address ? `<div>${selectedVendor.address}</div>` : ''}
-                ${selectedVendor.phone ? `<div>Tel: ${selectedVendor.phone}</div>` : ''}
-                ${selectedVendor.gst_number ? `<div>GSTIN: ${selectedVendor.gst_number}</div>` : ''}
-                ${ (statementFrom || statementTo) ? `<div style="margin-top:6px;font-weight:600">Period: ${statementFrom || '...'} — ${statementTo || '...'}</div>` : '' }
-              </div>
-            </div>
-            <div style="text-align:right;font-size:12px">
-              <div>${companyName}</div>
-              <div>${companyAddr}</div>
-              <div>As on: ${asOf}</div>
-            </div>
-          </div>
-          <table style="width:100%;border-collapse:collapse;border:1px solid #ddd;font-size:12px">
-            <thead>
-              <tr style="background:#f3f4f6;font-weight:700">
-                <th style="padding:8px;text-align:left">DATE</th>
-                <th style="padding:8px;text-align:left">TRANSACTION</th>
-                <th style="padding:8px;text-align:left">REF</th>
-                <th style="padding:8px;text-align:left">DESCRIPTION</th>
-                <th style="padding:8px;text-align:right">DEBIT</th>
-                <th style="padding:8px;text-align:right">CREDIT</th>
-                <th style="padding:8px;text-align:right">BALANCE</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${tableRowsHtml || '<tr><td colspan="7" style="padding:16px;text-align:center;color:#666">No transactions found</td></tr>'}
-            </tbody>
-          </table>
-          <div style="margin-top:12px;font-size:11px;color:#444">Our terms are 30 days net, however if payment is not made within 30 days an appropriate finance charge may be applied.</div>
-        </div>
-      `;
-
-      // Create hidden but renderable container (kept in DOM, invisible)
-      const container = document.createElement('div');
-      container.id = 'vendor-statement-print-area';
-      container.style.position = 'fixed';
-      container.style.left = '0px';
-      container.style.top = '0px';
-      container.style.opacity = '0';
-      container.style.pointerEvents = 'none';
-      container.style.width = '794px';
-      container.style.background = 'var(--card)';
-      container.innerHTML = DOMPurify.sanitize(summaryHtml, {
-        ALLOWED_TAGS: ['div', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'h2'],
-        ALLOWED_ATTR: ['id', 'colspan'],
-        FORCE_BODY: true,
-      });
-      document.body.appendChild(container);
-
-      // Helper to load script
-      const loadScript = (src) => new Promise((resolve, reject) => {
-        if (document.querySelector(`script[src="${src}"]`)) return resolve();
-        const s = document.createElement('script'); s.src = src; s.onload = resolve; s.onerror = reject; document.head.appendChild(s);
-      });
-
-      // Try to load jspdf + html2canvas from CDN
-      try {
-        if (!window.jspdf) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
-        if (!window.html2canvas) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-
-        // If there are no transactions, generate a simple textual PDF with vendor details
-        if (!rows || rows.length === 0) {
-          const margin = 40;
-          let yPos = 40;
-          doc.setFontSize(16);
-          doc.text('STATEMENT OF ACCOUNT', margin, yPos);
-          yPos += 24;
-          doc.setFontSize(11);
-          doc.text(`To: ${selectedVendor.name || ''}`, margin, yPos);
-          yPos += 14;
-          if (selectedVendor.address) { doc.text(String(selectedVendor.address), margin, yPos); yPos += 12; }
-          if (selectedVendor.phone) { doc.text(`Tel: ${selectedVendor.phone}`, margin, yPos); yPos += 12; }
-          if (selectedVendor.gst_number) { doc.text(`GSTIN: ${selectedVendor.gst_number}`, margin, yPos); yPos += 12; }
-          if (statementFrom || statementTo) { doc.text(`Period: ${statementFrom || '...'} — ${statementTo || '...'}`, margin, yPos); yPos += 18; }
-          doc.text('No transactions found for the selected period.', margin, yPos);
-          yPos += 20;
-          doc.setFontSize(10);
-          doc.text(`Generated: ${new Date().toLocaleString()}`, margin, yPos);
-        const safeName = (selectedVendor.name || String(selectedVendor.id)).replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_.-]/g, '');
-          doc.save(`vendor-statement-${safeName}-${new Date().toISOString().slice(0,10)}.pdf`);
-          container.remove();
-          toast.success('PDF downloaded');
-          return;
-        }
-
-        // Give the browser a moment to render the hidden element
-        await new Promise(r => setTimeout(r, 250));
-        // Sanity check: ensure container has content
-        if (!container.innerText || !container.innerText.trim()) {
-          console.warn('Vendor statement HTML appears empty');
-        }
-        // Render the HTML to a canvas using html2canvas
-        const canvas = await window.html2canvas(container, { scale: 2, useCORS: true, backgroundColor: 'var(--card)' });
-        const imgWidthPx = canvas.width;
-        const imgHeightPx = canvas.height;
-        const pdfWidthPt = doc.internal.pageSize.getWidth();
-        const pdfHeightPt = doc.internal.pageSize.getHeight();
-
-        // pixels per PDF point
-        const pxPerPt = imgWidthPx / pdfWidthPt;
-        const sliceHeightPx = Math.floor(pdfHeightPt * pxPerPt);
-
-        let y = 0;
-        while (y < imgHeightPx) {
-          const h = Math.min(sliceHeightPx, imgHeightPx - y);
-          const tmpCanvas = document.createElement('canvas');
-          tmpCanvas.width = imgWidthPx;
-          tmpCanvas.height = h;
-          const tCtx = tmpCanvas.getContext('2d');
-          tCtx.drawImage(canvas, 0, y, imgWidthPx, h, 0, 0, imgWidthPx, h);
-          const imgData = tmpCanvas.toDataURL('image/png');
-          const sliceHeightPt = h / pxPerPt;
-          if (y > 0) doc.addPage();
-          doc.addImage(imgData, 'PNG', 0, 0, pdfWidthPt, sliceHeightPt);
-          y += h;
-        }
-
-        const safeName = (selectedVendor.name || String(selectedVendor.id)).replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_.-]/g, '');
-        doc.save(`vendor-statement-${safeName}-${new Date().toISOString().slice(0,10)}.pdf`);
-        container.remove();
-        toast.success('PDF downloaded');
-        return;
-      } catch (err) {
-        // fallback to print window
-        console.warn('PDF generation failed, falling back to print', err);
-        const w = window.open('', '_blank');
-        w.document.write(`<html><head><title>Statement - ${selectedVendor.name || ''}</title></head><body>${summaryHtml}</body></html>`);
-        w.document.close();
-        w.focus();
-        // give time for resources to load then call print
-        setTimeout(() => { try { w.print(); } catch (e) { console.error(e); } }, 500);
-        container.remove();
-        toast.success('Opened print dialog (save as PDF)');
-        return;
-      }
+      if (statementTo)   params.append('to',   statementTo);
+      const url = `/api/vendors/${selectedVendor.id}/ledger/pdf${params.toString() ? `?${params.toString()}` : ''}`;
+      const res = await api.get(url, { responseType: 'blob' });
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      const safeName = (selectedVendor.name || String(selectedVendor.id)).replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_.-]/g, '');
+      a.download = `vendor-statement-${safeName}-${new Date().toISOString().slice(0,10)}.pdf`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+      toast.success('PDF downloaded');
     } catch (err) {
       console.error('Download PDF error', err);
-      toast.error('Failed to prepare PDF');
+      toast.error('Failed to download PDF');
     }
   };
+
+  // ── Print vendor statement — opens the same server PDF in a new tab ────
+  const printVendorStatementPdf = async () => {
+    if (!selectedVendor) { toast.error('No vendor selected'); return; }
+    try {
+      const params = new URLSearchParams();
+      if (statementFrom) params.append('from', statementFrom);
+      if (statementTo)   params.append('to',   statementTo);
+      const url = `/api/vendors/${selectedVendor.id}/ledger/pdf${params.toString() ? `?${params.toString()}` : ''}`;
+      const res = await api.get(url, { responseType: 'blob' });
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const blobUrl = URL.createObjectURL(blob);
+      // Open PDF in a new tab — user can use browser’s Print dialog (Ctrl+P)
+      const tab = window.open(blobUrl, '_blank');
+      if (!tab) { toast.error('Popup blocked — please allow popups for this site'); URL.revokeObjectURL(blobUrl); return; }
+      // Clean up blob URL after the tab has loaded
+      tab.addEventListener('load', () => setTimeout(() => URL.revokeObjectURL(blobUrl), 5000));
+      toast.success('Statement opened — use Ctrl+P / ⌘P to print');
+    } catch (err) {
+      console.error('Print PDF error', err);
+      toast.error('Failed to open PDF for printing');
+    }
+  };
+
 
   const sendWhatsApp = () => {
     const items = vendorItems.filter(i => selectedItemIds.has(i.inventory_id));
@@ -916,7 +748,10 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
               <Plus size={14} /> Add Item
             </button>
             <button className="btn btn-sm" style={{ background: 'var(--neutral, #374151)', color: 'var(--on-accent)' }} onClick={downloadVendorStatementPdf}>
-              <FileText size={14} /> Download Statement (PDF)
+              <FileText size={14} /> Download Statement
+            </button>
+            <button className="btn btn-sm" style={{ background: 'var(--neutral, #374151)', color: 'var(--on-accent)' }} onClick={printVendorStatementPdf}>
+              <Printer size={14} /> Print Statement
             </button>
             <button className="btn btn-primary btn-sm" onClick={() => onPayment({ type: 'Vendor', vendor_id: v.id, payee_name: v.name })}>
               <IndianRupee size={14} /> Make Payment

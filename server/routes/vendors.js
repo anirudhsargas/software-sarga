@@ -19,6 +19,7 @@
  * POST   /api/vendor-statements/:id/reconcile  (line 1053) - Reconcile statement
  * GET    /api/vendor-statements/:id/result     (line 1174) - Reconciliation result
  * GET    /api/vendors/:id/ledger               (line 1420) - Vendor ledger
+ * GET    /api/vendors/:id/ledger/pdf           (auto)      - Styled PDFKit statement download/print
  * GET    /api/vendors/:id/balance              (line 1457) - Current balance
  * GET    /api/vendors/summary                  (line 1472) - Summary totals
  * GET    /api/vendors/:id/payments             (line 1503) - List payments
@@ -42,6 +43,7 @@ const csv = require('csv-parse');
 const fs = require('fs');
 const path = require('path');
 const pdfParse = require('pdf-parse');
+const PDFDocument = require('pdfkit');
 const logger = require('../helpers/logger');
 
 // Log the loaded filename for diagnostics
@@ -1816,6 +1818,282 @@ router.get('/vendors/:id/ledger', authenticateToken, async (req, res) => {
   } catch (error) {
     logger.error('Error fetching ledger:', error);
     res.status(500).json({ success: false, message: 'Database error' });
+  }
+});
+
+// ─── Indian number formatter ────────────────────────────────────────────────
+function fmtINR(n) {
+  const num = Math.abs(Number(n) || 0);
+  const [int, dec] = num.toFixed(2).split('.');
+  const lastThree = int.slice(-3);
+  const rest = int.slice(0, -3);
+  const formatted = rest ? rest.replace(/\B(?=(\d{2})+(?!\d))/g, ',') + ',' + lastThree : lastThree;
+  return '\u20B9' + formatted + '.' + dec;
+}
+
+// GET /api/vendors/:id/ledger/pdf → styled PDFKit statement
+// Must be registered BEFORE /vendors/:id/balance to avoid route conflicts.
+router.get('/vendors/:id/ledger/pdf', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { from, to } = req.query;
+
+    // ── 1. Vendor detail ────────────────────────────────────────────────────
+    const [vendors] = await pool.query(
+      'SELECT id, name, phone, address, gst_number, vendor_type, opening_balance FROM vendors WHERE id = ?',
+      [id]
+    );
+    if (vendors.length === 0) {
+      return res.status(404).json({ success: false, message: 'Vendor not found' });
+    }
+    const vendor = vendors[0];
+
+    // ── 2. Company settings ─────────────────────────────────────────────────
+    let companyName = 'SARGA PRINTS';
+    let companyAddress = 'Perambra, Kozhikode, Kerala';
+    let companyGst = '';
+    let companyPhone = '';
+    try {
+      const [settings] = await pool.query('SELECT setting_key, setting_value FROM sarga_company_settings');
+      const s = Object.fromEntries(settings.map(r => [r.setting_key, r.setting_value]));
+      if (s.company_name) companyName = s.company_name;
+      if (s.company_address) companyAddress = s.company_address;
+      if (s.gst_number) companyGst = s.gst_number;
+      if (s.company_phone) companyPhone = s.company_phone;
+    } catch (_) { /* use defaults */ }
+
+    // ── 3. Ledger rows ──────────────────────────────────────────────────────
+    const [rows] = await pool.query(`
+      SELECT id, date, description, debit, credit, type, payment_status
+      FROM (
+        SELECT vi.id,
+               vi.invoice_date AS date,
+               CONCAT('Invoice #', COALESCE(vi.invoice_number, CONCAT('', vi.id)),
+                 CASE WHEN vi.notes IS NOT NULL AND vi.notes <> '' THEN CONCAT(' – ', vi.notes) ELSE '' END) AS description,
+               vi.total_amount AS debit, 0 AS credit, 'bill' AS type,
+               vi.payment_status
+        FROM vendor_invoices vi WHERE vi.vendor_id = ?
+        UNION ALL
+        SELECT vp.id,
+               vp.payment_date AS date,
+               CONCAT('Payment – ', vp.payment_mode,
+                 CASE WHEN vp.reference_number IS NOT NULL
+                      THEN CONCAT(' (Ref: ', vp.reference_number, ')') ELSE '' END) AS description,
+               0 AS debit, vp.amount AS credit, 'payment' AS type, NULL
+        FROM vendor_payments vp WHERE vp.vendor_id = ?
+      ) AS combined ORDER BY date ASC, type DESC
+    `, [id, id]);
+
+    // Apply date filter
+    let filtered = rows;
+    if (from) { const d = new Date(from); filtered = filtered.filter(r => new Date(r.date) >= d); }
+    if (to)   { const d = new Date(to); d.setHours(23,59,59,999); filtered = filtered.filter(r => new Date(r.date) <= d); }
+
+    // Compute running balance and summary
+    const openingBalance = Number(vendor.opening_balance) || 0;
+    let runBal = openingBalance;
+    let totalDebit = 0, totalCredit = 0;
+    const ledger = filtered.map(r => {
+      const debit  = Number(r.debit)  || 0;
+      const credit = Number(r.credit) || 0;
+      runBal += debit - credit;
+      totalDebit  += debit;
+      totalCredit += credit;
+      return { ...r, debit, credit, balance: runBal };
+    });
+    const closingBalance = runBal;
+
+    // ── 4. Build PDF ────────────────────────────────────────────────────────
+    const MARGIN  = 40;
+    const PAGE_W  = 595.28;   // A4 pt width
+    const PAGE_H  = 841.89;   // A4 pt height
+    const CONTENT_W = PAGE_W - MARGIN * 2;
+    const BRAND   = '#1a1a2e'; // dark navy for headers
+    const ACCENT  = '#16213e'; // slightly lighter for rows
+    const GRAY_ROW = '#f7f7f7';
+    const BORDER  = '#d1d5db';
+
+    const doc = new PDFDocument({ size: 'A4', margin: MARGIN, bufferPages: true });
+    res.setHeader('Content-Type', 'application/pdf');
+    const safeName = (vendor.name || String(id)).replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_.-]/g, '');
+    res.setHeader('Content-Disposition',
+      `inline; filename="vendor-statement-${safeName}-${new Date().toISOString().slice(0,10)}.pdf"`);
+    doc.pipe(res);
+
+    let pageNum = 0;
+    const drawHeader = () => {
+      pageNum++;
+      const top = MARGIN;
+
+      // Brand bar
+      doc.rect(MARGIN, top, CONTENT_W, 2).fill(BRAND);
+
+      // Company name
+      doc.fontSize(18).font('Helvetica-Bold').fillColor(BRAND)
+         .text(companyName, MARGIN, top + 8, { width: CONTENT_W / 2 });
+
+      // Company details (right side)
+      let ry = top + 8;
+      doc.fontSize(8).font('Helvetica').fillColor('#444');
+      if (companyAddress) { doc.text(companyAddress, MARGIN + CONTENT_W / 2, ry, { align: 'right', width: CONTENT_W / 2 }); ry += 12; }
+      if (companyGst)     { doc.text('GSTIN: ' + companyGst, MARGIN + CONTENT_W / 2, ry, { align: 'right', width: CONTENT_W / 2 }); ry += 12; }
+      if (companyPhone)   { doc.text('Ph: ' + companyPhone,  MARGIN + CONTENT_W / 2, ry, { align: 'right', width: CONTENT_W / 2 }); }
+
+      // Bottom border of header block
+      const afterHeader = Math.max(doc.y + 10, top + 50);
+      doc.rect(MARGIN, afterHeader, CONTENT_W, 1).fill(ACCENT);
+      return afterHeader + 10;
+    };
+
+    let y = drawHeader();
+
+    // ── Statement title & metadata ──────────────────────────────────────────
+    doc.fontSize(14).font('Helvetica-Bold').fillColor(BRAND)
+       .text('VENDOR STATEMENT OF ACCOUNT', MARGIN, y, { align: 'center', width: CONTENT_W });
+    y = doc.y + 8;
+
+    // Meta block: two columns
+    const metaL = MARGIN;
+    const metaR = MARGIN + CONTENT_W / 2 + 10;
+    doc.fontSize(9).font('Helvetica-Bold').fillColor('#111');
+    doc.text('To:', metaL, y);
+    doc.font('Helvetica').text(vendor.name, metaL + 20, y);
+    y = doc.y + 2;
+    if (vendor.phone) {
+      doc.font('Helvetica').fillColor('#555').text('Phone: ' + vendor.phone, metaL, y);
+      y = doc.y + 2;
+    }
+    if (vendor.gst_number) {
+      doc.text('GSTIN: ' + vendor.gst_number, metaL, y);
+      y = doc.y + 2;
+    }
+
+    // Right meta
+    const metaRY = y - (vendor.phone ? 24 : 12);
+    doc.fontSize(9).font('Helvetica').fillColor('#555')
+       .text('Generated: ' + new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' }),
+             metaR, metaRY, { align: 'right', width: CONTENT_W / 2 - 10 });
+    if (from || to) {
+      doc.text('Period: ' + (from || '—') + ' to ' + (to || '—'),
+               metaR, metaRY + 14, { align: 'right', width: CONTENT_W / 2 - 10 });
+    }
+
+    y = doc.y + 14;
+    doc.rect(MARGIN, y, CONTENT_W, 1).fill(BORDER);
+    y += 10;
+
+    // ── Table ───────────────────────────────────────────────────────────────
+    // Column layout (x positions)
+    const C = {
+      date:   { x: MARGIN,                w: 65,  align: 'left'  },
+      desc:   { x: MARGIN + 65,           w: 170, align: 'left'  },
+      ref:    { x: MARGIN + 235,          w: 75,  align: 'left'  },
+      debit:  { x: MARGIN + 310,         w: 75,  align: 'right' },
+      credit: { x: MARGIN + 385,         w: 75,  align: 'right' },
+      bal:    { x: MARGIN + 460,         w: 75,  align: 'right' },
+    };
+
+    const drawTableHeader = (topY) => {
+      // Header fill
+      doc.rect(MARGIN, topY, CONTENT_W, 18).fill(BRAND);
+      doc.fontSize(8).font('Helvetica-Bold').fillColor('#ffffff');
+      const ly = topY + 5;
+      doc.text('DATE',        C.date.x + 2,  ly, { width: C.date.w,   align: 'left'  });
+      doc.text('DESCRIPTION', C.desc.x + 2,  ly, { width: C.desc.w,   align: 'left'  });
+      doc.text('REF / TYPE',  C.ref.x  + 2,  ly, { width: C.ref.w,    align: 'left'  });
+      doc.text('DEBIT',       C.debit.x + 2, ly, { width: C.debit.w,  align: 'right' });
+      doc.text('CREDIT',      C.credit.x + 2,ly, { width: C.credit.w, align: 'right' });
+      doc.text('BALANCE',     C.bal.x + 2,   ly, { width: C.bal.w,    align: 'right' });
+      return topY + 18 + 2;
+    };
+
+    y = drawTableHeader(y);
+
+    // Opening balance row
+    doc.rect(MARGIN, y, CONTENT_W, 16).fill('#eef0f7');
+    doc.fontSize(8).font('Helvetica-Bold').fillColor('#333');
+    doc.text('Opening Balance', C.desc.x + 2, y + 4, { width: C.desc.w, align: 'left' });
+    doc.text(fmtINR(openingBalance), C.bal.x + 2, y + 4, { width: C.bal.w, align: 'right' });
+    y += 16;
+
+    // Transaction rows
+    const ROW_H = 16;
+    ledger.forEach((r, i) => {
+      // New page if needed
+      if (y + ROW_H > PAGE_H - 80) {
+        doc.addPage();
+        y = drawHeader();
+        y = drawTableHeader(y);
+      }
+
+      // Alternating fill
+      if (i % 2 === 0) doc.rect(MARGIN, y, CONTENT_W, ROW_H).fill(GRAY_ROW);
+      else             doc.rect(MARGIN, y, CONTENT_W, ROW_H).fill('#ffffff');
+
+      const dateStr = r.date ? new Date(r.date).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'2-digit' }) : '';
+      const desc    = String(r.description || '').substring(0, 45);
+      const refType = r.type === 'bill' ? 'Invoice' : 'Payment';
+
+      doc.fontSize(7.5).font('Helvetica').fillColor('#222');
+      doc.text(dateStr, C.date.x  + 2, y + 4, { width: C.date.w,   align: 'left'  });
+      doc.text(desc,    C.desc.x  + 2, y + 4, { width: C.desc.w,   align: 'left'  });
+      doc.text(refType, C.ref.x   + 2, y + 4, { width: C.ref.w,    align: 'left'  });
+
+      if (r.debit  > 0) { doc.fillColor('#c53030').text(fmtINR(r.debit),  C.debit.x  + 2, y + 4, { width: C.debit.w,  align: 'right' }); }
+      if (r.credit > 0) { doc.fillColor('#276749').text(fmtINR(r.credit), C.credit.x + 2, y + 4, { width: C.credit.w, align: 'right' }); }
+      doc.fillColor('#111').text(fmtINR(r.balance), C.bal.x + 2, y + 4, { width: C.bal.w, align: 'right' });
+
+      y += ROW_H;
+    });
+
+    // Bottom border of table
+    doc.rect(MARGIN, y, CONTENT_W, 1).fill(BORDER);
+    y += 8;
+
+    // ── Totals summary box ──────────────────────────────────────────────────
+    if (y + 70 > PAGE_H - 60) { doc.addPage(); y = drawHeader() + 10; }
+
+    const boxX = MARGIN + CONTENT_W * 0.55;
+    const boxW = CONTENT_W * 0.45;
+    doc.rect(boxX, y, boxW, 62).stroke(BORDER);
+
+    doc.fontSize(8).font('Helvetica').fillColor('#444');
+    const lbl = boxX + 8;
+    const val = boxX + boxW - 8;
+    doc.text('Total Debits (Bills):',  lbl, y + 8,  { width: boxW - 16, align: 'left' });
+    doc.fillColor('#c53030').text(fmtINR(totalDebit),  val, y + 8,  { align: 'right' });
+
+    doc.fillColor('#444').text('Total Credits (Payments):', lbl, y + 22, { width: boxW - 16, align: 'left' });
+    doc.fillColor('#276749').text(fmtINR(totalCredit), val, y + 22, { align: 'right' });
+
+    // Closing balance — bold separator
+    doc.rect(boxX, y + 38, boxW, 1).fill(BORDER);
+    doc.fontSize(9).font('Helvetica-Bold').fillColor('#111');
+    doc.text('Closing Balance:', lbl, y + 44, { width: boxW - 16, align: 'left' });
+    doc.fillColor(closingBalance > 0 ? '#c53030' : '#276749')
+       .text(fmtINR(Math.abs(closingBalance)), val, y + 44, { align: 'right' });
+
+    // ── Footer (all pages) ──────────────────────────────────────────────────
+    const totalPages = doc.bufferedPageRange().count;
+    for (let p = 0; p < totalPages; p++) {
+      doc.switchToPage(p);
+      const footerY = PAGE_H - 30;
+      doc.rect(MARGIN, footerY - 4, CONTENT_W, 1).fill(BORDER);
+      doc.fontSize(7).font('Helvetica').fillColor('#888')
+         .text('This is a system-generated statement. No signature required.',
+               MARGIN, footerY, { width: CONTENT_W / 2, align: 'left' })
+         .text(`Page ${p + 1} of ${totalPages}`,
+               MARGIN + CONTENT_W / 2, footerY, { width: CONTENT_W / 2, align: 'right' });
+    }
+
+    doc.flushPages();
+    doc.end();
+
+  } catch (error) {
+    logger.error('Error generating vendor statement PDF:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: 'PDF generation failed' });
+    }
   }
 });
 

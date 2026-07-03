@@ -222,6 +222,15 @@ const initDb = async () => {
       await connection.query('INSERT IGNORE INTO schema_migrations (migration_name) VALUES (?)', [migrateIsDeletedName]);
       appliedMigrations.add(migrateIsDeletedName);
     }
+
+    // Create vendor_statements and vendor_statement_lines tables (were missing in production)
+    const migrateVendorStatementsName = '036_create_vendor_statements.js';
+    if (!appliedMigrations.has(migrateVendorStatementsName)) {
+      const migrateVendorStatements = require('./migrations/036_create_vendor_statements');
+      await migrateVendorStatements(connection);
+      await connection.query('INSERT IGNORE INTO schema_migrations (migration_name) VALUES (?)', [migrateVendorStatementsName]);
+      appliedMigrations.add(migrateVendorStatementsName);
+    }
     
     console.log('Database schema migration completed successfully');
   } catch (err) {

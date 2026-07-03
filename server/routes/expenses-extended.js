@@ -2554,9 +2554,78 @@ router.get('/reports/utility-statement', authenticateToken, authorizeRoles('Admi
   }
 });
 
+// Structured summary: categories with their connections and latest bill status
+router.get('/reports/utility-summary-by-connection', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
+  try {
+    const connParams = [];
+    let connFilter = ' WHERE 1=1';
+    if (!['Admin', 'Accountant'].includes(req.user.role)) {
+      connFilter += ' AND uc.branch_id = ?';
+      connParams.push(req.user.branch_id);
+    } else if (req.query.branch_id) {
+      connFilter += ' AND uc.branch_id = ?';
+      connParams.push(req.query.branch_id);
+    }
+
+    const [connections] = await pool.query(`
+      SELECT uc.*, b.name as branch_name
+      FROM sarga_utility_connections uc
+      JOIN sarga_branches b ON uc.branch_id = b.id
+      ${connFilter}
+      ORDER BY uc.utility_type, uc.label
+    `, connParams);
+
+    // Get latest bill per connection
+    const connectionIds = connections.map(c => c.id);
+    const latestBills = {};
+    if (connectionIds.length > 0) {
+      const placeholders = connectionIds.map(() => '?').join(',');
+      const [bills] = await pool.query(`
+        SELECT ub.* FROM sarga_utility_bills ub
+        WHERE ub.connection_record_id IN (${placeholders})
+          AND ub.bill_date = (
+            SELECT MAX(ub2.bill_date) FROM sarga_utility_bills ub2
+            WHERE ub2.connection_record_id = ub.connection_record_id
+          )
+        ORDER BY ub.bill_date DESC
+      `, connectionIds);
+      bills.forEach(b => { latestBills[b.connection_record_id] = b; });
+    }
+
+    // Group by utility_type (category)
+    const categories = {};
+    for (const c of connections) {
+      const cat = c.utility_type;
+      if (!categories[cat]) categories[cat] = { category: cat, connections: [] };
+      categories[cat].connections.push({
+        id: c.id,
+        label: c.label,
+        connection_id: c.connection_id,
+        provider: c.provider,
+        billing_cycle: c.billing_cycle,
+        is_active: !!c.is_active,
+        branch_id: c.branch_id,
+        branch_name: c.branch_name,
+        latest_bill: latestBills[c.id] ? {
+          id: latestBills[c.id].id,
+          bill_number: latestBills[c.id].bill_number,
+          bill_date: latestBills[c.id].bill_date,
+          amount: latestBills[c.id].amount,
+          description: latestBills[c.id].description
+        } : null
+      });
+    }
+
+    res.json({ categories: Object.values(categories) });
+  } catch (error) {
+    console.error('Utility summary by connection error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Record a utility bill
 router.post('/utility-bills', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
-  const { utility_type, amount, bill_number, bill_date, description, connection_id, branch_id } = req.body;
+  const { utility_type, amount, bill_number, bill_date, description, connection_id, connection_record_id, branch_id } = req.body;
   const finalBranchId = ['Admin', 'Accountant'].includes(req.user.role) ? (branch_id || req.user.branch_id) : req.user.branch_id;
 
   if (!utility_type || !amount || Number(amount) <= 0) {
@@ -2565,8 +2634,8 @@ router.post('/utility-bills', authenticateToken, authorizeRoles('Admin', 'Accoun
 
   try {
     const [result] = await pool.query(
-      "INSERT INTO sarga_utility_bills (utility_type, branch_id, bill_number, bill_date, amount, description, connection_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      [utility_type, finalBranchId, bill_number || null, bill_date || new Date().toISOString().split('T')[0], Number(amount), description || null, connection_id || null]
+      "INSERT INTO sarga_utility_bills (utility_type, branch_id, bill_number, bill_date, amount, description, connection_id, connection_record_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      [utility_type, finalBranchId, bill_number || null, bill_date || new Date().toISOString().split('T')[0], Number(amount), description || null, connection_id || null, connection_record_id || null]
     );
 
       // Persist connection in utility connections table for easy reuse/search
@@ -2653,6 +2722,50 @@ router.get('/utility-bills', authenticateToken, authorizeRoles('Admin', 'Account
   }
 });
 
+// List utility bills for a specific connection (ledger-style, paginated)
+router.get('/utility-bills/by-connection/:connectionId', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
+  try {
+    const { connectionId } = req.params;
+    const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
+    const { start_date, end_date } = req.query;
+    let whereClauses = ['ub.connection_record_id = ?'];
+    const params = [connectionId];
+
+    if (!['Admin', 'Accountant'].includes(req.user.role)) {
+      whereClauses.push('ub.branch_id = ?');
+      params.push(req.user.branch_id);
+    }
+    if (start_date) { whereClauses.push('ub.bill_date >= ?'); params.push(start_date); }
+    if (end_date) { whereClauses.push('ub.bill_date <= ?'); params.push(end_date); }
+
+    const whereSection = ' AND ' + whereClauses.join(' AND ');
+    const baseFrom = `FROM sarga_utility_bills ub JOIN sarga_branches b ON ub.branch_id = b.id WHERE 1=1 ${whereSection}`;
+
+    const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, params);
+    const [rows] = await pool.query(`
+      SELECT ub.*, b.name as branch_name
+      ${baseFrom}
+      ORDER BY ub.bill_date DESC
+      LIMIT ? OFFSET ?
+    `, [...params, limit, offset]);
+
+    // Aggregate totals
+    const totalBilled = rows.reduce((s, r) => s + Number(r.amount || 0), 0);
+
+    // Fetch connection details
+    const [[connection]] = await pool.query('SELECT * FROM sarga_utility_connections WHERE id = ?', [connectionId]);
+
+    res.json(response({
+      rows,
+      connection: connection || null,
+      summary: { total_billed: totalBilled, bill_count: rows.length, total }
+    }, total));
+  } catch (err) {
+    console.error('Connection bills error:', err);
+    res.status(500).json({ message: 'Database error' });
+  }
+});
+
 // Delete a utility bill
 router.delete('/utility-bills/:id', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
   try {
@@ -2686,7 +2799,7 @@ router.get('/utility-connections', authenticateToken, authorizeRoles('Admin', 'A
       params.push(utility_type);
     }
 
-    const [rows] = await pool.query(`SELECT * FROM sarga_utility_connections ${where} ORDER BY created_at DESC`, params);
+    const [rows] = await pool.query(`SELECT uc.*, b.name as branch_name FROM sarga_utility_connections uc JOIN sarga_branches b ON uc.branch_id = b.id ${where} ORDER BY uc.created_at DESC`, params);
     res.json({ rows });
   } catch (err) {
     console.error('Utility connections list error:', err);
@@ -2695,17 +2808,39 @@ router.get('/utility-connections', authenticateToken, authorizeRoles('Admin', 'A
 });
 
 router.post('/utility-connections', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
-  const { utility_type, connection_id, label, branch_id } = req.body;
+  const { utility_type, connection_id, label, provider, billing_cycle, branch_id } = req.body;
   const finalBranchId = ['Admin', 'Accountant'].includes(req.user.role) ? (branch_id || req.user.branch_id) : req.user.branch_id;
   if (!utility_type || !connection_id) return res.status(400).json({ message: 'utility_type and connection_id are required' });
   try {
     const [[{ cnt }]] = await pool.query('SELECT COUNT(*) as cnt FROM sarga_utility_connections WHERE branch_id = ? AND utility_type = ? AND connection_id = ?', [finalBranchId, utility_type, connection_id]);
     if (Number(cnt) > 0) return res.status(409).json({ message: 'Connection already exists' });
-    const [result] = await pool.query('INSERT INTO sarga_utility_connections (branch_id, utility_type, connection_id, label) VALUES (?, ?, ?, ?)', [finalBranchId, utility_type, connection_id, label || null]);
+    const [result] = await pool.query('INSERT INTO sarga_utility_connections (branch_id, utility_type, connection_id, label, provider, billing_cycle) VALUES (?, ?, ?, ?, ?, ?)', [finalBranchId, utility_type, connection_id, label || null, provider || null, billing_cycle || 'monthly']);
     auditLog(req.user.id, 'UTILITY_CONNECTION_ADD', `Added connection ${connection_id} for ${utility_type}`);
     res.status(201).json({ id: result.insertId, message: 'Connection added' });
   } catch (err) {
     console.error('Add utility connection error:', err);
+    res.status(500).json({ message: 'Database error' });
+  }
+});
+
+// Update a utility connection
+router.put('/utility-connections/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
+  const { label, provider, billing_cycle, is_active } = req.body;
+  try {
+    const fields = [];
+    const params = [];
+    if (label !== undefined) { fields.push('label = ?'); params.push(label); }
+    if (provider !== undefined) { fields.push('provider = ?'); params.push(provider); }
+    if (billing_cycle !== undefined) { fields.push('billing_cycle = ?'); params.push(billing_cycle); }
+    if (is_active !== undefined) { fields.push('is_active = ?'); params.push(is_active); }
+    if (fields.length === 0) return res.status(400).json({ message: 'No fields to update' });
+    params.push(req.params.id);
+    const [result] = await pool.query(`UPDATE sarga_utility_connections SET ${fields.join(', ')} WHERE id = ?`, params);
+    if (result.affectedRows === 0) return res.status(404).json({ message: 'Connection not found' });
+    auditLog(req.user.id, 'UTILITY_CONNECTION_UPDATE', `Updated connection ${req.params.id}`);
+    res.json({ message: 'Connection updated' });
+  } catch (err) {
+    console.error('Update utility connection error:', err);
     res.status(500).json({ message: 'Database error' });
   }
 });

@@ -48,6 +48,20 @@ CREATE TABLE IF NOT EXISTS sarga_vendor_payments (
   FOREIGN KEY (branch_id) REFERENCES sarga_branches(id) ON DELETE SET NULL
 );
 
+CREATE TABLE IF NOT EXISTS sarga_utility_connections (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  branch_id INT NOT NULL,
+  utility_type VARCHAR(150) NOT NULL,
+  provider VARCHAR(200) DEFAULT NULL,
+  billing_cycle VARCHAR(50) DEFAULT 'monthly',
+  connection_id VARCHAR(100) NOT NULL,
+  label VARCHAR(200),
+  is_active TINYINT(1) DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (branch_id) REFERENCES sarga_branches(id) ON DELETE CASCADE,
+  UNIQUE KEY uniq_utility_connection (branch_id, utility_type, connection_id)
+);
+
 CREATE TABLE IF NOT EXISTS sarga_utility_bills (
   id INT AUTO_INCREMENT PRIMARY KEY,
   utility_type VARCHAR(150) NOT NULL,
@@ -57,20 +71,10 @@ CREATE TABLE IF NOT EXISTS sarga_utility_bills (
   amount DECIMAL(12, 2) NOT NULL,
   description TEXT,
   connection_id VARCHAR(100),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (branch_id) REFERENCES sarga_branches(id) ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS sarga_utility_connections (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  branch_id INT NOT NULL,
-  utility_type VARCHAR(150) NOT NULL,
-  connection_id VARCHAR(100) NOT NULL,
-  label VARCHAR(200),
-  is_active TINYINT(1) DEFAULT 1,
+  connection_record_id INT DEFAULT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (branch_id) REFERENCES sarga_branches(id) ON DELETE CASCADE,
-  UNIQUE KEY uniq_utility_connection (branch_id, utility_type, connection_id)
+  FOREIGN KEY (connection_record_id) REFERENCES sarga_utility_connections(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS sarga_vendor_requests (

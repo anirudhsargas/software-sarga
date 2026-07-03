@@ -89,6 +89,7 @@ const SettingsPage = React.lazy(() => import('./SettingsPage'));
 const BackupSettingsPage = React.lazy(() => import('./BackupSettingsPage'));
 const UploadBills = React.lazy(() => import('./UploadBills'));
 const RecurringInvoices = React.lazy(() => import('./RecurringInvoices'));
+const ConnectionLedger = React.lazy(() => import('./ConnectionLedger'));
 const ChatbotTraining = React.lazy(() => import('./admin/ChatbotTraining'));
 const WebInquiries = React.lazy(() => import('./WebInquiries'));
 const ReviewsManagement = React.lazy(() => import('./admin/ReviewsManagement'));
@@ -1219,6 +1220,7 @@ const Dashboard = () => {
                             <Route path="payment-verification" element={<ProtectedSubRoute roles={['Accountant', 'Admin']}><PaymentVerification /></ProtectedSubRoute>} />
                             <Route path="expenses" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><ExpenseManager /></ProtectedSubRoute>} />
                             <Route path="expenses/upload-bills" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><UploadBills /></ProtectedSubRoute>} />
+                            <Route path="utilities/connections/:id" element={<ProtectedSubRoute roles={['Admin', 'Accountant', 'Front Office']}><ConnectionLedger /></ProtectedSubRoute>} />
                             <Route path="vendors/*" element={<ProtectedSubRoute roles={['Admin', 'Accountant', 'Front Office']}><Vendors /></ProtectedSubRoute>} />
                             <Route path="machines" element={<ProtectedSubRoute roles={['Admin', 'Front Office']}><MachineManagement /></ProtectedSubRoute>} />
                             <Route path="daily-report" element={<ProtectedSubRoute roles={['Front Office', 'Admin', 'Accountant']}><DailyReport /></ProtectedSubRoute>} />

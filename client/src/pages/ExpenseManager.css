@@ -1,10 +1,13 @@
 
 :root {
-  --em-text-primary: var(--muted-foreground);
-  --em-text-secondary: var(--muted-foreground);
-  --em-btn-text: var(--muted-foreground);
+  /* em-btn-text uses text-secondary (#52525b light / #a1a1aa dark) which
+     passes WCAG AA 4.5:1 against white/card backgrounds. Previously used
+     muted-foreground which failed at 2.33:1. */
+  --em-text-primary: var(--foreground);
+  --em-text-secondary: var(--text-secondary);
+  --em-btn-text: var(--text-secondary);
   --em-tab-active: var(--foreground);
-  --em-tab-inactive: var(--muted-foreground);
+  --em-tab-inactive: var(--text-secondary);
 }
 
 /* Accessibility Focus Rings */
@@ -37,7 +40,7 @@ a:focus-visible,
     background: var(--surface);
 }
 
-/* Fix low contrast colors */
+/* Fix low contrast colors — WCAG AA compliant */
 .em-tab {
     color: var(--em-tab-inactive);
 }
@@ -45,7 +48,8 @@ a:focus-visible,
     color: var(--em-tab-active);
     font-weight: 600;
 }
-.btn-ghost {
+/* Scoped to .em-page so this override does not bleed to other pages */
+.em-page .btn-ghost {
     color: var(--em-btn-text);
 }
 
@@ -3260,4 +3264,17 @@ select.em-input {
 .dark .em-confirm-summary__warn {
     background: var(--foreground);
     color: var(--warning);
+}
+
+/* ─── Utility Connection Rows ────────────────────────── */
+.em-utility-category {
+    margin-bottom: var(--space-12);
+}
+
+.em-connection-row:hover {
+    background: var(--hover);
+}
+
+.em-connection-row:last-child {
+    border-bottom: none !important;
 }
