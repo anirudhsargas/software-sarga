@@ -1255,11 +1255,11 @@ router.post('/inventory/generate-labels', authenticateToken, authorizeRoles('Adm
 
         const margin = mmToPt(5);
         const colGap = mmToPt(3);
-        const rowGap = mmToPt(3);
+        const rowGap = 0;
         const labelWidth = mmToPt(48);
         const labelHeight = mmToPt(24);
         const cols = 4;
-        const rows = Math.floor((_pageHeight - margin * 2 + rowGap) / (labelHeight + rowGap));
+        const rows = 12;
         const labelsPerPage = cols * rows;
 
         res.setHeader('Content-Type', 'application/pdf');
