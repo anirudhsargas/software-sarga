@@ -601,6 +601,7 @@
   box-shadow: var(--shadow-sm);
   padding: var(--space-14);
   transition: border-color var(--transition-fast);
+  min-height: 104px;
 }
 
 .kpi-card:hover {

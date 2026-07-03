@@ -755,10 +755,10 @@ router.post('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant
     try {
         await connection.beginTransaction();
 
-        // 1. Check if an item with the same SKU already exists
+        // 1. Check if an item with the same SKU already exists (excluding soft-deleted rows)
         let existingItem = null;
         if (normalizedSku) {
-            const [skuMatches] = await connection.query("SELECT id, quantity FROM sarga_inventory WHERE REPLACE(UPPER(sku), ' ', '') = ?", [normalizedSku]);
+            const [skuMatches] = await connection.query("SELECT id, quantity FROM sarga_inventory WHERE REPLACE(UPPER(sku), ' ', '') = ? AND (is_deleted = 0 OR is_deleted IS NULL)", [normalizedSku]);
             if (skuMatches.length > 0) existingItem = skuMatches[0];
         }
 

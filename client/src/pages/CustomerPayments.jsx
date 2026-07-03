@@ -694,6 +694,13 @@ const CustomerPayments = () => {
   const handleDownloadStatement = async () => {
     setDownloading(true);
     try {
+      const [jsPDFModule, autoTableModule] = await Promise.all([
+        import('jspdf'),
+        import('jspdf-autotable')
+      ]);
+      const jsPDF = jsPDFModule.default;
+      const autoTable = autoTableModule.default;
+
       const params = new URLSearchParams({
         startDate: statementRange.start,
         endDate: statementRange.end,

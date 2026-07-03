@@ -1,7 +1,5 @@
 import React from 'react';
 import { useSEO } from '../hooks/useSEO';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { serverNow } from '../services/serverTime';
 import toast from 'react-hot-toast';
 import { formatCurrencyDecimal } from '../constants';
@@ -37,8 +35,15 @@ export default function DailyReportPDFExport({
     useSEO('Daily Report P D F Export');
 
 
-    const generatePDF = () => {
+    const generatePDF = async () => {
         try {
+            const [jsPDFModule, autoTableModule] = await Promise.all([
+                import('jspdf'),
+                import('jspdf-autotable')
+            ]);
+            const jsPDF = jsPDFModule.default;
+            const autoTable = autoTableModule.default;
+
             const doc = new jsPDF('p', 'mm', 'a4');
             const pageW = doc.internal.pageSize.getWidth();
             const margin = 14;

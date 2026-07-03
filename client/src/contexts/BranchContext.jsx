@@ -76,8 +76,32 @@ export const BranchProvider = ({ children }) => {
   const isFrontOffice = user?.role === 'Front Office';
   const assignedBranchName = getBranchName(user?.branch_id);
 
+  const contextValue = React.useMemo(() => ({
+    branches,
+    loading,
+    error,
+    refetch: fetchBranches,
+    getBranchName,
+    getUserBranch,
+    selectedBranchId,
+    selectBranch,
+    isFrontOffice,
+    assignedBranchName
+  }), [
+    branches,
+    loading,
+    error,
+    fetchBranches,
+    getBranchName,
+    getUserBranch,
+    selectedBranchId,
+    selectBranch,
+    isFrontOffice,
+    assignedBranchName
+  ]);
+
   return (
-    <BranchContext.Provider value={{ branches, loading, error, refetch: fetchBranches, getBranchName, getUserBranch, selectedBranchId, selectBranch, isFrontOffice, assignedBranchName }}>
+    <BranchContext.Provider value={contextValue}>
       {children}
     </BranchContext.Provider>
   );

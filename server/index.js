@@ -1,5 +1,5 @@
 console.log(`[BOOT] Server process starting at ${new Date().toISOString()}`);
-global.migrationsComplete = false;
+global.migrationsComplete = process.env.NODE_ENV === 'test';
 
 // Polyfill browser APIs required by pdf-parse in Node.js environment
 if (typeof globalThis.DOMMatrix === 'undefined') globalThis.DOMMatrix = class DOMMatrix { constructor() {} };

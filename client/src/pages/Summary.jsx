@@ -5,8 +5,10 @@ import { Loader2, Building2, TrendingUp, Wallet, IndianRupee, AlertTriangle, Use
 
 import api from '../services/api';
 import { formatCurrency as formatCurrencyShared } from '../constants';
-import OrderForecastWidget from '../components/OrderForecastWidget';
 import { useBranches } from '../contexts/BranchContext';
+import LazyViewport from '../components/LazyViewport';
+
+const OrderForecastWidget = React.lazy(() => import('../components/OrderForecastWidget'));
 
 import BranchSelect from '../components/ui/BranchSelect';
 import PageContainer from '../components/ui/PageContainer';
@@ -400,7 +402,11 @@ const Summary = () => {
           </div>
 
           {/* ROW 5: Order Forecast */}
-          <OrderForecastWidget branchId={selectedBranchId} />
+          <LazyViewport minHeight="300px" fallback={<div className="summary-section" style={{ height: 300, background: 'var(--border)', borderRadius: 10, animation: 'pulse 1.5s infinite' }} />}>
+            <Suspense fallback={<div className="summary-section" style={{ height: 300, background: 'var(--border)', borderRadius: 10, animation: 'pulse 1.5s infinite' }} />}>
+              <OrderForecastWidget branchId={selectedBranchId} />
+            </Suspense>
+          </LazyViewport>
         </>
       )}
 

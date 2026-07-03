@@ -1,23 +1,13 @@
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import QRCode from 'qrcode';
-
-/**
- * Generate a professional invoice PDF for a billing transaction.
- *
- * @param {Object} billData
- * @param {string}  billData.invoiceNumber   – Unique invoice ID
- * @param {string}  billData.invoiceDate     – Payment date string
- * @param {Object}  billData.customer        – { name, mobile, type, email, address, gst }
- * @param {Array}   billData.orderLines      – [{ product_name, quantity, unit_price, total_amount, category, subcategory, description }]
- * @param {Object}  billData.totals          – { subtotal, gross, net, sgst, cgst, effectiveDiscount, discountAmount }
- * @param {Object}  billData.payment         – { advancePaid, balance, methods, cash, upi, cheque, transfer, referenceNumber }
- * @param {Array}   billData.jobs            – [{ job_number }]
- * @param {string} [billData.companyName]    – Override company name
- * @param {string} [billData.upiId]          – UPI ID for QR code payment (e.g. 'shop@upi')
- * @returns {Promise<jsPDF>}
- */
 export async function generateInvoicePDF(billData) {
+  const [jsPDFModule, autoTableModule, QRCodeModule] = await Promise.all([
+    import('jspdf'),
+    import('jspdf-autotable'),
+    import('qrcode')
+  ]);
+  const jsPDF = jsPDFModule.default;
+  const autoTable = autoTableModule.default;
+  const QRCode = QRCodeModule.default;
+
   const {
     invoiceNumber,
     invoiceDate,

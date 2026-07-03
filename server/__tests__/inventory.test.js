@@ -9,10 +9,6 @@ const { generateToken, makeAuthHeader } = require('./helpers/setup');
 const adminToken = generateToken();
 
 describe('Inventory Routes', () => {
-  beforeEach(() => {
-    pool.query.mockReset();
-  });
-
   const sampleItem = {
     id: 1, name: 'Test Paper', sku: 'PAP-001', category: 'Paper',
     unit: 'pcs', quantity: 100, reorder_level: 10, cost_price: 50,
@@ -23,11 +19,44 @@ describe('Inventory Routes', () => {
     created_at: '2025-01-01T00:00:00.000Z',
   };
 
+  beforeEach(() => {
+    pool.query.mockReset();
+    pool.query.mockImplementation((sql, params) => {
+      const upperSql = sql.toUpperCase();
+      if (upperSql.includes('SELECT DATABASE()')) {
+        return Promise.resolve([[{ db: 'sarga_test' }]]);
+      }
+      if (upperSql.includes('INFORMATION_SCHEMA.COLUMNS')) {
+        return Promise.resolve([[{ COLUMN_NAME: 'reserved_quantity' }]]);
+      }
+      if (upperSql.includes('SELECT IS_DELETED FROM SARGA_INVENTORY LIMIT 0')) {
+        return Promise.resolve([[]]);
+      }
+      if (upperSql.includes('COUNT(')) {
+        return Promise.resolve([[{ total: 1 }]]);
+      }
+      if (upperSql.includes('INSERT INTO SARGA_INVENTORY')) {
+        return Promise.resolve([{ insertId: 2 }]);
+      }
+      if (upperSql.includes('SELECT ID, QUANTITY FROM SARGA_INVENTORY')) {
+        // This is SKU/Name check or get by ID
+        return Promise.resolve([[]]); // Default to no existing item
+      }
+      if (upperSql.includes('I.*') || upperSql.includes('SELECT ID, NAME, QUANTITY')) {
+        return Promise.resolve([[sampleItem]]);
+      }
+      if (upperSql.includes('SELECT ID, NAME, SYNC_ENABLED')) {
+        return Promise.resolve([[]]);
+      }
+      if (upperSql.includes('UPDATE SARGA_INVENTORY') || upperSql.includes('DELETE FROM')) {
+        return Promise.resolve([{ affectedRows: 1 }]);
+      }
+      return Promise.resolve([[]]);
+    });
+  });
+
   describe('GET /api/inventory', () => {
     it('lists inventory items', async () => {
-      pool.query
-        .mockResolvedValueOnce([[{ total: 1 }]])
-        .mockResolvedValueOnce([[sampleItem]]);
       const res = await request(app)
         .get('/api/inventory')
         .set(makeAuthHeader(adminToken));
@@ -42,9 +71,6 @@ describe('Inventory Routes', () => {
     });
 
     it('supports search', async () => {
-      pool.query
-        .mockResolvedValueOnce([[{ total: 1 }]])
-        .mockResolvedValueOnce([[sampleItem]]);
       const res = await request(app)
         .get('/api/inventory?search=Paper')
         .set(makeAuthHeader(adminToken));
@@ -52,9 +78,6 @@ describe('Inventory Routes', () => {
     });
 
     it('supports category filter', async () => {
-      pool.query
-        .mockResolvedValueOnce([[{ total: 1 }]])
-        .mockResolvedValueOnce([[sampleItem]]);
       const res = await request(app)
         .get('/api/inventory?category=Paper')
         .set(makeAuthHeader(adminToken));
@@ -64,11 +87,6 @@ describe('Inventory Routes', () => {
 
   describe('POST /api/inventory', () => {
     it('creates an inventory item', async () => {
-      pool.query
-        .mockResolvedValueOnce([[{ db: 'sarga_test' }]])
-        .mockResolvedValueOnce([[{ COLUMN_NAME: 'reserved_quantity' }]])
-        .mockResolvedValueOnce([{ insertId: 2 }])
-        .mockResolvedValueOnce([[]]);
       const res = await request(app)
         .post('/api/inventory')
         .set(makeAuthHeader(adminToken))
@@ -88,8 +106,6 @@ describe('Inventory Routes', () => {
 
   describe('GET /api/inventory/:id', () => {
     it('returns an item by ID', async () => {
-      pool.query
-        .mockResolvedValueOnce([[sampleItem]]);
       const res = await request(app)
         .get('/api/inventory/1')
         .set(makeAuthHeader(adminToken));
@@ -99,9 +115,6 @@ describe('Inventory Routes', () => {
 
   describe('PUT /api/inventory/:id', () => {
     it('updates an inventory item', async () => {
-      pool.query
-        .mockResolvedValueOnce([[sampleItem]])
-        .mockResolvedValueOnce([{ affectedRows: 1 }]);
       const res = await request(app)
         .put('/api/inventory/1')
         .set(makeAuthHeader(adminToken))
@@ -112,9 +125,6 @@ describe('Inventory Routes', () => {
 
   describe('DELETE /api/inventory/:id', () => {
     it('deletes an item', async () => {
-      pool.query
-        .mockResolvedValueOnce([{ affectedRows: 1 }])
-        .mockResolvedValueOnce([[]]);
       const res = await request(app)
         .delete('/api/inventory/1')
         .set(makeAuthHeader(adminToken));
@@ -124,7 +134,6 @@ describe('Inventory Routes', () => {
 
   describe('GET /api/inventory/barcode/:code', () => {
     it('looks up by scanned code (SKU)', async () => {
-      pool.query.mockResolvedValueOnce([[sampleItem]]);
       const res = await request(app)
         .get('/api/inventory/barcode/PAP-001')
         .set(makeAuthHeader(adminToken));
@@ -132,7 +141,6 @@ describe('Inventory Routes', () => {
     });
 
     it('looks up by ITEM-{id}', async () => {
-      pool.query.mockResolvedValueOnce([[sampleItem]]);
       const res = await request(app)
         .get('/api/inventory/barcode/ITEM-1')
         .set(makeAuthHeader(adminToken));
@@ -142,7 +150,6 @@ describe('Inventory Routes', () => {
 
   describe('GET /api/inventory/low-stock', () => {
     it('returns low stock items', async () => {
-      pool.query.mockResolvedValueOnce([[sampleItem]]);
       const res = await request(app)
         .get('/api/inventory/low-stock')
         .set(makeAuthHeader(adminToken));

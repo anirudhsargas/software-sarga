@@ -198,7 +198,7 @@ const SkeletonLoader = () => {
                 <div className="skeleton" style={{ width: 140, height: 12, borderRadius: 4, background: 'var(--border, #e5e7eb)', marginTop: 8 }} />
             </div>
         </div>
-        <div style={{ display: 'flex', gap: 8, height: 180, alignItems: 'flex-end', padding: '16px 0' }}>
+        <div style={{ display: 'flex', gap: 8, height: 300, alignItems: 'flex-end', padding: '16px 0' }}>
             {Array.from({ length: 7 }).map((_, i) => (
                 <div key={i} className="skeleton" style={{
                     flex: 1, borderRadius: 4,

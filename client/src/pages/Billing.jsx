@@ -10,7 +10,6 @@ import {
   ChevronRight, Circle, CheckCircle2
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import QRCode from 'qrcode';
 import api from '../services/api';
 import localDb from '../services/localDb';
 import auth from '../services/auth';
@@ -387,7 +386,8 @@ const Billing = () => {
 
     setUpiQrLoading(true);
     const upiStr = `upi://pay?pa=${encodeURIComponent(branchUpiId)}&pn=${encodeURIComponent('SARGA')}&am=${upiAmt.toFixed(2)}&cu=INR&tn=${encodeURIComponent('Invoice Payment')}`;
-    QRCode.toDataURL(upiStr, { width: 200, margin: 1 })
+    import('qrcode')
+      .then(mod => mod.default.toDataURL(upiStr, { width: 200, margin: 1 }))
       .then(url => { setUpiQrUrl(url); setUpiQrLoading(false); })
       .catch(() => { setUpiQrUrl(''); setUpiQrLoading(false); });
   }, [payment.selectedMethods, payment.methodAmounts.UPI, branchUpiId]);

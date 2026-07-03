@@ -101,26 +101,36 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: (id) => {
-          if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
-            return 'vendor-react';
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router') || id.includes('scheduler')) {
+              return 'react';
+            }
+            if (id.includes('recharts') || id.includes('d3')) {
+              return 'charts';
+            }
+            if (id.includes('jspdf') || id.includes('html2canvas') || id.includes('jspdf-autotable')) {
+              return 'pdf';
+            }
+            if (id.includes('excel') || id.includes('xlsx') || id.includes('boneyard-js')) {
+              return 'excel';
+            }
+            return 'vendor';
           }
-          if (id.includes('lucide-react')) {
-            return 'icons';
-          }
-          if (id.includes('jspdf')) {
-            return 'pdf-export';
-          }
-          if (id.includes('src/pages/expense-manager/') || id.includes('src/pages/ExpenseManager')) {
+          
+          if (id.includes('src/pages/Dashboard') || id.includes('src/pages/Summary') || id.includes('src/layouts/')) {
             return 'dashboard';
           }
-          if (id.includes('src/pages/Reports') || id.includes('reportsTab')) {
+          if (id.includes('src/pages/Inventory') || id.includes('src/pages/Stock') || id.includes('src/pages/Consumables') || id.includes('src/pages/PaperStock') || id.includes('src/pages/PaperInward') || id.includes('src/pages/PaperOutward')) {
+            return 'inventory';
+          }
+          if (id.includes('src/pages/Billing') || id.includes('src/pages/Invoices') || id.includes('src/pages/Customers') || id.includes('src/pages/Quotes') || id.includes('src/pages/Payments') || id.includes('src/pages/CustomerPayments')) {
+            return 'sales';
+          }
+          if (id.includes('src/pages/Settings') || id.includes('src/pages/Backup')) {
+            return 'settings';
+          }
+          if (id.includes('src/pages/Reports')) {
             return 'reports';
-          }
-          if (id.includes('recharts')) {
-            return 'charts';
-          }
-          if (id.includes('axios')) {
-            return 'http';
           }
         },
         chunkFileNames: 'assets/js/[name]-[hash].js',

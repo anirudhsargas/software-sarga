@@ -61,8 +61,10 @@ export const ConfirmProvider = ({ children }) => {
         }
     }, [resolver]);
 
+    const contextValue = React.useMemo(() => ({ confirm }), [confirm]);
+
     return (
-        <ConfirmContext.Provider value={{ confirm }}>
+        <ConfirmContext.Provider value={contextValue}>
             {children}
             <ConfirmModal
                 isOpen={modalState.isOpen}

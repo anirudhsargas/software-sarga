@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
-import jsQR from 'jsqr';
 import { X, Camera, Upload } from 'lucide-react';
 import CameraPermissionModal from './CameraPermissionModal';
 
@@ -204,21 +203,27 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
     const scanFileWithJsQR = (file) => new Promise((resolve, reject) => {
         const img = new Image();
         const url = URL.createObjectURL(file);
-        img.onload = () => {
+        img.onload = async () => {
             URL.revokeObjectURL(url);
-            for (const scale of SCAN_ATTEMPTS) {
-                const canvas = document.createElement('canvas');
-                canvas.width = img.width * scale;
-                canvas.height = img.height * scale;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                    inversionAttempts: 'attemptBoth',
-                });
-                if (code) { resolve(code.data); return; }
+            try {
+                const jsQRModule = await import('jsqr');
+                const jsQR = jsQRModule.default;
+                for (const scale of SCAN_ATTEMPTS) {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width * scale;
+                    canvas.height = img.height * scale;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                        inversionAttempts: 'attemptBoth',
+                    });
+                    if (code) { resolve(code.data); return; }
+                }
+                resolve(null);
+            } catch (err) {
+                reject(err);
             }
-            resolve(null);
         };
         img.onerror = reject;
         img.src = url;

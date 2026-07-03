@@ -6,7 +6,6 @@ import {
     ShoppingCart, Edit2, LayoutList, History, Scan, AlertCircle,
     ChevronRight, Zap, Users, Hash
 } from 'lucide-react';
-import jsQR from 'jsqr';
 import api from '../services/api';
 import auth from '../services/auth';
 import SecureImage from '../components/SecureImage';
@@ -275,19 +274,25 @@ const ScanItem = () => {
     const scanFileWithJsQR = (file) => new Promise((resolve, reject) => {
         const img = new Image();
         const url = URL.createObjectURL(file);
-        img.onload = () => {
+        img.onload = async () => {
             URL.revokeObjectURL(url);
-            for (const scale of [1, 2, 3]) {
-                const canvas = document.createElement('canvas');
-                canvas.width = img.width * scale;
-                canvas.height = img.height * scale;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'attemptBoth' });
-                if (code) { resolve(code.data); return; }
+            try {
+                const jsQRModule = await import('jsqr');
+                const jsQR = jsQRModule.default;
+                for (const scale of [1, 2, 3]) {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width * scale;
+                    canvas.height = img.height * scale;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'attemptBoth' });
+                    if (code) { resolve(code.data); return; }
+                }
+                resolve(null);
+            } catch (err) {
+                reject(err);
             }
-            resolve(null);
         };
         img.onerror = reject;
         img.src = url;

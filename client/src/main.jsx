@@ -1,4 +1,3 @@
-import * as Sentry from "@sentry/react";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { registerSW } from 'virtual:pwa-register';
@@ -71,13 +70,13 @@ if (import.meta.env.PROD) {
   window.addEventListener('beforeunload', () => clearInterval(versionInterval), { once: true });
 }
 
-// ── Sentry ─────────────────────────────
-
-Sentry.init({
-  dsn: "https://ed80e78984db726985d5baaa8aaab8d7@o4511491000041472.ingest.us.sentry.io/4511609262112769",
-
-  tracesSampleRate: 0.2,
-});
+// ── Sentry (Lazy Loaded) ────────────────
+import('@sentry/react').then((Sentry) => {
+  Sentry.init({
+    dsn: "https://ed80e78984db726985d5baaa8aaab8d7@o4511491000041472.ingest.us.sentry.io/4511609262112769",
+    tracesSampleRate: 0.2,
+  });
+}).catch(err => console.error("Sentry load failed:", err));
 
 // Optional: disable logs in production
 
