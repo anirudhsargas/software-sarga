@@ -55,13 +55,15 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
   const [connectionsLoading, setConnectionsLoading] = useState(false);
   const [showConnectionsModal, setShowConnectionsModal] = useState(false);
   const [connectionsCategory, setConnectionsCategory] = useState('');
-  const [newConnection, setNewConnection] = useState({ connection_id: '', label: '', provider: '', billing_cycle: 'monthly' });
+  const [newConnection, setNewConnection] = useState({ connection_id: '', label: '', provider: '', billing_cycle: 'monthly', utility_type: '', branch_id: '' });
   const [editingConnection, setEditingConnection] = useState(null);
   const [connectionSaving, setConnectionSaving] = useState(false);
 
   // Add connection modal
   const [showAddConnectionModal, setShowAddConnectionModal] = useState(false);
   const [addConnectionCategory, setAddConnectionCategory] = useState('');
+  const [branches, setBranches] = useState([]);
+  const [formErrors, setFormErrors] = useState({});
 
   const [fetchingEmail, setFetchingEmail] = useState(false);
   const [fetchReport, setFetchReport] = useState(null);
@@ -96,7 +98,10 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
   // Initial load
   React.useEffect(() => {
     fetchCategoriesData();
-  }, [fetchCategoriesData]);
+    if (isAdmin) {
+      api.get('/branches').then(r => setBranches(r.data || [])).catch(() => {});
+    }
+  }, [fetchCategoriesData, isAdmin]);
 
   // Handle pre-selected addBill from URL param (coming from ConnectionLedger)
   React.useEffect(() => {
@@ -232,23 +237,39 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
   };
 
   /* ── Connection CRUD ── */
+  const validateConnectionForm = () => {
+    const errs = {};
+    if (!newConnection.connection_id?.trim()) errs.connection_id = 'Account / Consumer number is required';
+    if (!addConnectionCategory && !newConnection.utility_type?.trim()) errs.utility_type = 'Category is required';
+    if (!isAdmin && !newConnection.branch_id && !user?.branch_id) errs.branch_id = 'Branch is required';
+    setFormErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
   const addConnection = async (utilityType) => {
-    if (!newConnection.connection_id) return;
+    if (!validateConnectionForm()) return;
     setConnectionSaving(true);
     try {
-      await api.post('/utility-connections', {
-        utility_type: utilityType,
-        connection_id: newConnection.connection_id,
-        label: newConnection.label || null,
-        provider: newConnection.provider || null,
-        billing_cycle: newConnection.billing_cycle || 'monthly'
-      });
-      setNewConnection({ connection_id: '', label: '', provider: '', billing_cycle: 'monthly' });
+      const payload = {
+        utility_type: utilityType || newConnection.utility_type,
+        connection_id: newConnection.connection_id.trim(),
+        label: newConnection.label?.trim() || null,
+        provider: newConnection.provider?.trim() || null,
+        billing_cycle: newConnection.billing_cycle || 'monthly',
+        branch_id: newConnection.branch_id || undefined,
+        is_active: newConnection.is_active !== undefined ? newConnection.is_active : 1,
+      };
+      const res = await api.post('/utility-connections', payload);
+      setNewConnection({ connection_id: '', label: '', provider: '', billing_cycle: 'monthly', utility_type: '', branch_id: '' });
+      setFormErrors({});
       if (showConnectionsModal) await fetchConnections(utilityType);
       await fetchCategoriesData();
-      toast.success('Connection added');
+      toast.success(res.data?.message || 'Connection added');
+      return res.data;
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to add connection');
+      const msg = err.response?.data?.message || 'Failed to add connection';
+      toast.error(msg);
+      throw err;
     } finally { setConnectionSaving(false); }
   };
 
@@ -681,7 +702,7 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
                       <div style={{ padding: '8px 16px', borderTop: '1px solid var(--border)' }}>
                         <button className="btn btn-ghost btn-sm" onClick={() => {
                           setAddConnectionCategory(u.key);
-                          setNewConnection({ connection_id: '', label: '', provider: '', billing_cycle: 'monthly' });
+                          setNewConnection({ connection_id: '', label: '', provider: '', billing_cycle: 'monthly', utility_type: '', branch_id: '' });
                           setShowAddConnectionModal(true);
                         }}>
                           <Plus size={14} /> Add Connection
@@ -897,45 +918,89 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
 
       {/* ── Add Connection Modal (quick-add from category) ── */}
       {showAddConnectionModal && (
-        <div role="button" tabIndex={0} className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setShowAddConnectionModal(false); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (e.target === e.currentTarget) setShowAddConnectionModal(false); } }}>
-          <div role="button" tabIndex={0} className="em-modal" style={{ maxWidth: 500 }} onClick={e => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
+        <div className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setShowAddConnectionModal(false); }}>
+          <div className="em-modal" style={{ maxWidth: 540 }} onClick={e => e.stopPropagation()}>
             <div className="em-modal__header">
-              <h3>Add Connection — {addConnectionCategory}</h3>
+              <h3>
+                <FileText size={16} style={{ marginRight: 8 }} />
+                Add Connection{addConnectionCategory ? ` — ${addConnectionCategory}` : ''}
+              </h3>
               <button className="btn btn-ghost btn-icon" onClick={() => setShowAddConnectionModal(false)}><X size={18} /></button>
             </div>
-            <div className="em-modal__body">
-              <div className="em-form-grid">
-                <div className="em-form-group">
-                  <label>Connection ID / Account No. *</label>
-                  <input className="em-input" value={newConnection.connection_id} onChange={e => setNewConnection(n => ({ ...n, connection_id: e.target.value }))} placeholder="e.g. KE-12345678" autoFocus />
-                </div>
-                <div className="em-form-group">
-                  <label>Label / Nickname</label>
-                  <input className="em-input" value={newConnection.label} onChange={e => setNewConnection(n => ({ ...n, label: e.target.value }))} placeholder="e.g. Meppayur Main Building" />
-                </div>
-                <div className="em-form-group">
-                  <label>Provider</label>
-                  <input className="em-input" value={newConnection.provider} onChange={e => setNewConnection(n => ({ ...n, provider: e.target.value }))} placeholder="e.g. KSEB, BSNL, Jio" />
-                </div>
-                <div className="em-form-group">
-                  <label>Billing Cycle</label>
-                  <select className="em-input" value={newConnection.billing_cycle} onChange={e => setNewConnection(n => ({ ...n, billing_cycle: e.target.value }))}>
-                    <option value="monthly">Monthly</option>
-                    <option value="bimonthly">Bimonthly</option>
-                    <option value="quarterly">Quarterly</option>
-                  </select>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              try {
+                await addConnection(addConnectionCategory);
+                setShowAddConnectionModal(false);
+              } catch { /* error toast already shown */ }
+            }}>
+              <div className="em-modal__body">
+                <div className="em-form-grid">
+                  {!addConnectionCategory && (
+                    <div className="em-form-group em-form-group--full">
+                      <label>Category *</label>
+                      <select className={`em-input ${formErrors.utility_type ? 'field-error' : ''}`}
+                        value={newConnection.utility_type}
+                        onChange={e => { setNewConnection(n => ({ ...n, utility_type: e.target.value })); setFormErrors(f => ({ ...f, utility_type: undefined })); }}>
+                        <option value="">— Select category —</option>
+                        {UTILITY_TYPES.map(t => (
+                          <option key={t.key} value={t.key}>{t.key}</option>
+                        ))}
+                      </select>
+                      {formErrors.utility_type && <span className="field-error-text">{formErrors.utility_type}</span>}
+                    </div>
+                  )}
+                  <div className="em-form-group">
+                    <label>Account / Consumer No. *</label>
+                    <input className={`em-input ${formErrors.connection_id ? 'field-error' : ''}`}
+                      value={newConnection.connection_id}
+                      onChange={e => { setNewConnection(n => ({ ...n, connection_id: e.target.value })); setFormErrors(f => ({ ...f, connection_id: undefined })); }}
+                      placeholder="e.g. KE-12345678" autoFocus />
+                    {formErrors.connection_id && <span className="field-error-text">{formErrors.connection_id}</span>}
+                  </div>
+                  <div className="em-form-group">
+                    <label>Label / Nickname</label>
+                    <input className="em-input" value={newConnection.label} onChange={e => setNewConnection(n => ({ ...n, label: e.target.value }))} placeholder="e.g. Meppayur Main Building" />
+                  </div>
+                  <div className="em-form-group">
+                    <label>Provider</label>
+                    <input className="em-input" value={newConnection.provider} onChange={e => setNewConnection(n => ({ ...n, provider: e.target.value }))} placeholder="e.g. KSEB, BSNL, Jio" />
+                  </div>
+                  {isAdmin && branches.length > 0 && (
+                    <div className="em-form-group">
+                      <label>Branch</label>
+                      <select className="em-input" value={newConnection.branch_id} onChange={e => setNewConnection(n => ({ ...n, branch_id: e.target.value }))}>
+                        <option value="">— Select branch —</option>
+                        {branches.map(b => (
+                          <option key={b.id} value={b.id}>{b.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  <div className="em-form-group">
+                    <label>Billing Cycle</label>
+                    <select className="em-input" value={newConnection.billing_cycle} onChange={e => setNewConnection(n => ({ ...n, billing_cycle: e.target.value }))}>
+                      <option value="monthly">Monthly</option>
+                      <option value="bimonthly">Bimonthly</option>
+                      <option value="quarterly">Quarterly</option>
+                    </select>
+                  </div>
+                  <div className="em-form-group em-form-group--full" style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <label style={{ margin: 0 }}>Status</label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 400, fontSize: 13 }}>
+                      <input type="checkbox" checked={!newConnection.is_active} onChange={e => setNewConnection(n => ({ ...n, is_active: e.target.checked ? 0 : 1 }))} />
+                      Mark as inactive
+                    </label>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="em-modal__footer">
-              <button className="btn btn-ghost" onClick={() => setShowAddConnectionModal(false)}>Cancel</button>
-              <button className="btn btn-primary" disabled={connectionSaving || !newConnection.connection_id} onClick={() => {
-                addConnection(addConnectionCategory);
-                setShowAddConnectionModal(false);
-              }}>
-                {connectionSaving ? 'Saving...' : 'Add Connection'}
-              </button>
-            </div>
+              <div className="em-modal__footer">
+                <button type="button" className="btn btn-ghost" onClick={() => setShowAddConnectionModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={connectionSaving}>
+                  {connectionSaving ? <><Loader2 className="spin" size={14} style={{ marginRight: 6 }} /> Saving...</> : 'Add Connection'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -231,7 +231,16 @@ const initDb = async () => {
       await connection.query('INSERT IGNORE INTO schema_migrations (migration_name) VALUES (?)', [migrateVendorStatementsName]);
       appliedMigrations.add(migrateVendorStatementsName);
     }
-    
+
+    // Add provider, billing_cycle to utility_connections and connection_record_id to utility_bills
+    const migrateUtilityConnectionFieldsName = '037_add_utility_connection_fields.js';
+    if (!appliedMigrations.has(migrateUtilityConnectionFieldsName)) {
+      const migrateUtilityConnectionFields = require('./migrations/037_add_utility_connection_fields');
+      await migrateUtilityConnectionFields(connection);
+      await connection.query('INSERT IGNORE INTO schema_migrations (migration_name) VALUES (?)', [migrateUtilityConnectionFieldsName]);
+      appliedMigrations.add(migrateUtilityConnectionFieldsName);
+    }
+
     console.log('Database schema migration completed successfully');
   } catch (err) {
     console.error('Database initialization error:', err);

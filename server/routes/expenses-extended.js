@@ -2808,13 +2808,14 @@ router.get('/utility-connections', authenticateToken, authorizeRoles('Admin', 'A
 });
 
 router.post('/utility-connections', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
-  const { utility_type, connection_id, label, provider, billing_cycle, branch_id } = req.body;
+  const { utility_type, connection_id, label, provider, billing_cycle, branch_id, is_active } = req.body;
   const finalBranchId = ['Admin', 'Accountant'].includes(req.user.role) ? (branch_id || req.user.branch_id) : req.user.branch_id;
   if (!utility_type || !connection_id) return res.status(400).json({ message: 'utility_type and connection_id are required' });
   try {
     const [[{ cnt }]] = await pool.query('SELECT COUNT(*) as cnt FROM sarga_utility_connections WHERE branch_id = ? AND utility_type = ? AND connection_id = ?', [finalBranchId, utility_type, connection_id]);
     if (Number(cnt) > 0) return res.status(409).json({ message: 'Connection already exists' });
-    const [result] = await pool.query('INSERT INTO sarga_utility_connections (branch_id, utility_type, connection_id, label, provider, billing_cycle) VALUES (?, ?, ?, ?, ?, ?)', [finalBranchId, utility_type, connection_id, label || null, provider || null, billing_cycle || 'monthly']);
+    const finalIsActive = is_active !== undefined ? Number(is_active) : 1;
+    const [result] = await pool.query('INSERT INTO sarga_utility_connections (branch_id, utility_type, connection_id, label, provider, billing_cycle, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)', [finalBranchId, utility_type, connection_id, label || null, provider || null, billing_cycle || 'monthly', finalIsActive]);
     auditLog(req.user.id, 'UTILITY_CONNECTION_ADD', `Added connection ${connection_id} for ${utility_type}`);
     res.status(201).json({ id: result.insertId, message: 'Connection added' });
   } catch (err) {

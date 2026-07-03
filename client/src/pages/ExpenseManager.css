@@ -3278,3 +3278,16 @@ select.em-input {
 .em-connection-row:last-child {
     border-bottom: none !important;
 }
+
+/* ─── Form Validation ──────────────────────────────── */
+.em-input.field-error {
+    border-color: var(--error);
+}
+
+.field-error-text {
+    display: block;
+    font-size: 11px;
+    color: var(--error);
+    margin-top: 4px;
+    font-weight: 500;
+}

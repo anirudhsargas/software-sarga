@@ -36,6 +36,12 @@ export default defineConfig({
       },
     },
     cssCodeSplit: true,
+    // Prevent automatic modulepreload injection for entry dependencies
+    // (avoids preloading lazy route chunks that cause browser warnings)
+    modulePreload: {
+      polyfill: false,
+      resolveDependencies: () => []
+    },
     rollupOptions: {
       output: {
         manualChunks(id) {
