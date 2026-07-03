@@ -1330,9 +1330,10 @@ router.post('/inventory/generate-labels', authenticateToken, authorizeRoles('Adm
             doc.fontSize(5).font('Helvetica').fillColor('#000000');
             doc.text(uniqueCode, x + labelWidth - mmToPt(18), y + mmToPt(18), { width: mmToPt(16), align: 'center', lineBreak: false });
 
-            // "Sarga, Mob: 9497559257" at bottom-right corner of every label
-            doc.fontSize(3).font('Helvetica').fillColor('#000000');
-            doc.text("Sarga, Mob: 9497559257", x + padding, y + labelHeight - padding - 3, { width: labelWidth - padding * 2, align: 'right', lineBreak: false });
+            // "Sarga, Mob: 9497559257" directly below MRP
+            doc.fontSize(4).font('Helvetica').fillColor('#000000');
+            doc.text("Sarga,", x + padding, y + mmToPt(14.5), { width: textAreaW, lineBreak: false });
+            doc.text("Mob: 9497559257", x + padding, y + mmToPt(16.5), { width: textAreaW, lineBreak: false });
         }
 
         doc.end();
