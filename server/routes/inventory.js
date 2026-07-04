@@ -199,7 +199,7 @@ router.get('/inventory', authenticateToken, authorizeRoles('Admin', 'Front Offic
                          ${joinSection}
                          ${whereSection}`;
         
-        const dataQuery = `SELECT i.*, p.id as linked_product_id, p.image_url as product_image_url, ps.name as product_subcategory_name, pc.name as product_category_name, spi.image_url as cached_image_url, spi.source as image_source, spi.confidence as image_confidence, spi.is_locked as image_locked ${selectExtra}
+        const dataQuery = `SELECT i.*, ANY_VALUE(p.id) as linked_product_id, ANY_VALUE(p.image_url) as product_image_url, ANY_VALUE(ps.name) as product_subcategory_name, ANY_VALUE(pc.name) as product_category_name, ANY_VALUE(spi.image_url) as cached_image_url, ANY_VALUE(spi.source) as image_source, ANY_VALUE(spi.confidence) as image_confidence, ANY_VALUE(spi.is_locked) as image_locked ${selectExtra}
                         FROM sarga_inventory i 
                         LEFT JOIN sarga_products p ON i.id = p.inventory_item_id
                         LEFT JOIN sarga_product_subcategories ps ON p.subcategory_id = ps.id

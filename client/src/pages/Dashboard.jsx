@@ -1189,6 +1189,7 @@ const Dashboard = () => {
                                 <Route index element={<Navigate to="orders" replace />} />
                                 <Route path="overview" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><Summary /></ProtectedSubRoute>} />
                                 <Route path="customers" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><Customers /></ProtectedSubRoute>} />
+                                <Route path="customers/new" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><Customers /></ProtectedSubRoute>} />
                                 <Route path="customers/:id" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><CustomerDetails /></ProtectedSubRoute>} />
                                 <Route path="orders" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant', 'Designer', 'Printer']}><Jobs /></ProtectedSubRoute>} />
                                 <Route path="orders/:id" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant', 'Designer', 'Printer']}><JobDetail /></ProtectedSubRoute>} />
@@ -1206,6 +1207,7 @@ const Dashboard = () => {
                             <Route path="jobs" element={<Navigate to="/dashboard/sales/orders" replace />} />
                             <Route path="jobs/:id" element={<NavigateToJobDetail />} />
                             <Route path="customers" element={<Navigate to="/dashboard/sales/customers" replace />} />
+                            <Route path="customers/new" element={<Navigate to="/dashboard/sales/customers" replace />} />
                             <Route path="customers/:id" element={<NavigateToCustomerDetails />} />
 
                             <Route path="staff" element={<ProtectedSubRoute roles={['Admin', 'Accountant', 'Front Office']}><StaffManagement /></ProtectedSubRoute>} />
