@@ -1068,8 +1068,8 @@ export async function createBill(billData, matterFiles = []) {
     // 1. Save to IndexedDB
     const idbKey = await offlineDb.queueBill(record);
 
-    // 2. Try server in background (non-blocking)
-    tryServer(async () => {
+    // 2. Try server - await for real IDs so callers can use real job/payment IDs
+    const serverResult = await tryServer(async () => {
         // Create jobs first
         const lines = billData.orderLines || billData.order_lines || [];
         let createdJobs = [];
@@ -1125,7 +1125,7 @@ export async function createBill(billData, matterFiles = []) {
         }
 
         // Create payment
-        await api.post('customer-payments', {
+        const payRes = await api.post('customer-payments', {
             customer_id: billData.customerId || billData.customer_id || null,
             customer_name: billData.customerName || billData.customer_name,
             customer_mobile: billData.customerMobile || billData.customer_mobile || null,
@@ -1154,9 +1154,11 @@ export async function createBill(billData, matterFiles = []) {
 
         // Mark as synced
         await offlineDb.updateBillStatus(idbKey, 'synced');
+
+        return { jobs: createdJobs, payment: payRes?.data || null };
     });
 
-    // Build synthetic payment & jobs so callers can use them immediately (real IDs arrive after background sync)
+    // Build synthetic payment & jobs as fallback (used when offline/server fails)
     const syntheticPayment = {
         id: idbKey,
         invoice_number: localId.replace('BILL-', 'INV-'),
@@ -1177,7 +1179,13 @@ export async function createBill(billData, matterFiles = []) {
         product_name: line.product_name || line.job_name
     }));
 
-    return { ...record, id: idbKey, localId, payment: syntheticPayment, jobs: syntheticJobs };
+    // Use real data from server when available, otherwise synthetic fallback
+    const realJobs = serverResult?.jobs;
+    const realPayment = serverResult?.payment;
+    const finalPayment = realPayment?.id ? realPayment : syntheticPayment;
+    const finalJobs = Array.isArray(realJobs) && realJobs.length > 0 ? realJobs : syntheticJobs;
+
+    return { ...record, id: idbKey, localId, payment: finalPayment, jobs: finalJobs };
 }
 
 /**

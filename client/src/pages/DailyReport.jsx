@@ -5,7 +5,7 @@ import {
     BookOpen, Printer, Package, RefreshCw, TrendingUp, TrendingDown,
     Monitor, Hash, Building2, Check, Edit3, Lock, Send, FileText, Plus, Trash2,
     Calendar, Clock, ArrowUpRight, ArrowDownRight, X, Wallet, CreditCard,
-    ChevronRight, ChevronLeft, BarChart3, Users, Sunrise
+    ChevronRight, ChevronLeft, BarChart3, Users, Sunrise, User, Phone
 } from 'lucide-react';
 
 const PDFExport = React.lazy(() => import('./DailyReportPDFExport'));
@@ -698,16 +698,21 @@ const DailyReport = () => {
             <div className="panel">
                 <div className="panel-header credit-list-header">
                     <h2 className="panel-title credit-list-title">
-                        <CreditCard size={16} /> Credits — {bookKey}
+                        <CreditCard size={16} /> Credits Outstanding — {bookKey}
                         <span className="badge credit-list-badge">{all.length}</span>
                     </h2>
-                    <div className="row gap-sm">
-                        <span className="credit-list-total" style={{fontSize: 16}}>₹ {formatCurrency(total)}</span>
-                    </div>
+                </div>
+
+                <div className="credit-summary-bar">
+                    <span className="credit-summary-label">Outstanding Balance Tally</span>
+                    <span className="credit-summary-value">₹ {formatCurrency(total)}</span>
                 </div>
 
                 {all.length === 0 ? (
-                    <div className="credit-list-empty">No credit transactions for this book/date.</div>
+                    <div className="credit-list-empty">
+                        <CreditCard size={24} style={{ opacity: 0.4 }} />
+                        <span>No outstanding credits for this book / date.</span>
+                    </div>
                 ) : (
                     <div className="credit-list-table-container">
                         <table className="data-table credit-list-table">
@@ -723,15 +728,19 @@ const DailyReport = () => {
                             <tbody>
                                 {all.slice(0, 50).map(c => (
                                     <tr key={c.id}>
-                                        <td>{c.type}</td>
+                                        <td>
+                                            <span className={`credit-badge ${c.isManual ? 'credit-badge--manual' : 'credit-badge--live'}`}>
+                                                {c.isManual ? 'Manual' : 'Live Billing'}
+                                            </span>
+                                        </td>
                                         <td>
                                             <div>{c.customer}</div>
                                         </td>
-                                        <td>{c.details || c.reference}</td>
-                                        <td>{formatCurrency(c.amount)}</td>
+                                        <td>{c.details || c.reference || '—'}</td>
+                                        <td>₹ {formatCurrency(c.amount)}</td>
                                         <td>
                                             {c.isManual && (
-                                                <button className="btn btn-ghost btn-danger btn-sm" onClick={() => handleDeleteCredit(c.id)}>
+                                                <button className="btn btn-ghost btn-danger btn-sm" onClick={() => handleDeleteCredit(c.id)} title="Delete manual entry">
                                                     <Trash2 size={12} />
                                                 </button>
                                             )}
@@ -889,14 +898,20 @@ const DailyReport = () => {
 
     // ═══════════════════ SUB-COMPONENTS ═══════════════════
 
-    const CashOpeningCard = ({ bookType }) => {
+    const UnifiedCashbookHeader = ({ bookType, summary = {}, liveCounts = null }) => {
+        const opening = Number(summary.cash_opening) || 0;
+        const totalCashIn = Number(summary.total_cash_in) || 0;
+        const totalUpiIn = Number(summary.total_upi_in) || 0;
+        const totalIn = totalCashIn + totalUpiIn;
+        const totalOut = Number(summary.total_cash_out) || 0;
+        const closing = opening + totalIn - totalOut;
+        const netChange = totalIn - totalOut;
+
         const currentValue = openingBalances[bookType] || 0;
         const isLocked = lockedBalances[bookType] && !isAdmin;
-        const isSet = currentValue > 0 && !isLocked;
         const [localAmount, setLocalAmount] = useState('');
         const [saving, setSaving] = useState(false);
         const [showEdit, setShowEdit] = useState(false);
-        const todayStr = formatDateDisplay(reportDate);
 
         const handleSet = async () => {
             if (!localAmount || saving) return;
@@ -905,81 +920,166 @@ const DailyReport = () => {
                 await saveOpeningBalance(bookType, localAmount);
                 setShowEdit(false);
                 setLocalAmount('');
+            } catch (err) {
+                // errors handled inside saveOpeningBalance
             } finally {
                 setSaving(false);
             }
         };
 
+        const handleEditClick = () => {
+            setLocalAmount(String(currentValue));
+            setShowEdit(true);
+        };
+
         return (
-            <div className="cash-opening-card">
-                <div className="cash-opening-header">
-                    <div className="cash-opening-icon">
-                        {bookType === 'Offset' && <BookOpen size={20} />}
-                        {bookType === 'Laser' && <Printer size={20} />}
-                        {bookType === 'Other' && <Package size={20} />}
+            <div className={`unified-cashbook-header ${bookType === 'Laser' && liveCounts ? 'has-extra-stats' : ''}`}>
+                {/* Hero Balance Card */}
+                <div className="balance-card">
+                    <div className="balance-card-header">
+                        <span className="balance-card-label">Closing Balance</span>
+                        <div className="balance-card-icon">
+                            <Wallet size={16} />
+                        </div>
                     </div>
-                    <div>
-                        <h3 className="cash-opening-title">{bookType} Book — Opening</h3>
-                        <p className="cash-opening-subtitle">{todayStr}</p>
+                    
+                    <div className="balance-card-value">
+                        ₹ {formatCurrency(closing)}
                     </div>
-                    {isSet && !showEdit && (
-                        <span className="cash-opening-badge done">
-                            <Check size={12} /> Set
-                        </span>
-                    )}
-                    {isLocked && (
-                        <span className="cash-opening-badge done" style={{ background: 'color-mix(in srgb, var(--warning), transparent 85%)', color: 'var(--warning)' }}>
-                            <Lock size={12} /> Locked
-                        </span>
+
+                    {!showEdit ? (
+                        <div className="balance-card-opening">
+                            <div className="balance-card-opening-label">
+                                <Sunrise size={13} />
+                                <span>Opening: ₹ {formatCurrency(currentValue)}</span>
+                                {isLocked ? (
+                                    <span className="badge" style={{ padding: '2px 6px', fontSize: 9, background: 'rgba(245, 158, 11, 0.2)', color: 'var(--warning)', border: '1px solid rgba(245, 158, 11, 0.3)' }} title="Locked">
+                                        <Lock size={8} /> Locked
+                                    </span>
+                                ) : currentValue > 0 ? (
+                                    <span className="badge" style={{ padding: '2px 6px', fontSize: 9, background: 'rgba(16, 185, 129, 0.2)', color: 'var(--success)', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                                        Set
+                                    </span>
+                                ) : null}
+                            </div>
+                            
+                            <div className="balance-card-opening-value">
+                                {canEditBalance && !isLocked && (
+                                    <button className="balance-card-btn-inline" onClick={handleEditClick}>
+                                        <Edit3 size={10} /> Edit
+                                    </button>
+                                )}
+                                {isLocked && isFrontOffice && (
+                                    <button className="balance-card-btn-inline" style={{ color: 'var(--warning)', borderColor: 'rgba(245, 158, 11, 0.3)' }}
+                                        onClick={() => { setShowChangeRequest({ type: 'balance', bookType, currentValue }); setChangeRequestValue(String(currentValue)); setChangeRequestNote(''); }}>
+                                        <Send size={10} /> Req Change
+                                    </button>
+                                )}
+                                <span className={`net-change-pill ${netChange >= 0 ? 'net-change-pill--positive' : 'net-change-pill--negative'}`}>
+                                    {netChange >= 0 ? '+' : ''}₹ {formatCurrency(netChange)}
+                                </span>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="balance-card-opening-form">
+                            <div className="balance-card-opening-input-wrap">
+                                <span className="balance-card-opening-input-prefix">₹</span>
+                                <input
+                                    type="number"
+                                    className="balance-card-opening-input"
+                                    placeholder="0.00"
+                                    value={localAmount}
+                                    onChange={e => setLocalAmount(e.target.value)}
+                                    autoFocus
+                                    min="0"
+                                    step="0.01"
+                                />
+                            </div>
+                            <button
+                                className="balance-card-btn-inline submit-btn"
+                                onClick={handleSet}
+                                disabled={saving || !localAmount}
+                            >
+                                {saving ? 'Saving...' : 'Set'}
+                            </button>
+                            <button className="balance-card-btn-inline" onClick={() => setShowEdit(false)} disabled={saving}>
+                                Cancel
+                            </button>
+                        </div>
                     )}
                 </div>
 
-                {!isSet || showEdit ? (
-                    <div className="cash-opening-form">
-                        <div className="cash-amount-input-wrap">
-                            <span className="currency-prefix">₹</span>
-                            <input
-                                type="number"
-                                className="cash-amount-input"
-                                placeholder="0.00"
-                                value={showEdit ? tempBalance : localAmount}
-                                onChange={e => showEdit ? setTempBalance(e.target.value) : setLocalAmount(e.target.value)}
-                                autoFocus
-                                min="0"
-                                step="0.01"
-                            />
-                        </div>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                            <button
-                                className="btn btn-primary cash-opening-submit"
-                                onClick={showEdit ? () => saveOpeningBalance(bookType, tempBalance) : handleSet}
-                                disabled={saving || (!showEdit && !localAmount)}
-                                style={{ flex: 1 }}
-                            >
-                                {saving ? 'Saving\u2026' : (showEdit ? 'Save' : 'Set Opening Balance')}
-                            </button>
-                            {showEdit && (
-                                <button className="btn btn-ghost" onClick={() => { setShowEdit(false); setEditingBalance(null); }} style={{ height: 44 }}>
-                                    Cancel
-                                </button>
-                            )}
+                {/* Total Inflow Card */}
+                <div className="premium-stat-card premium-stat-card--inflow">
+                    <div className="premium-stat-card-header">
+                        <span className="premium-stat-card-label">Total Inflow</span>
+                        <div className="premium-stat-card-icon">
+                            <TrendingUp size={16} />
                         </div>
                     </div>
-                ) : (
-                    <div className="cash-opening-set-display">
-                        <span className="opening-amount-display">₹ {formatCurrency(currentValue)}</span>
-                        <div className="row gap-sm">
-                            {canEditBalance && !isLocked && (
-                                <button className="btn btn-ghost btn-sm" onClick={() => { setTempBalance(String(currentValue)); setShowEdit(true); }}>
-                                    <Edit3 size={14} /> Edit
-                                </button>
-                            )}
-                            {isLocked && isFrontOffice && (
-                                <button className="btn btn-ghost btn-sm" style={{ color: 'var(--warning)' }}
-                                    onClick={() => { setShowChangeRequest({ type: 'balance', bookType, currentValue }); setChangeRequestValue(String(currentValue)); setChangeRequestNote(''); }}>
-                                    <Send size={14} /> Request Change
-                                </button>
-                            )}
+                    <div className="premium-stat-card-value">
+                        ₹ {formatCurrency(totalIn)}
+                    </div>
+                    <div className="premium-stat-card-footer">
+                        <div className="premium-stat-card-footer-item">
+                            <span>Cash: ₹ {formatCurrency(totalCashIn)}</span>
+                        </div>
+                        <span>•</span>
+                        <div className="premium-stat-card-footer-item">
+                            <span>UPI: ₹ {formatCurrency(totalUpiIn)}</span>
+                        </div>
+                        {liveCounts && liveCounts.income_count > 0 && (
+                            <>
+                                <span>•</span>
+                                <span className="badge badge--success" style={{ fontSize: 9, padding: '1px 5px' }}>
+                                    {liveCounts.income_count} Billings
+                                </span>
+                            </>
+                        )}
+                    </div>
+                </div>
+
+                {/* Total Outflow Card */}
+                <div className="premium-stat-card premium-stat-card--outflow">
+                    <div className="premium-stat-card-header">
+                        <span className="premium-stat-card-label">Total Outflow</span>
+                        <div className="premium-stat-card-icon">
+                            <TrendingDown size={16} />
+                        </div>
+                    </div>
+                    <div className="premium-stat-card-value">
+                        ₹ {formatCurrency(totalOut)}
+                    </div>
+                    <div className="premium-stat-card-footer">
+                        <span>Expenses & withdrawals</span>
+                        {liveCounts && liveCounts.expense_count > 0 && (
+                            <>
+                                <span>•</span>
+                                <span className="badge badge--danger" style={{ fontSize: 9, padding: '1px 5px' }}>
+                                    {liveCounts.expense_count} Spent
+                                </span>
+                            </>
+                        )}
+                    </div>
+                </div>
+
+                {/* Laser Stats Card (only for Laser book) */}
+                {bookType === 'Laser' && liveCounts && (
+                    <div className="premium-stat-card premium-stat-card--info">
+                        <div className="premium-stat-card-header">
+                            <span className="premium-stat-card-label">Laser Copies</span>
+                            <div className="premium-stat-card-icon">
+                                <Printer size={16} />
+                            </div>
+                        </div>
+                        <div className="premium-stat-card-value">
+                            {formatNum(liveCounts.total_copies)}
+                        </div>
+                        <div className="premium-stat-card-footer">
+                            <div className="premium-stat-card-footer-item">
+                                <Monitor size={12} />
+                                <span>{liveCounts.machine_count} Active Machines</span>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -1031,62 +1131,92 @@ const DailyReport = () => {
 
         return (
             <form onSubmit={handleSubmit} className="cashbook-add-row">
-                <select
-                    className="input-field form-select"
-                    value={transactionType}
-                    onChange={e => setTransactionType(e.target.value)}
-                    disabled={saving}
-                >
-                    <option value="Credit In">Credit In</option>
-                    <option value="Credit Out">Credit Out</option>
-                </select>
-                <input
-                    type="text"
-                    className="input-field form-input"
-                    placeholder="Customer / Description *"
-                    value={customerName}
-                    onChange={e => setCustomerName(e.target.value)}
-                    disabled={saving}
-                    required
-                />
-                <input
-                    type="tel"
-                    className="input-field form-input"
-                    placeholder="Phone (Optional)"
-                    value={customerPhone}
-                    onChange={e => setCustomerPhone(e.target.value)}
-                    disabled={saving}
-                />
-                <input
-                    type="text"
-                    className="input-field form-input"
-                    placeholder="Remarks / Details (Optional)"
-                    value={remarks}
-                    onChange={e => setRemarks(e.target.value)}
-                    disabled={saving}
-                />
-                <div className="cash-amount-input-wrap compact">
-                    <span className="currency-prefix small">₹</span>
-                    <input
-                        type="number"
-                        className="cash-amount-input compact"
-                        placeholder="0.00 *"
-                        value={amount}
-                        onChange={e => setAmount(e.target.value)}
-                        min="0"
-                        step="0.01"
-                        disabled={saving}
-                        required
-                    />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>Quick Tally Entry:</span>
+                        <div className="segmented-control">
+                            <button
+                                type="button"
+                                className={`segmented-control-btn type--credit-in ${transactionType === 'Credit In' ? 'segmented-control-btn--active' : ''}`}
+                                onClick={() => setTransactionType('Credit In')}
+                                disabled={saving}
+                            >
+                                <ArrowUpRight size={14} /> Credit In
+                            </button>
+                            <button
+                                type="button"
+                                className={`segmented-control-btn type--credit-out ${transactionType === 'Credit Out' ? 'segmented-control-btn--active' : ''}`}
+                                onClick={() => setTransactionType('Credit Out')}
+                                disabled={saving}
+                            >
+                                <ArrowDownRight size={14} /> Credit Out
+                            </button>
+                        </div>
+                    </div>
                 </div>
-                <button
-                    type="submit"
-                    className="btn btn-primary"
-                    disabled={saving || !customerName || !amount}
-                    style={{ height: 38, padding: '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                >
-                    {saving ? 'Adding...' : 'Add'}
-                </button>
+
+                <div className="cashbook-form-grid">
+                    <div className="form-group-with-icon">
+                        <User size={14} />
+                        <input
+                            type="text"
+                            className="input-field form-input"
+                            placeholder="Customer / Description *"
+                            value={customerName}
+                            onChange={e => setCustomerName(e.target.value)}
+                            disabled={saving}
+                            required
+                        />
+                    </div>
+                    <div className="form-group-with-icon">
+                        <Phone size={14} />
+                        <input
+                            type="tel"
+                            className="input-field form-input"
+                            placeholder="Phone (Optional)"
+                            value={customerPhone}
+                            onChange={e => setCustomerPhone(e.target.value)}
+                            disabled={saving}
+                        />
+                    </div>
+                    <div className="form-group-with-icon">
+                        <FileText size={14} />
+                        <input
+                            type="text"
+                            className="input-field form-input"
+                            placeholder="Remarks / Details (Optional)"
+                            value={remarks}
+                            onChange={e => setRemarks(e.target.value)}
+                            disabled={saving}
+                        />
+                    </div>
+                    <div className="cash-amount-input-wrap compact">
+                        <span className="currency-prefix small">₹</span>
+                        <input
+                            type="number"
+                            className="cash-amount-input compact"
+                            placeholder="0.00 *"
+                            value={amount}
+                            onChange={e => setAmount(e.target.value)}
+                            min="0"
+                            step="0.01"
+                            disabled={saving}
+                            required
+                        />
+                    </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
+                    <button
+                        type="submit"
+                        className="btn btn-primary"
+                        disabled={saving || !customerName || !amount}
+                        style={{ height: 38, padding: '0 20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                    >
+                        <Plus size={16} />
+                        {saving ? 'Adding...' : 'Add Transaction'}
+                    </button>
+                </div>
             </form>
         );
     };
@@ -1107,19 +1237,19 @@ const DailyReport = () => {
         };
 
         if (!entries?.length) {
-                if (initialLoading) {
-                    return <SkeletonLoader type="table" count={6} />;
-                }
-                return (
-                    <div className="dr-empty">
-                        <div className="dr-empty__icon"><FileText size={22} /></div>
-                        <p>No entries yet</p>
-                        <p>
-                            {type === 'laser' ? 'Laser work entries will appear here' : 'Data auto-syncs from billing & expenses'}
-                        </p>
-                    </div>
-                );
+            if (initialLoading) {
+                return <SkeletonLoader type="table" count={6} />;
             }
+            return (
+                <div className="dr-empty">
+                    <div className="dr-empty__icon"><FileText size={22} /></div>
+                    <p>No entries yet</p>
+                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                        {type === 'laser' ? 'Laser work entries will appear here' : 'Data auto-syncs from billing & expenses'}
+                    </p>
+                </div>
+            );
+        }
 
         const isLaser = type === 'laser';
 
@@ -1162,7 +1292,7 @@ const DailyReport = () => {
                                     <tr className={hasLines ? 'entry-table tr--clickable' : ''} onClick={hasLines ? () => toggleExpand(entry.id) : undefined} role={hasLines ? "button" : "row"} aria-expanded={hasLines ? expandedIds.has(entry.id) : undefined} tabIndex={hasLines ? 0 : undefined} onKeyDown={hasLines ? (e) => { if(e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleExpand(entry.id); } } : undefined}>
                                         <td>
                                             <span className="entry-table-time">
-                                                <Clock size={10} /> {formatTime(entry.time)}
+                                                <Clock size={11} /> {formatTime(entry.time)}
                                             </span>
                                         </td>
                                         <td>
@@ -1170,12 +1300,12 @@ const DailyReport = () => {
                                                 {hasLines && (
                                                     <ChevronRight size={14} className={`entry-table-chevron ${isExpanded ? 'entry-table-chevron--expanded' : ''}`} />
                                                 )}
-                                                {entry.description}
+                                                <span>{entry.description}</span>
                                                 {hasLines && (
-                                                    <span className="badge badge--default entry-table-badge">{entry.order_lines.length} items</span>
+                                                    <span className="badge badge--default entry-table-badge" style={{ padding: '2px 6px', fontSize: 10 }}>{entry.order_lines.length} items</span>
                                                 )}
                                                 {entry.is_local_pending && (
-                                                    <span className="badge badge--warning entry-table-badge">Pending Sync</span>
+                                                    <span className="badge badge--warning entry-table-badge" style={{ padding: '2px 6px', fontSize: 10 }}>Pending Sync</span>
                                                 )}
                                             </div>
                                             {!hasLines && entry.details && <div className="entry-table-details">{entry.details}</div>}
@@ -1220,9 +1350,16 @@ const DailyReport = () => {
                                             </td>
                                         )}
                                         <td>
-                                            <span className="badge badge--default entry-table-badge">
-                                                {entry.payment_method || 'Cash'}
-                                            </span>
+                                            {(() => {
+                                                const m = (entry.payment_method || 'Cash').toLowerCase();
+                                                if (m.includes('upi')) {
+                                                    return <span className="payment-badge payment-badge--upi">UPI</span>;
+                                                } else if (m.includes('cash')) {
+                                                    return <span className="payment-badge payment-badge--cash">Cash</span>;
+                                                } else {
+                                                    return <span className="payment-badge payment-badge--mixed">{entry.payment_method || 'Cash'}</span>;
+                                                }
+                                            })()}
                                         </td>
                                         <td className={`entry-table-amount ${isExpense ? 'entry-table-amount--expense' : 'entry-table-amount--income'}`}>
                                             {isExpense ? '-' : '+'}{formatCurrency(entry.cash_amount)}
@@ -1237,15 +1374,17 @@ const DailyReport = () => {
                                     {hasLines && isExpanded && entry.order_lines.map((line, li) => (
                                         <tr key={`${entry.id}-line-${li}`} className="entry-table-row--expanded">
                                             <td></td>
-                                            <td colSpan={isLaser ? 2 : 1} className="entry-table-row-expanded-content">
-                                                <span className="entry-table-line-name">{line.name || 'Item'}</span>
-                                                {line.qty > 1 && <span className="entry-table-line-qty">×{line.qty}</span>}
-                                                {(line.waste_prints > 0 || line.proof_prints > 0) && (
-                                                    <span className="entry-table-line-waste-proof">
-                                                        {line.waste_prints > 0 && <span className="entry-table-line-waste">Waste:{line.waste_prints} </span>}
-                                                        {line.proof_prints > 0 && <span className="entry-table-line-proof">Proof:{line.proof_prints}</span>}
-                                                    </span>
-                                                )}
+                                            <td colSpan={isLaser ? 3 : 2} className="entry-table-row-expanded-content">
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                    <span className="entry-table-line-name">{line.name || 'Item'}</span>
+                                                    {line.qty > 1 && <span className="entry-table-line-qty">×{line.qty}</span>}
+                                                    {(line.waste_prints > 0 || line.proof_prints > 0) && (
+                                                        <span className="entry-table-line-waste-proof">
+                                                            {line.waste_prints > 0 && <span className="entry-table-line-waste">Waste:{line.waste_prints} </span>}
+                                                            {line.proof_prints > 0 && <span className="entry-table-line-proof">Proof:{line.proof_prints}</span>}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td></td>
                                             <td></td>
@@ -1514,16 +1653,7 @@ const DailyReport = () => {
 
     const OffsetTab = () => (
         <div className="stack-md">
-            <CashOpeningCard bookType="Offset" />
-            {liveCounts?.offset && (
-                <StatRow items={[
-                    { value: liveCounts.offset.income_count, label: 'Billings', icon: BarChart3, color: 'var(--accent)' },
-                    { value: liveCounts.offset.expense_count, label: 'Expenses', icon: TrendingDown, color: 'var(--error)' },
-                    { value: formatCurrency(liveCounts.offset.total_collected), label: 'Collected', icon: TrendingUp, color: 'var(--success)' },
-                    { value: formatCurrency(liveCounts.offset.total_expenses), label: 'Spent', icon: ArrowDownRight, color: 'var(--error)' }
-                ]} />
-            )}
-            {renderCashbookSummaryStrip(offsetData.summary || {})}
+            <UnifiedCashbookHeader bookType="Offset" summary={offsetData.summary} liveCounts={liveCounts?.offset} />
             <div className="panel">
                 <h2 className="panel-title panel-title--badge">
                     <FileText size={16} />
@@ -1539,17 +1669,8 @@ const DailyReport = () => {
 
     const LaserTab = () => (
         <div className="stack-md">
-            <CashOpeningCard bookType="Laser" />
+            <UnifiedCashbookHeader bookType="Laser" summary={laserData.summary} liveCounts={liveCounts?.laser} />
             <MachineSection />
-            {liveCounts?.laser && (
-                <StatRow items={[
-                    { value: liveCounts.laser.income_count, label: 'Billings', icon: BarChart3, color: 'var(--accent)' },
-                    { value: liveCounts.laser.machine_count, label: 'Machines', icon: Monitor, color: 'var(--accent)' },
-                    { value: formatNum(liveCounts.laser.total_copies), label: 'Total Copies', icon: Hash, color: 'var(--success)' },
-                    { value: formatCurrency(liveCounts.laser.total_collected), label: 'Collected', icon: TrendingUp, color: 'var(--success)' }
-                ]} />
-            )}
-            {renderCashbookSummaryStrip(laserData.summary || {})}
             <div className="panel">
                 <h2 className="panel-title panel-title--badge">
                     <FileText size={16} />
@@ -1565,14 +1686,7 @@ const DailyReport = () => {
 
     const OtherTab = () => (
         <div className="stack-md">
-            <CashOpeningCard bookType="Other" />
-            {liveCounts?.other && (
-                <StatRow items={[
-                    { value: liveCounts.other.income_count, label: 'Billings', icon: BarChart3, color: 'var(--accent)' },
-                    { value: formatCurrency(liveCounts.other.total_collected), label: 'Collected', icon: TrendingUp, color: 'var(--success)' }
-                ]} />
-            )}
-            {renderCashbookSummaryStrip(otherData.summary || {})}
+            <UnifiedCashbookHeader bookType="Other" summary={otherData.summary} liveCounts={liveCounts?.other} />
             <div className="panel">
                 <h2 className="panel-title panel-title--badge">
                     <Package size={16} />
