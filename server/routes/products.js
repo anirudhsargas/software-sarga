@@ -166,6 +166,17 @@ module.exports = (upload, removeUploadFile) => {
         }
     });
 
+    // Get Single Category
+    router.get('/product-categories/:id', authenticateToken, async (req, res) => {
+        try {
+            const [rows] = await pool.query("SELECT * FROM sarga_product_categories WHERE id = ?", [req.params.id]);
+            if (!rows[0]) return res.status(404).json({ message: 'Category not found' });
+            res.json(rows[0]);
+        } catch (_err) {
+            res.status(500).json({ message: 'Database error' });
+        }
+    });
+
     // List All Products (paginated for sync/search)
     router.get('/products', authenticateToken, async (req, res) => {
         try {

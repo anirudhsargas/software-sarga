@@ -44,17 +44,18 @@ describe('Auth Service', () => {
       localStorage.setItem('user', '{}');
       api.post.mockResolvedValue({});
 
-      const replaceSpy = vi.fn();
-      Object.defineProperty(window, 'location', {
-        value: { replace: replaceSpy },
-        writable: true,
-      });
+      const navigateListener = vi.fn();
+      window.addEventListener('navigate', navigateListener);
 
       await auth.logout();
 
       expect(localStorage.getItem('token')).toBeNull();
       expect(localStorage.getItem('user')).toBeNull();
-      expect(replaceSpy).toHaveBeenCalledWith('/login');
+      expect(navigateListener).toHaveBeenCalled();
+      const event = navigateListener.mock.calls[0][0];
+      expect(event.detail.path).toBe('/login');
+
+      window.removeEventListener('navigate', navigateListener);
     });
   });
 

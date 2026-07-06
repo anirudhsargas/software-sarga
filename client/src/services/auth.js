@@ -13,17 +13,24 @@ const auth = {
 
     logout: async () => {
         const token = localStorage.getItem('token');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.dispatchEvent(new CustomEvent('navigate', { detail: { path: '/login' } }));
+
         if (token) {
             try {
-                // Inform backend to revoke session
-                await api.post('/auth/logout');
+                // Inform backend to revoke session in the background
+                api.post('/auth/logout', null, {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                }).catch((e) => {
+                    console.error('Logout failed on server', e);
+                });
             } catch (e) {
                 console.error('Logout failed on server', e);
             }
         }
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        window.dispatchEvent(new CustomEvent('navigate', { detail: { path: '/login' } }));
     },
 
     getToken: () => localStorage.getItem('token'),
