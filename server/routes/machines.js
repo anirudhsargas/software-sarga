@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../database');
 const auth = require('../middleware/auth');
+const { normalizeRole } = auth;
 const { auditLog, asyncHandler } = require('../helpers');
 const { paginate } = require('../helpers/pagination');
 const { redisCache } = require('../middleware/cache');
@@ -25,7 +26,7 @@ router.use(invalidateMachinesCache);
 // ==================== BOOK STAFF ASSIGNMENTS (Offset/Laser/Other) ====================
 
 // GET /machines/book-assignments — get all book-staff assignments
-router.get('/book-assignments', auth.authenticate, async (req, res) => {
+router.get('/book-assignments', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const isAdminRole = ['Admin', 'Accountant'].includes(req.user.role);
         const requestedBranch = req.query.branch_id || null;
@@ -99,7 +100,7 @@ router.post('/book-assignments', auth.authenticate, auth.requireRole(['Admin', '
 });
 
 // GET /machines/my-books — get book types assigned to the current user
-router.get('/my-books', auth.authenticate, async (req, res) => {
+router.get('/my-books', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const [rows] = await pool.query(
             'SELECT book_type FROM sarga_book_staff_assignments WHERE staff_id = ? AND branch_id = ?',
@@ -170,7 +171,7 @@ router.get('/:id/staff-assignments', auth.authenticate, auth.requireRole(['Admin
 
 // ==================== GET ALL MACHINES ====================
 // Staff only see machines assigned to them; Admin/Accountant default to their own branch unless specified
-router.get('/', auth.authenticate, redisCache(120, 'machines'), async (req, res) => {
+router.get('/', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'Front Office'), redisCache(120, 'machines'), async (req, res) => {
     try {
         const { branch_id, is_active } = req.query;
         const user = req.user;
@@ -267,7 +268,7 @@ router.get('/count-requests', auth.authenticate, auth.requireRole(['Admin', 'Acc
 // ==================== MACHINE HEALTH (must be before /:id) ====================
 
 // GET /machines/health — Health status for all machines
-router.get('/health', auth.authenticate, async (req, res) => {
+router.get('/health', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const user = req.user;
         const params = [];
@@ -354,7 +355,7 @@ router.get('/health', auth.authenticate, async (req, res) => {
 });
 
 // ==================== GET SINGLE MACHINE (FULL DETAILS) ====================
-router.get('/:id', auth.authenticate, async (req, res) => {
+router.get('/:id', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { id } = req.params;
         const user = req.user;
@@ -697,7 +698,7 @@ router.delete('/:id/unassign-staff/:staffId', auth.authenticate, auth.requireRol
 });
 
 // ==================== GET MACHINE STAFF ASSIGNMENTS ====================
-router.get('/:id/staff', auth.authenticate, async (req, res) => {
+router.get('/:id/staff', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -720,7 +721,7 @@ router.get('/:id/staff', auth.authenticate, async (req, res) => {
 });
 
 // ==================== GET MACHINE READINGS ====================
-router.get('/:id/readings', auth.authenticate, async (req, res) => {
+router.get('/:id/readings', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { id } = req.params;
         const { start_date, end_date } = req.query;
@@ -762,7 +763,7 @@ router.post('/:id/readings', auth.authenticate, async (req, res) => {
     try {
         const { id } = req.params;
         const { reading_date, opening_count, closing_count, waste_prints, proof_prints, notes } = req.body;
-        const isAdmin = req.user.role === 'Admin';
+        const isAdmin = normalizeRole(req.user.role) === 'Admin';
 
         if (!reading_date) {
             return res.status(400).json({ error: 'Reading date is required' });
@@ -903,7 +904,7 @@ router.post('/:id/readings', auth.authenticate, async (req, res) => {
 });
 
 // ==================== ADD WORK ENTRY TO MACHINE ====================
-router.post('/:id/work', auth.authenticate, async (req, res) => {
+router.post('/:id/work', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { id } = req.params;
         const { customer_name, work_details, copies, payment_type, cash_amount, upi_amount, credit_amount, total_amount, remarks, work_date, waste_copies, proof_copies } = req.body;
@@ -989,7 +990,7 @@ router.post('/:id/work', auth.authenticate, async (req, res) => {
 });
 
 // ==================== GET WORK ENTRIES FOR MACHINE ====================
-router.get('/:id/work', auth.authenticate, async (req, res) => {
+router.get('/:id/work', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { id } = req.params;
         const { date, start_date, end_date } = req.query;
@@ -1021,7 +1022,7 @@ router.get('/:id/work', auth.authenticate, async (req, res) => {
 });
 
 // ==================== DELETE WORK ENTRY ====================
-router.delete('/:id/work/:entryId', auth.authenticate, async (req, res) => {
+router.delete('/:id/work/:entryId', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { id, entryId } = req.params;
 
@@ -1058,7 +1059,7 @@ router.delete('/:id/work/:entryId', auth.authenticate, async (req, res) => {
 });
 
 // ==================== PRODUCTION SUMMARY ====================
-router.get('/:id/production-summary', auth.authenticate, async (req, res) => {
+router.get('/:id/production-summary', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { id } = req.params;
         const { days = 30 } = req.query;
@@ -1154,7 +1155,7 @@ router.put('/count-requests/:reqId', auth.authenticate, auth.requireRole(['Admin
 // ==================== MPR INTEGRATION ====================
 
 // GET /machines/:id/mpr-meter-data — Fetch actual meter count from MPR web interface
-router.get('/:id/mpr-meter-data', auth.authenticate, async (req, res) => {
+router.get('/:id/mpr-meter-data', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { id } = req.params;
         
@@ -1201,7 +1202,7 @@ router.get('/:id/mpr-meter-data', auth.authenticate, async (req, res) => {
 });
 
 // POST /machines/:id/verify-count — Compare manual entry with MPR meter data
-router.post('/:id/verify-count', auth.authenticate, async (req, res) => {
+router.post('/:id/verify-count', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { id } = req.params;
         const { manual_opening_count } = req.body;
@@ -1288,7 +1289,7 @@ router.post('/:id/verify-count', auth.authenticate, async (req, res) => {
 });
 
 // GET /machines/:id/meter-comparison — Get comparison history
-router.get('/:id/meter-comparison', auth.authenticate, async (req, res) => {
+router.get('/:id/meter-comparison', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { id } = req.params;
         const { page = 1, limit = 30 } = req.query;
@@ -1330,7 +1331,7 @@ router.get('/:id/meter-comparison', auth.authenticate, async (req, res) => {
 // ==================== LIVE COUNT ====================
 
 // GET /machines/:id/live-count — Live count for a specific machine
-router.get('/:id/live-count', auth.authenticate, async (req, res) => {
+router.get('/:id/live-count', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { id } = req.params;
         const user = req.user;

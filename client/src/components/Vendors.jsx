@@ -204,6 +204,9 @@ const Vendors = ({
                 <option value="paper">Paper</option>
                 <option value="ink">Ink</option>
                 <option value="equipment">Equipment</option>
+                <option value="frame">Frame</option>
+                <option value="memento">Memento</option>
+                <option value="id_card">ID Card</option>
                 <option value="other">Other</option>
               </select>
             </div>

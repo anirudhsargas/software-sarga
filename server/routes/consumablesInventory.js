@@ -21,7 +21,7 @@ const normalizeCategory = (category) => {
     return String(category).toLowerCase();
 };
 
-router.get('/inventory/consumables', authenticateToken, async (req, res) => {
+router.get('/inventory/consumables', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { category, branch, search } = req.query;
         const normalizedCategory = normalizeCategory(category);
@@ -55,7 +55,7 @@ router.get('/inventory/consumables', authenticateToken, async (req, res) => {
     }
 });
 
-router.get('/inventory/consumables/low-stock', authenticateToken, async (req, res) => {
+router.get('/inventory/consumables/low-stock', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { category, branch, search } = req.query;
         const normalizedCategory = normalizeCategory(category);
@@ -89,7 +89,7 @@ router.get('/inventory/consumables/low-stock', authenticateToken, async (req, re
     }
 });
 
-router.post('/inventory/consumables', authenticateToken, authorizeRoles('Admin', 'Accountant'), validate(consumablesInventorySchema), async (req, res) => {
+router.post('/inventory/consumables', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), validate(consumablesInventorySchema), async (req, res) => {
     try {
         const {
             name,
@@ -118,7 +118,7 @@ router.post('/inventory/consumables', authenticateToken, authorizeRoles('Admin',
     }
 });
 
-router.put('/inventory/consumables/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), validate(consumablesInventorySchema), async (req, res) => {
+router.put('/inventory/consumables/:id', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), validate(consumablesInventorySchema), async (req, res) => {
     try {
         const { id } = req.params;
         const {
@@ -152,7 +152,7 @@ router.put('/inventory/consumables/:id', authenticateToken, authorizeRoles('Admi
     }
 });
 
-router.delete('/inventory/consumables/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
+router.delete('/inventory/consumables/:id', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { id } = req.params;
         const [result] = await pool.query('DELETE FROM consumables_inventory WHERE id = ?', [id]);
@@ -169,7 +169,7 @@ router.delete('/inventory/consumables/:id', authenticateToken, authorizeRoles('A
     }
 });
 
-router.put('/inventory/consumables/:id/adjust', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Printer', 'Front Office'), async (req, res) => {
+router.put('/inventory/consumables/:id/adjust', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     const { id } = req.params;
     const reason = String(req.body.reason || '').trim();
     const rawDelta = req.body.quantity_delta ?? req.body.delta ?? req.body.change;

@@ -4,7 +4,7 @@ import { Routes, Route, NavLink, useNavigate, Navigate, useParams, useLocation }
 import {
     Users, ClipboardList, Box, ShieldAlert, Receipt, LogOut, Grid, UserSquare, Building2, ChevronLeft, ChevronRight, Settings, BookOpen, Loader2, Store,
     Brain, Search, FileCheck, Layers, Zap, TrendingUp, Camera, X, Sparkles, ScanLine, Package, Tag, Clock, FileText, MessageSquare, Star, Upload,
-    Image, Calendar, Truck, Globe, Layout, Menu, Database
+    Image, Calendar, Truck, Globe, Layout, Menu, Database, Award, Lock, Monitor, Sun, Moon
 } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 import api, {} from '../services/api';
@@ -1307,9 +1307,9 @@ const Dashboard = () => {
                                 className="btn btn-primary btn-sm btn--shrink"
                                 onClick={() => { setShowProfilePanel(false); setShowProfileModal(true); }}
                             >
-                                Edit Profile
+                                <Settings size={14} aria-hidden="true" /> Edit Profile
                             </button>
-                            <button className="modal-close modal-close--static" aria-label="Close profile panel" onClick={() => setShowProfilePanel(false)} title="Close"><X size={20} aria-hidden="true" /></button>
+                            <button className="modal-close modal-close--static" aria-label="Close profile panel" onClick={() => setShowProfilePanel(false)} title="Close"><X size={18} aria-hidden="true" /></button>
                         </div>
                         {/* Attendance & Salary for staff roles */}
                         {['Designer', 'Printer', 'Front Office', 'Other Staff'].includes(user?.role) && (
@@ -1320,10 +1320,61 @@ const Dashboard = () => {
                             </div>
                         )}
                         {!['Designer', 'Printer', 'Front Office', 'Other Staff'].includes(user?.role) && (
-                            <div className="profile-panel-empty empty-state-global">
-                              <div className="empty-state-global__icon"><Users size={48} aria-hidden="true" /></div>
-                              <p className="empty-state-global__title">No profile data</p>
-                              <p className="empty-state-global__message">Select a user to view their profile details here.</p>
+                            <div className="profile-panel-content">
+                                <div className="profile-panel-section">
+                                    <h4 className="profile-panel-section-title">Active Branch</h4>
+                                    <div className="profile-card-item">
+                                        <div className="profile-card-icon">
+                                            <Building2 size={18} aria-hidden="true" />
+                                        </div>
+                                        <div className="profile-card-info">
+                                            <div className="profile-card-title">{user?.branch_short_name || 'Main Branch'}</div>
+                                            <div className="profile-card-subtitle">ID: {user?.branch_id || 'N/A'} • Connected</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="profile-panel-section">
+                                    <h4 className="profile-panel-section-title">Quick Overview</h4>
+                                    <div className="profile-stats-grid">
+                                        <div className="profile-stat-card" onClick={() => { setShowProfilePanel(false); navigate('/settings'); }} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setShowProfilePanel(false); navigate('/settings'); } }}>
+                                            <div className="profile-stat-icon">
+                                                <Settings size={15} aria-hidden="true" />
+                                            </div>
+                                            <div className="profile-stat-label-wrap">
+                                                <div className="profile-stat-value">Settings</div>
+                                                <div className="profile-stat-label">Configure</div>
+                                            </div>
+                                        </div>
+                                        <div className="profile-stat-card" onClick={() => { setShowProfilePanel(false); setSearchOpen(true); }} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setShowProfilePanel(false); setSearchOpen(true); } }}>
+                                            <div className="profile-stat-icon">
+                                                <Search size={15} aria-hidden="true" />
+                                            </div>
+                                            <div className="profile-stat-label-wrap">
+                                                <div className="profile-stat-value">Smart Find</div>
+                                                <div className="profile-stat-label">Search DB</div>
+                                            </div>
+                                        </div>
+                                        <div className="profile-stat-card">
+                                            <div className="profile-stat-icon">
+                                                <Zap size={15} aria-hidden="true" />
+                                            </div>
+                                            <div className="profile-stat-label-wrap">
+                                                <div className="profile-stat-value">Full Access</div>
+                                                <div className="profile-stat-label">Role Tier</div>
+                                            </div>
+                                        </div>
+                                        <div className="profile-stat-card" onClick={() => { setShowProfilePanel(false); navigate('/reports'); }} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setShowProfilePanel(false); navigate('/reports'); } }}>
+                                            <div className="profile-stat-icon">
+                                                <TrendingUp size={15} aria-hidden="true" />
+                                            </div>
+                                            <div className="profile-stat-label-wrap">
+                                                <div className="profile-stat-value">Analytics</div>
+                                                <div className="profile-stat-label">Reports</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         )}
                     </div>
@@ -1335,22 +1386,22 @@ const Dashboard = () => {
                     <div className="modal modal--profile">
                         <div className="modal-header">
                             <h2 className="modal-title">Edit Profile</h2>
-                            <button className="modal-close modal-close--static" aria-label="Close profile modal" onClick={() => setShowProfileModal(false)} title="Close"><X size={20} aria-hidden="true" /></button>
+                            <button className="modal-close modal-close--static" aria-label="Close profile modal" onClick={() => setShowProfileModal(false)} title="Close"><X size={18} aria-hidden="true" /></button>
                         </div>
 
                         {/* Tab Navigation */}
                         <div className="profile-tabs">
                             <button className={`profile-tab ${profileTab === 'profile' ? 'profile-tab--active' : ''}`} onClick={() => setProfileTab('profile')}>
-                                <UserSquare size={15} aria-hidden="true" /> Profile
+                                <UserSquare size={14} aria-hidden="true" /> Profile
                             </button>
                             <button className={`profile-tab ${profileTab === 'account' ? 'profile-tab--active' : ''}`} onClick={() => setProfileTab('account')}>
-                                <Settings size={15} aria-hidden="true" /> Account
+                                <Settings size={14} aria-hidden="true" /> Account
                             </button>
                             <button className={`profile-tab ${profileTab === 'permissions' ? 'profile-tab--active' : ''}`} onClick={() => setProfileTab('permissions')}>
-                                <ShieldAlert size={15} aria-hidden="true" /> Permissions
+                                <ShieldAlert size={14} aria-hidden="true" /> Permissions
                             </button>
                             <button className={`profile-tab ${profileTab === 'preferences' ? 'profile-tab--active' : ''}`} onClick={() => setProfileTab('preferences')}>
-                                <Sparkles size={15} aria-hidden="true" /> Preferences
+                                <Sparkles size={14} aria-hidden="true" /> Preferences
                             </button>
                         </div>
 
@@ -1359,7 +1410,15 @@ const Dashboard = () => {
                             {profileTab === 'profile' && (
                                 <>
                                     <div className="profile-avatar-section">
-                                        <div className="profile-avatar-wrapper">
+                                        <div className="profile-avatar-wrapper" onClick={() => {
+                                            const fileInput = document.getElementById('profile-file-input');
+                                            if (fileInput) fileInput.click();
+                                        }} role="button" tabIndex={0} onKeyDown={(e) => {
+                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                const fileInput = document.getElementById('profile-file-input');
+                                                if (fileInput) fileInput.click();
+                                            }
+                                        }} aria-label="Change profile photo">
                                             {profileImage ? (
                                                 <img src={profilePreview} alt="Profile" className="profile-avatar-img" />
                                             ) : user?.image_url ? (
@@ -1369,20 +1428,36 @@ const Dashboard = () => {
                                                     {profileName ? profileName[0].toUpperCase() : 'U'}
                                                 </div>
                                             )}
+                                            <div className="avatar-upload-overlay">
+                                                <Camera size={14} aria-hidden="true" />
+                                                <span>Upload</span>
+                                            </div>
                                         </div>
                                         <div className="profile-avatar-actions">
                                             <span className="profile-avatar-label">Profile Photo</span>
-                                            <input
-                                                type="file"
-                                                accept="image/png,image/jpeg,image/webp"
-                                                className="input-field"
-                                                style={{ fontSize: '12px', padding: '6px 10px' }}
-                                                onChange={(e) => {
-                                                    const file = e.target.files?.[0] || null;
-                                                    if (file) openCropper(file);
-                                                    e.target.value = '';
-                                                }}
-                                            />
+                                            <div className="profile-avatar-input-wrapper">
+                                                <input
+                                                    id="profile-file-input"
+                                                    type="file"
+                                                    accept="image/png,image/jpeg,image/webp"
+                                                    style={{ display: 'none' }}
+                                                    onChange={(e) => {
+                                                        const file = e.target.files?.[0] || null;
+                                                        if (file) openCropper(file);
+                                                        e.target.value = '';
+                                                    }}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-secondary btn-sm"
+                                                    onClick={() => {
+                                                        const fileInput = document.getElementById('profile-file-input');
+                                                        if (fileInput) fileInput.click();
+                                                    }}
+                                                >
+                                                    Choose Photo
+                                                </button>
+                                            </div>
                                             <span className="profile-avatar-hint">PNG, JPG or WebP — max 512px</span>
                                             {(user?.image_url || profileImage) && (
                                                 <button
@@ -1411,27 +1486,38 @@ const Dashboard = () => {
                             {/* ═══════ ACCOUNT TAB ═══════ */}
                             {profileTab === 'account' && (
                                 <div className="profile-detail-grid">
-                                    <div className="profile-detail-item">
-                                        <span className="profile-detail-label">User ID</span>
-                                        <div className="profile-detail-value">{user?.user_id || '-'}</div>
+                                    <div className="profile-detail-card">
+                                        <div className="profile-detail-card-header">
+                                            <UserSquare size={13} aria-hidden="true" /> User ID
+                                        </div>
+                                        <div className="profile-detail-card-value">{user?.user_id || '-'}</div>
                                     </div>
-                                    <div className="profile-detail-item">
-                                        <span className="profile-detail-label">Role</span>
-                                        <div className="profile-detail-value profile-detail-value--accent">{user?.role || '-'}</div>
+                                    <div className="profile-detail-card">
+                                        <div className="profile-detail-card-header">
+                                            <Award size={13} aria-hidden="true" /> Role
+                                        </div>
+                                        <div className="profile-detail-card-value profile-detail-card-value--accent">{user?.role || '-'}</div>
                                     </div>
-                                    <div className="profile-detail-item">
-                                        <span className="profile-detail-label">Branch</span>
-                                        <div className="profile-detail-value">{user?.branch_short_name || user?.branch_id || '-'}</div>
+                                    <div className="profile-detail-card">
+                                        <div className="profile-detail-card-header">
+                                            <Building2 size={13} aria-hidden="true" /> Branch
+                                        </div>
+                                        <div className="profile-detail-card-value">{user?.branch_short_name || user?.branch_id || '-'}</div>
                                     </div>
-                                    <div className="profile-detail-item">
-                                        <span className="profile-detail-label">Employee ID</span>
-                                        <div className="profile-detail-value">{user?.id || '-'}</div>
+                                    <div className="profile-detail-card">
+                                        <div className="profile-detail-card-header">
+                                            <Users size={13} aria-hidden="true" /> Employee ID
+                                        </div>
+                                        <div className="profile-detail-card-value">{user?.id || '-'}</div>
                                     </div>
                                     <div style={{ gridColumn: '1 / -1' }}>
                                         <div className="password-card">
                                             <div className="password-card__info">
-                                                <h3>Password</h3>
-                                                <p>Last changed: <span style={{ color: 'var(--muted)' }}>Update periodically for security</span></p>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <Lock size={15} style={{ color: 'var(--accent)' }} aria-hidden="true" />
+                                                    <h3>Password</h3>
+                                                </div>
+                                                <p>Update periodically for security</p>
                                             </div>
                                             <button
                                                 type="button"
@@ -1453,18 +1539,18 @@ const Dashboard = () => {
                                     </p>
                                     <div className="permissions-grid">
                                         {[
-                                            { label: 'Dashboard Access', desc: 'View main dashboard and analytics', allowed: true },
-                                            { label: 'Order Management', desc: 'Create and manage customer orders', allowed: ['Admin', 'Accountant', 'Front Office'].includes(user?.role) },
-                                            { label: 'Inventory Control', desc: 'Manage stock, transfers, and verification', allowed: ['Admin', 'Accountant'].includes(user?.role) },
-                                            { label: 'Expense Management', desc: 'Record and approve expenses', allowed: ['Admin', 'Accountant'].includes(user?.role) },
-                                            { label: 'Vendor Management', desc: 'Manage vendors and purchase invoices', allowed: ['Admin', 'Accountant'].includes(user?.role) },
-                                            { label: 'Staff Management', desc: 'Manage staff accounts and roles', allowed: user?.role === 'Admin' },
-                                            { label: 'Reports & Analytics', desc: 'Access financial and operational reports', allowed: ['Admin', 'Accountant'].includes(user?.role) },
-                                            { label: 'System Settings', desc: 'Configure system-wide settings', allowed: user?.role === 'Admin' },
+                                            { label: 'Dashboard Access', desc: 'View main dashboard and analytics', allowed: true, icon: <Grid size={15} aria-hidden="true" /> },
+                                            { label: 'Order Management', desc: 'Create and manage customer orders', allowed: ['Admin', 'Accountant', 'Front Office'].includes(user?.role), icon: <ClipboardList size={15} aria-hidden="true" /> },
+                                            { label: 'Inventory Control', desc: 'Manage stock, transfers, and verification', allowed: ['Admin', 'Accountant'].includes(user?.role), icon: <Box size={15} aria-hidden="true" /> },
+                                            { label: 'Expense Management', desc: 'Record and approve expenses', allowed: ['Admin', 'Accountant'].includes(user?.role), icon: <Receipt size={15} aria-hidden="true" /> },
+                                            { label: 'Vendor Management', desc: 'Manage vendors and purchase invoices', allowed: ['Admin', 'Accountant'].includes(user?.role), icon: <Store size={15} aria-hidden="true" /> },
+                                            { label: 'Staff Management', desc: 'Manage staff accounts and roles', allowed: user?.role === 'Admin', icon: <Users size={15} aria-hidden="true" /> },
+                                            { label: 'Reports & Analytics', desc: 'Access financial and operational reports', allowed: ['Admin', 'Accountant'].includes(user?.role), icon: <TrendingUp size={15} aria-hidden="true" /> },
+                                            { label: 'System Settings', desc: 'Configure system-wide settings', allowed: user?.role === 'Admin', icon: <Settings size={15} aria-hidden="true" /> },
                                         ].map((perm, i) => (
                                             <div key={i} className="permission-card">
                                                 <div className={`permission-card__icon ${perm.allowed ? 'permission-card__icon--allowed' : 'permission-card__icon--denied'}`}>
-                                                    {perm.allowed ? <Zap size={16} aria-hidden="true" /> : <X size={16} aria-hidden="true" />}
+                                                    {perm.icon}
                                                 </div>
                                                 <div className="permission-card__info">
                                                     <div className="permission-card__label">{perm.label}</div>
@@ -1482,25 +1568,35 @@ const Dashboard = () => {
                             {/* ═══════ PREFERENCES TAB ═══════ */}
                             {profileTab === 'preferences' && (
                                 <div>
-                                    <div className="preference-row">
-                                        <div>
-                                            <div className="preference-row__label">Appearance</div>
-                                            <div className="preference-row__desc">Choose your theme preference</div>
-                                        </div>
-                                    </div>
-                                    <div className="profile-theme-options">
-                                        {['system', 'light', 'dark'].map(t => (
-                                            <button
-                                                key={t}
-                                                className={`profile-theme-btn ${theme === t ? 'profile-theme-btn--active' : ''}`}
-                                                onClick={() => setTheme(t)}
+                                    <div className="preference-section-header">Appearance</div>
+                                    <div className="theme-visual-grid">
+                                        {[
+                                            { id: 'light', label: 'Light', previewClass: 'theme-visual-preview--light', icon: <Sun size={12} aria-hidden="true" />, layout: <><div className="preview-sidebar" /><div className="preview-content" /></> },
+                                            { id: 'dark', label: 'Dark', previewClass: 'theme-visual-preview--dark', icon: <Moon size={12} aria-hidden="true" />, layout: <><div className="preview-sidebar" /><div className="preview-content" /></> },
+                                            { id: 'system', label: 'System', previewClass: 'theme-visual-preview--system', icon: <Monitor size={12} aria-hidden="true" />, layout: <><div className="preview-split-light" /><div className="preview-split-dark" /></> }
+                                        ].map(t => (
+                                            <div
+                                                key={t.id}
+                                                className={`theme-visual-option ${theme === t.id ? 'theme-visual-option--active' : ''}`}
+                                                onClick={() => setTheme(t.id)}
+                                                role="button"
+                                                tabIndex={0}
+                                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setTheme(t.id); }}
                                             >
-                                                {t.charAt(0).toUpperCase() + t.slice(1)}
-                                            </button>
+                                                <div className={`theme-visual-preview ${t.previewClass}`}>
+                                                    {t.layout}
+                                                </div>
+                                                <div className="theme-visual-label">
+                                                    {t.icon} {t.label}
+                                                </div>
+                                                <div className="theme-visual-check" />
+                                            </div>
                                         ))}
                                     </div>
-                                    <div className="preference-row" style={{ marginTop: 16 }}>
-                                        <div>
+
+                                    <div className="preference-section-header" style={{ marginTop: 24 }}>System Settings</div>
+                                    <div className="preference-row">
+                                        <div className="preference-row__info">
                                             <div className="preference-row__label">Notifications</div>
                                             <div className="preference-row__desc">Receive desktop notifications for updates</div>
                                         </div>

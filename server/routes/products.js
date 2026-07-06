@@ -33,7 +33,7 @@ module.exports = (upload, removeUploadFile) => {
 
         const isSet = (v) => v != null && v !== '';
         const parsedCostPrice = isSet(extraInv.cost_price) ? Number(extraInv.cost_price) : 0;
-        const parsedSellPrice = isSet(extraInv.sell_price) ? Number(extraInv.sell_price) : slabSellPrice;
+        const parsedSellPrice = slabSellPrice;
 
         // Use product_code as SKU if unique, otherwise append productId
         let sku = productCode || null;
@@ -110,7 +110,7 @@ module.exports = (upload, removeUploadFile) => {
 
         const isSet = (v) => v != null && v !== '';
         const parsedCostPrice = isSet(extraInv.cost_price) ? Number(extraInv.cost_price) : 0;
-        const parsedSellPrice = isSet(extraInv.sell_price) ? Number(extraInv.sell_price) : slabSellPrice;
+        const parsedSellPrice = slabSellPrice;
 
         // Use product_code as SKU with unique suffix, or auto-generate
         // Use product_code as SKU if unique, otherwise append productId
@@ -1692,7 +1692,6 @@ module.exports = (upload, removeUploadFile) => {
                         unit: invItem.unit || 'pcs',
                         gst_rate: invItem.gst_rate || '0',
                         cost_price: invItem.cost_price || '',
-                        sell_price: invItem.sell_price || '',
                         vendor_name: invItem.vendor_name || ''
                     }
                 });
@@ -1730,6 +1729,14 @@ module.exports = (upload, removeUploadFile) => {
             const [slabs] = await pool.query("SELECT * FROM sarga_product_slabs WHERE product_id = ? ORDER BY min_qty ASC", [product.id]);
             const [extras] = await pool.query("SELECT * FROM sarga_product_extras_template WHERE product_id = ?", [product.id]);
             const [links] = await pool.query("SELECT id, name, url FROM sarga_product_links WHERE product_id = ? ORDER BY id ASC", [product.id]);
+
+            // Backward compat: map old extra_inv.sell_price to first slab's unit_rate
+            if (product.extra_inv && slabs.length > 0 && (!slabs[0].unit_rate || Number(slabs[0].unit_rate) === 0)) {
+                const oldExtra = typeof product.extra_inv === 'string' ? JSON.parse(product.extra_inv) : product.extra_inv;
+                if (oldExtra.sell_price) {
+                    slabs[0].unit_rate = Number(oldExtra.sell_price);
+                }
+            }
 
             res.json({
                 ...product,
@@ -1779,7 +1786,7 @@ module.exports = (upload, removeUploadFile) => {
 
                 const isSet = (v) => v != null && v !== '';
                 const parsedCostPrice = isSet(extraInv.cost_price) ? Number(extraInv.cost_price) : 0;
-                const parsedSellPrice = isSet(extraInv.sell_price) ? Number(extraInv.sell_price) : slabSellPrice;
+                const parsedSellPrice = slabSellPrice;
 
                 // Get current inventory values
                 const [invRows] = await pool.query(

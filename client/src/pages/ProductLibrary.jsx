@@ -164,7 +164,6 @@ const ProductLibrary = () => {
             unit: 'pcs',
             gst_rate: '0',
             cost_price: '',
-            sell_price: '',
             vendor_name: ''
         }
     });
@@ -601,7 +600,6 @@ const ProductLibrary = () => {
                 unit: 'pcs',
                 gst_rate: '0',
                 cost_price: '',
-                sell_price: '',
                 vendor_name: ''
             }
         });
@@ -1058,8 +1056,11 @@ const ProductLibrary = () => {
                 image_url: prod.image_url,
                 isPhysicalProduct: prod.is_physical_product === 1 || prod.is_physical_product === true,
                 isManualCompanyCode: !!prod.company_code,
-                extraInv: prod.extraInv || { hsn: '', quantity: '', unit: 'pcs', gst_rate: '0', cost_price: '', sell_price: '', vendor_name: '' }
+                extraInv: prod.extraInv || { hsn: '', quantity: '', unit: 'pcs', gst_rate: '0', cost_price: '', vendor_name: '' }
             };
+            if (prod.extraInv?.sell_price && (productData.slabs[0]?.unit_rate === 0 || productData.slabs[0]?.unit_rate === '')) {
+                productData.slabs[0].unit_rate = Number(prod.extraInv.sell_price);
+            }
             setOriginalProduct(productData);
             setNewProduct(productData);
             setProductImage(null);
@@ -1228,7 +1229,7 @@ const ProductLibrary = () => {
                 links: prod.links ? prod.links.map(l => ({ ...l, id: undefined, product_id: undefined })) : [],
                 image_url: '',
                 isManualCompanyCode: false,
-                extraInv: { hsn: (prod.extraInv?.hsn || ''), quantity: (prod.extraInv?.quantity || ''), unit: (prod.extraInv?.unit || 'pcs'), gst_rate: (prod.extraInv?.gst_rate || '0'), cost_price: '', sell_price: '', vendor_name: (prod.extraInv?.vendor_name || '') }
+                extraInv: { hsn: (prod.extraInv?.hsn || ''), quantity: (prod.extraInv?.quantity || ''), unit: (prod.extraInv?.unit || 'pcs'), gst_rate: (prod.extraInv?.gst_rate || '0'), cost_price: '', vendor_name: (prod.extraInv?.vendor_name || '') }
             };
             setNewProduct(duplicated);
             // For duplicate, we might not want to carry over the image unless user explicitly re-uploads or we backend supports copying. 
@@ -2556,7 +2557,7 @@ const ProductLibrary = () => {
                                     </div>
                                     
                                     {showAdvancedInventory && (
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                                             <div>
                                                 <label className="label">Opening Qty</label>
                                                 <input className="input-field" type="number" placeholder="0" value={newProduct.extraInv.quantity} onChange={e => setNewProduct({...newProduct, extraInv: {...newProduct.extraInv, quantity: e.target.value}})} />
@@ -2565,17 +2566,13 @@ const ProductLibrary = () => {
                                                 <label className="label">Unit</label>
                                                 <input className="input-field" placeholder="pcs" value={newProduct.extraInv.unit} onChange={e => setNewProduct({...newProduct, extraInv: {...newProduct.extraInv, unit: e.target.value}})} />
                                             </div>
-                                            <div>
+                                            <div style={{ gridColumn: '1 / -1' }}>
                                                 <label className="label">HSN Code</label>
                                                 <input className="input-field" placeholder="e.g. 4820" value={newProduct.extraInv.hsn} onChange={e => setNewProduct({...newProduct, extraInv: {...newProduct.extraInv, hsn: e.target.value}})} />
                                             </div>
                                             <div>
                                                 <label className="label">Cost Price (₹)</label>
                                                 <input className="input-field" type="number" placeholder="0.00" value={newProduct.extraInv.cost_price} onChange={e => setNewProduct({...newProduct, extraInv: {...newProduct.extraInv, cost_price: e.target.value}})} />
-                                            </div>
-                                            <div>
-                                                <label className="label">Selling Price (₹)</label>
-                                                <input className="input-field" type="number" placeholder="Auto from slabs" value={newProduct.extraInv.sell_price} onChange={e => setNewProduct({...newProduct, extraInv: {...newProduct.extraInv, sell_price: e.target.value}})} />
                                             </div>
                                             <div>
                                                 <label className="label">GST Rate (%)</label>

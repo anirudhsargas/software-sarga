@@ -40,7 +40,7 @@ const CUSTOMER_PAYMENT_SUMMARY_COLUMNS = [
 // --- CUSTOMER ROUTES ---
 
 // List Customers
-router.get('/customers', authenticateToken, customerCache(), async (req, res) => {
+router.get('/customers', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office', 'Designer'), customerCache(), async (req, res) => {
     try {
         const { search, type: typeFilter } = req.query;
         const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
@@ -93,7 +93,7 @@ router.get('/customers', authenticateToken, customerCache(), async (req, res) =>
 });
 
 // Get Customer Details
-router.get('/customers/:id', authenticateToken, async (req, res) => {
+router.get('/customers/:id', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     const { id } = req.params;
     try {
         if (!['Admin', 'Accountant'].includes(req.user.role)) {
@@ -111,7 +111,7 @@ router.get('/customers/:id', authenticateToken, async (req, res) => {
 });
 
 // Add Customer
-router.post('/customers', authenticateToken, validate(addCustomerSchema), attachNormalizedMobile('mobile', 'countryCode'), async (req, res) => {
+router.post('/customers', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), validate(addCustomerSchema), attachNormalizedMobile('mobile', 'countryCode'), async (req, res) => {
     const { mobile, countryCode, name, type, email, gst, address } = req.body;
 
     // Normalize mobile using optional countryCode (handles region codes and calling codes).
@@ -139,7 +139,7 @@ router.post('/customers', authenticateToken, validate(addCustomerSchema), attach
 });
 
 // Update Customer
-router.put('/customers/:id', authenticateToken, attachNormalizedMobile('mobile', 'countryCode'), async (req, res) => {
+router.put('/customers/:id', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), attachNormalizedMobile('mobile', 'countryCode'), async (req, res) => {
     const { id } = req.params;
     const { mobile, countryCode, name, type, email, gst, address } = req.body;
 
@@ -197,7 +197,7 @@ router.delete('/customers/:id', authenticateToken, authorizeRoles('Admin', 'Acco
 });
 
 // ========== CUSTOMER DASHBOARD (Aggregated) ==========
-router.get('/customers/:id/dashboard', authenticateToken, async (req, res) => {
+router.get('/customers/:id/dashboard', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     const { id } = req.params;
     try {
         // 1. Customer profile

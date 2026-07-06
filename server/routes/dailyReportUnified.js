@@ -19,7 +19,7 @@ const getBranchId = (user, queryBranchId) => {
 
 // On write: invalidate reports cache
 async function invalidateReports() { await invalidateReportsCache().catch(() => {}); }
-router.get('/opening-balance', auth.authenticate, async (req, res) => {
+router.get('/opening-balance', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { date, book_type } = req.query;
         const branchId = getBranchId(req.user, req.query.branch_id);
@@ -56,11 +56,11 @@ router.get('/opening-balance', auth.authenticate, async (req, res) => {
     }
 });
 
-router.put('/opening-balance', auth.authenticate, async (req, res) => {
+router.put('/opening-balance', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { date, book_type, cash_opening } = req.body;
         const branchId = getBranchId(req.user, req.body.branch_id);
-        const isAdmin = req.user.role === 'Admin';
+        const isAdmin = auth.normalizeRole(req.user.role) === 'Admin';
 
         if (!date || !book_type) {
             return res.status(400).json({ error: 'Date and book_type are required' });
@@ -98,7 +98,7 @@ router.put('/opening-balance', auth.authenticate, async (req, res) => {
 });
 
 // ==================== OPENING CHANGE REQUESTS ====================
-router.post('/change-request', auth.authenticate, async (req, res) => {
+router.post('/change-request', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { date, request_type, book_type, machine_id, current_value, requested_value, note } = req.body;
         const branchId = getBranchId(req.user, req.body.branch_id);
@@ -146,7 +146,7 @@ router.post('/change-request', auth.authenticate, async (req, res) => {
     }
 });
 
-router.get('/change-requests', auth.authenticate, async (req, res) => {
+router.get('/change-requests', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { status } = req.query;
         const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
@@ -184,7 +184,7 @@ router.get('/change-requests', auth.authenticate, async (req, res) => {
     }
 });
 
-router.post('/change-requests/:id/review', auth.authenticate, async (req, res) => {
+router.post('/change-requests/:id/review', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         if (!['Admin', 'Accountant'].includes(req.user.role)) {
             return res.status(403).json({ error: 'Only Admin/Accountant can review requests' });
@@ -239,7 +239,7 @@ router.post('/change-requests/:id/review', auth.authenticate, async (req, res) =
 });
 
 // ==================== GET PREVIOUS DAY CLOSING BALANCE ====================
-router.get('/previous-closing', auth.authenticate, routeCache(REPORTS_TTL, (req) => `sarga:reports:prev-closing:${req.query.branch_id || req.user.branch_id}:${req.query.date}`), async (req, res) => {
+router.get('/previous-closing', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'Front Office'), routeCache(REPORTS_TTL, (req) => `sarga:reports:prev-closing:${req.query.branch_id || req.user.branch_id}:${req.query.date}`), async (req, res) => {
     try {
         const { date } = req.query;
         const branchId = getBranchId(req.user, req.query.branch_id);
@@ -393,7 +393,7 @@ router.get('/previous-closing', auth.authenticate, routeCache(REPORTS_TTL, (req)
 });
 
 // ==================== OFFSET TAB: LIVE DATA ====================
-router.get('/offset-live', auth.authenticate, routeCache(REPORTS_TTL, (req) => `sarga:reports:offset-live:${req.query.branch_id || req.user.branch_id}:${req.query.date}`), async (req, res) => {
+router.get('/offset-live', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'Front Office'), routeCache(REPORTS_TTL, (req) => `sarga:reports:offset-live:${req.query.branch_id || req.user.branch_id}:${req.query.date}`), async (req, res) => {
     try {
         const { date } = req.query;
         const branchId = getBranchId(req.user, req.query.branch_id);
@@ -626,7 +626,7 @@ router.get('/offset-live', auth.authenticate, routeCache(REPORTS_TTL, (req) => `
 });
 
 // ==================== LASER TAB: LIVE DATA ====================
-router.get('/laser-live', auth.authenticate, async (req, res) => {
+router.get('/laser-live', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { date } = req.query;
         const branchId = getBranchId(req.user, req.query.branch_id);
@@ -997,7 +997,7 @@ router.get('/laser-live', auth.authenticate, async (req, res) => {
 });
 
 // ==================== OTHER TAB: LIVE DATA ====================
-router.get('/other-live', auth.authenticate, async (req, res) => {
+router.get('/other-live', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { date } = req.query;
         const branchId = getBranchId(req.user, req.query.branch_id);
@@ -1169,7 +1169,7 @@ router.get('/other-live', auth.authenticate, async (req, res) => {
 });
 
 // ==================== INTERNAL USAGE REPORT ====================
-router.get('/internal-usage', auth.authenticate, async (req, res) => {
+router.get('/internal-usage', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { from, to, department } = req.query;
         const branchId = getBranchId(req.user, req.query.branch_id);
@@ -1251,7 +1251,7 @@ router.get('/internal-usage', auth.authenticate, async (req, res) => {
 });
 
 // ==================== LIVE COUNTS (for auto-refresh) ====================
-router.get('/live-counts', auth.authenticate, async (req, res) => {
+router.get('/live-counts', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { date } = req.query;
         const branchId = getBranchId(req.user, req.query.branch_id);
@@ -1380,7 +1380,7 @@ router.get('/live-counts', auth.authenticate, async (req, res) => {
 });
 
 // ==================== MANUAL CREDIT TRANSACTIONS ====================
-router.get('/credits', auth.authenticate, async (req, res) => {
+router.get('/credits', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { date, book_type } = req.query;
         const branchId = getBranchId(req.user, req.query.branch_id);
@@ -1400,7 +1400,7 @@ router.get('/credits', auth.authenticate, async (req, res) => {
     }
 });
 
-router.post('/credits', auth.authenticate, async (req, res) => {
+router.post('/credits', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { date, book_type, transaction_type, customer_name, customer_phone, amount, remarks } = req.body;
         const branchId = getBranchId(req.user, req.body.branch_id);
@@ -1424,7 +1424,7 @@ router.post('/credits', auth.authenticate, async (req, res) => {
     }
 });
 
-router.delete('/credits/:id', auth.authenticate, async (req, res) => {
+router.delete('/credits/:id', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const creditId = req.params.id;
         

@@ -108,7 +108,7 @@ CREATE TABLE IF NOT EXISTS vendors (
   address TEXT,
   city VARCHAR(100),
   vendor_code VARCHAR(10),
-  category ENUM('offset_supplies','chemicals','paper','ink','equipment','other') DEFAULT 'other',
+  category ENUM('offset_supplies','chemicals','paper','ink','equipment','frame','memento','id_card','other') DEFAULT 'other',
   credit_days INT DEFAULT 0,
   credit_limit DECIMAL(12,2) DEFAULT 0,
   is_active BOOLEAN DEFAULT TRUE,

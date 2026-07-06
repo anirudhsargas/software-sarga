@@ -50,7 +50,7 @@ const CUSTOMER_PAYMENT_LIST_COLUMNS = [
 // --- CUSTOMER PAYMENT ROUTES ---
 
 // List Customer Payments
-router.get('/customer-payments', authenticateToken, customerCache(), async (req, res) => {
+router.get('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), customerCache(), async (req, res) => {
     try {
         const { customer_id, startDate, endDate, search, exclude_internal } = req.query;
         const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
@@ -118,7 +118,7 @@ router.get('/customer-payments', authenticateToken, customerCache(), async (req,
 });
 
 // Add Customer Payment
-router.post('/customer-payments', authenticateToken, validate(customerPaymentSchema), attachNormalizedMobile('customer_mobile', 'customer_country_code'), asyncHandler(async (req, res) => {
+router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), validate(customerPaymentSchema), attachNormalizedMobile('customer_mobile', 'customer_country_code'), asyncHandler(async (req, res) => {
     const {
         customer_id,
         customer_name,
@@ -742,7 +742,7 @@ router.post('/customer-payments/refund', authenticateToken, authorizeRoles('Admi
 
 
 // --- DASHBOARD STATS ---
-router.get('/stats/dashboard', authenticateToken, async (req, res) => {
+router.get('/stats/dashboard', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     const { branch_id, startDate, endDate } = req.query;
 
     try {

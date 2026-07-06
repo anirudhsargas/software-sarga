@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
 import auth from '../services/auth';
+import useAuth from '../hooks/useAuth';
 
 const BranchContext = createContext(null);
 
@@ -72,8 +73,8 @@ export const BranchProvider = ({ children }) => {
     return branches.find(b => b.id === user.branch_id || b.id === Number(user.branch_id)) || null;
   }, [branches]);
 
-  const user = auth.getUser();
-  const isFrontOffice = user?.role === 'Front Office';
+  const { user } = useAuth();
+  const isFrontOffice = auth.normalizeRole(user?.role) === 'Front Office';
   const assignedBranchName = getBranchName(user?.branch_id);
 
   const contextValue = React.useMemo(() => ({

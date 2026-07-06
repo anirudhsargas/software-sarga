@@ -56,7 +56,7 @@ function convertToSheets(quantity, unit, _category) {
 // --- ROUTES ---
 
 // 1. GET /types - List all paper types
-router.get('/types', authenticateToken, async (req, res) => {
+router.get('/types', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { category, search } = req.query;
         let query = 'SELECT * FROM paper_types WHERE is_active = 1';
@@ -80,7 +80,7 @@ router.get('/types', authenticateToken, async (req, res) => {
 });
 
 // 2. POST /types - Add new paper type
-router.post('/types', authenticateToken, authorizeRoles('Admin', 'Accountant'), validate(addPaperTypeSchema), async (req, res) => {
+router.post('/types', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), validate(addPaperTypeSchema), async (req, res) => {
     try {
         const { category, size_name, width_mm, height_mm, gsm, brand } = req.body;
         const [result] = await pool.query(`
@@ -94,7 +94,7 @@ router.post('/types', authenticateToken, authorizeRoles('Admin', 'Accountant'), 
 });
 
 // 3. GET /stock - Get current stock summary
-router.get('/stock', authenticateToken, async (req, res) => {
+router.get('/stock', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { branch_id, category } = req.query;
         let query = `
@@ -125,7 +125,7 @@ router.get('/stock', authenticateToken, async (req, res) => {
 });
 
 // 4. POST /inward - Record inward movement
-router.post('/inward', authenticateToken, validate(paperInwardSchema), async (req, res) => {
+router.post('/inward', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), validate(paperInwardSchema), async (req, res) => {
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
@@ -157,7 +157,7 @@ router.post('/inward', authenticateToken, validate(paperInwardSchema), async (re
 });
 
 // 5. POST /outward - Record outward movement (usage)
-router.post('/outward', authenticateToken, validate(paperOutwardSchema), async (req, res) => {
+router.post('/outward', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), validate(paperOutwardSchema), async (req, res) => {
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
@@ -230,7 +230,7 @@ router.post('/outward', authenticateToken, validate(paperOutwardSchema), async (
 });
 
 // 6. POST /transfer - Record branch transfer
-router.post('/transfer', authenticateToken, validate(paperTransferSchema), async (req, res) => {
+router.post('/transfer', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), validate(paperTransferSchema), async (req, res) => {
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
@@ -278,7 +278,7 @@ router.post('/transfer', authenticateToken, validate(paperTransferSchema), async
 });
 
 // 7. GET /movements - History of stock movements
-router.get('/movements', authenticateToken, async (req, res) => {
+router.get('/movements', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { paper_type_id, branch_id, movement_type, limit = 50, offset = 0 } = req.query;
         let query = `
@@ -317,7 +317,7 @@ router.get('/movements', authenticateToken, async (req, res) => {
 });
 
 // 8. GET /alerts - Current low stock alerts
-router.get('/alerts', authenticateToken, async (req, res) => {
+router.get('/alerts', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const [rows] = await pool.query(`
             SELECT a.* FROM sarga_alerts a

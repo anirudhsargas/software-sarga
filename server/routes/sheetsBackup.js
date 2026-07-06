@@ -3,9 +3,10 @@ const router = express.Router();
 const { runBackup } = require('../services/googleSheetsService');
 const cron = require('node-cron');
 const { pool: db } = require('../database');
+const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 
 // POST /api/backup/run — manual trigger (Admin only)
-router.post('/run', async (req, res) => {
+router.post('/run', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
   try {
     const result = await runBackup(db, 'manual');
     res.json({ success: true, ...result });
@@ -16,7 +17,7 @@ router.post('/run', async (req, res) => {
 });
 
 // POST /api/backup/full — full snapshot rebuild manual trigger (Admin only)
-router.post('/full', async (req, res) => {
+router.post('/full', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
   try {
     const result = await runBackup(db, 'manual');
     res.json({ success: true, ...result });
@@ -27,7 +28,7 @@ router.post('/full', async (req, res) => {
 });
 
 // GET /api/backup/status — last 10 backup jobs + sync thresholds for frontend compatibility
-router.get('/status', async (req, res) => {
+router.get('/status', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
   try {
     const [rows] = await db.execute(
       `SELECT id, triggered_by, status, started_at, completed_at,
@@ -80,7 +81,7 @@ router.get('/status', async (req, res) => {
 });
 
 // GET /api/backup/daily — cron-job.org or internal cron hits this
-router.get('/daily', async (req, res) => {
+router.get('/daily', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
   try {
     const result = await runBackup(db, 'cron');
     res.json({ success: true, ...result });
@@ -91,7 +92,7 @@ router.get('/daily', async (req, res) => {
 });
 
 // GET /api/backup/history — synchronization logs history mapping from sarga_backup_jobs
-router.get('/history', async (req, res) => {
+router.get('/history', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
   try {
     const [rows] = await db.execute(
       `SELECT id, triggered_by, status, started_at, completed_at,
@@ -119,7 +120,7 @@ router.get('/history', async (req, res) => {
 });
 
 // GET /api/backup/health — service account connection health check
-router.get('/health', async (req, res) => {
+router.get('/health', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
   try {
     const isConfigured = (!!process.env.GOOGLE_SA_KEY || !!process.env.GOOGLE_SERVICE_ACCOUNT || !!process.env.GOOGLE_SERVICE_ACCOUNT_BASE64) && !!process.env.GOOGLE_SHEET_ID;
     res.json({
@@ -132,7 +133,7 @@ router.get('/health', async (req, res) => {
 });
 
 // GET /api/backup/metrics — observability metrics KPIs for frontend dashboard widgets
-router.get('/metrics', async (req, res) => {
+router.get('/metrics', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
   try {
     const [activeJobs] = await db.execute(
       `SELECT COUNT(*) as count FROM sarga_backup_jobs WHERE status = 'running'`
@@ -170,7 +171,7 @@ router.get('/metrics', async (req, res) => {
 });
 
 // GET /api/backup/verify — mock integrity verification check
-router.get('/verify', async (req, res) => {
+router.get('/verify', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
   try {
     res.json({
       success: true,
@@ -183,7 +184,7 @@ router.get('/verify', async (req, res) => {
 });
 
 // GET /api/backup/job/:jobId — poll background job status
-router.get('/job/:jobId', async (req, res) => {
+router.get('/job/:jobId', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
   try {
     const jobId = Number(req.params.jobId);
     const [rows] = await db.execute(
@@ -211,13 +212,13 @@ router.get('/job/:jobId', async (req, res) => {
 });
 
 // Restore features disabled stubs
-router.post('/restore/prepare', async (req, res) => {
+router.post('/restore/prepare', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
   res.status(400).json({ success: false, message: 'Restoration features are disabled on this instance.' });
 });
-router.post('/restore/apply', async (req, res) => {
+router.post('/restore/apply', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
   res.status(400).json({ success: false, message: 'Restoration features are disabled on this instance.' });
 });
-router.post('/restore/rollback', async (req, res) => {
+router.post('/restore/rollback', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
   res.status(400).json({ success: false, message: 'Restoration features are disabled on this instance.' });
 });
 

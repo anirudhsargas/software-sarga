@@ -6,7 +6,7 @@ const { auditLog } = require('../helpers');
 const { paginate } = require('../helpers/pagination');
 
 // ==================== GET DAILY REPORTS (OFFSET) ====================
-router.get('/offset', auth.authenticate, async (req, res) => {
+router.get('/offset', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { branch_id, start_date, end_date, status } = req.query;
         const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
@@ -53,7 +53,7 @@ router.get('/offset', auth.authenticate, async (req, res) => {
 });
 
 // ==================== SYNC: GET DAY'S DATA FROM BILLING/PAYMENTS/JOBS ====================
-router.get('/offset/sync-data', auth.authenticate, async (req, res) => {
+router.get('/offset/sync-data', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { date } = req.query;
         const user = req.user;
@@ -125,7 +125,7 @@ router.get('/offset/sync-data', auth.authenticate, async (req, res) => {
 });
 
 // ==================== GET SINGLE OFFSET REPORT ====================
-router.get('/offset/:id', auth.authenticate, async (req, res) => {
+router.get('/offset/:id', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -186,7 +186,7 @@ router.get('/offset/:id', auth.authenticate, async (req, res) => {
 });
 
 // ==================== CREATE/UPDATE OFFSET REPORT ====================
-router.post('/offset', auth.authenticate, async (req, res) => {
+router.post('/offset', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();

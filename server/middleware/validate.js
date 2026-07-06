@@ -87,7 +87,7 @@ const addVendorSchema = z.object({
     gst_number: z.string().regex(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/, 'Invalid GST number format').optional().nullable().or(z.literal('')),
     address: z.string().optional().nullable(),
     city: z.string().optional().nullable(),
-    category: z.enum(['offset_supplies', 'chemicals', 'paper', 'ink', 'equipment', 'other']).optional().default('other'),
+    category: z.enum(['offset_supplies', 'chemicals', 'paper', 'ink', 'equipment', 'frame', 'memento', 'id_card', 'other']).optional().default('other'),
     vendor_type: z.enum(['paper', 'ink', 'plate', 'service', 'other']).optional().default('other'),
     credit_days: z.preprocess((v) => (v === undefined || v === '' || v === null ? 0 : Number(v)), z.number().int().min(0).optional().default(0)),
     credit_limit: z.preprocess((v) => (v === undefined || v === '' || v === null ? 0 : Number(v)), z.number().min(0).optional().default(0)),

@@ -5,7 +5,7 @@
 
 const router = require('express').Router();
 const { pool } = require('../database');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { branchFilter } = require('../middleware/branchFilter');
 const { getTodayDate, asyncHandler } = require('../helpers');
 
@@ -168,7 +168,7 @@ router.post('/front-office/attendance', authenticateToken, async (req, res) => {
 const { paginate } = require('../helpers/pagination');
 
 // ─── FRONT OFFICE DASHBOARD ─────────────────────────────────────────
-router.get('/front-office/dashboard', authenticateToken, async (req, res) => {
+router.get('/front-office/dashboard', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { branchId } = await branchFilter(req);
 
@@ -332,7 +332,7 @@ router.get('/front-office/dashboard', authenticateToken, async (req, res) => {
 });
 
 // ─── PAGINATED ACTIVE JOBS ──────────────────────────────────────────
-router.get('/front-office/active-jobs', authenticateToken, async (req, res) => {
+router.get('/front-office/active-jobs', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { branchId } = await branchFilter(req);
         const branchWhere = branchId ? ' AND j.branch_id = ?' : '';
@@ -360,7 +360,7 @@ router.get('/front-office/active-jobs', authenticateToken, async (req, res) => {
 });
 
 // ─── PAGINATED DUE COLLECTION ───────────────────────────────────────
-router.get('/front-office/due-customers', authenticateToken, async (req, res) => {
+router.get('/front-office/due-customers', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { branchId } = await branchFilter(req);
         const custBranchWhere = branchId ? ' AND j.branch_id = ?' : '';
@@ -398,7 +398,7 @@ router.get('/front-office/due-customers', authenticateToken, async (req, res) =>
 });
 
 // ─── PAGINATED OVERDUE JOBS ─────────────────────────────────────────
-router.get('/front-office/overdue-jobs', authenticateToken, async (req, res) => {
+router.get('/front-office/overdue-jobs', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { branchId } = await branchFilter(req);
         const branchWhere = branchId ? ' AND j.branch_id = ?' : '';
@@ -427,7 +427,7 @@ router.get('/front-office/overdue-jobs', authenticateToken, async (req, res) => 
 });
 
 // ─── PAGINATED RECENT PAYMENTS ──────────────────────────────────────
-router.get('/front-office/recent-payments', authenticateToken, async (req, res) => {
+router.get('/front-office/recent-payments', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { branchId } = await branchFilter(req);
         const payBranchWhere = branchId ? ' AND p.branch_id = ?' : '';
@@ -454,7 +454,7 @@ router.get('/front-office/recent-payments', authenticateToken, async (req, res) 
 });
 
 // ─── QUICK CUSTOMER SEARCH ──────────────────────────────────────────
-router.get('/front-office/search', authenticateToken, async (req, res) => {
+router.get('/front-office/search', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     const { q } = req.query;
     if (!q || q.length < 2) return res.json([]);
 
@@ -481,7 +481,7 @@ router.get('/front-office/search', authenticateToken, async (req, res) => {
 });
 
 // ─── DELIVERED JOBS ────────────────────────────────────────────────
-router.get('/front-office/delivered', authenticateToken, async (req, res) => {
+router.get('/front-office/delivered', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { branchId } = await branchFilter(req);
         const branchWhere = branchId ? ' AND j.branch_id = ?' : '';
@@ -513,7 +513,7 @@ router.get('/front-office/delivered', authenticateToken, async (req, res) => {
 });
 
 // ─── COMPLETED WORK (with customer grouping) ────────────────────────
-router.get('/front-office/completed', authenticateToken, async (req, res) => {
+router.get('/front-office/completed', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { branchId } = await branchFilter(req);
         const branchWhere = branchId ? ' AND j.branch_id = ?' : '';
@@ -545,7 +545,7 @@ router.get('/front-office/completed', authenticateToken, async (req, res) => {
 });
 
 // ─── UPDATE WORK NAME (description) ─────────────────────────────────
-router.patch('/front-office/jobs/:id/work-name', authenticateToken, async (req, res) => {
+router.patch('/front-office/jobs/:id/work-name', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     const { id } = req.params;
     const { work_name } = req.body;
 

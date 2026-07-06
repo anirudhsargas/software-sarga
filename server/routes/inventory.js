@@ -82,7 +82,7 @@ setTimeout(async () => {
 // --- INVENTORY ROUTES (Admin Only) ---
 
 // List Inventory with enhanced filtering and branch stock support
-router.get('/inventory', authenticateToken, authorizeRoles('Admin', 'Front Office', 'Designer', 'Printer', 'Accountant', 'Other Staff'), async (req, res) => {
+router.get('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { branchId: filterBranchId } = await branchFilter(req, { column: 'i.id', allowPrivilegedQuery: true, queryKey: 'branch_id', nullableForPrivileged: true });
         const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
@@ -255,7 +255,7 @@ router.get('/inventory', authenticateToken, authorizeRoles('Admin', 'Front Offic
 });
 
 // Low stock items per branch (uses sarga_branch_stock when branch is specified)
-router.get('/inventory/low-stock', authenticateToken, async (req, res) => {
+router.get('/inventory/low-stock', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { branchId: filterBranchId } = await branchFilter(req, { column: 'bs.branch_id', allowPrivilegedQuery: true, queryKey: 'branch_id' });
 
@@ -288,7 +288,7 @@ router.get('/inventory/low-stock', authenticateToken, async (req, res) => {
 });
 
 // Get movement log for an inventory item
-router.get('/inventory/:id/movements', authenticateToken, async (req, res) => {
+router.get('/inventory/:id/movements', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const itemId = parseInt(req.params.id);
         if (!Number.isFinite(itemId)) return res.status(400).json({ message: 'Invalid item id' });
@@ -321,7 +321,7 @@ router.get('/inventory/:id/movements', authenticateToken, async (req, res) => {
 });
 
 // Get single inventory item detail with full product info, branch stock, and movement log
-router.get('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Front Office', 'Designer', 'Printer', 'Accountant', 'Other Staff'), async (req, res) => {
+router.get('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const [rows] = await pool.query(
             `SELECT i.*, 
@@ -405,7 +405,7 @@ router.get('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Front O
 });
 
 // Branch availability for stock requests — returns other branches with per-branch stock
-router.get('/inventory/:id/branch-availability', authenticateToken, async (req, res) => {
+router.get('/inventory/:id/branch-availability', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const itemId = parseInt(req.params.id);
         if (!Number.isFinite(itemId)) return res.status(400).json({ message: 'Invalid item id' });
@@ -455,7 +455,7 @@ router.get('/inventory/:id/branch-availability', authenticateToken, async (req, 
 });
 
     // --- Paper cut mappings (parent sheet -> child size mapping) ---
-    router.get('/inventory/paper-cut-maps', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
+    router.get('/inventory/paper-cut-maps', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
         try {
             const parentId = req.query.parent_id ? Number(req.query.parent_id) : null;
             const categoryFilter = req.query.category ? String(req.query.category).trim() : null;
@@ -483,7 +483,7 @@ router.get('/inventory/:id/branch-availability', authenticateToken, async (req, 
         }
     });
 
-    router.post('/inventory/paper-cut-maps', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+    router.post('/inventory/paper-cut-maps', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
         try {
             const { parent_inventory_item_id, child_size_code, pieces_per_parent, loss_pct, min_waste, notes } = req.body;
             if (!parent_inventory_item_id || !child_size_code || !pieces_per_parent) {
@@ -504,7 +504,7 @@ router.get('/inventory/:id/branch-availability', authenticateToken, async (req, 
         }
     });
 
-    router.delete('/inventory/paper-cut-maps/:id', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+    router.delete('/inventory/paper-cut-maps/:id', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
         try {
             await pool.query('DELETE FROM sarga_paper_cut_map WHERE id = ?', [req.params.id]);
             res.json({ message: 'Deleted' });
@@ -515,7 +515,7 @@ router.get('/inventory/:id/branch-availability', authenticateToken, async (req, 
     });
 
     // --- Admin: paper types list and bulk mapping ---
-    router.get('/inventory/paper-types', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
+    router.get('/inventory/paper-types', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
         try {
             // Gather distinct categories from inventory and product subcategories
             const [invCats] = await pool.query("SELECT DISTINCT COALESCE(category, '') AS type FROM sarga_inventory WHERE category IS NOT NULL AND category != ''");
@@ -533,7 +533,7 @@ router.get('/inventory/:id/branch-availability', authenticateToken, async (req, 
         }
     });
 
-    router.post('/inventory/paper-map', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+    router.post('/inventory/paper-map', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
         try {
             const { inventory_ids, paper_type } = req.body;
             if (!Array.isArray(inventory_ids) || inventory_ids.length === 0) return res.status(400).json({ message: 'No inventory ids provided' });
@@ -551,7 +551,7 @@ router.get('/inventory/:id/branch-availability', authenticateToken, async (req, 
     });
 
 // Lookup inventory item by SKU — used by billing QR scan and sidebar scanner
-router.get('/inventory/by-sku/:sku', authenticateToken, async (req, res) => {
+router.get('/inventory/by-sku/:sku', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const rawSku = req.params.sku || '';
         const { normalized, item } = await findInventoryByScannedCode(rawSku);
@@ -572,7 +572,7 @@ router.get('/inventory/by-sku/:sku', authenticateToken, async (req, res) => {
 });
 
 // Quick verification endpoint for scanner diagnostics
-router.get('/inventory/qr-diagnostic/:code', authenticateToken, authorizeRoles('Admin', 'Front Office', 'Designer', 'Printer', 'Accountant', 'Other Staff'), async (req, res) => {
+router.get('/inventory/qr-diagnostic/:code', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const rawCode = req.params.code || '';
         const { normalized, item, matchType } = await findInventoryByScannedCode(rawCode);
@@ -616,7 +616,7 @@ router.get('/inventory/qr-diagnostic/:code', authenticateToken, authorizeRoles('
 });
 
 // Extract data from uploaded bill
-router.post('/inventory/extract-bill', authenticateToken, authorizeRoles('Admin', 'Accountant'), upload.single('bill_file'), async (req, res) => {
+router.post('/inventory/extract-bill', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), upload.single('bill_file'), async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ message: 'No file uploaded' });
@@ -748,7 +748,7 @@ function generateAutoSku(category, itemId, sourceCode, modelName, sizeCode, item
     return `${prefix || 'INV'}-${String(itemId).padStart(4, '0')}`;
 }
 
-router.post('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant'), validate(addInventorySchema), async (req, res) => {
+router.post('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), validate(addInventorySchema), async (req, res) => {
     const { name, sku, category, unit, quantity, reorder_level, cost_price, sell_price, hsn, discount, gst_rate, product_id, source_code, model_name, size_code, item_type, vendor_name, vendor_contact, purchase_link, branch_stocks } = req.body;
     const normalizedSku = normalizeSkuInput(sku);
 
@@ -962,7 +962,7 @@ router.post('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant
 });
 
 // Update Inventory Item
-router.put('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), validate(addInventorySchema), async (req, res) => {
+router.put('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), validate(addInventorySchema), async (req, res) => {
     const { id } = req.params;
     const { name, sku, category, unit, quantity, reorder_level, cost_price, sell_price, hsn, discount, gst_rate, product_id, source_code, model_name, size_code, item_type, vendor_name, vendor_contact, purchase_link, branch_stocks } = req.body;
     const normalizedSku = normalizeSkuInput(sku);
@@ -1059,7 +1059,7 @@ router.put('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Account
 });
 
 // Consume Inventory Item — updates sarga_branch_stock and logs movement
-router.post('/inventory/:id/consume', authenticateToken, authorizeRoles('Admin', 'Front Office', 'Designer', 'Printer', 'Accountant', 'Other Staff'), async (req, res) => {
+router.post('/inventory/:id/consume', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     const { id } = req.params;
     const { quantity_consumed, notes } = req.body;
 
@@ -1173,7 +1173,7 @@ router.post('/inventory/:id/restock', authenticateToken, authorizeRoles('Admin',
 
 
 // Generate Labels PDF
-router.post('/inventory/generate-labels', authenticateToken, authorizeRoles('Admin', 'Front Office', 'Designer', 'Printer', 'Accountant', 'Other Staff'), async (req, res) => {
+router.post('/inventory/generate-labels', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     const { items } = req.body; // Array of { id, quantity_to_print }
 
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -1384,7 +1384,7 @@ router.delete('/inventory/all', authenticateToken, authorizeRoles('Admin'), asyn
 });
 
 // Delete Inventory Item
-router.delete('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
+router.delete('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     const { id } = req.params;
 
     try {
@@ -1512,7 +1512,7 @@ router.post('/inventory/transfer', authenticateToken, authorizeRoles('Admin', 'A
 
 // --- Image Management Routes ---
 
-router.get('/inventory/settings/image', authenticateToken, async (req, res) => {
+router.get('/inventory/settings/image', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const settings = await getInventoryImageSettings();
         res.json(settings);
@@ -1536,7 +1536,7 @@ router.put('/inventory/settings/image', authenticateToken, authorizeRoles('Admin
     }
 });
 
-router.post('/inventory/:id/image', authenticateToken, authorizeRoles('Admin', 'Accountant'), upload.single('image'), async (req, res) => {
+router.post('/inventory/:id/image', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), upload.single('image'), async (req, res) => {
     try {
         const id = req.params.id;
         if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
@@ -1569,7 +1569,7 @@ router.post('/inventory/:id/image', authenticateToken, authorizeRoles('Admin', '
     }
 });
 
-router.delete('/inventory/:id/image', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
+router.delete('/inventory/:id/image', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const id = req.params.id;
         await pool.query('DELETE FROM sarga_product_images WHERE inventory_item_id = ?', [id]);
@@ -1579,7 +1579,7 @@ router.delete('/inventory/:id/image', authenticateToken, authorizeRoles('Admin',
     }
 });
 
-router.post('/inventory/:id/regenerate-image', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
+router.post('/inventory/:id/regenerate-image', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const id = req.params.id;
         

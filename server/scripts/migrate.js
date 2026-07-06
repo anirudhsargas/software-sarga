@@ -56,6 +56,12 @@ async function migrate() {
       await conn.query("ALTER TABLE sarga_product_categories ADD COLUMN position INT NOT NULL DEFAULT 0");
       await conn.query("UPDATE sarga_product_categories SET position = id WHERE position = 0");
     } catch (e) { ignoreDup(e); }
+    try {
+      await conn.query("ALTER TABLE sarga_product_categories ADD COLUMN image_url LONGTEXT");
+    } catch (e) { ignoreDup(e); }
+    try {
+      await conn.query("ALTER TABLE sarga_product_categories ADD COLUMN is_active TINYINT(1) DEFAULT 1");
+    } catch (e) { ignoreDup(e); }
 
     // --- sarga_product_subcategories ---
     try {

@@ -387,16 +387,17 @@ router.get('/jobs', authenticateToken, async (req, res) => {
             }
         } else {
             // Admin / Accountant / Front Office
-            if (!['admin', 'accountant'].includes(normalizedRole)) {
-                // Front Office: default to their branch
-                if (branchId && !qBranch) {
+            const reqNormalizedRole = normalizeRole(req.user.role);
+            const isPrivileged = reqNormalizedRole === 'Admin' || reqNormalizedRole === 'Accountant';
+            if (isPrivileged) {
+                if (qBranch) {
                     where += ' AND j.branch_id = ?';
-                    params.push(branchId);
+                    params.push(qBranch);
                 }
-            }
-            if (qBranch) {
+            } else {
+                // Non-privileged (Front Office): ignore qBranch, always filter by req.user.branch_id
                 where += ' AND j.branch_id = ?';
-                params.push(qBranch);
+                params.push(req.user.branch_id);
             }
 
             // Tabs / Filters
@@ -1434,6 +1435,13 @@ router.get('/jobs/:id', authenticateToken, async (req, res) => {
 
         const job = jobs[0];
 
+        // Branch validation: non-privileged users cannot access other branches' jobs
+        const reqNormalizedRole = normalizeRole(req.user.role);
+        const isPrivileged = reqNormalizedRole === 'Admin' || reqNormalizedRole === 'Accountant';
+        if (!isPrivileged && String(job.branch_id) !== String(req.user.branch_id)) {
+            return res.status(403).json({ message: 'Branch access denied. You do not have permission to view jobs from this branch.' });
+        }
+
         // Staff assignments
         const [assignments] = await pool.query(`
             SELECT jsa.*, s.name as staff_name, s.role as staff_role
@@ -1521,6 +1529,18 @@ router.put('/jobs/:id', authenticateToken, async (req, res) => {
             return res.status(404).json({ message: 'Job not found' });
         }
         const currentJob = currentRows[0];
+
+        // Branch validation: non-privileged users cannot access other branches' jobs
+        const reqNormalizedRole = normalizeRole(req.user.role);
+        const isPrivileged = reqNormalizedRole === 'Admin' || reqNormalizedRole === 'Accountant';
+        if (!isPrivileged && String(currentJob.branch_id) !== String(req.user.branch_id)) {
+            return res.status(403).json({ message: 'Branch access denied. You do not have permission to modify jobs from other branches.' });
+        }
+
+        // Prevent non-privileged roles from silently modifying the branch_id
+        if (!isPrivileged) {
+            delete updates.branch_id;
+        }
 
         // Cannot mark as Delivered unless fully paid.
         if (updates.status === 'Delivered') {
