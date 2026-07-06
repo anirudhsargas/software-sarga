@@ -3,7 +3,7 @@ const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { auditLog, asyncHandler } = require('../helpers');
 const { invalidateHierarchyCache } = require('./jobs');
 const { paginate } = require('../helpers/pagination');
-const { uploadToCloudinary, deleteFromCloudinary } = require('../helpers/cloudinaryUpload');
+const { uploadBufferToCloudinary, deleteFromCloudinary } = require('../helpers/cloudinaryUpload');
 
 module.exports = (upload, removeUploadFile) => {
     const router = require('express').Router();
@@ -282,8 +282,13 @@ module.exports = (upload, removeUploadFile) => {
         const { name } = req.body;
         let imageUrl = null;
         if (req.file) {
-            const cloudinaryResult = await uploadToCloudinary(req.file.path, 'product-categories');
-            imageUrl = cloudinaryResult.secure_url;
+            try {
+                const cloudinaryResult = await uploadBufferToCloudinary(req.file.buffer, req.file.originalname, 'product-categories');
+                imageUrl = cloudinaryResult.secure_url;
+            } catch (err) {
+                console.error('Upload category image error:', err);
+                return res.status(500).json({ message: 'Failed to upload image' });
+            }
         }
         if (!name || !String(name).trim()) {
             return res.status(400).json({ message: 'Category name is required' });
@@ -315,7 +320,7 @@ module.exports = (upload, removeUploadFile) => {
         try {
             let imageUrl;
             if (req.file) {
-                const cloudinaryResult = await uploadToCloudinary(req.file.path, 'product-categories');
+                const cloudinaryResult = await uploadBufferToCloudinary(req.file.buffer, req.file.originalname, 'product-categories');
                 imageUrl = cloudinaryResult.secure_url;
                 const [old] = await pool.query("SELECT image_url FROM sarga_product_categories WHERE id = ?", [id]);
                 if (old[0]?.image_url && old[0].image_url.includes('cloudinary.com')) {
@@ -400,8 +405,13 @@ module.exports = (upload, removeUploadFile) => {
         const { category_id, name } = req.body;
         let imageUrl = null;
         if (req.file) {
-            const cloudinaryResult = await uploadToCloudinary(req.file.path, 'product-subcategories');
-            imageUrl = cloudinaryResult.secure_url;
+            try {
+                const cloudinaryResult = await uploadBufferToCloudinary(req.file.buffer, req.file.originalname, 'product-subcategories');
+                imageUrl = cloudinaryResult.secure_url;
+            } catch (err) {
+                console.error('Upload subcategory image error:', err);
+                return res.status(500).json({ message: 'Failed to upload image' });
+            }
         }
         if (!category_id) {
             return res.status(400).json({ message: 'Category is required' });
@@ -444,7 +454,7 @@ module.exports = (upload, removeUploadFile) => {
         try {
             let imageUrl;
             if (req.file) {
-                const cloudinaryResult = await uploadToCloudinary(req.file.path, 'product-subcategories');
+                const cloudinaryResult = await uploadBufferToCloudinary(req.file.buffer, req.file.originalname, 'product-subcategories');
                 imageUrl = cloudinaryResult.secure_url;
                 const [old] = await pool.query("SELECT image_url FROM sarga_product_subcategories WHERE id = ?", [id]);
                 if (old[0]?.image_url && old[0].image_url.includes('cloudinary.com')) {
@@ -556,7 +566,13 @@ module.exports = (upload, removeUploadFile) => {
         const parsedExtraInv = typeof extraInv === 'string' ? JSON.parse(extraInv) : (extraInv || {});
         let imageUrl = null;
         if (req.file) {
-            const cloudinaryResult = await uploadToCloudinary(req.file.path, 'products');
+            let cloudinaryResult;
+            try {
+                cloudinaryResult = await uploadBufferToCloudinary(req.file.buffer, req.file.originalname, 'products');
+            } catch (err) {
+                console.error('Upload product image error:', err);
+                return res.status(500).json({ message: 'Failed to upload image' });
+            }
             imageUrl = cloudinaryResult.secure_url;
         }
 
@@ -741,7 +757,13 @@ module.exports = (upload, removeUploadFile) => {
         const parsedExtraInv = typeof extraInv === 'string' ? JSON.parse(extraInv) : (extraInv || {});
         let imageUrl = req.body.image_url;
         if (req.file) {
-            const cloudinaryResult = await uploadToCloudinary(req.file.path, 'products');
+            let cloudinaryResult;
+            try {
+                cloudinaryResult = await uploadBufferToCloudinary(req.file.buffer, req.file.originalname, 'products');
+            } catch (err) {
+                console.error('Upload product image error:', err);
+                return res.status(500).json({ message: 'Failed to upload image' });
+            }
             imageUrl = cloudinaryResult.secure_url;
         }
 
@@ -1079,7 +1101,7 @@ module.exports = (upload, removeUploadFile) => {
 
         let proposedImageUrl;
         try {
-            const cloudinaryResult = await uploadToCloudinary(req.file.path, 'product-image-requests');
+            const cloudinaryResult = await uploadBufferToCloudinary(req.file.buffer, req.file.originalname, 'product-image-requests');
             proposedImageUrl = cloudinaryResult.secure_url;
         } catch (uploadError) {
             console.error('Cloudinary upload error for image request:', uploadError);
@@ -1275,7 +1297,7 @@ module.exports = (upload, removeUploadFile) => {
             let proposedData = {};
             try {
                 if (req.file) {
-                    const cloudinaryResult = await uploadToCloudinary(req.file.path, 'product-update-requests');
+                    const cloudinaryResult = await uploadBufferToCloudinary(req.file.buffer, req.file.originalname, 'product-update-requests');
                     proposedData.image_url = cloudinaryResult.secure_url;
                 }
 
