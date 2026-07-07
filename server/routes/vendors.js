@@ -108,15 +108,15 @@ async function recalculateVendorBalance(vendorId, connectionOrPool) {
   // Get opening_balance
   const [vendorRows] = await conn.query('SELECT opening_balance FROM vendors WHERE id = ?', [vendorId]);
   if (vendorRows.length === 0) return 0;
-  const opening_balance = Number(vendorRows[0].opening_balance) || 0;
+  const opening_balance = Number(vendorRows[0]?.opening_balance || 0);
   
   // Get sum(total_amount) from vendor_invoices
   const [billRows] = await conn.query('SELECT COALESCE(SUM(total_amount), 0) as total_billed FROM vendor_invoices WHERE vendor_id = ?', [vendorId]);
-  const total_billed = Number(billRows[0].total_billed) || 0;
+  const total_billed = Number(billRows[0]?.total_billed || 0);
   
   // Get sum(amount) from vendor_payments
   const [paymentRows] = await conn.query('SELECT COALESCE(SUM(amount), 0) as total_paid FROM vendor_payments WHERE vendor_id = ?', [vendorId]);
-  const total_paid = Number(paymentRows[0].total_paid) || 0;
+  const total_paid = Number(paymentRows[0]?.total_paid || 0);
   
   const newBalance = opening_balance + total_billed - total_paid;
   
@@ -142,7 +142,8 @@ async function updateOverdueStatuses() {
 // GET /api/vendors - List all vendors with spend summary
 router.get('/vendors', authenticateToken, async (req, res) => {
   try {
-    const { page: _page, limit: _limit, search = '', category = '' } = req.query;
+    const { page, limit, search = '', category = '' } = req.query;
+    const { limit: queryLimit, offset, response } = _paginate(req.query, page, limit);
 
     let whereClause = 'WHERE v.is_active = TRUE';
     const params = [];
@@ -162,6 +163,12 @@ router.get('/vendors', authenticateToken, async (req, res) => {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
 
+    // Get total count for pagination metadata
+    const [countRows] = await pool.query(`
+      SELECT COUNT(*) as total FROM vendors v ${whereClause}
+    `, params);
+    const total = countRows[0]?.total ?? countRows[0]?.count ?? countRows[0]?.['COUNT(*)'] ?? 0;
+
     const [vendors] = await pool.query(`
       SELECT
         v.*,
@@ -174,9 +181,10 @@ router.get('/vendors', authenticateToken, async (req, res) => {
       ${whereClause}
       GROUP BY v.id
       ORDER BY v.name
-    `, [startOfMonth, endOfMonth, ...params]);
+      LIMIT ? OFFSET ?
+    `, [startOfMonth, endOfMonth, ...params, queryLimit, offset]);
 
-    res.json({ success: true, data: vendors });
+    res.json({ success: true, ...response(vendors, total) });
   } catch (error) {
     logger.error('Error fetching vendors:', error);
     res.status(500).json({ success: false, message: 'Database error' });

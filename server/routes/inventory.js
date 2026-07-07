@@ -1180,6 +1180,9 @@ router.post('/inventory/generate-labels', authenticateToken, authorizeRoles('Adm
         return res.status(400).json({ message: 'No items selected' });
     }
 
+    const memStart = process.memoryUsage();
+    console.log(`[LabelGen] Starting generation. Memory: RSS=${(memStart.rss / 1024 / 1024).toFixed(2)}MB, HeapUsed=${(memStart.heapUsed / 1024 / 1024).toFixed(2)}MB`);
+
     try {
         // Fetch full data for selected items
         const itemIds = items.map(i => i.id);
@@ -1227,14 +1230,16 @@ router.post('/inventory/generate-labels', authenticateToken, authorizeRoles('Adm
             }
         }
 
-        // Prepare label data based on user requested quantities
+        // Prepare label data based on user requested quantities with a hard cap of 200
         const labelData = [];
+        let totalQty = 0;
         for (const reqItem of items) {
             const dbItem = itemMap[reqItem.id];
             if (dbItem) {
-                const qty = Math.min(Number(reqItem.quantity_to_print) || 1, 5000); // Cap at 5000 per item to prevent extreme memory overload
-                if (Number(reqItem.quantity_to_print) > 5000) {
-                    console.warn(`[LabelGen] quantity_to_print ${reqItem.quantity_to_print} capped to 5000 for item ${reqItem.id}`);
+                const qty = Math.min(Number(reqItem.quantity_to_print) || 1, 200);
+                totalQty += qty;
+                if (totalQty > 200) {
+                    return res.status(400).json({ message: 'Label printing limit is 200 items per request. Please split your print job into smaller batches.' });
                 }
                 for (let i = 0; i < qty; i++) {
                     labelData.push(dbItem);
@@ -1258,31 +1263,30 @@ router.post('/inventory/generate-labels', authenticateToken, authorizeRoles('Adm
         const rows = 12;
         const labelsPerPage = cols * rows;
 
-        // --- PRE-GENERATE ALL UNIQUE QR CODES IN PARALLEL ---
-        // Many labels are the same item repeated. Build a set of unique QR strings
-        // and generate them all at once with Promise.all instead of awaiting each
-        // label sequentially (which caused 1000+ serial async calls for large jobs).
-        const uniqueQrStrings = [...new Set(
-            labelData.map(item => normalizeScannedCode(item.sku) || `ITEM-${item.id}`)
-        )];
-        const qrBufferMap = new Map();
-        await Promise.all(
-            uniqueQrStrings.map(async (qrStr) => {
-                const buf = await QRCode.toBuffer(qrStr, {
-                    margin: 2,
-                    errorCorrectionLevel: 'H',
-                    width: 256
-                });
-                qrBufferMap.set(qrStr, buf);
-            })
-        );
-        console.log(`[LabelGen] Pre-generated ${uniqueQrStrings.length} unique QR codes for ${labelData.length} labels`);
+        // Cache for on-the-fly QR code generation to prevent concurrent buffer bloat
+        const qrCache = new Map();
+        const getQrBuffer = async (qrStr) => {
+            if (qrCache.has(qrStr)) return qrCache.get(qrStr);
+            const buf = await QRCode.toBuffer(qrStr, {
+                margin: 2,
+                errorCorrectionLevel: 'H',
+                width: 256
+            });
+            qrCache.set(qrStr, buf);
+            return buf;
+        };
 
         // PDF Generation Parameters (4x12 layout)
         const doc = new PDFDocument({ size: 'A4', margin: 0 });
 
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', 'attachment; filename=labels.pdf');
+
+        res.on('finish', () => {
+            const memEnd = process.memoryUsage();
+            console.log(`[LabelGen] Generation completed. Memory: RSS=${(memEnd.rss / 1024 / 1024).toFixed(2)}MB, HeapUsed=${(memEnd.heapUsed / 1024 / 1024).toFixed(2)}MB`);
+        });
+
         doc.pipe(res);
 
         for (let i = 0; i < labelData.length; i++) {
@@ -1308,9 +1312,9 @@ router.post('/inventory/generate-labels', authenticateToken, authorizeRoles('Adm
             const calculatedMrp = (costPrice + gstAmount) * 2;
             const mrp = (item.mrp != null ? Number(item.mrp) : sellPrice) || calculatedMrp || 0;
 
-            // Reuse pre-generated QR buffer from cache — no more per-label await
             const qrData = normalizeScannedCode(item.sku) || `ITEM-${item.id}`;
-            const qrCodeBuffer = qrBufferMap.get(qrData);
+            // Generate QR Code buffer on-the-fly (cached)
+            const qrCodeBuffer = await getQrBuffer(qrData);
 
             // Layout Content — Category / Name / MRP + QR with 2mm internal padding
             const padding = mmToPt(2);
@@ -1343,13 +1347,22 @@ router.post('/inventory/generate-labels', authenticateToken, authorizeRoles('Adm
             doc.fontSize(4).font('Helvetica').fillColor('#000000');
             doc.text('Sarga,', x + padding, y + mmToPt(14.5), { width: textAreaW, lineBreak: false });
             doc.text('Mob: 9497559257', x + padding, y + mmToPt(16.5), { width: textAreaW, lineBreak: false });
+
+            // Yield execution to the event loop every page (48 labels) to let stream flush and GC run
+            if (i > 0 && pageIndex === 0) {
+                await new Promise(resolve => setImmediate(resolve));
+            }
         }
 
         doc.end();
 
     } catch (err) {
         console.error('Label gen error:', err);
-        res.status(500).json({ message: 'Error generating PDF' });
+        if (!res.headersSent) {
+            res.status(500).json({ message: 'Error generating PDF' });
+        } else {
+            res.destroy();
+        }
     }
 });
 

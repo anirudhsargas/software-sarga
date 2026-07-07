@@ -32,8 +32,8 @@ const PORT = process.env.PORT || 3000;
 
 
 
-// Configure allowed CORS origins (normalize and remove trailing slashes)
-const allowedOrigins = [
+// Configure allowed CORS origins (normalize, remove trailing slashes, and deduplicate)
+const allowedOrigins = [...new Set([
     'https://software-sarga-git-main-anirudhsargas-projects.vercel.app',
     'https://software-sarga.vercel.app',
     'https://sargaoffset.vercel.app',
@@ -44,7 +44,7 @@ const allowedOrigins = [
     process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
     // Also include origins provided via CORS_ORIGIN (comma-separated)
     ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map(o => o.trim()).filter(Boolean) : []),
-].filter(Boolean).map(o => o.replace(/\/$/, ''));
+].filter(Boolean).map(o => o.replace(/\/$/, '')))];
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_SECRET_PREVIOUS = process.env.JWT_SECRET_PREVIOUS; // eslint-disable-line no-unused-vars
@@ -163,12 +163,15 @@ app.use('/api/website/designs', express.urlencoded({ extended: true, limit: '50m
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
-// Request diagnostics logger — logs method, URL, status code, response time
+// Request diagnostics logger — logs method, URL, status code, response time, and memory usage
 app.use((req, res, next) => {
     const start = Date.now();
+    const memStart = process.memoryUsage();
     res.on('finish', () => {
         const duration = Date.now() - start;
-        logger.info(`[REQUEST] ${req.method} ${req.originalUrl} → ${res.statusCode} (${duration}ms)`);
+        const memEnd = process.memoryUsage();
+        const toMB = (bytes) => (bytes / 1024 / 1024).toFixed(2) + 'MB';
+        logger.info(`[REQUEST] ${req.method} ${req.originalUrl} → ${res.statusCode} (${duration}ms) | RSS: ${toMB(memStart.rss)}->${toMB(memEnd.rss)} | Heap: ${toMB(memStart.heapUsed)}->${toMB(memEnd.heapUsed)}`);
     });
     next();
 });
@@ -576,6 +579,13 @@ if (process.env.NODE_ENV !== 'test') {
         const mode = process.env.NODE_ENV || 'development';
         const dbHost = (process.env.DB_HOST || 'localhost').replace(/^(.{0,20}).*$/, '$1…');
         logger.info(`Server running on port ${PORT} (${mode}, DB: ${dbHost})`);
+
+        // Periodically log memory baseline (every 60s)
+        setInterval(() => {
+            const mem = process.memoryUsage();
+            const toMB = (bytes) => (bytes / 1024 / 1024).toFixed(2) + 'MB';
+            logger.info(`[SYS-MEM] RSS: ${toMB(mem.rss)} | Heap: ${toMB(mem.heapUsed)}/${toMB(mem.heapTotal)} | External: ${toMB(mem.external)}`);
+        }, 60_000).unref();
 
         // DEV: list registered routes to help debugging missing endpoints
         try {

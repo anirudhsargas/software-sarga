@@ -85,7 +85,7 @@ function buildMockPool() {
         let rows = [...tables[tableName]];
 
         // Handle SELECT COUNT(*)
-        if (sqlUpper.includes('COUNT(')) {
+        if (sqlUpper.startsWith('SELECT COUNT(') || sqlUpper.includes('SELECT COUNT(*)') || sqlUpper.includes('SELECT COUNT(1)')) {
           if (sqlStr.includes('vendor_id = ?')) {
             const vendorId = params[0];
             rows = rows.filter(r => Number(r.vendor_id) === Number(vendorId));
