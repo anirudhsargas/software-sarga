@@ -2650,27 +2650,6 @@ const Inventory = () => {
                                 })()}
                             </div>
 
-                            {/* ── Footer ── */}
-                            {printingLabel && (
-                                <div style={{ padding: 'var(--space-16) var(--space-24)', borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 'var(--space-8)', background: 'var(--surface-1)' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-12)' }}>
-                                        <Loader2 className="animate-spin" size={16} style={{ color: 'var(--primary)' }} />
-                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                                                {printTotal > 0 ? `Generating labels (${printCompleted} / ${printTotal})` : 'Generating labels — please wait'}
-                                            </div>
-                                            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                                                {typeof printingProgress === 'number' ? `${printingProgress}% downloaded` : 'Preparing document pages…'}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    {printTotal > 0 && (
-                                        <div style={{ width: '100%', height: '8px', background: 'var(--border)', borderRadius: '4px', overflow: 'hidden', marginTop: 'var(--space-4)' }}>
-                                            <div style={{ width: `${Math.round((printCompleted / printTotal) * 100)}%`, height: '100%', background: 'linear-gradient(90deg, var(--primary) 0%, #a855f7 100%)', transition: 'width 0.3s ease' }} />
-                                        </div>
-                                    )}
-                                </div>
-                            )}
                             <div className="modal-footer" style={{ padding: 'var(--space-16) var(--space-24)', borderTop: '1px solid var(--border)', flexShrink: 0, display: 'flex', gap: 'var(--space-10)', justifyContent: 'flex-end' }}>
                                 <button className="btn btn-secondary" onClick={() => setShowPrintModal(false)} disabled={printingLabel}>Cancel</button>
                                 <button
@@ -2690,6 +2669,37 @@ const Inventory = () => {
                         </div>
                     </div>
                 )}
+
+            {/* ── Print Progress Modal Overlay ── */}
+            {printingLabel && (
+                <div className="modal-backdrop" style={{ zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0, 0, 0, 0.6)', backdropFilter: 'blur(4px)' }}>
+                    <div className="modal-content" style={{ width: '420px', padding: 'var(--space-24)', borderRadius: 'var(--radius-lg)', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 'var(--space-16)', background: 'var(--surface-overlay)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-12)' }}>
+                            <Loader2 className="animate-spin" size={20} style={{ color: 'var(--primary)' }} />
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-primary)' }}>Generating Labels</div>
+                                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Please wait, do not close this tab</div>
+                            </div>
+                        </div>
+                        
+                        {printTotal > 0 && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                                    <span>Progress</span>
+                                    <span>{printCompleted} of {printTotal} ({Math.round((printCompleted / printTotal) * 100)}%)</span>
+                                </div>
+                                <div style={{ width: '100%', height: '8px', background: 'var(--border)', borderRadius: '4px', overflow: 'hidden' }}>
+                                    <div style={{ width: `${Math.round((printCompleted / printTotal) * 100)}%`, height: '100%', background: 'linear-gradient(90deg, var(--primary) 0%, #a855f7 100%)', transition: 'width 0.2s ease' }} />
+                                </div>
+                            </div>
+                        )}
+                        
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--space-8)' }}>
+                            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Running chunk-batched PDF generation…</span>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {showSelectPrintModal && (
                 <div className="modal-backdrop">
