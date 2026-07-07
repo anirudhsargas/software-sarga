@@ -827,8 +827,7 @@ const Inventory = () => {
             setSelectedIds([]);
             setShowSelectPrintModal(false);
             setSelectPrintSearch('');
-            setSelectPrintSelectedId(null);
-            setSelectPrintQty(1);
+            setSelectPrintSelectedIds([]);
             fetchInventory();
         } catch (err) {
             // Try to read the real error from the blob response
