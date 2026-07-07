@@ -12,13 +12,16 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      # Render injects this automatically — used by the internal self-ping keep-alive
-      # so the server pings itself every 10 min to prevent cold-start spindown.
+      # Render injects RENDER_EXTERNAL_URL — use hostWithScheme to get the full https:// URL.
+      # This is used by the internal self-ping keep-alive to prevent cold-start spindown.
       - key: RENDER_EXTERNAL_URL
         fromService:
           type: web
           name: sarga-backend
-          property: host
+          property: hostWithScheme
+      # Hardcoded fallback in case the fromService reference doesn't resolve
+      - key: SERVER_URL
+        value: https://software-sarga-2.onrender.com
       - key: VITE_FIREBASE_API_KEY
         fromSecret: VITE_FIREBASE_API_KEY
       - key: VITE_FIREBASE_AUTH_DOMAIN

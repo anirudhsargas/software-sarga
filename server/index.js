@@ -92,7 +92,15 @@ const corsOptions = {
             return callback(null, true);
         }
 
-        // Accept known Vercel preview/branch deployments listed in allowedOrigins
+        // Accept Vercel preview/branch deployments for this project automatically
+        // Matches: software-sarga-*.vercel.app and sargaoffset-*.vercel.app
+        const vercelPreviewPatterns = [
+            /^https:\/\/software-sarga(-[a-z0-9-]+)?\.vercel\.app$/i,
+            /^https:\/\/sargaoffset(-[a-z0-9-]+)?\.vercel\.app$/i,
+        ];
+        if (vercelPreviewPatterns.some(rx => rx.test(normalizedOrigin))) {
+            return callback(null, true);
+        }
 
         logger.warn(`[CORS Blocked] Origin: ${origin}`);
         // Use an Error so the browser receives a proper 403 with CORS headers
@@ -687,21 +695,36 @@ if (process.env.NODE_ENV !== 'test') {
     // Render free/starter tier spins down after 15 min of inactivity.
     // We ping our own /api/ping every 10 minutes to stay warm.
     // This also ensures the DB connection pool stays alive.
-    const RENDER_SELF_URL = process.env.RENDER_EXTERNAL_URL || process.env.SERVER_URL || null;
+    //
+    // NOTE: Render may inject RENDER_EXTERNAL_URL as just a hostname (no scheme).
+    // We normalize it here to always have https://.
+    const rawSelfUrl = process.env.RENDER_EXTERNAL_URL
+        || process.env.SERVER_URL
+        || 'https://software-sarga-2.onrender.com'; // hardcoded fallback
+    const RENDER_SELF_URL = process.env.NODE_ENV === 'production'
+        ? (/^https?:\/\//i.test(rawSelfUrl) ? rawSelfUrl : `https://${rawSelfUrl}`).replace(/\/$/, '')
+        : null;
+
     if (RENDER_SELF_URL && process.env.NODE_ENV === 'production') {
-        const http  = require('http');
         const https = require('https');
         const selfPing = () => {
             const url = `${RENDER_SELF_URL}/api/ping`;
-            const client = url.startsWith('https') ? https : http;
-            const req = client.get(url, { timeout: 8000 }, (res) => {
-                logger.info(`[KeepAlive] Self-ping OK — HTTP ${res.statusCode}`);
-                res.resume();
-            });
-            req.on('error', (err) => {
-                logger.warn(`[KeepAlive] Self-ping failed: ${err.message}`);
-            });
-            req.end();
+            try {
+                const req = https.get(url, { timeout: 8000 }, (res) => {
+                    logger.info(`[KeepAlive] Self-ping OK — HTTP ${res.statusCode}`);
+                    res.resume();
+                });
+                req.on('error', (err) => {
+                    logger.warn(`[KeepAlive] Self-ping failed: ${err.message}`);
+                });
+                req.on('timeout', () => {
+                    logger.warn('[KeepAlive] Self-ping timed out');
+                    req.destroy();
+                });
+                req.end();
+            } catch (e) {
+                logger.warn(`[KeepAlive] Self-ping threw: ${e.message}`);
+            }
         };
         // First ping 30s after startup (let DB warm up first)
         setTimeout(selfPing, 30_000);
