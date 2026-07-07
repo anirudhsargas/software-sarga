@@ -790,6 +790,7 @@ const Inventory = () => {
                 { items: itemsToPrint },
                 {
                     responseType: 'blob',
+                    timeout: 180000, // 3 minutes — large label jobs need more time
                     onDownloadProgress: (progressEvent) => {
                         try {
                             if (progressEvent.lengthComputable && progressEvent.total) {

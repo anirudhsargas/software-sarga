@@ -1246,11 +1246,6 @@ router.post('/inventory/generate-labels', authenticateToken, authorizeRoles('Adm
             return res.status(400).json({ message: 'Invalid item selection' });
         }
 
-        // PDF Generation Parameters (4x12 layout)
-        const doc = new PDFDocument({ size: 'A4', margin: 0 });
-        const _pageWidth = 595.28; // A4 point width (approx 210mm)
-        const _pageHeight = 841.89; // A4 point height (approx 297mm)
-
         // Converts mm to points (1mm = 2.83465 points)
         const mmToPt = (mm) => mm * 2.83465;
 
@@ -1262,6 +1257,29 @@ router.post('/inventory/generate-labels', authenticateToken, authorizeRoles('Adm
         const cols = 4;
         const rows = 12;
         const labelsPerPage = cols * rows;
+
+        // --- PRE-GENERATE ALL UNIQUE QR CODES IN PARALLEL ---
+        // Many labels are the same item repeated. Build a set of unique QR strings
+        // and generate them all at once with Promise.all instead of awaiting each
+        // label sequentially (which caused 1000+ serial async calls for large jobs).
+        const uniqueQrStrings = [...new Set(
+            labelData.map(item => normalizeScannedCode(item.sku) || `ITEM-${item.id}`)
+        )];
+        const qrBufferMap = new Map();
+        await Promise.all(
+            uniqueQrStrings.map(async (qrStr) => {
+                const buf = await QRCode.toBuffer(qrStr, {
+                    margin: 2,
+                    errorCorrectionLevel: 'H',
+                    width: 256
+                });
+                qrBufferMap.set(qrStr, buf);
+            })
+        );
+        console.log(`[LabelGen] Pre-generated ${uniqueQrStrings.length} unique QR codes for ${labelData.length} labels`);
+
+        // PDF Generation Parameters (4x12 layout)
+        const doc = new PDFDocument({ size: 'A4', margin: 0 });
 
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', 'attachment; filename=labels.pdf');
@@ -1280,10 +1298,8 @@ router.post('/inventory/generate-labels', authenticateToken, authorizeRoles('Adm
             const x = margin + col * (labelWidth + colGap);
             const y = margin + row * (labelHeight + rowGap);
 
-            // Reset color state for each label
             doc.fillColor('#000000');
 
-            // QR Code generation
             // MRP priority: stored → sell_price → formula (Cost + GST) * 2
             const costPrice = Number(item.cost_price) || 0;
             const sellPrice = Number(item.sell_price) || 0;
@@ -1292,20 +1308,15 @@ router.post('/inventory/generate-labels', authenticateToken, authorizeRoles('Adm
             const calculatedMrp = (costPrice + gstAmount) * 2;
             const mrp = (item.mrp != null ? Number(item.mrp) : sellPrice) || calculatedMrp || 0;
 
-            // QR encodes just the unique product SKU (or fallback ID) for direct scanning in billing
+            // Reuse pre-generated QR buffer from cache — no more per-label await
             const qrData = normalizeScannedCode(item.sku) || `ITEM-${item.id}`;
-
-            const qrCodeBuffer = await QRCode.toBuffer(qrData, {
-                margin: 2, // Slightly larger quiet zone improves decode reliability on printed labels
-                errorCorrectionLevel: 'H', // High error correction helps Google Lens read it easily
-                width: 256 // Higher source resolution helps with cleaner downscaling in PDF
-            });
+            const qrCodeBuffer = qrBufferMap.get(qrData);
 
             // Layout Content — Category / Name / MRP + QR with 2mm internal padding
             const padding = mmToPt(2);
             const textAreaW = labelWidth - mmToPt(20);
 
-            // Category name 
+            // Category name
             const categoryLabel = (item.category || 'Inventory').toUpperCase();
             const catFontSize = categoryLabel.length > 18 ? 5.5 : 7;
             doc.fontSize(catFontSize).font('Helvetica-Bold').fillColor('#000000');
@@ -1322,19 +1333,16 @@ router.post('/inventory/generate-labels', authenticateToken, authorizeRoles('Adm
             doc.text(`MRP: Rs. ${mrp % 1 === 0 ? mrp.toFixed(0) : mrp.toFixed(2)}`, x + padding, y + mmToPt(11), { width: textAreaW, lineBreak: false });
 
             // Place QR Code (right side)
-            doc.image(qrCodeBuffer, x + labelWidth - mmToPt(18), y + padding, {
-                width: mmToPt(16)
-            });
+            doc.image(qrCodeBuffer, x + labelWidth - mmToPt(18), y + padding, { width: mmToPt(16) });
 
             // Unique code text below QR
-            const uniqueCode = qrData;
             doc.fontSize(5).font('Helvetica').fillColor('#000000');
-            doc.text(uniqueCode, x + labelWidth - mmToPt(18), y + mmToPt(18), { width: mmToPt(16), align: 'center', lineBreak: false });
+            doc.text(qrData, x + labelWidth - mmToPt(18), y + mmToPt(18), { width: mmToPt(16), align: 'center', lineBreak: false });
 
             // "Sarga, Mob: 9497559257" directly below MRP
             doc.fontSize(4).font('Helvetica').fillColor('#000000');
-            doc.text("Sarga,", x + padding, y + mmToPt(14.5), { width: textAreaW, lineBreak: false });
-            doc.text("Mob: 9497559257", x + padding, y + mmToPt(16.5), { width: textAreaW, lineBreak: false });
+            doc.text('Sarga,', x + padding, y + mmToPt(14.5), { width: textAreaW, lineBreak: false });
+            doc.text('Mob: 9497559257', x + padding, y + mmToPt(16.5), { width: textAreaW, lineBreak: false });
         }
 
         doc.end();
