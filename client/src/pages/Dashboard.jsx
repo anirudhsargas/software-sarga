@@ -515,12 +515,14 @@ const Dashboard = () => {
 
     const fetchCompanyInfo = useCallback(async () => {
         try {
-            const { data } = await api.get('/company-settings');
+            const res = await api.get('/company-settings');
+            const data = res?.data;
             if (data?.company_name) {
+                const name = data.company_name.toUpperCase();
+                const logo = data.company_logo_url;
                 setCompanyInfo(prev => {
-                    const next = { name: data.company_name.toUpperCase(), logo: data.company_logo_url };
-                    if (prev.name === next.name && prev.logo === next.logo) return prev;
-                    return next;
+                    if (prev.name === name && prev.logo === logo) return prev;
+                    return { name, logo };
                 });
             }
         } catch {  }
@@ -825,8 +827,13 @@ const Dashboard = () => {
         setInventoryScanResult(null);
         try {
             const normalized = scannedCode.trim().toUpperCase();
-            const { data: item } = await api.get(`/inventory/by-sku/${encodeURIComponent(normalized)}`);
-            setInventoryScanResult(item);
+            const res = await api.get(`/inventory/by-sku/${encodeURIComponent(normalized)}`);
+            const item = res?.data;
+            if (!item) {
+                import('react-hot-toast').then(m => m.default.error(`No inventory item found for: ${scannedCode.trim()}`));
+            } else {
+                setInventoryScanResult(item);
+            }
         } catch {
             import('react-hot-toast').then(m => m.default.error(`No inventory item found for: ${scannedCode.trim()}`));
         } finally {
@@ -852,9 +859,10 @@ const Dashboard = () => {
         if (user?.role !== 'Admin' && user?.role !== 'Accountant') return;
         try {
             const response = await api.get('/requests/pending-count');
+            const pendingCount = response?.data?.pending_count ?? 0;
             setPendingRequestsCount(prev => {
-                if (prev === response.data.pending_count) return prev;
-                return response.data.pending_count;
+                if (prev === pendingCount) return prev;
+                return pendingCount;
             });
         } catch (err) {
             console.error('Failed to fetch pending requests count:', err);
@@ -865,10 +873,10 @@ const Dashboard = () => {
         if (user?.role !== 'Admin') return;
         try {
             const res = await api.get('chatbot/model-status', { skipGlobalErrorHandling: true });
+            const unlabeledCount = res?.data?.unlabeled ?? 0;
             setChatbotUnlabeledCount(prev => {
-                const next = res.data.unlabeled || 0;
-                if (prev === next) return prev;
-                return next;
+                if (prev === unlabeledCount) return prev;
+                return unlabeledCount;
             });
         } catch {
             // ignore
@@ -904,7 +912,7 @@ const Dashboard = () => {
             if (['Admin', 'Accountant', 'Front Office'].includes(user?.role)) {
                 promises.push(
                     api.get('ai/anomalies').then(res => {
-                        setAnomalyCount(res.data?.anomalies?.length || 0);
+                        setAnomalyCount(res?.data?.anomalies?.length || 0);
                     }).catch(() => {})
                 );
             }
@@ -926,7 +934,7 @@ const Dashboard = () => {
             anomalyInterval = setInterval(async () => {
                 try {
                     const res = await api.get('ai/anomalies');
-                    setAnomalyCount(res.data?.anomalies?.length || 0);
+                    setAnomalyCount(res?.data?.anomalies?.length || 0);
                 } catch { /* ignore */ }
             }, 5 * 60 * 1000);
         }

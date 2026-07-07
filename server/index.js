@@ -103,10 +103,8 @@ const corsOptions = {
         }
 
         logger.warn(`[CORS Blocked] Origin: ${origin}`);
-        // Use an Error so the browser receives a proper 403 with CORS headers
-        // (passing false causes a silent drop with no CORS headers at all,
-        // which makes the browser report a confusing CORS error instead of 403)
-        callback(new Error(`CORS: origin ${origin} is not allowed`));
+        // Return callback(null, false) to deny access cleanly without throwing an error that bypasses CORS headers setting
+        callback(null, false);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
