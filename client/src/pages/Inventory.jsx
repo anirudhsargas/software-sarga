@@ -806,6 +806,21 @@ const Inventory = () => {
                 }
             );
 
+            // Check that server returned a PDF, not a JSON error blob
+            const contentType = response.headers?.['content-type'] || '';
+            if (!contentType.includes('application/pdf')) {
+                // Server returned an error — read and surface it
+                let errMsg = 'Failed to generate labels';
+                try {
+                    const errText = await response.data.text();
+                    const errParsed = JSON.parse(errText);
+                    errMsg = errParsed.message || errParsed.error || errMsg;
+                } catch { /* ignore parse errors */ }
+                toast.error(errMsg);
+                setPrintingLabel(false);
+                return;
+            }
+
             // Success confirmation before download
             try {
                 const total = itemsToPrint.reduce((acc, it) => acc + (Number(it.quantity_to_print) || 1), 0);
@@ -815,13 +830,15 @@ const Inventory = () => {
                 // ignore
             }
 
-            const url = window.URL.createObjectURL(new Blob([response.data]));
+            // response.data is already a Blob when responseType:'blob' — do NOT re-wrap it
+            const url = window.URL.createObjectURL(response.data);
             const link = document.createElement('a');
             link.href = url;
             link.setAttribute('download', `labels_${new Date().getTime()}.pdf`);
             document.body.appendChild(link);
             link.click();
             link.parentNode.removeChild(link);
+            window.URL.revokeObjectURL(url);
 
             setShowPrintModal(false);
             setSelectedIds([]);
