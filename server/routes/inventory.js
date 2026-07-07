@@ -1172,14 +1172,16 @@ router.post('/inventory/:id/restock', authenticateToken, authorizeRoles('Admin',
 });
 
 
-// Generate Labels PDF
+// Generate Labels PDF (Batched & Progress-Streamed)
 router.post('/inventory/generate-labels', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
-    const { items } = req.body; // Array of { id, quantity_to_print }
+    const { items, socketId } = req.body; // Array of { id, quantity_to_print } and user socket connection ID
 
     if (!items || !Array.isArray(items) || items.length === 0) {
         return res.status(400).json({ message: 'No items selected' });
     }
 
+    const MAX_LABELS_PER_REQUEST = 2000;
+    const BATCH_SIZE = 100;
     const memStart = process.memoryUsage();
     console.log(`[LabelGen] Starting generation. Memory: RSS=${(memStart.rss / 1024 / 1024).toFixed(2)}MB, HeapUsed=${(memStart.heapUsed / 1024 / 1024).toFixed(2)}MB`);
 
@@ -1230,16 +1232,16 @@ router.post('/inventory/generate-labels', authenticateToken, authorizeRoles('Adm
             }
         }
 
-        // Prepare label data based on user requested quantities with a hard cap of 200
+        // Prepare label data based on user requested quantities with a hard cap of 2000
         const labelData = [];
         let totalQty = 0;
         for (const reqItem of items) {
             const dbItem = itemMap[reqItem.id];
             if (dbItem) {
-                const qty = Math.min(Number(reqItem.quantity_to_print) || 1, 200);
+                const qty = Math.min(Number(reqItem.quantity_to_print) || 1, MAX_LABELS_PER_REQUEST);
                 totalQty += qty;
-                if (totalQty > 200) {
-                    return res.status(400).json({ message: 'Label printing limit is 200 items per request. Please split your print job into smaller batches.' });
+                if (totalQty > MAX_LABELS_PER_REQUEST) {
+                    return res.status(400).json({ message: `Label printing limit is ${MAX_LABELS_PER_REQUEST} items per request. Please split your print job into smaller batches.` });
                 }
                 for (let i = 0; i < qty; i++) {
                     labelData.push(dbItem);
@@ -1289,69 +1291,91 @@ router.post('/inventory/generate-labels', authenticateToken, authorizeRoles('Adm
 
         doc.pipe(res);
 
-        for (let i = 0; i < labelData.length; i++) {
-            const item = labelData[i];
-            const pageIndex = i % labelsPerPage;
-            const col = pageIndex % cols;
-            const row = Math.floor(pageIndex / cols);
+        const { getIO } = require('../services/socketManager');
 
-            if (i > 0 && pageIndex === 0) {
-                doc.addPage({ size: 'A4', margin: 0 });
+        for (let batchStart = 0; batchStart < labelData.length; batchStart += BATCH_SIZE) {
+            const batchEnd = Math.min(batchStart + BATCH_SIZE, labelData.length);
+            console.log(`[LabelGen] Processing batch ${batchStart} to ${batchEnd}...`);
+
+            for (let i = batchStart; i < batchEnd; i++) {
+                const item = labelData[i];
+                const pageIndex = i % labelsPerPage;
+                const col = pageIndex % cols;
+                const row = Math.floor(pageIndex / cols);
+
+                if (i > 0 && pageIndex === 0) {
+                    doc.addPage({ size: 'A4', margin: 0 });
+                }
+
+                const x = margin + col * (labelWidth + colGap);
+                const y = margin + row * (labelHeight + rowGap);
+
+                doc.fillColor('#000000');
+
+                // MRP priority: stored → sell_price → formula (Cost + GST) * 2
+                const costPrice = Number(item.cost_price) || 0;
+                const sellPrice = Number(item.sell_price) || 0;
+                const gstRate = Number(item.gst_rate) || 0;
+                const gstAmount = (costPrice * gstRate) / 100;
+                const calculatedMrp = (costPrice + gstAmount) * 2;
+                const mrp = (item.mrp != null ? Number(item.mrp) : sellPrice) || calculatedMrp || 0;
+
+                const qrData = normalizeScannedCode(item.sku) || `ITEM-${item.id}`;
+                // Generate QR Code buffer on-the-fly (cached)
+                const qrCodeBuffer = await getQrBuffer(qrData);
+
+                // Layout Content — Category / Name / MRP + QR with 2mm internal padding
+                const padding = mmToPt(2);
+                const textAreaW = labelWidth - mmToPt(20);
+
+                // Category name
+                const categoryLabel = (item.category || 'Inventory').toUpperCase();
+                const catFontSize = categoryLabel.length > 18 ? 5.5 : 7;
+                doc.fontSize(catFontSize).font('Helvetica-Bold').fillColor('#000000');
+                doc.text(categoryLabel, x + padding, y + padding, { width: textAreaW, lineBreak: false });
+
+                // Product model name (or name if model missing)
+                const modelNameText = (item.model_name || item.name).toUpperCase();
+                const shortName = modelNameText.length > 50 ? modelNameText.substring(0, 49) + '…' : modelNameText;
+                doc.fontSize(6).font('Helvetica').fillColor('#000000');
+                doc.text(shortName, x + padding, y + mmToPt(6), { width: textAreaW, lineBreak: true, height: mmToPt(4) });
+
+                // MRP
+                doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#000000');
+                doc.text(`MRP: Rs. ${mrp % 1 === 0 ? mrp.toFixed(0) : mrp.toFixed(2)}`, x + padding, y + mmToPt(11), { width: textAreaW, lineBreak: false });
+
+                // Place QR Code (right side)
+                doc.image(qrCodeBuffer, x + labelWidth - mmToPt(18), y + padding, { width: mmToPt(16) });
+
+                // Unique code text below QR
+                doc.fontSize(5).font('Helvetica').fillColor('#000000');
+                doc.text(qrData, x + labelWidth - mmToPt(18), y + mmToPt(18), { width: mmToPt(16), align: 'center', lineBreak: false });
+
+                // "Sarga, Mob: 9497559257" directly below MRP
+                doc.fontSize(4).font('Helvetica').fillColor('#000000');
+                doc.text('Sarga,', x + padding, y + mmToPt(14.5), { width: textAreaW, lineBreak: false });
+                doc.text('Mob: 9497559257', x + padding, y + mmToPt(16.5), { width: textAreaW, lineBreak: false });
             }
 
-            const x = margin + col * (labelWidth + colGap);
-            const y = margin + row * (labelHeight + rowGap);
+            // Flush the current QR cache to release references and avoid growing heap
+            qrCache.clear();
 
-            doc.fillColor('#000000');
-
-            // MRP priority: stored → sell_price → formula (Cost + GST) * 2
-            const costPrice = Number(item.cost_price) || 0;
-            const sellPrice = Number(item.sell_price) || 0;
-            const gstRate = Number(item.gst_rate) || 0;
-            const gstAmount = (costPrice * gstRate) / 100;
-            const calculatedMrp = (costPrice + gstAmount) * 2;
-            const mrp = (item.mrp != null ? Number(item.mrp) : sellPrice) || calculatedMrp || 0;
-
-            const qrData = normalizeScannedCode(item.sku) || `ITEM-${item.id}`;
-            // Generate QR Code buffer on-the-fly (cached)
-            const qrCodeBuffer = await getQrBuffer(qrData);
-
-            // Layout Content — Category / Name / MRP + QR with 2mm internal padding
-            const padding = mmToPt(2);
-            const textAreaW = labelWidth - mmToPt(20);
-
-            // Category name
-            const categoryLabel = (item.category || 'Inventory').toUpperCase();
-            const catFontSize = categoryLabel.length > 18 ? 5.5 : 7;
-            doc.fontSize(catFontSize).font('Helvetica-Bold').fillColor('#000000');
-            doc.text(categoryLabel, x + padding, y + padding, { width: textAreaW, lineBreak: false });
-
-            // Product model name (or name if model missing)
-            const modelNameText = (item.model_name || item.name).toUpperCase();
-            const shortName = modelNameText.length > 50 ? modelNameText.substring(0, 49) + '…' : modelNameText;
-            doc.fontSize(6).font('Helvetica').fillColor('#000000');
-            doc.text(shortName, x + padding, y + mmToPt(6), { width: textAreaW, lineBreak: true, height: mmToPt(4) });
-
-            // MRP
-            doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#000000');
-            doc.text(`MRP: Rs. ${mrp % 1 === 0 ? mrp.toFixed(0) : mrp.toFixed(2)}`, x + padding, y + mmToPt(11), { width: textAreaW, lineBreak: false });
-
-            // Place QR Code (right side)
-            doc.image(qrCodeBuffer, x + labelWidth - mmToPt(18), y + padding, { width: mmToPt(16) });
-
-            // Unique code text below QR
-            doc.fontSize(5).font('Helvetica').fillColor('#000000');
-            doc.text(qrData, x + labelWidth - mmToPt(18), y + mmToPt(18), { width: mmToPt(16), align: 'center', lineBreak: false });
-
-            // "Sarga, Mob: 9497559257" directly below MRP
-            doc.fontSize(4).font('Helvetica').fillColor('#000000');
-            doc.text('Sarga,', x + padding, y + mmToPt(14.5), { width: textAreaW, lineBreak: false });
-            doc.text('Mob: 9497559257', x + padding, y + mmToPt(16.5), { width: textAreaW, lineBreak: false });
-
-            // Yield execution to the event loop every page (48 labels) to let stream flush and GC run
-            if (i > 0 && pageIndex === 0) {
-                await new Promise(resolve => setImmediate(resolve));
+            // Emit progress updates to socket room/connection
+            if (socketId) {
+                try {
+                    const io = getIO();
+                    io.to(socketId).emit('labelGenProgress', { completed: batchEnd, total: labelData.length });
+                } catch (socketErr) {
+                    console.warn('[LabelGen] Progress socket emit failed:', socketErr.message);
+                }
             }
+
+            // Memory logging instrumentation after each batch
+            const memBatch = process.memoryUsage();
+            console.log(`[LabelGen] Batch [${batchStart}-${batchEnd}] completed. Memory: RSS=${(memBatch.rss / 1024 / 1024).toFixed(2)}MB, HeapUsed=${(memBatch.heapUsed / 1024 / 1024).toFixed(2)}MB`);
+
+            // Yield control to event loop with a small delay so OS can flush network stack and let GC collect
+            await new Promise(resolve => setTimeout(resolve, 30));
         }
 
         doc.end();

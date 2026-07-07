@@ -12,7 +12,7 @@ import InventoryImageSettings from '../components/InventoryImageSettings';
 import { useConfirm } from '../contexts/ConfirmContext';
 import toast from 'react-hot-toast';
 import SmartBillUpload from './expense-manager/SmartBillUpload';
-import { onSocketEvent } from '../services/socketClient';
+import { onSocketEvent, getSocket } from '../services/socketClient';
 import './InventoryModern.css';
 
 const ScannerModal = React.lazy(() => import('../components/ScannerModal'));
@@ -99,6 +99,8 @@ const Inventory = () => {
     const [selectedIds, setSelectedIds] = useState([]);
     const [printQuantities, setPrintQuantities] = useState({}); // { id: qty }
     const [printingLabel, setPrintingLabel] = useState(false);
+    const [printCompleted, setPrintCompleted] = useState(0);
+    const [printTotal, setPrintTotal] = useState(0);
     const NEW_ITEM_WINDOW_DAYS = 7;
 
     // Select & Print Labels modal state
@@ -777,6 +779,10 @@ const Inventory = () => {
         setPrintingLabel(true);
         setPrintingProgress(null);
         setPrintingTotal(null);
+        setPrintCompleted(0);
+        setPrintTotal(0);
+
+        let cleanupSocket = null;
         try {
             const itemsToPrint = Object.keys(printQuantities).map(id => ({ id: Number(id), quantity_to_print: printQuantities[id] || 1 }));
 
@@ -786,18 +792,32 @@ const Inventory = () => {
                 return;
             }
 
+            const totalLabels = itemsToPrint.reduce((acc, it) => acc + (Number(it.quantity_to_print) || 1), 0);
+            setPrintTotal(totalLabels);
+
+            // Connect to socket and get socket ID
+            const socket = getSocket();
+            const socketId = socket?.id || null;
+
+            if (socketId) {
+                cleanupSocket = onSocketEvent('labelGenProgress', (progress) => {
+                    if (progress && typeof progress.completed === 'number') {
+                        setPrintCompleted(progress.completed);
+                    }
+                });
+            }
+
             const response = await api.post('/inventory/generate-labels',
-                { items: itemsToPrint },
+                { items: itemsToPrint, socketId },
                 {
                     responseType: 'blob',
-                    timeout: 180000, // 3 minutes — large label jobs need more time
+                    timeout: 300000, // 5 minutes — large label jobs need more time
                     onDownloadProgress: (progressEvent) => {
                         try {
                             if (progressEvent.lengthComputable && progressEvent.total) {
                                 const percent = Math.round((progressEvent.loaded / progressEvent.total) * 100);
                                 setPrintingProgress(percent);
                             } else {
-                                // Unknown total — keep indeterminate state
                                 setPrintingProgress(null);
                             }
                         } catch (e) {
@@ -824,9 +844,7 @@ const Inventory = () => {
 
             // Success confirmation before download
             try {
-                const total = itemsToPrint.reduce((acc, it) => acc + (Number(it.quantity_to_print) || 1), 0);
-                setPrintingTotal(total);
-                toast.success(`Generated ${total} label${total !== 1 ? 's' : ''} — starting download`);
+                toast.success(`Generated ${totalLabels} label${totalLabels !== 1 ? 's' : ''} — starting download`);
             } catch (e) {
                 // ignore
             }
@@ -862,11 +880,18 @@ const Inventory = () => {
                 }
             } catch { /* ignore parse error */ }
             console.error('Label generation error:', err);
-            toast.error(msg);
+            if (printCompleted > 0) {
+                toast.error(`${msg} (Failed after successfully generating ${printCompleted} labels)`);
+            } else {
+                toast.error(msg);
+            }
         } finally {
+            if (cleanupSocket) cleanupSocket();
             setPrintingLabel(false);
             setPrintingProgress(null);
             setPrintingTotal(null);
+            setPrintCompleted(0);
+            setPrintTotal(0);
         }
     };
 
@@ -2627,14 +2652,23 @@ const Inventory = () => {
 
                             {/* ── Footer ── */}
                             {printingLabel && (
-                                <div style={{ padding: 'var(--space-12) var(--space-24)', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 'var(--space-12)', background: 'var(--surface-1)' }}>
-                                    <Loader2 className="animate-spin" size={16} />
-                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                        <div style={{ fontSize: '13px', fontWeight: 700 }}>Generating labels — please wait</div>
-                                        <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                                            {typeof printingProgress === 'number' ? `${printingProgress}% downloaded` : 'Preparing download…'}
+                                <div style={{ padding: 'var(--space-16) var(--space-24)', borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 'var(--space-8)', background: 'var(--surface-1)' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-12)' }}>
+                                        <Loader2 className="animate-spin" size={16} style={{ color: 'var(--primary)' }} />
+                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                                {printTotal > 0 ? `Generating labels (${printCompleted} / ${printTotal})` : 'Generating labels — please wait'}
+                                            </div>
+                                            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                                                {typeof printingProgress === 'number' ? `${printingProgress}% downloaded` : 'Preparing document pages…'}
+                                            </div>
                                         </div>
                                     </div>
+                                    {printTotal > 0 && (
+                                        <div style={{ width: '100%', height: '8px', background: 'var(--border)', borderRadius: '4px', overflow: 'hidden', marginTop: 'var(--space-4)' }}>
+                                            <div style={{ width: `${Math.round((printCompleted / printTotal) * 100)}%`, height: '100%', background: 'linear-gradient(90deg, var(--primary) 0%, #a855f7 100%)', transition: 'width 0.3s ease' }} />
+                                        </div>
+                                    )}
                                 </div>
                             )}
                             <div className="modal-footer" style={{ padding: 'var(--space-16) var(--space-24)', borderTop: '1px solid var(--border)', flexShrink: 0, display: 'flex', gap: 'var(--space-10)', justifyContent: 'flex-end' }}>
