@@ -1,9 +1,20 @@
 const cron = require('node-cron');
-const nodemailer = require('nodemailer');
 const { pool } = require('../database');
-const { fetchDailyBookData } = require('./dailyBookCollector');
-const { generateDailyBookPdf } = require('./dailyBookPdfGenerator');
-const { generateDailyBookExcel } = require('./dailyBookExcelGenerator');
+
+// Heavy modules (nodemailer, pdfkit, xlsx) are lazy-required inside
+// executeDailyBook() so they don't block scheduler initialization.
+const _lazy = {};
+function lazyRequire(mod) {
+  return _lazy[mod] || (_lazy[mod] = require(mod));
+}
+function lazyModule(mod) {
+  return {
+    get fetchDailyBookData() { return lazyRequire('./dailyBookCollector').fetchDailyBookData; },
+    get generateDailyBookPdf() { return lazyRequire('./dailyBookPdfGenerator').generateDailyBookPdf; },
+    get generateDailyBookExcel() { return lazyRequire('./dailyBookExcelGenerator').generateDailyBookExcel; },
+    get nodemailer() { return lazyRequire('nodemailer'); },
+  };
+}
 
 let currentCronJob = null;
 
@@ -50,7 +61,8 @@ async function executeDailyBook(isTest = false, forceRun = false) {
             logId = insertLog.insertId;
         }
 
-        const transporter = nodemailer.createTransport({
+        const m = lazyModule();
+        const transporter = m.nodemailer.createTransport({
             service: 'gmail',
             auth: {
                 user: process.env.EMAIL_FROM || 'sargadailyreport@gmail.com',
@@ -70,11 +82,11 @@ async function executeDailyBook(isTest = false, forceRun = false) {
 
         // Process branches
         for (const branch of branches) {
-            const data = await fetchDailyBookData(dateStart, dateEnd, branch.id);
+            const data = await m.fetchDailyBookData(dateStart, dateEnd, branch.id);
             
             const attachments = [];
             if (settings.format_pdf) {
-                const pdfBuf = await generateDailyBookPdf(data, today, branch.name);
+                const pdfBuf = await m.generateDailyBookPdf(data, today, branch.name);
                 attachments.push({
                     filename: `dailybook_${today}_${branch.name}.pdf`,
                     content: pdfBuf,
@@ -82,7 +94,7 @@ async function executeDailyBook(isTest = false, forceRun = false) {
                 });
             }
             if (settings.format_excel) {
-                const xlsxBuf = generateDailyBookExcel(data, today, branch.name);
+                const xlsxBuf = m.generateDailyBookExcel(data, today, branch.name);
                 attachments.push({
                     filename: `dailybook_${today}_${branch.name}.xlsx`,
                     content: xlsxBuf,
@@ -113,10 +125,10 @@ async function executeDailyBook(isTest = false, forceRun = false) {
         }
 
         // Send Combined Report
-        const combinedData = await fetchDailyBookData(dateStart, dateEnd, null);
+        const combinedData = await m.fetchDailyBookData(dateStart, dateEnd, null);
         const combinedAttachments = [];
         if (settings.format_pdf) {
-            const pdfBuf = await generateDailyBookPdf(combinedData, today, 'Combined (All Branches)');
+            const pdfBuf = await m.generateDailyBookPdf(combinedData, today, 'Combined (All Branches)');
             combinedAttachments.push({
                 filename: `dailybook_${today}_combined.pdf`,
                 content: pdfBuf,
@@ -124,7 +136,7 @@ async function executeDailyBook(isTest = false, forceRun = false) {
             });
         }
         if (settings.format_excel) {
-            const xlsxBuf = generateDailyBookExcel(combinedData, today, 'Combined (All Branches)');
+            const xlsxBuf = m.generateDailyBookExcel(combinedData, today, 'Combined (All Branches)');
             combinedAttachments.push({
                 filename: `dailybook_${today}_combined.xlsx`,
                 content: xlsxBuf,

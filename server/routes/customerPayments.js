@@ -785,6 +785,7 @@ router.get('/stats/dashboard', authenticateToken, authorizeRoles('Admin', 'Accou
             SELECT 
                 COUNT(*) as total_count,
                 SUM(total_amount) as total_sales,
+                SUM(CASE WHEN DATE(created_at) = ? THEN total_amount ELSE 0 END) as total_sales_today,
                 SUM(advance_paid) as total_collected,
                 SUM(balance_amount) as total_balance,
                 COUNT(CASE WHEN DATE(created_at) = ? THEN 1 END) as new_today,
@@ -794,7 +795,7 @@ router.get('/stats/dashboard', authenticateToken, authorizeRoles('Admin', 'Accou
                 COUNT(CASE WHEN status IN ('Pending', 'Processing', 'Designing', 'Printing', 'Cutting', 'Lamination', 'Binding', 'Production') THEN 1 END) as in_progress
             FROM sarga_jobs 
             ${jobWhere} ${dateWhere}
-        `, [today, today, today, today, ...params, ...dateParams]);
+        `, [today, today, today, today, today, ...params, ...dateParams]);
 
         // 2. Customer Stats
         const [[custStats]] = await pool.query(`

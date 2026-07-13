@@ -15,9 +15,8 @@ import PageContainer from '../components/ui/PageContainer';
 const AIMonitoring = React.lazy(() => import('./AIMonitoring'));
 const OrderPredictions = React.lazy(() => import('./OrderPredictions'));
 
-// Cache variables outside component for immediate render on revisit
-let cachedStatsToday = null;
-let cachedStatsOverall = null;
+// Cache variable outside component for immediate render on revisit
+let cachedStats = null;
 
 const KpiCard = React.memo(({ title, value, subtitle, icon: _Icon, color, trend }) => (
   <div className="kpi-card">
@@ -50,37 +49,24 @@ const Summary = () => {
 
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
-  const [statsToday, setStatsToday] = useState(cachedStatsToday);
-  const [statsOverall, setStatsOverall] = useState(cachedStatsOverall);
+  const [stats, setStats] = useState(cachedStats);
   const { branches, selectedBranchId, selectBranch } = useBranches();
-  const [loading, setLoading] = useState(!cachedStatsToday || !cachedStatsOverall);
+  const [loading, setLoading] = useState(!cachedStats);
   const [error, setError] = useState(false);
 
-  const fetchStatsSplit = useCallback(async (signal, isRefresh = false) => {
-    if (isRefresh || (!cachedStatsToday && !cachedStatsOverall)) {
+  const fetchStats = useCallback(async (signal, isRefresh = false) => {
+    if (isRefresh || !cachedStats) {
       setLoading(true);
     }
     setError(false);
     try {
       const params = new URLSearchParams();
       if (selectedBranchId) params.append('branch_id', selectedBranchId);
-      const today = new Date().toISOString().split('T')[0];
-      const todayParams = new URLSearchParams(params);
-      todayParams.append('startDate', today);
-      todayParams.append('endDate', today);
 
-      const [todayRes, overallRes] = await Promise.allSettled([
-        api.get(`/stats/dashboard?${todayParams}`, { signal, timeout: 10000 }),
-        api.get(`/stats/dashboard?${params}`, { signal, timeout: 10000 })
-      ]);
-
-      if (todayRes.status === 'fulfilled' && todayRes.value?.data) {
-        setStatsToday(todayRes.value.data);
-        cachedStatsToday = todayRes.value.data;
-      }
-      if (overallRes.status === 'fulfilled' && overallRes.value?.data) {
-        setStatsOverall(overallRes.value.data);
-        cachedStatsOverall = overallRes.value.data;
+      const res = await api.get(`/stats/dashboard?${params}`, { signal, timeout: 10000 });
+      if (res?.data) {
+        setStats(res.data);
+        cachedStats = res.data;
       }
       setError(false);
     } catch (err) {
@@ -95,22 +81,22 @@ const Summary = () => {
 
   useEffect(() => {
     const controller = new AbortController();
-    fetchStatsSplit(controller.signal);
+    fetchStats(controller.signal);
     const handler = () => {
       const freshController = new AbortController();
-      fetchStatsSplit(freshController.signal, true);
+      fetchStats(freshController.signal, true);
     };
     window.addEventListener('paymentRecorded', handler);
     return () => {
       controller.abort();
       window.removeEventListener('paymentRecorded', handler);
     };
-  }, [selectedBranchId, fetchStatsSplit]);
+  }, [selectedBranchId, fetchStats]);
 
   const handleRetry = useCallback(() => {
     const controller = new AbortController();
-    fetchStatsSplit(controller.signal, true);
-  }, [fetchStatsSplit]);
+    fetchStats(controller.signal, true);
+  }, [fetchStats]);
 
   const fmt = (v) => (typeof v === 'number' ? formatCurrencyShared(v, true) : '—');
   const fmtNum = (v) => (typeof v === 'number' ? v.toLocaleString() : '—');
@@ -125,9 +111,9 @@ const Summary = () => {
     return map[status] || 'var(--secondary)';
   }, []);
 
-  const lowStockItems = useMemo(() => statsOverall?.low_stock || [], [statsOverall]);
-  const _topCustomers = useMemo(() => statsOverall?.top_customers || [], [statsOverall]);
-  const _staffProd = useMemo(() => statsOverall?.staff_productivity || [], [statsOverall]);
+  const lowStockItems = useMemo(() => stats?.low_stock || [], [stats]);
+  const _topCustomers = useMemo(() => stats?.top_customers || [], [stats]);
+  const _staffProd = useMemo(() => stats?.staff_productivity || [], [stats]);
 
   const tabs = useMemo(() => [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
@@ -135,7 +121,7 @@ const Summary = () => {
     { id: 'order-predictions', label: 'Predictions', icon: Sparkles },
   ], []);
 
-  if (error && !statsToday && !statsOverall) {
+  if (error && !stats) {
     return (
       <PageContainer>
         <div style={{
@@ -163,7 +149,7 @@ const Summary = () => {
     );
   }
 
-  if (loading && !statsToday && !statsOverall) {
+  if (loading && !stats) {
     return (
       <PageContainer>
         {/* Skeleton Topbar */}
@@ -272,26 +258,26 @@ const Summary = () => {
         <>
           {/* ROW 1: KPI Cards */}
           <div className="kpi-grid">
-            <KpiCard title="Sales Today" value={fmt(statsToday?.jobs?.total_sales)} subtitle={`${fmtNum(statsToday?.jobs?.total_count)} jobs`} icon={TrendingUp} color='var(--success)' />
-            <KpiCard title="Collections" value={fmt(statsToday?.payments?.total_collected_today)} subtitle={`Cash ${fmt(statsToday?.payments?.cash_today)} · UPI ${fmt(statsToday?.payments?.upi_today)}`} icon={Wallet} color='var(--accent)' />
-            <KpiCard title="Expenses" value={fmt(statsToday?.expenses?.today)} subtitle={`Month: ${fmt(statsOverall?.expenses?.month)}`} icon={IndianRupee} color='var(--destructive)' />
-            <KpiCard title="Outstanding" value={fmt(statsOverall?.jobs?.total_balance)} subtitle="Pending receivables" icon={AlertTriangle} color='var(--warning)' />
+            <KpiCard title="Sales Today" value={fmt(stats?.jobs?.total_sales_today)} subtitle={`${fmtNum(stats?.jobs?.new_today)} jobs`} icon={TrendingUp} color='var(--success)' />
+            <KpiCard title="Collections" value={fmt(stats?.payments?.total_collected_today)} subtitle={`Cash ${fmt(stats?.payments?.cash_today)} · UPI ${fmt(stats?.payments?.upi_today)}`} icon={Wallet} color='var(--accent)' />
+            <KpiCard title="Expenses" value={fmt(stats?.expenses?.today)} subtitle={`Month: ${fmt(stats?.expenses?.month)}`} icon={IndianRupee} color='var(--destructive)' />
+            <KpiCard title="Outstanding" value={fmt(stats?.jobs?.total_balance)} subtitle="Pending receivables" icon={AlertTriangle} color='var(--warning)' />
           </div>
 
           {/* ROW 2: Secondary KPIs */}
           <div className="kpi-grid">
-            <KpiCard title="Orders Today" value={`${fmtNum(statsToday?.jobs?.new_today)} / ${fmtNum(statsToday?.jobs?.completed_today)}`} subtitle="New / Completed" icon={ClipboardList} />
-            <KpiCard title="In Progress" value={fmtNum(statsOverall?.jobs?.in_progress)} subtitle="Across all stages" icon={Activity} color='var(--accent)' />
-            <KpiCard title="Inventory Value" value={fmt(statsOverall?.inventory?.total_value)} subtitle={`${fmtNum(statsOverall?.inventory?.total_items)} items`} icon={Package} color='var(--accent)' />
-            <KpiCard title="Urgent / Overdue" value={`${fmtNum(statsToday?.jobs?.urgent_today)} / ${fmtNum(statsOverall?.jobs?.overdue)}`} subtitle="Needs attention" icon={ShieldAlert} color='var(--destructive)' />
+            <KpiCard title="Orders Today" value={`${fmtNum(stats?.jobs?.new_today)} / ${fmtNum(stats?.jobs?.completed_today)}`} subtitle="New / Completed" icon={ClipboardList} />
+            <KpiCard title="In Progress" value={fmtNum(stats?.jobs?.in_progress)} subtitle="Across all stages" icon={Activity} color='var(--accent)' />
+            <KpiCard title="Inventory Value" value={fmt(stats?.inventory?.total_value)} subtitle={`${fmtNum(stats?.inventory?.total_items)} items`} icon={Package} color='var(--accent)' />
+            <KpiCard title="Urgent / Overdue" value={`${fmtNum(stats?.jobs?.urgent_today)} / ${fmtNum(stats?.jobs?.overdue)}`} subtitle="Needs attention" icon={ShieldAlert} color='var(--destructive)' />
           </div>
 
           {/* Fraud Alert Banner */}
-          {statsToday?.monitoring_stats?.active_alerts > 0 && (
+          {stats?.monitoring_stats?.active_alerts > 0 && (
             <div className="alert-banner alert-banner--error">
               <ShieldAlert size={20} />
               <div className="alert-banner__content">
-                <strong>{statsToday.monitoring_stats.active_alerts} active fraud alerts</strong> — requires immediate attention
+                <strong>{stats.monitoring_stats.active_alerts} active fraud alerts</strong> — requires immediate attention
               </div>
               <button className="btn btn-sm btn-error" onClick={() => navigate('/dashboard/ai-monitoring')}>Review</button>
             </div>
@@ -304,16 +290,16 @@ const Summary = () => {
                 <h3>Sales Breakdown</h3>
                 <BarChart3 size={16} />
               </div>
-              {statsToday?.sales ? (
+              {stats?.sales ? (
                 <div className="data-list">
                   {[
-                    { label: 'Offset Printing', value: statsToday.sales.offset },
-                    { label: 'Digital Printing', value: statsToday.sales.digital },
-                    { label: 'Photocopy', value: statsToday.sales.photocopy },
-                    { label: 'Mementos', value: statsToday.sales.mementos },
-                    { label: 'Photo Frames', value: statsToday.sales.frames },
-                    { label: 'ID Cards', value: statsToday.sales.id_cards },
-                    { label: 'Binding & Lamination', value: statsToday.sales.binding },
+                    { label: 'Offset Printing', value: stats.sales.offset },
+                    { label: 'Digital Printing', value: stats.sales.digital },
+                    { label: 'Photocopy', value: stats.sales.photocopy },
+                    { label: 'Mementos', value: stats.sales.mementos },
+                    { label: 'Photo Frames', value: stats.sales.frames },
+                    { label: 'ID Cards', value: stats.sales.id_cards },
+                    { label: 'Binding & Lamination', value: stats.sales.binding },
                   ].map(item => (
                     <div key={item.label} className="data-list__row">
                       <span>{item.label}</span>
@@ -322,7 +308,7 @@ const Summary = () => {
                   ))}
                   <div className="data-list__total">
                     <span>Month Total</span>
-                    <span className="font-bold">{fmt(statsToday.sales.month_total)}</span>
+                    <span className="font-bold">{fmt(stats.sales.month_total)}</span>
                   </div>
                 </div>
               ) : (
@@ -335,9 +321,9 @@ const Summary = () => {
                 <h3>Work Status</h3>
                 <Activity size={16} />
               </div>
-              {statsOverall?.status_counts ? (
+              {stats?.status_counts ? (
                 <div className="status-list">
-                  {Object.entries(statsOverall.status_counts).filter(([s]) => s !== 'Cancelled').map(([status, count]) => (
+                  {Object.entries(stats.status_counts).filter(([s]) => s !== 'Cancelled').map(([status, count]) => (
                     <div key={status} className="status-list__item">
                       <span className="status-list__dot" style={{ backgroundColor: statusColor(status) }} />
                       <span>{status}</span>
@@ -358,9 +344,9 @@ const Summary = () => {
                 <h3>Recent Orders</h3>
                 <ClipboardList size={16} />
               </div>
-              {statsToday?.recent_jobs?.length > 0 ? (
+              {stats?.recent_jobs?.length > 0 ? (
                 <div className="recent-orders">
-                  {statsToday.recent_jobs.slice(0, 5).map(job => (
+                  {stats.recent_jobs.slice(0, 5).map(job => (
                     <div key={job.id} className="recent-orders__item">
                       <div className="recent-orders__info">
                         <span className="recent-orders__job">#{job.job_number}</span>

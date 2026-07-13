@@ -75,26 +75,28 @@ async function warmDatabasePool() {
     { name: 'product_hierarchy', sql: 'SELECT id FROM product_hierarchy LIMIT 1' },
   ];
 
-  const results = await Promise.allSettled(queries.map(async ({ name, sql }) => {
-    const stepStartedAt = process.hrtime.bigint();
-    const [rows] = await pool.query(sql);
-    const elapsedMs = Number(process.hrtime.bigint() - stepStartedAt) / 1e6;
-    return { name, rows: Array.isArray(rows) ? rows.length : 0, elapsedMs };
-  }));
+  // Use a single connection for all warm-up queries to pay the MySQL+SSL
+  // handshake cost once (~1.8s for cross-region Aiven), not per-query.
+  const connection = await pool.getConnection();
+  try {
+    const results = [];
+    for (const { name, sql } of queries) {
+      const stepStartedAt = process.hrtime.bigint();
+      const [rows] = await connection.query(sql);
+      const elapsedMs = Number(process.hrtime.bigint() - stepStartedAt) / 1e6;
+      results.push({ name, rows: Array.isArray(rows) ? rows.length : 0, elapsedMs });
+    }
 
-  const successful = results.filter(result => result.status === 'fulfilled').map(result => result.value);
-  const failed = results.filter(result => result.status === 'rejected').map(result => result.reason?.message || String(result.reason));
-  const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
+    const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
+    console.log(`[DB Warmup] Completed in ${elapsedMs.toFixed(1)}ms (${results.length}/${queries.length} queries ok)`);
+    results.forEach(step => {
+      console.log(`[DB Warmup] ${step.name} in ${step.elapsedMs.toFixed(1)}ms (${step.rows} rows)`);
+    });
 
-  console.log(`[DB Warmup] Completed in ${elapsedMs.toFixed(1)}ms (${successful.length}/${queries.length} queries ok)`);
-  successful.forEach(step => {
-    console.log(`[DB Warmup] ${step.name} in ${step.elapsedMs.toFixed(1)}ms (${step.rows} rows)`);
-  });
-  failed.forEach(message => {
-    console.warn(`[DB Warmup] Query skipped or failed: ${message}`);
-  });
-
-  return { elapsedMs, successful, failed };
+    return { elapsedMs, successful: results, failed: [] };
+  } finally {
+    connection.release();
+  }
 }
 
 const loadSchemaFiles = async (connection, appliedMigrations) => {
