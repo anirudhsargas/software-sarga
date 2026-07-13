@@ -9,6 +9,9 @@ const publicRoutes = ['/', '/services', '/products', '/design', '/track', '/cont
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  esbuild: {
+    drop: ['console', 'debugger'],
+  },
   plugins: [
     react(),
     boneyardPlugin(),
@@ -41,6 +44,11 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB limit for caching
         // Cache JS, CSS, HTML, images, fonts
         globPatterns: ['**/*.{js,css,html,png,webp,avif,svg,ico,woff2,json}'],
+        globIgnores: [
+          '**/pdf-vendor-*.js',
+          '**/charts-vendor-*.js',
+          '**/excel-vendor-*.js',
+        ],
         // Runtime caching for the API
         runtimeCaching: [
           {
@@ -102,15 +110,60 @@ export default defineConfig({
       output: {
         manualChunks: (id) => {
           if (id.includes('node_modules')) {
-            if (id.includes('recharts') || id.includes('d3')) {
-              return 'charts';
+            const parts = id.split('node_modules/');
+            const path = parts[parts.length - 1];
+            
+            // react-vendor
+            if (
+              path.startsWith('react/') ||
+              path.startsWith('react-dom/') ||
+              path.startsWith('react-router/') ||
+              path.startsWith('react-router-dom/') ||
+              path.startsWith('scheduler/') ||
+              path.startsWith('@remix-run/')
+            ) {
+              return 'react-vendor';
             }
-            if (id.includes('jspdf') || id.includes('html2canvas') || id.includes('jspdf-autotable')) {
-              return 'pdf';
+            
+            // pdf-vendor
+            if (
+              path.startsWith('jspdf/') ||
+              path.startsWith('jspdf-autotable/') ||
+              path.startsWith('html2canvas/') ||
+              path.startsWith('pdf-lib/')
+            ) {
+              return 'pdf-vendor';
             }
-            if (id.includes('excel') || id.includes('xlsx') || id.includes('boneyard-js')) {
-              return 'excel';
+            
+            // charts-vendor
+            if (
+              path.startsWith('recharts/') ||
+              path.startsWith('d3-') ||
+              path.startsWith('d3/')
+            ) {
+              return 'charts-vendor';
             }
+            
+            // ui-vendor
+            if (
+              path.startsWith('lucide-react/') ||
+              path.startsWith('@dnd-kit/') ||
+              path.startsWith('react-easy-crop/') ||
+              path.startsWith('react-hot-toast/') ||
+              path.startsWith('dompurify/')
+            ) {
+              return 'ui-vendor';
+            }
+            
+            // excel-vendor
+            if (
+              path.startsWith('excel/') ||
+              path.startsWith('xlsx/') ||
+              path.startsWith('boneyard-js/')
+            ) {
+              return 'excel-vendor';
+            }
+            
             return 'vendor';
           }
         },
@@ -120,20 +173,10 @@ export default defineConfig({
       },
     },
     cssCodeSplit: true,
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: true,
-        drop_debugger: true,
-        pure_funcs: ['console.log', 'console.info', 'console.debug'],
-      },
-      format: {
-        comments: false,
-      },
-    },
+    minify: true,
     sourcemap: false,
-    // Increase chunk size limit to avoid many small chunks
-    chunkSizeWarningLimit: 1000,
+    // Set chunk size warning limit to 500
+    chunkSizeWarningLimit: 500,
     // Emit module preload polyfill
     modulePreload: {
       polyfill: false,
