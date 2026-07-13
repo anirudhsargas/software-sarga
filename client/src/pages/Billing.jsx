@@ -280,12 +280,12 @@ const Billing = () => {
       if (cancelled) return;
       setBranches(b || []);
       setMachines(m || []);
-      setHierarchy(h || []);
+      setHierarchy(Array.isArray(h) ? h : []);
       setLoading(false);
     });
     api.get('/product-hierarchy').then(r => {
       if (cancelled || !r.data) return;
-      setHierarchy(r.data);
+      setHierarchy(Array.isArray(r.data) ? r.data : []);
     }).catch(() => {});
     api.get('/branches').then(r => {
       if (cancelled || !r.data) return;
@@ -530,7 +530,7 @@ const Billing = () => {
   // ── Product search & select ──
   const qrLookupMap = useMemo(() => {
     const map = new Map();
-    (hierarchy || []).forEach(cat => (cat.subcategories || []).forEach(sub => (sub.products || []).forEach(prod => {
+    (Array.isArray(hierarchy) ? hierarchy : []).forEach(cat => (cat.subcategories || []).forEach(sub => (sub.products || []).forEach(prod => {
       const code = normalizeCode(prod.name || prod.title || '');
       if (code) map.set(code, { product: prod, catId: cat.id, subId: sub.id });
     })));
@@ -539,7 +539,7 @@ const Billing = () => {
 
   const filteredCatalogProducts = useMemo(() => {
     const all = [];
-    (hierarchy || []).forEach(cat => {
+    (Array.isArray(hierarchy) ? hierarchy : []).forEach(cat => {
       if (selectedCategoryId && String(cat.id) !== String(selectedCategoryId)) return;
       (cat.subcategories || []).forEach(sub => {
         if (selectedSubcategoryId && String(sub.id) !== String(selectedSubcategoryId)) return;
@@ -560,7 +560,7 @@ const Billing = () => {
     const t = setTimeout(() => {
       const lower = q.toLowerCase();
       const results = [];
-      (hierarchy || []).forEach(cat => {
+      (Array.isArray(hierarchy) ? hierarchy : []).forEach(cat => {
         const catMatch = cat.name?.toLowerCase().includes(lower);
         (cat.subcategories || []).forEach(sub => {
           const subMatch = sub.name?.toLowerCase().includes(lower);
@@ -1318,12 +1318,12 @@ const Billing = () => {
           <div className="billing-category-row">
             <select value={selectedCategoryId} onChange={e => { setSelectedCategoryId(e.target.value); setSelectedSubcategoryId(''); }} className="billing-select">
               <option value="">All Categories</option>
-              {(hierarchy || []).map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+              {(Array.isArray(hierarchy) ? hierarchy : []).map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
             </select>
             {selectedCategoryId && (
               <select value={selectedSubcategoryId} onChange={e => setSelectedSubcategoryId(e.target.value)} className="billing-select">
                 <option value="">All Subcategories</option>
-                {(hierarchy.find(c => String(c.id) === String(selectedCategoryId))?.subcategories || []).map(sub => <option key={sub.id} value={sub.id}>{sub.name}</option>)}
+                {((Array.isArray(hierarchy) ? hierarchy : []).find(c => String(c.id) === String(selectedCategoryId))?.subcategories || []).map(sub => <option key={sub.id} value={sub.id}>{sub.name}</option>)}
               </select>
             )}
           </div>

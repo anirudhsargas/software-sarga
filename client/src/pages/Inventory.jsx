@@ -317,7 +317,7 @@ const Inventory = () => {
                 localDb.getProducts()
             ]);
             setAllProducts(products || []);
-            setHierarchy(hierarchyData || []);
+            setHierarchy(Array.isArray(hierarchyData) ? hierarchyData : []);
         } catch (err) {
             console.error("Fetch hierarchy error:", err);
         }
@@ -1135,9 +1135,9 @@ const Inventory = () => {
                                 onChange={(e) => { setFilterCategory(e.target.value); setPage(1); }}
                             >
                                 <option value="">All Categories</option>
-                                {hierarchy.map(cat => (
+                                {(Array.isArray(hierarchy) ? hierarchy : []).map(cat => (
                                     <optgroup key={cat.id} label={cat.name}>
-                                        {cat.subcategories.map(sub => (
+                                        {(cat.subcategories || []).map(sub => (
                                             <option key={sub.id} value={sub.name}>{sub.name}</option>
                                         ))}
                                     </optgroup>
@@ -1837,9 +1837,9 @@ const Inventory = () => {
                                                                 style={{ marginTop: 'var(--space-6)' }}
                                                             >
                                                                 <option value="">Select Category</option>
-                                                                {hierarchy.map(cat => (
+                                                                {(Array.isArray(hierarchy) ? hierarchy : []).map(cat => (
                                                                     <optgroup key={cat.id} label={cat.name}>
-                                                                        {cat.subcategories.map(sub => (
+                                                                        {(cat.subcategories || []).map(sub => (
                                                                             <option key={sub.id} value={sub.name}>{sub.name}</option>
                                                                         ))}
                                                                     </optgroup>
@@ -2315,9 +2315,9 @@ const Inventory = () => {
                                                     onChange={(e) => setSelectedItem({ ...selectedItem, category: e.target.value })}
                                                 >
                                                     <option value="">Select Category</option>
-                                                    {hierarchy.map(cat => (
+                                                    {(Array.isArray(hierarchy) ? hierarchy : []).map(cat => (
                                                         <optgroup key={cat.id} label={cat.name}>
-                                                            {cat.subcategories.map(sub => (
+                                                            {(cat.subcategories || []).map(sub => (
                                                                 <option key={sub.id} value={sub.name}>{sub.name}</option>
                                                             ))}
                                                         </optgroup>

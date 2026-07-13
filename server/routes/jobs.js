@@ -875,108 +875,114 @@ router.post('/jobs', authenticateToken, validate(addJobSchema), async (req, res)
     }
 });
 
+// Helper to construct product hierarchy tree
+const buildProductHierarchy = async (includeInactive = false, userId = null) => {
+    const [usageMap, { categories, subcategories, products, inventory }] = await Promise.all([
+        getUsageMap(userId),
+        getHierarchyData(includeInactive)
+    ]);
+
+    const categorySorter = sortByUsageThenPosition(usageMap, 'category');
+    const subcategorySorter = sortByUsageThenPosition(usageMap, 'subcategory');
+    const productSorter = sortByUsageThenPosition(usageMap, 'product');
+
+    const sortedCategories = [...categories].sort(categorySorter);
+
+    const hierarchy = sortedCategories.map(cat => ({
+        ...cat,
+        subcategories: subcategories
+            .filter(sub => sub.category_id === cat.id)
+            .sort(subcategorySorter)
+            .map(sub => ({
+                ...sub,
+                products: products
+                    .filter(p => p.subcategory_id === sub.id)
+                    .sort(productSorter)
+            }))
+    }));
+
+    // Add unlinked inventory items into matching categories where possible,
+    // and keep a fallback virtual category for truly unmatched names.
+    // Exclude items that are linked to a DISABLED product — they have has_disabled_product=true
+    // and should not fall through as "unlinked" raw inventory in billing.
+    const unlinkedItems = inventory.filter(i => !i.linked_product_id && !i.has_disabled_product);
+    if (unlinkedItems.length > 0) {
+        const inventoryGroups = {};
+        unlinkedItems.forEach(item => {
+            const catName = item.category || 'Uncategorized';
+            if (!inventoryGroups[catName]) inventoryGroups[catName] = [];
+            inventoryGroups[catName].push({
+                id: `inv-${item.id}`, // Virtual ID to avoid collisions
+                inventory_id: item.id,
+                name: item.name,
+                sku: item.sku,
+                product_code: item.sku, // Use SKU as product code for QR lookup
+                sell_price: item.sell_price,
+                calculation_type: 'Normal',
+                is_inventory_only: true
+            });
+        });
+
+        const normalizeName = (value) => String(value || '').trim().toLowerCase();
+        const fallbackSubcats = [];
+
+        Object.entries(inventoryGroups).forEach(([inventoryCategoryName, items], idx) => {
+            const normalizedInventoryCategory = normalizeName(inventoryCategoryName);
+            const matchedCategory = hierarchy.find((cat) => {
+                const normalizedCategory = normalizeName(cat.name);
+                if (normalizedCategory === normalizedInventoryCategory) return true;
+                return normalizedInventoryCategory.includes(normalizedCategory) || normalizedCategory.includes(normalizedInventoryCategory);
+            });
+
+            if (matchedCategory) {
+                const inventorySubcategoryName = 'Inventory Items';
+                const existingInventorySubcategory = (matchedCategory.subcategories || []).find(
+                    (sub) => normalizeName(sub.name) === normalizeName(inventorySubcategoryName)
+                );
+
+                if (existingInventorySubcategory) {
+                    existingInventorySubcategory.products = [
+                        ...(existingInventorySubcategory.products || []),
+                        ...items
+                    ];
+                } else {
+                    matchedCategory.subcategories = [
+                        ...(matchedCategory.subcategories || []),
+                        {
+                            id: `inv-sub-${matchedCategory.id}`,
+                            name: inventorySubcategoryName,
+                            products: items
+                        }
+                    ];
+                }
+                return;
+            }
+
+            fallbackSubcats.push({
+                id: `inv-sub-${idx}`,
+                name: inventoryCategoryName,
+                products: items
+            });
+        });
+
+        if (fallbackSubcats.length > 0) {
+            hierarchy.push({
+                id: 'inv-root',
+                name: 'Raw Inventory',
+                position: 999,
+                subcategories: fallbackSubcats
+            });
+        }
+    }
+
+    return hierarchy;
+};
+
 // Fetch Hierarchy Tree
 router.get('/product-hierarchy', authenticateToken, routeCache(3600, (req) => `sarga:product-hierarchy:${req.query.include_inactive === 'true'}`), async (req, res) => {
     try {
         const includeInactive = req.query.include_inactive === 'true';
-        const [usageMap, { categories, subcategories, products, inventory }] = await Promise.all([
-            getUsageMap(req.user.id),
-            getHierarchyData(includeInactive)
-        ]);
-
-        const categorySorter = sortByUsageThenPosition(usageMap, 'category');
-        const subcategorySorter = sortByUsageThenPosition(usageMap, 'subcategory');
-        const productSorter = sortByUsageThenPosition(usageMap, 'product');
-
-        const sortedCategories = [...categories].sort(categorySorter);
-
-        const hierarchy = sortedCategories.map(cat => ({
-            ...cat,
-            subcategories: subcategories
-                .filter(sub => sub.category_id === cat.id)
-                .sort(subcategorySorter)
-                .map(sub => ({
-                    ...sub,
-                    products: products
-                        .filter(p => p.subcategory_id === sub.id)
-                        .sort(productSorter)
-                }))
-        }));
-
-        // Add unlinked inventory items into matching categories where possible,
-        // and keep a fallback virtual category for truly unmatched names.
-        // Exclude items that are linked to a DISABLED product — they have has_disabled_product=true
-        // and should not fall through as "unlinked" raw inventory in billing.
-        const unlinkedItems = inventory.filter(i => !i.linked_product_id && !i.has_disabled_product);
-        if (unlinkedItems.length > 0) {
-            const inventoryGroups = {};
-            unlinkedItems.forEach(item => {
-                const catName = item.category || 'Uncategorized';
-                if (!inventoryGroups[catName]) inventoryGroups[catName] = [];
-                inventoryGroups[catName].push({
-                    id: `inv-${item.id}`, // Virtual ID to avoid collisions
-                    inventory_id: item.id,
-                    name: item.name,
-                    sku: item.sku,
-                    product_code: item.sku, // Use SKU as product code for QR lookup
-                    sell_price: item.sell_price,
-                    calculation_type: 'Normal',
-                    is_inventory_only: true
-                });
-            });
-
-            const normalizeName = (value) => String(value || '').trim().toLowerCase();
-            const fallbackSubcats = [];
-
-            Object.entries(inventoryGroups).forEach(([inventoryCategoryName, items], idx) => {
-                const normalizedInventoryCategory = normalizeName(inventoryCategoryName);
-                const matchedCategory = hierarchy.find((cat) => {
-                    const normalizedCategory = normalizeName(cat.name);
-                    if (normalizedCategory === normalizedInventoryCategory) return true;
-                    return normalizedInventoryCategory.includes(normalizedCategory) || normalizedCategory.includes(normalizedInventoryCategory);
-                });
-
-                if (matchedCategory) {
-                    const inventorySubcategoryName = 'Inventory Items';
-                    const existingInventorySubcategory = (matchedCategory.subcategories || []).find(
-                        (sub) => normalizeName(sub.name) === normalizeName(inventorySubcategoryName)
-                    );
-
-                    if (existingInventorySubcategory) {
-                        existingInventorySubcategory.products = [
-                            ...(existingInventorySubcategory.products || []),
-                            ...items
-                        ];
-                    } else {
-                        matchedCategory.subcategories = [
-                            ...(matchedCategory.subcategories || []),
-                            {
-                                id: `inv-sub-${matchedCategory.id}`,
-                                name: inventorySubcategoryName,
-                                products: items
-                            }
-                        ];
-                    }
-                    return;
-                }
-
-                fallbackSubcats.push({
-                    id: `inv-sub-${idx}`,
-                    name: inventoryCategoryName,
-                    products: items
-                });
-            });
-
-            if (fallbackSubcats.length > 0) {
-                hierarchy.push({
-                    id: 'inv-root',
-                    name: 'Raw Inventory',
-                    position: 999,
-                    subcategories: fallbackSubcats
-                });
-            }
-        }
-
+        const hierarchy = await buildProductHierarchy(includeInactive, req.user.id);
         res.json(hierarchy);
     } catch (error) {
         console.error('[product-hierarchy] GET error:', error.message);
@@ -2760,5 +2766,5 @@ router.delete('/jobs/:id/matter/:matterId', authenticateToken, async (req, res) 
 });
 
 
-module.exports = { router, syncJobToMachineWorkEntry, invalidateHierarchyCache, getHierarchyData };
+module.exports = { router, syncJobToMachineWorkEntry, invalidateHierarchyCache, getHierarchyData, buildProductHierarchy };
 

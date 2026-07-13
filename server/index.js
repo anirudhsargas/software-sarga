@@ -648,9 +648,9 @@ if (process.env.NODE_ENV !== 'test') {
                     try {
                         const warmStart = process.hrtime.bigint();
                         bootLog('[PostListen] Pre-warming product-hierarchy cache');
-                        const { getHierarchyData } = require('./routes/jobs');
+                        const { buildProductHierarchy } = require('./routes/jobs');
                         const { setCache } = require('./services/cacheService');
-                        const data = await getHierarchyData(false);
+                        const data = await buildProductHierarchy(false, null);
                         await setCache('sarga:product-hierarchy:false', data, 3600);
                         bootLog(`[PostListen] Product-hierarchy cache warmed in ${(Number(process.hrtime.bigint() - warmStart) / 1e6).toFixed(1)}ms`);
                     } catch (err) {
