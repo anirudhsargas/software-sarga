@@ -1,6 +1,3 @@
-const Tesseract = require('tesseract.js');
-const { fromPath } = require('pdf2pic');
-const sharp = require('sharp');
 const fs = require('fs-extra');
 const path = require('path');
 
@@ -31,6 +28,8 @@ const CONSUMER_NO_PATTERNS = [
 ];
 
 async function extractTextFromImage(imagePath) {
+  const Tesseract = require('tesseract.js');
+  const sharp = require('sharp');
   // Pre-process with sharp: grayscale + increase contrast for better OCR
   const processedPath = imagePath + '_processed.png';
   await sharp(imagePath)
@@ -49,6 +48,7 @@ async function extractTextFromImage(imagePath) {
 }
 
 async function extractTextFromPDF(pdfPath) {
+  const { fromPath } = require('pdf2pic');
   const outputDir = path.dirname(pdfPath);
   const baseName = path.basename(pdfPath, '.pdf');
 

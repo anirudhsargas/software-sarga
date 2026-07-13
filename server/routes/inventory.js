@@ -42,14 +42,14 @@ async function findInventoryByScannedCode(rawCode) {
 
     if (itemIdMatch) {
         [rows] = await pool.query(
-            'SELECT i.*, p.image_url FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id WHERE i.id = ? LIMIT 1',
+            'SELECT i.*, p.image_url FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id AND p.is_active = 1 AND p.is_deleted = 0 WHERE i.id = ? LIMIT 1',
             [itemIdMatch[1]]
         );
         return { normalized, item: rows[0] || null, matchType: rows[0] ? 'fallback-id' : null };
     }
 
     [rows] = await pool.query(
-        "SELECT i.*, p.image_url FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id WHERE REPLACE(UPPER(i.sku), ' ', '') = ? LIMIT 1",
+        "SELECT i.*, p.image_url FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id AND p.is_active = 1 AND p.is_deleted = 0 WHERE REPLACE(UPPER(i.sku), ' ', '') = ? LIMIT 1",
         [normalized]
     );
     return { normalized, item: rows[0] || null, matchType: rows[0] ? 'sku' : null };
@@ -194,14 +194,14 @@ router.get('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant'
 
         const countQuery = `SELECT COUNT(DISTINCT i.id) as total 
                          FROM sarga_inventory i 
-                         LEFT JOIN sarga_products p ON i.id = p.inventory_item_id
+                         LEFT JOIN sarga_products p ON i.id = p.inventory_item_id AND p.is_active = 1 AND p.is_deleted = 0
                          LEFT JOIN sarga_product_subcategories ps ON p.subcategory_id = ps.id
                          ${joinSection}
                          ${whereSection}`;
         
         const dataQuery = `SELECT i.*, ANY_VALUE(p.id) as linked_product_id, ANY_VALUE(p.image_url) as product_image_url, ANY_VALUE(ps.name) as product_subcategory_name, ANY_VALUE(pc.name) as product_category_name, ANY_VALUE(spi.image_url) as cached_image_url, ANY_VALUE(spi.source) as image_source, ANY_VALUE(spi.confidence) as image_confidence, ANY_VALUE(spi.is_locked) as image_locked ${selectExtra}
                         FROM sarga_inventory i 
-                        LEFT JOIN sarga_products p ON i.id = p.inventory_item_id
+                        LEFT JOIN sarga_products p ON i.id = p.inventory_item_id AND p.is_active = 1 AND p.is_deleted = 0
                         LEFT JOIN sarga_product_subcategories ps ON p.subcategory_id = ps.id
                         LEFT JOIN sarga_product_categories pc ON ps.category_id = pc.id
                         LEFT JOIN sarga_product_images spi ON i.id = spi.inventory_item_id
@@ -330,7 +330,7 @@ router.get('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Account
                     pc.name as product_category_name, pc.id as category_id,
                     spi.image_url as cached_image_url, spi.source as image_source, spi.confidence as image_confidence, spi.is_locked as image_locked
              FROM sarga_inventory i 
-             LEFT JOIN sarga_products p ON i.id = p.inventory_item_id
+             LEFT JOIN sarga_products p ON i.id = p.inventory_item_id AND p.is_active = 1 AND p.is_deleted = 0
              LEFT JOIN sarga_product_subcategories ps ON p.subcategory_id = ps.id
              LEFT JOIN sarga_product_categories pc ON ps.category_id = pc.id
              LEFT JOIN sarga_product_images spi ON i.id = spi.inventory_item_id
@@ -1633,7 +1633,7 @@ router.post('/inventory/:id/regenerate-image', authenticateToken, authorizeRoles
         const [rows] = await pool.query(
             `SELECT i.*, ps.name as product_subcategory_name 
              FROM sarga_inventory i 
-             LEFT JOIN sarga_products p ON i.id = p.inventory_item_id
+             LEFT JOIN sarga_products p ON i.id = p.inventory_item_id AND p.is_active = 1 AND p.is_deleted = 0
              LEFT JOIN sarga_product_subcategories ps ON p.subcategory_id = ps.id
              WHERE i.id = ? LIMIT 1`, [id]
         );
@@ -1670,7 +1670,7 @@ router.post('/inventory/bulk-generate-images', authenticateToken, authorizeRoles
             `SELECT i.id, i.name, i.category, ps.name as product_subcategory_name 
              FROM sarga_inventory i
              LEFT JOIN sarga_product_images spi ON i.id = spi.inventory_item_id
-             LEFT JOIN sarga_products p ON i.id = p.inventory_item_id
+             LEFT JOIN sarga_products p ON i.id = p.inventory_item_id AND p.is_active = 1 AND p.is_deleted = 0
              LEFT JOIN sarga_product_subcategories ps ON p.subcategory_id = ps.id
              WHERE spi.id IS NULL OR spi.source = 'Default'`
         );

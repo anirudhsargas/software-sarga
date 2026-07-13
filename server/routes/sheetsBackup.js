@@ -1,14 +1,18 @@
 const express = require('express');
 const router = express.Router();
-const { runBackup } = require('../services/googleSheetsService');
 const cron = require('node-cron');
 const { pool: db } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 
+async function runBackup(triggeredBy) {
+  const { runBackup: runBackupImpl } = require('../services/googleSheetsService');
+  return runBackupImpl(db, triggeredBy);
+}
+
 // POST /api/backup/run — manual trigger (Admin only)
 router.post('/run', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
   try {
-    const result = await runBackup(db, 'manual');
+    const result = await runBackup('manual');
     res.json({ success: true, ...result });
   } catch (err) {
     console.error('[backup] Manual run failed:', err);
@@ -19,7 +23,7 @@ router.post('/run', authenticateToken, authorizeRoles('Admin'), async (req, res)
 // POST /api/backup/full — full snapshot rebuild manual trigger (Admin only)
 router.post('/full', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
   try {
-    const result = await runBackup(db, 'manual');
+    const result = await runBackup('manual');
     res.json({ success: true, ...result });
   } catch (err) {
     console.error('[backup] Full rebuild failed:', err);
@@ -83,7 +87,7 @@ router.get('/status', authenticateToken, authorizeRoles('Admin'), async (req, re
 // GET /api/backup/daily — cron-job.org or internal cron hits this
 router.get('/daily', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
   try {
-    const result = await runBackup(db, 'cron');
+    const result = await runBackup('cron');
     res.json({ success: true, ...result });
   } catch (err) {
     console.error('[backup] Daily cron run failed:', err);
@@ -226,7 +230,7 @@ router.post('/restore/rollback', authenticateToken, authorizeRoles('Admin'), asy
 cron.schedule('30 18 * * *', async () => {
   console.log('[backup] Starting scheduled daily backup...');
   try {
-    const result = await runBackup(db, 'cron');
+    const result = await runBackup('cron');
     console.log('[backup] Scheduled backup completed:', result);
   } catch (err) {
     console.error('[backup] Scheduled backup failed:', err);

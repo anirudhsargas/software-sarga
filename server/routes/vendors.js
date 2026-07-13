@@ -42,9 +42,24 @@ const multer = require('multer');
 const csv = require('csv-parse');
 const fs = require('fs');
 const path = require('path');
-const pdfParse = require('pdf-parse');
-const PDFDocument = require('pdfkit');
 const logger = require('../helpers/logger');
+
+let pdfParseModule = null;
+let pdfKitModule = null;
+
+function getPdfParse() {
+  if (!pdfParseModule) {
+    pdfParseModule = require('pdf-parse');
+  }
+  return pdfParseModule;
+}
+
+function getPdfDocument() {
+  if (!pdfKitModule) {
+    pdfKitModule = require('pdfkit');
+  }
+  return pdfKitModule;
+}
 
 // Log the loaded filename for diagnostics
 logger.info(`Loaded vendors route: ${__filename}`);
@@ -1187,7 +1202,7 @@ router.post('/vendors/:id/upload-statement', authenticateToken, authorizeRoles('
     } else if (req.file.mimetype === 'application/pdf') {
       // Extract text from PDF
       const pdfData = fs.readFileSync(req.file.path);
-      const pdfText = await pdfParse(pdfData);
+      const pdfText = await getPdfParse()(pdfData);
 
       // Store raw text
       await pool.query('UPDATE vendor_statements SET raw_text = ? WHERE id = ?', [pdfText.text, statementId]);
@@ -1921,6 +1936,7 @@ router.get('/vendors/:id/ledger/pdf', authenticateToken, async (req, res) => {
     const GRAY_ROW = '#f7f7f7';
     const BORDER  = '#d1d5db';
 
+    const PDFDocument = getPdfDocument();
     const doc = new PDFDocument({ size: 'A4', margin: MARGIN, bufferPages: true });
     res.setHeader('Content-Type', 'application/pdf');
     const safeName = (vendor.name || String(id)).replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_.-]/g, '');

@@ -1,4 +1,8 @@
-console.log(`[BOOT] Server process starting at ${new Date().toISOString()}`);
+const bootStartedAt = process.hrtime.bigint();
+const bootElapsedMs = () => Number(process.hrtime.bigint() - bootStartedAt) / 1e6;
+const bootLog = (message) => console.log(`[BOOT +${bootElapsedMs().toFixed(1)}ms] ${message}`);
+
+bootLog(`Server process starting at ${new Date().toISOString()}`);
 global.migrationsComplete = process.env.NODE_ENV === 'test';
 
 // Polyfill browser APIs required by pdf-parse in Node.js environment
@@ -6,7 +10,12 @@ if (typeof globalThis.DOMMatrix === 'undefined') globalThis.DOMMatrix = class DO
 if (typeof globalThis.ImageData === 'undefined') globalThis.ImageData = class ImageData { constructor(w, h) { this.width = w; this.height = h; } };
 if (typeof globalThis.Path2D === 'undefined') globalThis.Path2D = class Path2D { constructor() {} };
 
-require('dotenv').config({ path: require('path').join(__dirname, '.env') });
+{
+    const phaseStartedAt = process.hrtime.bigint();
+    bootLog('dotenv load started');
+    require('dotenv').config({ path: require('path').join(__dirname, '.env') });
+    bootLog(`dotenv load completed in ${ (Number(process.hrtime.bigint() - phaseStartedAt) / 1e6).toFixed(1)}ms`);
+}
 
 
 
@@ -19,7 +28,16 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const rateLimit = require('express-rate-limit');
-const { initDb, pool } = require('./database');
+let initDb;
+let pool;
+{
+    const phaseStartedAt = process.hrtime.bigint();
+    bootLog('database module load started');
+    const database = require('./database');
+    initDb = database.initDb;
+    pool = database.pool;
+    bootLog(`database module load completed in ${(Number(process.hrtime.bigint() - phaseStartedAt) / 1e6).toFixed(1)}ms`);
+}
 const { getTodayDate } = require('./helpers');
 const logger = require('./helpers/logger');
 const verifyWithAnySecret = require('./middleware/auth').verifyWithAnySecret;
@@ -367,6 +385,8 @@ module.exports.cacheMiddleware = cacheMiddleware;
 module.exports.invalidateCache = invalidateCache;
 
 // --------------- Route Modules ---------------
+const routeRegistrationStartedAt = process.hrtime.bigint();
+bootLog('route registration started');
 
 // Root health/info route — prevents NOT_FOUND spam from Render uptime checks or browser probes
 app.get('/', (req, res) => {
@@ -569,13 +589,18 @@ const notFound = require('./middleware/notFound');
 const errorHandler = require('./middleware/errorHandler');
 app.use(notFound);
 app.use(errorHandler);
+bootLog(`route registration completed in ${(Number(process.hrtime.bigint() - routeRegistrationStartedAt) / 1e6).toFixed(1)}ms`);
 
 // --------------- Start Server ---------------
 if (process.env.NODE_ENV !== 'test') {
     const server = http.createServer(app);
+    const socketInitStartedAt = process.hrtime.bigint();
+    bootLog('Socket.io init started');
     initSocket(server, app);
+    bootLog(`Socket.io init completed in ${(Number(process.hrtime.bigint() - socketInitStartedAt) / 1e6).toFixed(1)}ms`);
+    bootLog(`app.listen starting on port ${PORT}`);
     server.listen(PORT, '0.0.0.0', () => {
-        console.log('[BOOT] Port bound, server accepting requests');
+        bootLog('Port bound, server accepting requests');
         const mode = process.env.NODE_ENV || 'development';
         const dbHost = (process.env.DB_HOST || 'localhost').replace(/^(.{0,20}).*$/, '$1…');
         logger.info(`Server running on port ${PORT} (${mode}, DB: ${dbHost})`);
@@ -613,10 +638,10 @@ if (process.env.NODE_ENV !== 'test') {
         }
 
         // Start background migration check
-        console.log('[Migration] Starting background migration check...');
+        bootLog('background migration check starting');
         initDb().then(async () => {
             global.migrationsComplete = true;
-            console.log('[Migration] Background migrations completed');
+            bootLog('background migrations completed');
             logger.info('[DB] Database initialized successfully');
 
             // Startup verification check for product_hierarchy table
@@ -659,8 +684,11 @@ if (process.env.NODE_ENV !== 'test') {
 
             // Initialize Scheduler (consolidated cron management)
             try {
+                const schedulerStartedAt = process.hrtime.bigint();
+                bootLog('scheduler initialization started');
                 const { initializeScheduler } = require('./services/scheduler');
                 initializeScheduler();
+                bootLog(`scheduler initialization completed in ${(Number(process.hrtime.bigint() - schedulerStartedAt) / 1e6).toFixed(1)}ms`);
             } catch (e) {
                 logger.warn('[Warning] Scheduler not loaded:', e.message);
             }

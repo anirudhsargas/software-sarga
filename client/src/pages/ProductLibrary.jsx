@@ -222,7 +222,7 @@ const ProductLibrary = () => {
             if (forceRefresh) {
                 await api.post('/product-hierarchy/refresh').catch(() => {});
             }
-            const res = await api.get('/product-hierarchy');
+            const res = await api.get('/product-hierarchy?include_inactive=true');
             if (Array.isArray(res.data) && res.data.length > 0) {
                 setHierarchy(res.data);
                 setLoading(false);

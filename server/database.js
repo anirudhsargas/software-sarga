@@ -3,6 +3,67 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
+const CURRENT_SCHEMA_VERSION = '037_add_utility_connection_fields.js';
+const BOOTSTRAP_SCHEMA_NAME = 'server_bootstrap';
+
+let poolInstance = null;
+let poolInitPromise = null;
+
+function createPoolInstance() {
+  if (poolInstance) return Promise.resolve(poolInstance);
+
+  if (!poolInitPromise) {
+    poolInitPromise = (async () => {
+      const poolConfig = {
+        host: process.env.DB_HOST || 'localhost',
+        port: process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306,
+        user: process.env.DB_USER,
+        password: process.env.DB_PASSWORD,
+        database: process.env.DB_NAME,
+        waitForConnections: true,
+        connectionLimit: 10,
+        queueLimit: 0,
+        enableKeepAlive: true,
+        keepAliveInitialDelay: 0,
+        connectTimeout: 10000,
+      };
+
+      if (process.env.DB_SSL === 'true' || process.env.DB_SSL_MODE === 'REQUIRED' || process.env.PGSSLMODE === 'require') {
+        const caPath = path.join(__dirname, 'aiven-ca.pem');
+        if (!fs.existsSync(caPath)) {
+          throw new Error(
+            'SSL is required (DB_SSL=true or DB_SSL_MODE=REQUIRED) but aiven-ca.pem is missing. ' +
+            'Please place the CA certificate at ' + caPath
+          );
+        }
+        poolConfig.ssl = { ca: fs.readFileSync(caPath), rejectUnauthorized: true };
+      }
+
+      poolInstance = mysql.createPool(poolConfig);
+      return poolInstance;
+    })();
+  }
+
+  return poolInitPromise;
+}
+
+const pool = new Proxy({}, {
+  get(_target, prop) {
+    if (prop === 'then') return undefined;
+    if (prop === Symbol.toStringTag) return 'MySQLPoolProxy';
+    return (...args) => createPoolInstance().then((instance) => {
+      const value = instance[prop];
+      if (typeof value === 'function') {
+        return value.apply(instance, args);
+      }
+      if (args.length > 0) {
+        throw new TypeError(`Property ${String(prop)} is not callable on the MySQL pool proxy`);
+      }
+      return value;
+    });
+  }
+});
+
 const loadSchemaFiles = async (connection, appliedMigrations) => {
   const schemaDir = path.join(__dirname, 'schemas');
   if (!fs.existsSync(schemaDir)) return;
@@ -129,38 +190,31 @@ const loadSchemaFiles = async (connection, appliedMigrations) => {
   }
 };
 
-const pool = mysql.createPool({
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-  enableKeepAlive: true,
-  keepAliveInitialDelay: 0,
-  acquireTimeout: 60000,
-  connectTimeout: 10000,
-  queryTimeout: 30000,
-  ...((process.env.DB_SSL === 'true' || process.env.DB_SSL_MODE === 'REQUIRED' || process.env.PGSSLMODE === 'require') && {
-    ssl: (() => {
-      const caPath = path.join(__dirname, 'aiven-ca.pem');
-      if (!fs.existsSync(caPath)) {
-        throw new Error(
-          'SSL is required (DB_SSL=true or DB_SSL_MODE=REQUIRED) but aiven-ca.pem is missing. ' +
-          'Please place the CA certificate at ' + caPath
-        );
-      }
-      return { ca: fs.readFileSync(caPath), rejectUnauthorized: true };
-    })(),
-  }),
-});
-
 const initDb = async () => {
+  const startedAt = process.hrtime.bigint();
+  console.log('[Migration] initDb started');
   const connection = await pool.getConnection();
   try {
-    // Ensure the tracking table exists
+    let bootstrapMarker = null;
+    try {
+      const [versionRows] = await connection.query(
+        'SELECT hash FROM schema_version WHERE name = ? AND status = ? LIMIT 1',
+        [BOOTSTRAP_SCHEMA_NAME, 'applied']
+      );
+      bootstrapMarker = versionRows[0]?.hash || null;
+    } catch (lookupErr) {
+      console.log(`[Migration] Bootstrap marker lookup skipped: ${lookupErr.message}`);
+    }
+
+    if (bootstrapMarker === CURRENT_SCHEMA_VERSION) {
+      const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
+      console.log(`[Migration] Fast path hit (${BOOTSTRAP_SCHEMA_NAME}:${CURRENT_SCHEMA_VERSION}); skipping full migration scan in ${elapsedMs.toFixed(1)}ms`);
+      return;
+    }
+
+    console.log(`[Migration] Bootstrap marker ${bootstrapMarker || 'missing'} -> ${CURRENT_SCHEMA_VERSION}; running migration scan`);
+
+    // Ensure the tracking table exists only when a full scan is actually needed.
     await connection.query(`
       CREATE TABLE IF NOT EXISTS schema_migrations (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -173,7 +227,7 @@ const initDb = async () => {
     const [rows] = await connection.query('SELECT migration_name FROM schema_migrations');
     const appliedMigrations = new Set(rows.map(r => r.migration_name));
 
-    console.log(`[Migration] ${appliedMigrations.size} migrations already applied, skipping DB checks`);
+    console.log(`[Migration] ${appliedMigrations.size} migrations already applied, checking pending work`);
     console.log('Starting database schema migration...');
     
     await loadSchemaFiles(connection, appliedMigrations);
@@ -241,7 +295,13 @@ const initDb = async () => {
       appliedMigrations.add(migrateUtilityConnectionFieldsName);
     }
 
-    console.log('Database schema migration completed successfully');
+    await connection.query(
+      'INSERT INTO schema_version (name, hash, applied_at, duration_ms, status) VALUES (?, ?, NOW(), ?, ?) ON DUPLICATE KEY UPDATE hash = VALUES(hash), applied_at = VALUES(applied_at), duration_ms = VALUES(duration_ms), status = VALUES(status)',
+      [BOOTSTRAP_SCHEMA_NAME, CURRENT_SCHEMA_VERSION, Math.round(Number(process.hrtime.bigint() - startedAt) / 1e6), 'applied']
+    );
+
+    const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
+    console.log(`Database schema migration completed successfully in ${elapsedMs.toFixed(1)}ms`);
   } catch (err) {
     console.error('Database initialization error:', err);
     throw err;
@@ -250,4 +310,4 @@ const initDb = async () => {
   }
 };
 
-module.exports = { pool, initDb };
+module.exports = { pool, initDb, createPoolInstance, CURRENT_SCHEMA_VERSION };

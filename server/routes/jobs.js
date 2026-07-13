@@ -47,23 +47,46 @@ const PAYMENT_SUMMARY_COLUMNS = 'id, customer_id, customer_name, customer_mobile
 
 // --- PRODUCT HIERARCHY DATA ---
 
-const getHierarchyData = async () => {
+const getHierarchyData = async (includeInactive = false) => {
     // Acquire a single connection to prevent packets out of order / connection contention
     const connection = await pool.getConnection();
     try {
-        const categories = await connection.query(`SELECT ${CATEGORY_COLUMNS} FROM sarga_product_categories`).then(r => r[0]);
-        const subcategories = await connection.query(`SELECT ${SUBCATEGORY_COLUMNS} FROM sarga_product_subcategories`).then(r => r[0]);
+        const categoryQuery = includeInactive
+            ? `SELECT ${CATEGORY_COLUMNS} FROM sarga_product_categories`
+            : `SELECT ${CATEGORY_COLUMNS} FROM sarga_product_categories WHERE is_active = 1`;
+        const subcategoryQuery = includeInactive
+            ? `SELECT ${SUBCATEGORY_COLUMNS} FROM sarga_product_subcategories`
+            : `SELECT ${SUBCATEGORY_COLUMNS} FROM sarga_product_subcategories WHERE is_active = 1`;
+
+        const categories = await connection.query(categoryQuery).then(r => r[0]);
+        const subcategories = await connection.query(subcategoryQuery).then(r => r[0]);
 
         // Use is_deleted filter if column exists (migration may not have run yet)
         let products, inventory;
         const prefixedProductColumns = PRODUCT_COLUMNS.split(', ').map(col => `p.${col}`).join(', ');
         try {
-            products = await connection.query(`SELECT ${prefixedProductColumns} FROM sarga_products p LEFT JOIN sarga_inventory i ON p.inventory_item_id = i.id WHERE p.is_deleted = 0 AND (p.inventory_item_id IS NULL OR i.is_deleted = 0)`).then(r => r[0]);
-            inventory = await connection.query("SELECT i.id, i.name, i.sku, i.sell_price, i.category, p.id as linked_product_id FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id WHERE i.is_deleted = 0").then(r => r[0]);
+            const productsQuery = includeInactive
+                ? `SELECT ${prefixedProductColumns} FROM sarga_products p LEFT JOIN sarga_inventory i ON p.inventory_item_id = i.id WHERE p.is_deleted = 0 AND (p.inventory_item_id IS NULL OR i.is_deleted = 0)`
+                : `SELECT ${prefixedProductColumns} FROM sarga_products p LEFT JOIN sarga_inventory i ON p.inventory_item_id = i.id WHERE p.is_active = 1 AND p.is_deleted = 0 AND (p.inventory_item_id IS NULL OR i.is_deleted = 0)`;
+            
+            const inventoryQuery = includeInactive
+                ? "SELECT i.id, i.name, i.sku, i.sell_price, i.category, p.id as linked_product_id FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id WHERE i.is_deleted = 0"
+                : "SELECT i.id, i.name, i.sku, i.sell_price, i.category, p.id as linked_product_id FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id AND p.is_active = 1 AND p.is_deleted = 0 WHERE i.is_deleted = 0";
+
+            products = await connection.query(productsQuery).then(r => r[0]);
+            inventory = await connection.query(inventoryQuery).then(r => r[0]);
         } catch (_) {
             // Fallback if is_deleted column doesn't exist yet
-            products = await connection.query(`SELECT ${prefixedProductColumns} FROM sarga_products p LEFT JOIN sarga_inventory i ON p.inventory_item_id = i.id WHERE p.is_active = 1 AND (p.inventory_item_id IS NULL OR i.is_deleted = 0)`).then(r => r[0]);
-            inventory = await connection.query("SELECT i.id, i.name, i.sku, i.sell_price, i.category, p.id as linked_product_id FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id").then(r => r[0]);
+            const productsQuery = includeInactive
+                ? `SELECT ${prefixedProductColumns} FROM sarga_products p LEFT JOIN sarga_inventory i ON p.inventory_item_id = i.id WHERE (p.inventory_item_id IS NULL OR i.is_deleted = 0)`
+                : `SELECT ${prefixedProductColumns} FROM sarga_products p LEFT JOIN sarga_inventory i ON p.inventory_item_id = i.id WHERE p.is_active = 1 AND (p.inventory_item_id IS NULL OR i.is_deleted = 0)`;
+
+            const inventoryQuery = includeInactive
+                ? "SELECT i.id, i.name, i.sku, i.sell_price, i.category, p.id as linked_product_id FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id"
+                : "SELECT i.id, i.name, i.sku, i.sell_price, i.category, p.id as linked_product_id FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id AND p.is_active = 1";
+
+            products = await connection.query(productsQuery).then(r => r[0]);
+            inventory = await connection.query(inventoryQuery).then(r => r[0]);
         }
         const slabs = await connection.query("SELECT id, product_id, min_qty, max_qty, unit_rate, base_value, double_side_unit_rate FROM sarga_product_slabs ORDER BY product_id, min_qty ASC").then(r => r[0]);
         const extras = await connection.query("SELECT id, product_id, purpose AS extra_name, amount AS unit_rate, 1 as is_active FROM sarga_product_extras_template").then(r => r[0]);
@@ -850,11 +873,12 @@ router.post('/jobs', authenticateToken, validate(addJobSchema), async (req, res)
 });
 
 // Fetch Hierarchy Tree
-router.get('/product-hierarchy', authenticateToken, routeCache(3600, () => 'sarga:product-hierarchy'), async (req, res) => {
+router.get('/product-hierarchy', authenticateToken, routeCache(3600, (req) => `sarga:product-hierarchy:${req.query.include_inactive === 'true'}`), async (req, res) => {
     try {
+        const includeInactive = req.query.include_inactive === 'true';
         const [usageMap, { categories, subcategories, products, inventory }] = await Promise.all([
             getUsageMap(req.user.id),
-            getHierarchyData()
+            getHierarchyData(includeInactive)
         ]);
 
         const categorySorter = sortByUsageThenPosition(usageMap, 'category');
