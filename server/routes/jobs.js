@@ -68,8 +68,13 @@ const getHierarchyData = async (includeInactive = false) => {
             const productsQuery = includeInactive
                 ? `SELECT ${prefixedProductColumns} FROM sarga_products p LEFT JOIN sarga_inventory i ON p.inventory_item_id = i.id WHERE p.is_deleted = 0 AND (p.inventory_item_id IS NULL OR i.is_deleted = 0)`
                 : `SELECT ${prefixedProductColumns} FROM sarga_products p LEFT JOIN sarga_inventory i ON p.inventory_item_id = i.id WHERE p.is_active = 1 AND p.is_deleted = 0 AND (p.inventory_item_id IS NULL OR i.is_deleted = 0)`;
-            
-            const inventoryQuery = "SELECT i.id, i.name, i.sku, i.sell_price, i.category, p.id as linked_product_id FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id AND p.is_deleted = 0 WHERE i.is_deleted = 0";
+
+            // When not including inactive: only link to ACTIVE products.
+            // Also fetch has_any_product so we can exclude inventory items tied
+            // to a disabled product from appearing as raw "unlinked" items in billing.
+            const inventoryQuery = includeInactive
+                ? "SELECT i.id, i.name, i.sku, i.sell_price, i.category, p.id as linked_product_id, 0 as has_disabled_product FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id AND p.is_deleted = 0 WHERE i.is_deleted = 0"
+                : "SELECT i.id, i.name, i.sku, i.sell_price, i.category, active_p.id as linked_product_id, (any_p.id IS NOT NULL AND active_p.id IS NULL) as has_disabled_product FROM sarga_inventory i LEFT JOIN sarga_products active_p ON i.id = active_p.inventory_item_id AND active_p.is_active = 1 AND active_p.is_deleted = 0 LEFT JOIN sarga_products any_p ON i.id = any_p.inventory_item_id AND any_p.is_deleted = 0 WHERE i.is_deleted = 0";
 
             products = await connection.query(productsQuery).then(r => r[0]);
             inventory = await connection.query(inventoryQuery).then(r => r[0]);
@@ -79,7 +84,9 @@ const getHierarchyData = async (includeInactive = false) => {
                 ? `SELECT ${prefixedProductColumns} FROM sarga_products p LEFT JOIN sarga_inventory i ON p.inventory_item_id = i.id WHERE (p.inventory_item_id IS NULL OR i.is_deleted = 0)`
                 : `SELECT ${prefixedProductColumns} FROM sarga_products p LEFT JOIN sarga_inventory i ON p.inventory_item_id = i.id WHERE p.is_active = 1 AND (p.inventory_item_id IS NULL OR i.is_deleted = 0)`;
 
-            const inventoryQuery = "SELECT i.id, i.name, i.sku, i.sell_price, i.category, p.id as linked_product_id FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id";
+            const inventoryQuery = includeInactive
+                ? "SELECT i.id, i.name, i.sku, i.sell_price, i.category, p.id as linked_product_id, 0 as has_disabled_product FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id"
+                : "SELECT i.id, i.name, i.sku, i.sell_price, i.category, active_p.id as linked_product_id, (any_p.id IS NOT NULL AND active_p.id IS NULL) as has_disabled_product FROM sarga_inventory i LEFT JOIN sarga_products active_p ON i.id = active_p.inventory_item_id AND active_p.is_active = 1 LEFT JOIN sarga_products any_p ON i.id = any_p.inventory_item_id";
 
             products = await connection.query(productsQuery).then(r => r[0]);
             inventory = await connection.query(inventoryQuery).then(r => r[0]);
@@ -898,7 +905,9 @@ router.get('/product-hierarchy', authenticateToken, routeCache(3600, (req) => `s
 
         // Add unlinked inventory items into matching categories where possible,
         // and keep a fallback virtual category for truly unmatched names.
-        const unlinkedItems = inventory.filter(i => !i.linked_product_id);
+        // Exclude items that are linked to a DISABLED product — they have has_disabled_product=true
+        // and should not fall through as "unlinked" raw inventory in billing.
+        const unlinkedItems = inventory.filter(i => !i.linked_product_id && !i.has_disabled_product);
         if (unlinkedItems.length > 0) {
             const inventoryGroups = {};
             unlinkedItems.forEach(item => {

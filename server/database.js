@@ -64,6 +64,39 @@ const pool = new Proxy({}, {
   }
 });
 
+async function warmDatabasePool() {
+  const startedAt = process.hrtime.bigint();
+  const queries = [
+    { name: 'SELECT 1', sql: 'SELECT 1 AS ok' },
+    { name: 'products', sql: 'SELECT id FROM sarga_products LIMIT 1' },
+    { name: 'inventory', sql: 'SELECT id FROM sarga_inventory LIMIT 1' },
+    { name: 'branches', sql: 'SELECT id FROM sarga_branches LIMIT 1' },
+    { name: 'company_settings', sql: 'SELECT setting_key FROM sarga_company_settings LIMIT 1' },
+    { name: 'product_hierarchy', sql: 'SELECT id FROM product_hierarchy LIMIT 1' },
+  ];
+
+  const results = await Promise.allSettled(queries.map(async ({ name, sql }) => {
+    const stepStartedAt = process.hrtime.bigint();
+    const [rows] = await pool.query(sql);
+    const elapsedMs = Number(process.hrtime.bigint() - stepStartedAt) / 1e6;
+    return { name, rows: Array.isArray(rows) ? rows.length : 0, elapsedMs };
+  }));
+
+  const successful = results.filter(result => result.status === 'fulfilled').map(result => result.value);
+  const failed = results.filter(result => result.status === 'rejected').map(result => result.reason?.message || String(result.reason));
+  const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
+
+  console.log(`[DB Warmup] Completed in ${elapsedMs.toFixed(1)}ms (${successful.length}/${queries.length} queries ok)`);
+  successful.forEach(step => {
+    console.log(`[DB Warmup] ${step.name} in ${step.elapsedMs.toFixed(1)}ms (${step.rows} rows)`);
+  });
+  failed.forEach(message => {
+    console.warn(`[DB Warmup] Query skipped or failed: ${message}`);
+  });
+
+  return { elapsedMs, successful, failed };
+}
+
 const loadSchemaFiles = async (connection, appliedMigrations) => {
   const schemaDir = path.join(__dirname, 'schemas');
   if (!fs.existsSync(schemaDir)) return;
@@ -310,4 +343,4 @@ const initDb = async () => {
   }
 };
 
-module.exports = { pool, initDb, createPoolInstance, CURRENT_SCHEMA_VERSION };
+module.exports = { pool, initDb, warmDatabasePool, createPoolInstance, CURRENT_SCHEMA_VERSION };

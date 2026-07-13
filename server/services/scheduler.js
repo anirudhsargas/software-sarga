@@ -19,6 +19,8 @@ function logSchedule(name, expression, status, error) {
 function safeSchedule(name, expression, task, options = {}) {
     const { timezone, runOnStart, startDelay } = options;
     const isMlJob = ['Anomaly Detection', 'Business Insights', 'Seasonal Analysis'].includes(name);
+    const scheduleStartedAt = process.hrtime.bigint();
+    logger.info(`[Scheduler] ${name} registration started`);
     if (process.env.ENABLE_ML !== 'true' && isMlJob) {
         logger.info(`[AI_DISABLED] ML skipped: ${name} schedule bypassed`);
         return null;
@@ -39,6 +41,7 @@ function safeSchedule(name, expression, task, options = {}) {
         }, { scheduled: true, timezone });
 
         logSchedule(name, expression, 'scheduled');
+        logger.info(`[Scheduler] ${name} registration completed in ${(Number(process.hrtime.bigint() - scheduleStartedAt) / 1e6).toFixed(1)}ms`);
 
         if (runOnStart) {
             const delay = startDelay || 10_000;
@@ -57,11 +60,15 @@ function safeSchedule(name, expression, task, options = {}) {
 }
 
 function initializeScheduler() {
+    const startedAt = process.hrtime.bigint();
     const tasks = [];
 
     // Anomaly detection — every 15 minutes
     try {
+        const stepStartedAt = process.hrtime.bigint();
+        logger.info('[Scheduler] Loading Anomaly Detection task module');
         const { checkAnomalies } = require('../routes/anomalies');
+        logger.info(`[Scheduler] Anomaly Detection module loaded in ${(Number(process.hrtime.bigint() - stepStartedAt) / 1e6).toFixed(1)}ms`);
         safeSchedule('Anomaly Detection', '*/15 * * * *', () => checkAnomalies(), {
             runOnStart: true,
             startDelay: 10_000,
@@ -79,7 +86,10 @@ function initializeScheduler() {
 
     // Business insights — daily at 7:00 AM
     try {
+        const stepStartedAt = process.hrtime.bigint();
+        logger.info('[Scheduler] Loading Business Insights task module');
         const { generateInsights } = require('../routes/insights');
+        logger.info(`[Scheduler] Business Insights module loaded in ${(Number(process.hrtime.bigint() - stepStartedAt) / 1e6).toFixed(1)}ms`);
         safeSchedule('Business Insights', '0 7 * * *', () => generateInsights());
         tasks.push('Business Insights');
     } catch (e) {
@@ -88,7 +98,10 @@ function initializeScheduler() {
 
     // Seasonal analysis — 1st of month at 6:00 AM
     try {
+        const stepStartedAt = process.hrtime.bigint();
+        logger.info('[Scheduler] Loading Seasonal Analysis task module');
         const { computeSeasonal } = require('../routes/seasonal');
+        logger.info(`[Scheduler] Seasonal Analysis module loaded in ${(Number(process.hrtime.bigint() - stepStartedAt) / 1e6).toFixed(1)}ms`);
         safeSchedule('Seasonal Analysis', '0 6 1 * *', () => computeSeasonal());
         tasks.push('Seasonal Analysis');
     } catch (e) {
@@ -97,8 +110,13 @@ function initializeScheduler() {
 
     // Bill email parser — daily at 9:00 AM
     try {
+        const stepStartedAt = process.hrtime.bigint();
+        logger.info('[Scheduler] Loading Bill Email Parser task module');
         const { scheduleDaily, runNow: _runNow } = require('./billScheduler');
+        logger.info(`[Scheduler] Bill Email Parser module loaded in ${(Number(process.hrtime.bigint() - stepStartedAt) / 1e6).toFixed(1)}ms`);
+        const scheduleStartedAt = process.hrtime.bigint();
         scheduleDaily();
+        logger.info(`[Scheduler] Bill Email Parser scheduleDaily completed in ${(Number(process.hrtime.bigint() - scheduleStartedAt) / 1e6).toFixed(1)}ms`);
         tasks.push('Bill Email Parser');
         logSchedule('Bill Email Parser', '0 9 * * *', 'scheduled');
     } catch (e) {
@@ -107,7 +125,6 @@ function initializeScheduler() {
 
     // Daily Book Automation (dynamic schedule)
     try {
-        const { initializeDailyBookCron } = require('./dailyBookScheduler');
         setTimeout(() => initializeDailyBookCron(), 10_000);
         tasks.push('Daily Book Automation');
         logSchedule('Daily Book Automation', 'dynamic', 'scheduled');
@@ -119,7 +136,20 @@ function initializeScheduler() {
 
     // Summary
     logger.info(`[Scheduler] Initialized with ${tasks.length} tasks: ${tasks.join(', ')}`);
+    logger.info(`[Scheduler] initializeScheduler completed in ${(Number(process.hrtime.bigint() - startedAt) / 1e6).toFixed(1)}ms`);
     return { tasks, registeredJobs };
+}
+
+function initializeDailyBookCron() {
+    const stepStartedAt = process.hrtime.bigint();
+    logger.info('[Scheduler] Loading Daily Book Automation task module');
+    try {
+        const { initializeDailyBookCron: initializeDailyBookCronImpl } = require('./dailyBookScheduler');
+        logger.info(`[Scheduler] Daily Book Automation module loaded in ${(Number(process.hrtime.bigint() - stepStartedAt) / 1e6).toFixed(1)}ms`);
+        initializeDailyBookCronImpl();
+    } catch (error) {
+        logger.error(`[Scheduler] Daily Book Automation deferred init failed: ${error.message}`);
+    }
 }
 
 function getSchedulerStatus() {

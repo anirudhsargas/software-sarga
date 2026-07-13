@@ -615,6 +615,36 @@ if (process.env.NODE_ENV !== 'test') {
         const dbHost = (process.env.DB_HOST || 'localhost').replace(/^(.{0,20}).*$/, '$1…');
         logger.info(`Server running on port ${PORT} (${mode}, DB: ${dbHost})`);
 
+        const startPostListenTasks = () => {
+            setImmediate(() => {
+                void (async () => {
+                    const backgroundStartedAt = process.hrtime.bigint();
+                    bootLog('[PostListen] DB warm-up started');
+                    try {
+                        const { warmDatabasePool } = require('./database');
+                        await warmDatabasePool();
+                        bootLog(`[PostListen] DB warm-up finished in ${(Number(process.hrtime.bigint() - backgroundStartedAt) / 1e6).toFixed(1)}ms`);
+                    } catch (err) {
+                        logger.warn('[PostListen] DB warm-up failed:', err.message);
+                    }
+                })();
+
+                setTimeout(() => {
+                    void (async () => {
+                        const schedulerStartedAt = process.hrtime.bigint();
+                        bootLog('[PostListen] scheduler bootstrap started');
+                        try {
+                            const { initializeScheduler } = require('./services/scheduler');
+                            initializeScheduler();
+                            bootLog(`[PostListen] scheduler bootstrap finished in ${(Number(process.hrtime.bigint() - schedulerStartedAt) / 1e6).toFixed(1)}ms`);
+                        } catch (e) {
+                            logger.warn('[Warning] Scheduler not loaded:', e.message);
+                        }
+                    })();
+                }, 0);
+            });
+        };
+
         // Periodically log memory baseline (every 60s)
         setInterval(() => {
             const mem = process.memoryUsage();
@@ -648,6 +678,8 @@ if (process.env.NODE_ENV !== 'test') {
         } catch (e) {
             logger.warn('[DevRoutes] Failed to list routes:', e && e.message ? e.message : String(e));
         }
+
+        startPostListenTasks();
 
         // Start background migration check
         bootLog('background migration check starting');
@@ -694,16 +726,6 @@ if (process.env.NODE_ENV !== 'test') {
                 logger.warn('[Migration] Inventory link deduplication not loaded:', e.message);
             }
 
-            // Initialize Scheduler (consolidated cron management)
-            try {
-                const schedulerStartedAt = process.hrtime.bigint();
-                bootLog('scheduler initialization started');
-                const { initializeScheduler } = require('./services/scheduler');
-                initializeScheduler();
-                bootLog(`scheduler initialization completed in ${(Number(process.hrtime.bigint() - schedulerStartedAt) / 1e6).toFixed(1)}ms`);
-            } catch (e) {
-                logger.warn('[Warning] Scheduler not loaded:', e.message);
-            }
         }).catch(err => {
             logger.error("Background migration failed:", err);
             // Do not exit the process, keep the server running
