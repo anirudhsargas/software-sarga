@@ -176,7 +176,17 @@ const Billing = () => {
   const [sendWhatsApp, setSendWhatsApp] = useState(false);
   const [sendEmail, setSendEmail] = useState(false);
   const [recentProducts, setRecentProducts] = useState(
-    () => JSON.parse(localStorage.getItem('recentProducts') || '[]')
+    () => {
+      try {
+        const val = localStorage.getItem('recentProducts');
+        if (!val) return [];
+        const parsed = JSON.parse(val);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (e) {
+        console.error('Failed to parse recentProducts from localStorage', e);
+        return [];
+      }
+    }
   );
   const [_lastOrderCustomerType, setLastOrderCustomerType] = useState('');
   const [_lastOrderAutoDelivered, setLastOrderAutoDelivered] = useState(false);
