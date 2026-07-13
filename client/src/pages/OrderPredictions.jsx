@@ -33,7 +33,7 @@ const OrderPredictions = () => {
     const [detailLoading, setDetailLoading] = useState(false);
 
     useEffect(() => {
-        api.get('/branches').then(r => setBranches(r.data)).catch(() => {});
+        api.get('/branches').then(r => setBranches(r.data || [])).catch(() => {});
     }, []);
 
     const fetchPredictions = useCallback(async () => {

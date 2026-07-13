@@ -131,7 +131,7 @@ const AccountantDashboard = () => {
   }, [month, selectedBranches]);
 
   useEffect(() => {
-    api.get('/branches').then(r => setBranches(r.data)).catch(() => {});
+    api.get('/branches').then(r => setBranches(r.data || [])).catch(() => {});
   }, []);
 
   /* ─── Close branch dropdown on outside click ─── */

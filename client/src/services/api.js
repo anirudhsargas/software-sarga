@@ -240,10 +240,18 @@ api.interceptors.response.use(
 
         if (!error.response) {
             try { sessionStorage.setItem('sarga_network_error', '1'); } catch {}
-            if (error.code === 'ECONNABORTED' || error.message === 'Network Error') {
-                return Promise.resolve({ data: null, offline: true });
+            
+            // Centralized fallback to prevent downstream crashes on .map() (e.g., branches/machines)
+            const url = error.config?.url || '';
+            let fallbackData = null;
+            if (url.includes('branches') || url.includes('machines') || url.includes('customers')) {
+                fallbackData = [];
             }
-            return Promise.resolve({ data: null, offline: true });
+
+            if (error.code === 'ECONNABORTED' || error.message === 'Network Error') {
+                return Promise.resolve({ data: fallbackData, offline: true });
+            }
+            return Promise.resolve({ data: fallbackData, offline: true });
         }
 
         return Promise.reject(error);

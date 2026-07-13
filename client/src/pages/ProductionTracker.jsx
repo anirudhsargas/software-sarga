@@ -45,7 +45,7 @@ const ProductionTracker = () => {
     const navigate = useNavigate();
 
     useEffect(() => {
-        api.get('/branches').then(r => setBranches(r.data)).catch(() => {});
+        api.get('/branches').then(r => setBranches(r.data || [])).catch(() => {});
     }, []);
 
     const fetchData = useCallback(async () => {

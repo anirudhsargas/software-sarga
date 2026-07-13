@@ -36,7 +36,7 @@ const Accounts = () => {
     const [branchId, setBranchId] = useState('');
 
     useEffect(() => {
-        api.get('/branches').then(r => setBranches(r.data)).catch(() => {});
+        api.get('/branches').then(r => setBranches(r.data || [])).catch(() => {});
     }, []);
 
     return (
