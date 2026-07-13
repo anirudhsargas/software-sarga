@@ -642,6 +642,21 @@ if (process.env.NODE_ENV !== 'test') {
                         }
                     })();
                 }, 0);
+
+                // Pre-warm product-hierarchy cache so the first request doesn't pay ~4s
+                setTimeout(async () => {
+                    try {
+                        const warmStart = process.hrtime.bigint();
+                        bootLog('[PostListen] Pre-warming product-hierarchy cache');
+                        const { getHierarchyData } = require('./routes/jobs');
+                        const { setCache } = require('./services/cacheService');
+                        const data = await getHierarchyData(false);
+                        await setCache('sarga:product-hierarchy:false', data, 3600);
+                        bootLog(`[PostListen] Product-hierarchy cache warmed in ${(Number(process.hrtime.bigint() - warmStart) / 1e6).toFixed(1)}ms`);
+                    } catch (err) {
+                        logger.warn('[PostListen] Product-hierarchy pre-warm skipped:', err.message);
+                    }
+                }, 2000);
             });
         };
 

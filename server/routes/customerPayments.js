@@ -745,6 +745,19 @@ router.post('/customer-payments/refund', authenticateToken, authorizeRoles('Admi
 router.get('/stats/dashboard', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     const { branch_id, startDate, endDate } = req.query;
 
+    // Per-query timing profiler — logs any query exceeding 200ms
+    const profileLog = [];
+    const profile = (label) => {
+        const start = process.hrtime.bigint();
+        return {
+            done: () => {
+                const ms = Number(process.hrtime.bigint() - start) / 1e6;
+                profileLog.push({ label, ms });
+                if (ms > 200) console.warn(`[Dashboard Profiler] ${label}: ${ms.toFixed(1)}ms`);
+            }
+        };
+    };
+
     try {
         let branchIds = null;
         if (!['Admin', 'Accountant'].includes(req.user.role)) {
@@ -780,8 +793,9 @@ router.get('/stats/dashboard', authenticateToken, authorizeRoles('Admin', 'Accou
         const today = getTodayDate();
         const monthStartStr = today.slice(0, 8) + '01';
 
-        // 1. Job Stats (Respecting Filters)
-        const [[jobStats]] = await pool.query(`
+        // 1. Job Stats + Monthly Sales & Categories (merged into one sarga_jobs scan)
+        const p1 = profile('jobStats+salesStats merged');
+        const [[mergedJobStats]] = await pool.query(`
             SELECT 
                 COUNT(*) as total_count,
                 SUM(total_amount) as total_sales,
@@ -792,20 +806,33 @@ router.get('/stats/dashboard', authenticateToken, authorizeRoles('Admin', 'Accou
                 COUNT(CASE WHEN status = 'Completed' AND DATE(updated_at) = ? THEN 1 END) as completed_today,
                 COUNT(CASE WHEN priority = 'Urgent' AND DATE(delivery_date) = ? THEN 1 END) as urgent_today,
                 COUNT(CASE WHEN delivery_date < ? AND status NOT IN ('Delivered', 'Cancelled') THEN 1 END) as overdue,
-                COUNT(CASE WHEN status IN ('Pending', 'Processing', 'Designing', 'Printing', 'Cutting', 'Lamination', 'Binding', 'Production') THEN 1 END) as in_progress
+                COUNT(CASE WHEN status IN ('Pending', 'Processing', 'Designing', 'Printing', 'Cutting', 'Lamination', 'Binding', 'Production') THEN 1 END) as in_progress,
+                SUM(CASE WHEN DATE(created_at) >= ? THEN total_amount ELSE 0 END) as month_total,
+                COUNT(CASE WHEN DATE(created_at) >= ? THEN 1 END) as bill_count,
+                AVG(CASE WHEN DATE(created_at) >= ? THEN total_amount END) as avg_bill,
+                SUM(CASE WHEN job_name LIKE '%Offset%' AND DATE(created_at) = ? THEN total_amount ELSE 0 END) as offset_sales,
+                SUM(CASE WHEN (job_name LIKE '%Digital%' OR job_name LIKE '%Color%') AND DATE(created_at) = ? THEN total_amount ELSE 0 END) as digital_sales,
+                SUM(CASE WHEN job_name LIKE '%Photo%' AND DATE(created_at) = ? THEN total_amount ELSE 0 END) as photocopy_sales,
+                SUM(CASE WHEN job_name LIKE '%Memento%' AND DATE(created_at) = ? THEN total_amount ELSE 0 END) as mementos_sales,
+                SUM(CASE WHEN job_name LIKE '%Frame%' AND DATE(created_at) = ? THEN total_amount ELSE 0 END) as frames_sales,
+                SUM(CASE WHEN job_name LIKE '%ID%' AND DATE(created_at) = ? THEN total_amount ELSE 0 END) as id_cards_sales,
+                SUM(CASE WHEN (job_name LIKE '%Binding%' OR job_name LIKE '%Lamination%') AND DATE(created_at) = ? THEN total_amount ELSE 0 END) as binding_sales
             FROM sarga_jobs 
             ${jobWhere} ${dateWhere}
-        `, [today, today, today, today, today, ...params, ...dateParams]);
+        `, [today, today, today, today, today, monthStartStr, monthStartStr, monthStartStr, today, today, today, today, today, today, today, ...params, ...dateParams]);
+        p1.done();
 
         // 2. Customer Stats
+        const p2 = profile('customerStats');
         const [[custStats]] = await pool.query(`
             SELECT 
                 COUNT(CASE WHEN DATE(created_at) = ? AND type = 'Walk-in' THEN 1 END) as walk_in_today
             FROM sarga_customers
             ${baseWhere}
         `, [today, ...params]);
+        p2.done();
 
-        // 3. Payment/Collection Stats (Respecting Date Filters)
+        // 3. Payment/Collection Stats
         let payDateWhere = "";
         const payDateParams = [];
         if (startDate) {
@@ -817,6 +844,7 @@ router.get('/stats/dashboard', authenticateToken, authorizeRoles('Admin', 'Accou
             payDateParams.push(endDate);
         }
 
+        const p3 = profile('paymentStats');
         const [[payStats]] = await pool.query(`
             SELECT 
                 SUM(CASE WHEN DATE(payment_date) = ? AND payment_method = 'Cash' THEN advance_paid ELSE 0 END) as cash_today,
@@ -827,25 +855,10 @@ router.get('/stats/dashboard', authenticateToken, authorizeRoles('Admin', 'Accou
             FROM sarga_customer_payments
             ${baseWhere} ${payDateWhere}
         `, [today, today, today, today, ...params, ...payDateParams]);
-
-        // 4. Monthly Sales & Categories
-        const [[salesStats]] = await pool.query(`
-            SELECT 
-                SUM(CASE WHEN DATE(created_at) >= ? THEN total_amount ELSE 0 END) as month_total,
-                COUNT(CASE WHEN DATE(created_at) >= ? THEN 1 END) as bill_count,
-                AVG(CASE WHEN DATE(created_at) >= ? THEN total_amount END) as avg_bill,
-                SUM(CASE WHEN job_name LIKE '%Offset%' AND DATE(created_at) = ? THEN total_amount ELSE 0 END) as offset_sales,
-                SUM(CASE WHEN (job_name LIKE '%Digital%' OR job_name LIKE '%Color%') AND DATE(created_at) = ? THEN total_amount ELSE 0 END) as digital_sales,
-                SUM(CASE WHEN job_name LIKE '%Photo%' AND DATE(created_at) = ? THEN total_amount ELSE 0 END) as photocopy_sales,
-                SUM(CASE WHEN job_name LIKE '%Memento%' AND DATE(created_at) = ? THEN total_amount ELSE 0 END) as mementos_sales,
-                SUM(CASE WHEN job_name LIKE '%Frame%' AND DATE(created_at) = ? THEN total_amount ELSE 0 END) as frames_sales,
-                SUM(CASE WHEN job_name LIKE '%ID%' AND DATE(created_at) = ? THEN total_amount ELSE 0 END) as id_cards_sales,
-                SUM(CASE WHEN (job_name LIKE '%Binding%' OR job_name LIKE '%Lamination%') AND DATE(created_at) = ? THEN total_amount ELSE 0 END) as binding_sales
-            FROM sarga_jobs
-            ${jobWhere}
-        `, [monthStartStr, monthStartStr, monthStartStr, today, today, today, today, today, today, today, ...params]);
+        p3.done();
 
         // 5. Machine Stats
+        const p5 = profile('machineReadings');
         const [machineReadings] = await pool.query(`
             SELECT m.id, m.machine_name, (COALESCE(mr.closing_count, 0) - mr.opening_count) as total_copies, mr.reading_date
             FROM sarga_machine_readings mr
@@ -853,6 +866,7 @@ router.get('/stats/dashboard', authenticateToken, authorizeRoles('Admin', 'Accou
             WHERE DATE(mr.reading_date) = ? ${branchIds ? " AND m.branch_id IN (?)" : ""}
         `, [today, ...(branchIds ? [branchIds] : [])]);
 
+        p5.done();
         const machines = machineReadings.map(r => ({
             id: r.id,
             name: r.machine_name,
@@ -860,6 +874,7 @@ router.get('/stats/dashboard', authenticateToken, authorizeRoles('Admin', 'Accou
         }));
 
         // 6. Recent Jobs
+        const p6 = profile('recentJobs');
         const [recentJobs] = await pool.query(`
             SELECT j.id, j.job_number, j.job_name, j.total_amount, j.status, j.payment_status, j.created_at,
                    COALESCE(c.name, 'Walk-in') as customer_name
@@ -869,19 +884,23 @@ router.get('/stats/dashboard', authenticateToken, authorizeRoles('Admin', 'Accou
             ORDER BY j.created_at DESC
             LIMIT 5
         `, branchIds ? [branchIds] : []);
+        p6.done();
 
         // 7. Status Counts
+        const p7 = profile('statusCounts');
         const [statusCounts] = await pool.query(`
             SELECT status, COUNT(*) as count 
             FROM sarga_jobs 
             ${jobWhere} 
             GROUP BY status
         `, params);
+        p7.done();
 
         const statusMap = {};
         statusCounts.forEach(r => statusMap[r.status] = r.count);
 
         // 8. Low Stock Alerts
+        const p8 = profile('lowStock');
         let lowStockItems = [];
         try {
             let lowStockQuery, lowStockParams;
@@ -906,8 +925,10 @@ router.get('/stats/dashboard', authenticateToken, authorizeRoles('Admin', 'Accou
             const [lowStock] = await pool.query(lowStockQuery, lowStockParams);
             lowStockItems = lowStock;
         } catch { /* ignore if table missing */ }
+        p8.done();
 
         // 9. Inventory Summary
+        const p9 = profile('inventorySummary');
         let inventorySummary = {};
         try {
             let invQuery, invParams;
@@ -937,8 +958,10 @@ router.get('/stats/dashboard', authenticateToken, authorizeRoles('Admin', 'Accou
             const [[invStats]] = await pool.query(invQuery, invParams);
             inventorySummary = invStats;
         } catch { /* ignore */ }
+        p9.done();
 
         // 10. Top Customers This Month
+        const p10 = profile('topCustomers');
         let topCustomers = [];
         try {
             const [topCust] = await pool.query(`
@@ -951,8 +974,10 @@ router.get('/stats/dashboard', authenticateToken, authorizeRoles('Admin', 'Accou
             `, [monthStartStr, ...(branchIds ? [branchIds] : [])]);
             topCustomers = topCust;
         } catch { /* ignore */ }
+        p10.done();
 
         // 11. Staff Productivity (jobs assigned per staff)
+        const p11 = profile('staffProductivity');
         let staffProductivity = [];
         try {
             const [staffStats] = await pool.query(`
@@ -965,8 +990,10 @@ router.get('/stats/dashboard', authenticateToken, authorizeRoles('Admin', 'Accou
             `, branchIds ? [monthStartStr, branchIds] : [monthStartStr]);
             staffProductivity = staffStats;
         } catch { /* ignore */ }
+        p11.done();
 
         // 12. Expense Summary
+        const p12 = profile('expenseSummary');
         let expenseSummary = {};
         try {
             const [[expStats]] = await pool.query(`
@@ -978,6 +1005,7 @@ router.get('/stats/dashboard', authenticateToken, authorizeRoles('Admin', 'Accou
             `, [today, monthStartStr, ...(branchIds ? [branchIds] : [])]);
             expenseSummary = expStats || {};
         } catch { /* ignore */ }
+        p12.done();
 
         // 13. AI Growth & Peak Day Analysis
         let ai_insights = {
@@ -986,13 +1014,24 @@ router.get('/stats/dashboard', authenticateToken, authorizeRoles('Admin', 'Accou
             predicted_revenue_next_month: 0
         };
         try {
+            const p13a = profile('AI_growth');
+            // Use sargable date range conditions instead of MONTH/YEAR wrappers
+            const monthStart = today.slice(0, 8) + '01';
+            const prevMonthStart = new Date(new Date(monthStart).setMonth(new Date(monthStart).getMonth() - 1));
+            const prevMonthStartStr = prevMonthStart.toISOString().slice(0, 10);
+            const nextMonthStart = new Date(new Date(monthStart).setMonth(new Date(monthStart).getMonth() + 1));
+            const nextMonthStartStr = nextMonthStart.toISOString().slice(0, 10);
+            const curMonthEnd = nextMonthStartStr;
+            const prevMonthEnd = monthStart;
+
             const [[growthStats]] = await pool.query(`
                 SELECT 
-                    SUM(CASE WHEN MONTH(created_at) = MONTH(CURDATE()) AND YEAR(created_at) = YEAR(CURDATE()) THEN total_amount ELSE 0 END) as cur_month_rev,
-                    SUM(CASE WHEN MONTH(created_at) = MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)) AND YEAR(created_at) = YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)) THEN total_amount ELSE 0 END) as prev_month_rev
+                    SUM(CASE WHEN created_at >= ? AND created_at < ? THEN total_amount ELSE 0 END) as cur_month_rev,
+                    SUM(CASE WHEN created_at >= ? AND created_at < ? THEN total_amount ELSE 0 END) as prev_month_rev
                 FROM sarga_jobs WHERE status != 'Cancelled'
                 ${branchIds ? " AND branch_id IN (?)" : ""}
-            `, branchIds ? [branchIds] : []);
+            `, [monthStart, curMonthEnd, prevMonthStartStr, prevMonthEnd, ...(branchIds ? [branchIds] : [])]);
+            p13a.done();
 
             const curMonthRev = Number(growthStats.cur_month_rev) || 0;
             const prevMonthRev = Number(growthStats.prev_month_rev) || 0;
@@ -1002,13 +1041,19 @@ router.get('/stats/dashboard', authenticateToken, authorizeRoles('Admin', 'Accou
                 ai_insights.revenue_growth = 100;
             }
 
+            const p13b = profile('AI_peakDay');
+            const twoMonthsAgo = new Date();
+            twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+            const twoMonthsAgoStr = twoMonthsAgo.toISOString().slice(0, 10);
+
             const [dowPattern] = await pool.query(`
                 SELECT DAYOFWEEK(created_at) AS dow, COUNT(*) AS orders
                 FROM sarga_jobs
-                WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 2 MONTH) AND status != 'Cancelled'
+                WHERE created_at >= ? AND status != 'Cancelled'
                 ${branchIds ? " AND branch_id IN (?)" : ""}
                 GROUP BY dow ORDER BY orders DESC LIMIT 1
-            `, branchIds ? [branchIds] : []);
+            `, [twoMonthsAgoStr, ...(branchIds ? [branchIds] : [])]);
+            p13b.done();
 
             if (dowPattern.length > 0) {
                 const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -1016,14 +1061,20 @@ router.get('/stats/dashboard', authenticateToken, authorizeRoles('Admin', 'Accou
             }
 
             // Simple linear forecast based on last 6 months
+            const p13c = profile('AI_forecast');
+            const sixMonthsAgo = new Date();
+            sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+            const sixMonthsAgoStr = sixMonthsAgo.toISOString().slice(0, 10);
+
             const [monthlyTrend] = await pool.query(`
-                SELECT SUM(total_amount) as revenue
+                SELECT DATE_FORMAT(created_at, '%Y-%m') as ym, SUM(total_amount) as revenue
                 FROM sarga_jobs
-                WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH) AND status != 'Cancelled'
+                WHERE created_at >= ? AND status != 'Cancelled'
                 ${branchIds ? " AND branch_id IN (?)" : ""}
-                GROUP BY YEAR(created_at), MONTH(created_at)
-                ORDER BY YEAR(created_at) ASC, MONTH(created_at) ASC
-            `, branchIds ? [branchIds] : []);
+                GROUP BY DATE_FORMAT(created_at, '%Y-%m')
+                ORDER BY ym ASC
+            `, [sixMonthsAgoStr, ...(branchIds ? [branchIds] : [])]);
+            p13c.done();
 
             if (monthlyTrend.length >= 2) {
                 const points = monthlyTrend.map((r, i) => ({ x: i, y: Number(r.revenue) }));
@@ -1042,6 +1093,7 @@ router.get('/stats/dashboard', authenticateToken, authorizeRoles('Admin', 'Accou
         } catch (err) { console.error('AI Insight calculation failed:', err.message); }
 
         // 14. Financial Roadmap (EMI/Kuri Commitments)
+        const p14 = profile('financialRoadmap');
         let financial_roadmap = {
             total_monthly_commitment: 0,
             emi_total: 0,
@@ -1060,8 +1112,10 @@ router.get('/stats/dashboard', authenticateToken, authorizeRoles('Admin', 'Accou
             financial_roadmap.kuri_total = Number(kuriStats.total) || 0;
             financial_roadmap.total_monthly_commitment = financial_roadmap.emi_total + financial_roadmap.kuri_total;
         } catch (_err) { /* ignore if tables missing */ }
+        p14.done();
 
         // 15. Monitoring Stats (Fraud Alerts)
+        const p15 = profile('monitoringStats');
         let monitoring_stats = { active_alerts: 0 };
         try {
             const [[alertStats]] = await pool.query(`
@@ -1073,18 +1127,24 @@ router.get('/stats/dashboard', authenticateToken, authorizeRoles('Admin', 'Accou
             `, branchIds ? [branchIds] : []);
             monitoring_stats.active_alerts = alertStats.count || 0;
         } catch (_err) { /* ignore */ }
+        p15.done();
+
+        // Log query timing profile for performance monitoring
+        const totalMs = profileLog.reduce((s, e) => s + e.ms, 0);
+        console.log(`[Dashboard] Total ${totalMs.toFixed(0)}ms — ${profileLog.map(e => `${e.label}:${e.ms.toFixed(0)}`).join(', ')}`);
 
         res.json({
             jobs: {
-                total_count: jobStats.total_count || 0,
-                total_sales: Number(jobStats.total_sales) || 0,
-                total_collected: Number(jobStats.total_collected) || 0,
-                total_balance: Number(jobStats.total_balance) || 0,
-                new_today: jobStats.new_today || 0,
-                completed_today: jobStats.completed_today || 0,
-                urgent_today: jobStats.urgent_today || 0,
-                overdue: jobStats.overdue || 0,
-                in_progress: jobStats.in_progress || 0
+                total_count: mergedJobStats.total_count || 0,
+                total_sales: Number(mergedJobStats.total_sales) || 0,
+                total_sales_today: Number(mergedJobStats.total_sales_today) || 0,
+                total_collected: Number(mergedJobStats.total_collected) || 0,
+                total_balance: Number(mergedJobStats.total_balance) || 0,
+                new_today: mergedJobStats.new_today || 0,
+                completed_today: mergedJobStats.completed_today || 0,
+                urgent_today: mergedJobStats.urgent_today || 0,
+                overdue: mergedJobStats.overdue || 0,
+                in_progress: mergedJobStats.in_progress || 0
             },
             customers: {
                 walk_in_today: custStats.walk_in_today || 0
@@ -1097,16 +1157,16 @@ router.get('/stats/dashboard', authenticateToken, authorizeRoles('Admin', 'Accou
                 total_amount: Number(payStats.total_collected) || 0
             },
             sales: {
-                month_total: Number(salesStats.month_total) || 0,
-                bill_count: salesStats.bill_count || 0,
-                avg_bill: Number(salesStats.avg_bill) || 0,
-                offset: Number(salesStats.offset_sales) || 0,
-                digital: Number(salesStats.digital_sales) || 0,
-                photocopy: Number(salesStats.photocopy_sales) || 0,
-                mementos: Number(salesStats.mementos_sales) || 0,
-                frames: Number(salesStats.frames_sales) || 0,
-                id_cards: Number(salesStats.id_cards_sales) || 0,
-                binding: Number(salesStats.binding_sales) || 0
+                month_total: Number(mergedJobStats.month_total) || 0,
+                bill_count: mergedJobStats.bill_count || 0,
+                avg_bill: Number(mergedJobStats.avg_bill) || 0,
+                offset: Number(mergedJobStats.offset_sales) || 0,
+                digital: Number(mergedJobStats.digital_sales) || 0,
+                photocopy: Number(mergedJobStats.photocopy_sales) || 0,
+                mementos: Number(mergedJobStats.mementos_sales) || 0,
+                frames: Number(mergedJobStats.frames_sales) || 0,
+                id_cards: Number(mergedJobStats.id_cards_sales) || 0,
+                binding: Number(mergedJobStats.binding_sales) || 0
             },
             machines: machines,
             recent_jobs: recentJobs,

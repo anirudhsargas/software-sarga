@@ -2760,5 +2760,5 @@ router.delete('/jobs/:id/matter/:matterId', authenticateToken, async (req, res) 
 });
 
 
-module.exports = { router, syncJobToMachineWorkEntry, invalidateHierarchyCache };
+module.exports = { router, syncJobToMachineWorkEntry, invalidateHierarchyCache, getHierarchyData };
 
