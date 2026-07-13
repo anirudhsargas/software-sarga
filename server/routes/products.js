@@ -548,7 +548,7 @@ module.exports = (upload, removeUploadFile) => {
             const [rows] = await pool.query(
                 `SELECT p.* FROM sarga_products p
                  LEFT JOIN sarga_inventory i ON p.inventory_item_id = i.id
-                 WHERE p.subcategory_id = ? AND p.is_deleted = 0 AND (p.inventory_item_id IS NULL OR i.is_deleted = 0)
+                 WHERE p.subcategory_id = ? AND p.is_active = 1 AND p.is_deleted = 0 AND (p.inventory_item_id IS NULL OR i.is_deleted = 0)
                  ORDER BY p.name ASC`,
                 [req.params.id]
             );

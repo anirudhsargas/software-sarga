@@ -321,6 +321,21 @@ const Inventory = () => {
         } catch (err) {
             console.error("Fetch hierarchy error:", err);
         }
+        // Overwrite with fresh API data so disabled products disappear immediately
+        try {
+            const { data } = await api.get('/product-hierarchy');
+            if (Array.isArray(data)) {
+                setHierarchy(data);
+                // Flatten for allProducts (same pattern as syncWorker.v2.js)
+                const flat = [];
+                data.forEach(cat => {
+                    (cat.subcategories || []).forEach(sub => {
+                        (sub.products || []).forEach(p => flat.push(p));
+                    });
+                });
+                setAllProducts(flat);
+            }
+        } catch { /* fallback to IndexedDB data */ }
     }
 
     async function fetchBranches() {

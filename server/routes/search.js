@@ -67,10 +67,14 @@ router.get('/search', authenticateToken, searchCache(), async (req, res) => {
 
       // ── Products: search by name, category, subcategory ──
       pool.query(
-        `SELECT id, name, category, subcategory, base_price, is_active
-         FROM sarga_products
-         WHERE name LIKE ? OR category LIKE ? OR subcategory LIKE ?
-         ORDER BY name ASC
+        `SELECT p.id, p.name, p.is_active,
+                sc.name AS subcategory, c.name AS category
+         FROM sarga_products p
+         LEFT JOIN sarga_product_subcategories sc ON p.subcategory_id = sc.id
+         LEFT JOIN sarga_product_categories c ON sc.category_id = c.id
+         WHERE (p.name LIKE ? OR sc.name LIKE ? OR c.name LIKE ?)
+           AND p.is_active = 1 AND p.is_deleted = 0
+         ORDER BY p.name ASC
          LIMIT 6`,
         [like, like, like]
       ),
