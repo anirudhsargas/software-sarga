@@ -69,9 +69,7 @@ const getHierarchyData = async (includeInactive = false) => {
                 ? `SELECT ${prefixedProductColumns} FROM sarga_products p LEFT JOIN sarga_inventory i ON p.inventory_item_id = i.id WHERE p.is_deleted = 0 AND (p.inventory_item_id IS NULL OR i.is_deleted = 0)`
                 : `SELECT ${prefixedProductColumns} FROM sarga_products p LEFT JOIN sarga_inventory i ON p.inventory_item_id = i.id WHERE p.is_active = 1 AND p.is_deleted = 0 AND (p.inventory_item_id IS NULL OR i.is_deleted = 0)`;
             
-            const inventoryQuery = includeInactive
-                ? "SELECT i.id, i.name, i.sku, i.sell_price, i.category, p.id as linked_product_id FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id WHERE i.is_deleted = 0"
-                : "SELECT i.id, i.name, i.sku, i.sell_price, i.category, p.id as linked_product_id FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id AND p.is_active = 1 AND p.is_deleted = 0 WHERE i.is_deleted = 0";
+            const inventoryQuery = "SELECT i.id, i.name, i.sku, i.sell_price, i.category, p.id as linked_product_id FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id AND p.is_deleted = 0 WHERE i.is_deleted = 0";
 
             products = await connection.query(productsQuery).then(r => r[0]);
             inventory = await connection.query(inventoryQuery).then(r => r[0]);
@@ -81,9 +79,7 @@ const getHierarchyData = async (includeInactive = false) => {
                 ? `SELECT ${prefixedProductColumns} FROM sarga_products p LEFT JOIN sarga_inventory i ON p.inventory_item_id = i.id WHERE (p.inventory_item_id IS NULL OR i.is_deleted = 0)`
                 : `SELECT ${prefixedProductColumns} FROM sarga_products p LEFT JOIN sarga_inventory i ON p.inventory_item_id = i.id WHERE p.is_active = 1 AND (p.inventory_item_id IS NULL OR i.is_deleted = 0)`;
 
-            const inventoryQuery = includeInactive
-                ? "SELECT i.id, i.name, i.sku, i.sell_price, i.category, p.id as linked_product_id FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id"
-                : "SELECT i.id, i.name, i.sku, i.sell_price, i.category, p.id as linked_product_id FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id AND p.is_active = 1";
+            const inventoryQuery = "SELECT i.id, i.name, i.sku, i.sell_price, i.category, p.id as linked_product_id FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id";
 
             products = await connection.query(productsQuery).then(r => r[0]);
             inventory = await connection.query(inventoryQuery).then(r => r[0]);

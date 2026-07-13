@@ -388,6 +388,17 @@ module.exports.invalidateCache = invalidateCache;
 const routeRegistrationStartedAt = process.hrtime.bigint();
 bootLog('route registration started');
 
+const registerRoute = (label, mountPath, factory) => {
+    const startedAt = process.hrtime.bigint();
+    bootLog(`[RouteLoad] ${label} (${mountPath}) start`);
+    const routeHandler = factory();
+    bootLog(`[RouteLoad] ${label} (${mountPath}) done in ${(Number(process.hrtime.bigint() - startedAt) / 1e6).toFixed(1)}ms`);
+    app.use(mountPath, routeHandler);
+    return routeHandler;
+};
+
+const registerRootRoute = (label, factory) => registerRoute(label, '/', factory);
+
 // Root health/info route — prevents NOT_FOUND spam from Render uptime checks or browser probes
 app.get('/', (req, res) => {
     res.json({ status: 'ok', service: 'sarga-mis', message: 'API server is running.' });
@@ -431,32 +442,32 @@ app.get('/api/server-time', (req, res, next) => {
     res.json(data);
 }));
 
-app.use('/api', require('./routes/auth')(upload));
+registerRoute('auth', '/api', () => require('./routes/auth')(upload));
 const mlCheck = require('./middleware/mlCheck');
-app.use('/api/chatbot', mlCheck);
-app.use('/api/chatbot', require('./routes/chatbot'));
-app.use('/api', require('./routes/branches'));
-app.use('/api', require('./routes/payments'));
-app.use('/api', require('./routes/vendors'));
-app.use('/api', require('./routes/customerPayments'));
-app.use('/api', require('./routes/customers'));
-app.use('/api', require('./routes/customerDesigns'));
-app.use('/api', require('./routes/requests'));
-app.use('/api/staff', require('./routes/staff')(upload, removeUploadFile));
-app.use('/api/staff', require('./routes/staffDashboard'));
-app.use('/api', require('./routes/staffPortal')(upload));
-app.use('/api', require('./routes/designWorkspace')(upload));
-app.use('/api/schedules', require('./routes/scheduleManagement'));
-app.use('/api', require('./routes/jobs').router);
-app.use('/api', require('./routes/products')(upload, removeUploadFile));
-app.use('/api/paperInventory', require('./routes/paperInventory'));
-app.use('/api', require('./routes/consumablesInventory'));
-app.use('/api', require('./routes/inventory'));
+registerRoute('chatbot middleware', '/api/chatbot', () => mlCheck);
+registerRoute('chatbot', '/api/chatbot', () => require('./routes/chatbot'));
+registerRoute('branches', '/api', () => require('./routes/branches'));
+registerRoute('payments', '/api', () => require('./routes/payments'));
+registerRoute('vendors', '/api', () => require('./routes/vendors'));
+registerRoute('customerPayments', '/api', () => require('./routes/customerPayments'));
+registerRoute('customers', '/api', () => require('./routes/customers'));
+registerRoute('customerDesigns', '/api', () => require('./routes/customerDesigns'));
+registerRoute('requests', '/api', () => require('./routes/requests'));
+registerRoute('staff', '/api/staff', () => require('./routes/staff')(upload, removeUploadFile));
+registerRoute('staffDashboard', '/api/staff', () => require('./routes/staffDashboard'));
+registerRoute('staffPortal', '/api', () => require('./routes/staffPortal')(upload));
+registerRoute('designWorkspace', '/api', () => require('./routes/designWorkspace')(upload));
+registerRoute('scheduleManagement', '/api/schedules', () => require('./routes/scheduleManagement'));
+registerRoute('jobs', '/api', () => require('./routes/jobs').router);
+registerRoute('products', '/api', () => require('./routes/products')(upload, removeUploadFile));
+registerRoute('paperInventory', '/api/paperInventory', () => require('./routes/paperInventory'));
+registerRoute('consumablesInventory', '/api', () => require('./routes/consumablesInventory'));
+registerRoute('inventory', '/api', () => require('./routes/inventory'));
 // Dev helper routes (only load when not in production)
 // Dev helper routes (temporary - allow local UI testing without auth)
 try {
     if (!isProduction) {
-        app.use('/api/dev', require('./routes/devRoutes'));
+        registerRoute('devRoutes', '/api/dev', () => require('./routes/devRoutes'));
         logger.info('[DevRoutes] Loaded /api/dev routes');
     } else {
         logger.info('[DevRoutes] Skipped loading in production');
@@ -464,105 +475,104 @@ try {
 } catch (e) {
     logger.warn('[DevRoutes] Not loaded:', (e && e.stack) ? e.stack : (e && e.message) ? e.message : e);
 }
-app.use('/api', require('./routes/frontOffice'));
-app.use('/api/shortcuts', require('./routes/shortcuts'));
-app.use('/api', require('./routes/expenses'));
-app.use('/api', require('./routes/finance'));
-app.use('/api', require('./routes/expenses-extended'));
-app.use('/api', require('./routes/utilityEmail'));
-app.use('/api', require('./routes/coupons'));
-app.use('/api/stock-verification', require('./routes/stockVerification'));
-app.use('/api', require('./routes/stockRequests'));
-app.use('/api/ocr', require('./routes/ocr'));
+registerRoute('frontOffice', '/api', () => require('./routes/frontOffice'));
+registerRoute('shortcuts', '/api/shortcuts', () => require('./routes/shortcuts'));
+registerRoute('expenses', '/api', () => require('./routes/expenses'));
+registerRoute('finance', '/api', () => require('./routes/finance'));
+registerRoute('expenses-extended', '/api', () => require('./routes/expenses-extended'));
+registerRoute('utilityEmail', '/api', () => require('./routes/utilityEmail'));
+registerRoute('coupons', '/api', () => require('./routes/coupons'));
+registerRoute('stockVerification', '/api/stock-verification', () => require('./routes/stockVerification'));
+registerRoute('stockRequests', '/api', () => require('./routes/stockRequests'));
+registerRoute('ocr', '/api/ocr', () => require('./routes/ocr'));
 
 // Three Books System Routes
-app.use('/api/machines', require('./routes/machines'));
-app.use('/api/internal-transfers', require('./routes/internalTransfers'));
-app.use('/api/internal-transactions', require('./routes/internalTransactions'));
-app.use('/api/admin/internal-books', require('./routes/internalBooks'));
-app.use('/api/daily-reports', require('./routes/dailyReports'));
-app.use('/api/daily-report', require('./routes/dailyReportUnified'));
-app.use('/api', require('./routes/backup'));
-const sheetsBackupRoutes = require('./routes/sheetsBackup');
-app.use('/api/backup', sheetsBackupRoutes);
+registerRoute('machines', '/api/machines', () => require('./routes/machines'));
+registerRoute('internalTransfers', '/api/internal-transfers', () => require('./routes/internalTransfers'));
+registerRoute('internalTransactions', '/api/internal-transactions', () => require('./routes/internalTransactions'));
+registerRoute('internalBooks', '/api/admin/internal-books', () => require('./routes/internalBooks'));
+registerRoute('dailyReports', '/api/daily-reports', () => require('./routes/dailyReports'));
+registerRoute('dailyReportUnified', '/api/daily-report', () => require('./routes/dailyReportUnified'));
+registerRoute('backup', '/api', () => require('./routes/backup'));
+const sheetsBackupRoutes = registerRoute('sheetsBackup', '/api/backup', () => require('./routes/sheetsBackup'));
 
 // AI Features Routes
 app.use('/api/ai', mlCheck);
-app.use('/api/ai/monitoring', require('./routes/aiMonitoring'));
-app.use('/api/ai', require('./routes/aiSearch'));
-app.use('/api/ai', require('./routes/designCheck'));
-app.use('/api/ai/paper-layout', require('./routes/paperLayout'));
-app.use('/api', require('./routes/search'));
-app.use('/api', require('./routes/auditInvoice'));
-app.use('/api', require('./routes/accounts'));
-app.use('/api/job-priority', require('./routes/jobPriority'));
-app.use('/api/ai/sales-prediction', require('./routes/salesPrediction'));
-app.use('/api/ai/order-predictions', require('./routes/orderPredictions'));
-app.use('/api/production-tracker', require('./routes/productionTracker'));
+registerRoute('aiMonitoring', '/api/ai/monitoring', () => require('./routes/aiMonitoring'));
+registerRoute('aiSearch', '/api/ai', () => require('./routes/aiSearch'));
+registerRoute('designCheck', '/api/ai', () => require('./routes/designCheck'));
+registerRoute('paperLayout', '/api/ai/paper-layout', () => require('./routes/paperLayout'));
+registerRoute('search', '/api', () => require('./routes/search'));
+registerRoute('auditInvoice', '/api', () => require('./routes/auditInvoice'));
+registerRoute('accounts', '/api', () => require('./routes/accounts'));
+registerRoute('jobPriority', '/api/job-priority', () => require('./routes/jobPriority'));
+registerRoute('salesPrediction', '/api/ai/sales-prediction', () => require('./routes/salesPrediction'));
+registerRoute('orderPredictions', '/api/ai/order-predictions', () => require('./routes/orderPredictions'));
+registerRoute('productionTracker', '/api/production-tracker', () => require('./routes/productionTracker'));
 
 // Upsell suggestions API
-app.use('/api', require('./routes/upsell'));
+registerRoute('upsell', '/api', () => require('./routes/upsell'));
 
 // Anomaly detection (calls Python ML service)
-app.use('/api/ai', require('./routes/anomalies'));
+registerRoute('anomalies', '/api/ai', () => require('./routes/anomalies'));
 
 // ML sales forecast (calls Python ML service)
-app.use('/api/ai/forecast', require('./routes/forecast'));
+registerRoute('forecast', '/api/ai/forecast', () => require('./routes/forecast'));
 
 // AI business insights (calls Python ML service)
-app.use('/api/ai', require('./routes/insights'));
+registerRoute('insights', '/api/ai', () => require('./routes/insights'));
 
 // Seasonal analysis (calls Python ML service)
-app.use('/api/ai', require('./routes/seasonal'));
+registerRoute('seasonal', '/api/ai', () => require('./routes/seasonal'));
 
 // Stock planning (calls Python ML service)
-app.use('/api/ai/stock-planning', require('./routes/stockPlanning'));
+registerRoute('stockPlanning', '/api/ai/stock-planning', () => require('./routes/stockPlanning'));
 
 // Order forecast (calls Python ML service)
-app.use('/api/ai/order-forecast', require('./routes/orderForecast'));
+registerRoute('orderForecast', '/api/ai/order-forecast', () => require('./routes/orderForecast'));
 
 // AI upsell suggestions (calls Python ML service — Apriori)
-app.use('/api/ai', require('./routes/aiUpsell'));
+registerRoute('aiUpsell', '/api/ai', () => require('./routes/aiUpsell'));
 
 // AI turnaround time prediction (calls Python ML service — GBR)
-app.use('/api/ai/turnaround', require('./routes/aiTurnaround'));
+registerRoute('aiTurnaround', '/api/ai/turnaround', () => require('./routes/aiTurnaround'));
 
 // AI expense categorizer (calls Python ML service — TF-IDF + NB/LR)
-app.use('/api/ai/categorize-expense', require('./routes/expenseCategorizer'));
+registerRoute('expenseCategorizer', '/api/ai/categorize-expense', () => require('./routes/expenseCategorizer'));
 
 // CCTV Attendance System
-app.use('/api/cctv', require('./routes/cctvAttendance'));
+registerRoute('cctvAttendance', '/api/cctv', () => require('./routes/cctvAttendance'));
 
 // CCTV Camera & Face Data Management
-app.use('/api/cctv', require('./routes/cctvCameras')(upload, removeUploadFile));
+registerRoute('cctvCameras', '/api/cctv', () => require('./routes/cctvCameras')(upload, removeUploadFile));
 
 // Quotes, Invoice Features & Password Reset
-app.use('/api', require('./routes/quotes'));
-app.use('/api', require('./routes/invoiceFeatures'));
-app.use('/api', require('./routes/passwordReset'));
+registerRoute('quotes', '/api', () => require('./routes/quotes'));
+registerRoute('invoiceFeatures', '/api', () => require('./routes/invoiceFeatures'));
+registerRoute('passwordReset', '/api', () => require('./routes/passwordReset'));
 
 // Phase 1 Commerce and Website Routes
-app.use('/api', require('./routes/websiteInquiries'));
-app.use('/api', require('./routes/premiumFeatures')());
-app.use('/api/blog', require('./routes/blog')(upload));
-app.use('/api', require('./routes/portfolio'));
-app.use('/api', require('./routes/promotions'));
-app.use('/api', require('./routes/translations'));
-app.use('/api', require('./routes/proofs'));
-app.use('/api', require('./routes/artworkUploads'));
-app.use('/api', require('./routes/pickupSlots'));
-app.use('/api', require('./routes/deliveryEstimates'));
-app.use('/api', require('./routes/websiteReviews'));
-app.use('/api', require('./routes/whatsappAnalytics'));
-app.use('/api', require('./routes/checkout'));
-app.use('/api', require('./routes/businessHub'));
-app.use('/api', require('./routes/preflight'));
-app.use('/api', require('./routes/pricing'));
-app.use('/', require('./routes/seo'));
+registerRoute('websiteInquiries', '/api', () => require('./routes/websiteInquiries'));
+registerRoute('premiumFeatures', '/api', () => require('./routes/premiumFeatures')());
+registerRoute('blog', '/api/blog', () => require('./routes/blog')(upload));
+registerRoute('portfolio', '/api', () => require('./routes/portfolio'));
+registerRoute('promotions', '/api', () => require('./routes/promotions'));
+registerRoute('translations', '/api', () => require('./routes/translations'));
+registerRoute('proofs', '/api', () => require('./routes/proofs'));
+registerRoute('artworkUploads', '/api', () => require('./routes/artworkUploads'));
+registerRoute('pickupSlots', '/api', () => require('./routes/pickupSlots'));
+registerRoute('deliveryEstimates', '/api', () => require('./routes/deliveryEstimates'));
+registerRoute('websiteReviews', '/api', () => require('./routes/websiteReviews'));
+registerRoute('whatsappAnalytics', '/api', () => require('./routes/whatsappAnalytics'));
+registerRoute('checkout', '/api', () => require('./routes/checkout'));
+registerRoute('businessHub', '/api', () => require('./routes/businessHub'));
+registerRoute('preflight', '/api', () => require('./routes/preflight'));
+registerRoute('pricing', '/api', () => require('./routes/pricing'));
+registerRootRoute('seo', () => require('./routes/seo'));
 
 // Customer-facing Website Routes (public, no auth required — shares same DB)
-app.use('/api/website', require('./routes/website')(upload));
-app.use('/api/website', require('./routes/websiteDesigns'));
+registerRoute('website', '/api/website', () => require('./routes/website')(upload));
+registerRoute('websiteDesigns', '/api/website', () => require('./routes/websiteDesigns'));
 
 // Health check with DB ping (must be before the error handler)
 app.get('/api/ping', async (req, res) => {
@@ -614,27 +624,29 @@ if (process.env.NODE_ENV !== 'test') {
 
         // DEV: list registered routes to help debugging missing endpoints
         try {
+            const router = app._router || app.router;
+            const stack = router && Array.isArray(router.stack) ? router.stack : [];
             const getPath = (layer) => {
-                if (layer.route && layer.route.path) return layer.route.path;
-                if (layer.regexp && layer.regexp.source) return layer.regexp.source;
+                if (layer?.route?.path) return layer.route.path;
+                if (layer?.regexp?.source) return layer.regexp.source;
                 return undefined;
             };
             const routes = [];
-            app._router.stack.forEach((layer) => {
+            stack.forEach((layer) => {
                 const p = getPath(layer);
                 if (p) {
                     routes.push(p);
-                } else if (layer.name === 'router' && layer.handle && layer.handle.stack) {
+                } else if (layer?.name === 'router' && layer?.handle?.stack && Array.isArray(layer.handle.stack)) {
                     layer.handle.stack.forEach((l) => {
                         const rp = getPath(l);
                         if (rp) routes.push(rp);
                     });
                 }
             });
-            logger.info('[DevRoutes] Registered route patterns:');
+            logger.info(`[DevRoutes] Registered route patterns: ${routes.length}`);
             routes.slice(0, 200).forEach(r => logger.info('  ', r));
         } catch (e) {
-            logger.warn('[DevRoutes] Failed to list routes:', e.message);
+            logger.warn('[DevRoutes] Failed to list routes:', e && e.message ? e.message : String(e));
         }
 
         // Start background migration check
