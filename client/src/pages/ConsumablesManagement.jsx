@@ -167,6 +167,23 @@ const ConsumablesManagement = () => {
         }
     };
 
+    const getStockLevel = (item) => {
+        const qty = Number(item.quantity_in_stock);
+        const reorder = Number(item.reorder_level || 0);
+        const min = Number(item.min_stock_level || 0);
+        const max = Number(item.max_stock_level || 0);
+        if (qty <= 0) return 'critical';
+        if (qty <= reorder && reorder > 0) return 'low';
+        if (max > 0 && qty >= max) return 'overstock';
+        return 'normal';
+    };
+
+    const getStockBarWidth = (item) => {
+        const qty = Number(item.quantity_in_stock);
+        const max = Number(item.max_stock_level || 0) || Number(item.reorder_level || 0) * 2 || 100;
+        return Math.min((qty / max) * 100, 100);
+    };
+
     const handleOpenAdjust = (item) => {
         setAdjustData({ id: item.id, name: item.name, quantity_delta: '', reason: '', adjustment_type: 'INWARD' });
         setShowAdjustModal(true);
@@ -367,68 +384,79 @@ const ConsumablesManagement = () => {
             </div>
 
             {/* Main content area with side panel */}
-            <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+            <div className="inv-flex-row">
                 {/* Table */}
                 <div className="inv-table-container" style={{ flex: 1, minWidth: 0 }}>
                     <div className="inv-table-scroll">
                         <table className="inv-table">
                             <thead>
                                 <tr>
-                                    <th>Name</th>
+                                    <th style={{ width: '30%' }}>Name / Specs</th>
                                     <th>Category</th>
-                                    <th>Unit</th>
                                     <th>Stock</th>
-                                    <th>Reorder</th>
                                     <th>Rate</th>
                                     <th>Supplier</th>
-                                    <th>Branch</th>
-                                    <th style={{ textAlign: 'right', width: 140 }}>Actions</th>
+                                    <th style={{ textAlign: 'right', width: 120 }}>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {loading ? (
-                                    <tr><td colSpan="9" className="text-center p-xl"><RefreshCcw className="animate-spin muted" size={30} /></td></tr>
+                                    <tr><td colSpan="6" className="text-center p-xl"><RefreshCcw className="animate-spin muted" size={30} /></td></tr>
                                 ) : items.length === 0 ? (
-                                    <tr><td colSpan="9" className="text-center p-xl muted">
+                                    <tr><td colSpan="6" className="text-center p-xl muted">
                                         <Package size={44} style={{ opacity: 0.2, marginBottom: 12 }} />
                                         <div>No consumables found.</div>
                                     </td></tr>
                                 ) : (
                                     items.map(item => {
-                                        const isLow = Number(item.quantity_in_stock) <= Number(item.reorder_level || 0);
+                                        const level = getStockLevel(item);
+                                        const barWidth = getStockBarWidth(item);
                                         return (
-                                            <tr key={item.id} className={isLow ? 'row-selected' : ''} style={{ cursor: 'pointer' }}>
-                                                <td onClick={() => handleOpenDetail(item)}>
+                                            <tr key={item.id} onClick={() => handleOpenDetail(item)} style={{ cursor: 'pointer' }}>
+                                                <td>
                                                     <div className="font-bold">{item.name}</div>
-                                                    <div style={{ fontSize: 11, color: 'var(--muted)' }}>
-                                                        {[item.brand, item.size_name, item.gsm ? `${item.gsm} GSM` : '', item.color, item.finish].filter(Boolean).join(' • ') || item.sku}
+                                                    <div style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                                                        <span className={`inv-cat-badge inv-cat-badge--${item.category || 'other'}`}>{toDisplayCategory(item.category)}</span>
+                                                        {[item.brand, item.size_name, item.gsm ? `${item.gsm} GSM` : '', item.color, item.finish].filter(Boolean).slice(0, 2).join(' • ') || ''}
+                                                        {item.sku && <span style={{ fontFamily: 'monospace', opacity: 0.6 }}>#{item.sku}</span>}
                                                     </div>
-                                                    {isLow && <div className="text-xs text-danger font-medium">Low Stock</div>}
+                                                    <div className="inv-stock-vis">
+                                                        <div className="inv-stock-bar-track">
+                                                            <div className={`inv-stock-bar-fill inv-stock-bar-fill--${level === 'critical' ? 'critical' : level === 'low' ? 'low' : level === 'overstock' ? 'overstock' : 'normal'}`}
+                                                                style={{ width: `${barWidth}%` }} />
+                                                        </div>
+                                                        <div className="inv-stock-bar-labels">
+                                                            <span>{item.quantity_in_stock} {item.unit}</span>
+                                                            {item.reorder_level > 0 && <span>min: {item.reorder_level}</span>}
+                                                        </div>
+                                                    </div>
                                                 </td>
-                                                <td onClick={() => handleOpenDetail(item)}><span className="inv-pill inv-pill--ok">{toDisplayCategory(item.category)}</span></td>
-                                                <td onClick={() => handleOpenDetail(item)}>{item.unit}</td>
-                                                <td onClick={() => handleOpenDetail(item)} className={isLow ? 'text-danger font-bold' : 'font-bold'}>{item.quantity_in_stock}</td>
-                                                <td onClick={() => handleOpenDetail(item)}>{item.reorder_level}</td>
-                                                <td onClick={() => handleOpenDetail(item)}>
+                                                <td data-label="Category">
+                                                    <span className={`inv-cat-badge inv-cat-badge--${item.category || 'other'}`}>{toDisplayCategory(item.category)}</span>
+                                                </td>
+                                                <td data-label="Stock">
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                        <span className={`inv-status-dot inv-status-dot--${level === 'critical' ? 'critical' : level === 'low' ? 'low' : 'ok'}`} />
+                                                        <span className="font-bold">{item.quantity_in_stock}</span>
+                                                        <span style={{ fontSize: 11, color: 'var(--muted)' }}>{item.unit}</span>
+                                                    </div>
+                                                </td>
+                                                <td data-label="Rate">
                                                     <span style={{ fontWeight: 500 }}>₹{Number(item.unit_cost || 0).toLocaleString()}</span>
                                                     {item.current_rate_id && <History size={12} style={{ marginLeft: 4, verticalAlign: 'middle', color: 'var(--muted)' }} />}
                                                 </td>
-                                                <td onClick={() => handleOpenDetail(item)}>{item.supplier_name || '-'}</td>
-                                                <td onClick={() => handleOpenDetail(item)}>{item.branch}</td>
-                                                <td style={{ textAlign: 'right' }}>
+                                                <td data-label="Supplier">{item.supplier_name || '-'}</td>
+                                                <td data-label="Actions" style={{ textAlign: 'right' }}>
                                                     <div className="inv-actions justify-end">
                                                         {isManager && (
                                                             <>
-                                                                <button className="inv-action-btn" title="Quick Adjust" onClick={() => handleOpenAdjust(item)}>
+                                                                <button className="inv-action-btn" title="Quick Adjust" onClick={(e) => { e.stopPropagation(); handleOpenAdjust(item); }}>
                                                                     <ArrowUp size={12} style={{ marginRight: -4 }} /><ArrowDown size={12} />
                                                                 </button>
-                                                                <button className="inv-action-btn" title="View Details" onClick={() => handleOpenDetail(item)}>
-                                                                    <Eye size={14} />
-                                                                </button>
-                                                                <button className="inv-action-btn" title="Edit" onClick={() => handleOpenEdit(item)}>
+                                                                <button className="inv-action-btn" title="Edit" onClick={(e) => { e.stopPropagation(); handleOpenEdit(item); }}>
                                                                     <Edit2 size={14} />
                                                                 </button>
-                                                                <button className="inv-action-btn inv-action-btn--danger" title="Delete" onClick={() => handleDelete(item.id)}>
+                                                                <button className="inv-action-btn inv-action-btn--danger" title="Delete" onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}>
                                                                     <Trash2 size={14} />
                                                                 </button>
                                                             </>
@@ -446,85 +474,139 @@ const ConsumablesManagement = () => {
 
                 {/* Detail Panel */}
                 {detailItem && (
-                    <div style={{
-                        width: 360, minWidth: 360, border: '1px solid var(--border)',
-                        borderRadius: 12, background: 'var(--surface)', overflow: 'hidden',
-                        position: 'sticky', top: 16
-                    }}>
-                        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>{detailItem.name}</h3>
+                    <div className="inv-detail-panel">
+                        <div className="inv-detail-header">
+                            <h3 className="inv-detail-title">{detailItem.name}</h3>
                             <button className="inv-action-btn" onClick={() => setDetailItem(null)}><X size={16} /></button>
                         </div>
-                        {/* Tab bar */}
-                        <div style={{ display: 'flex', borderBottom: '1px solid var(--border)' }}>
+                        <div className="inv-detail-tabs">
                             {['details', 'rates', 'purchases'].map(tab => (
                                 <button key={tab}
                                     onClick={() => setDetailTab(tab)}
-                                    style={{
-                                        flex: 1, padding: '8px', fontSize: 12, fontWeight: 500,
-                                        background: detailTab === tab ? 'var(--accent-light)' : 'transparent',
-                                        border: 'none', borderBottom: detailTab === tab ? '2px solid var(--accent)' : '2px solid transparent',
-                                        cursor: 'pointer', color: detailTab === tab ? 'var(--accent)' : 'var(--muted)',
-                                        textTransform: 'capitalize'
-                                    }}
+                                    className={`inv-detail-tab ${detailTab === tab ? 'inv-detail-tab--active' : ''}`}
                                 >
-                                    {tab === 'details' ? <><FileText size={12} style={{ marginRight: 4 }} />Details</> :
-                                     tab === 'rates' ? <><TrendingUp size={12} style={{ marginRight: 4 }} />Rates</> :
-                                     <><ShoppingCart size={12} style={{ marginRight: 4 }} />Purchases</>}
+                                    {tab === 'details' ? <><FileText size={12} />Details</> :
+                                     tab === 'rates' ? <><TrendingUp size={12} />Rates</> :
+                                     <><ShoppingCart size={12} />Purchases</>}
                                 </button>
                             ))}
                         </div>
-                        <div style={{ padding: 16, maxHeight: 400, overflowY: 'auto' }}>
+                        <div className="inv-detail-body">
                             {detailTab === 'details' && (
-                                <div style={{ fontSize: 13, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                    <Row label="Category" value={toDisplayCategory(detailItem.category)} />
-                                    <Row label="Unit" value={detailItem.unit} />
-                                    {detailItem.gsm && <Row label="GSM" value={`${detailItem.gsm}`} />}
-                                    {detailItem.size_name && <Row label="Size" value={detailItem.size_name} />}
-                                    {detailItem.brand && <Row label="Brand" value={detailItem.brand} />}
-                                    {detailItem.finish && <Row label="Finish" value={detailItem.finish} />}
-                                    {detailItem.color && <Row label="Color" value={detailItem.color} />}
-                                    <Row label="Stock" value={`${detailItem.quantity_in_stock} ${detailItem.unit}`} />
-                                    <Row label="Reorder Level" value={`${detailItem.reorder_level}`} />
-                                    {detailItem.min_stock_level && <Row label="Min Stock" value={`${detailItem.min_stock_level}`} />}
-                                    {detailItem.max_stock_level && <Row label="Max Stock" value={`${detailItem.max_stock_level}`} />}
-                                    {detailItem.location && <Row label="Location" value={detailItem.location} />}
-                                    <Row label="Current Rate" value={`₹${Number(detailItem.unit_cost || 0).toLocaleString()}`} />
-                                    {detailItem.sku && <Row label="SKU" value={detailItem.sku} />}
-                                    <Row label="Supplier" value={detailItem.supplier_name || '-'} />
-                                    <Row label="Branch" value={detailItem.branch} />
-                                    {detailItem.notes && <Row label="Notes" value={detailItem.notes} />}
-                                    <div style={{ marginTop: 8 }}>
-                                        <button className="btn btn-secondary btn-sm btn--full" onClick={() => setShowAddRateModal(true)}>
-                                            <TrendingUp size={14} /> Update Rate
-                                        </button>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                    <div className="inv-spec-grid">
+                                        <div className="inv-spec-item">
+                                            <span className="inv-spec-label">Category</span>
+                                            <span className="inv-spec-value">{toDisplayCategory(detailItem.category)}</span>
+                                        </div>
+                                        <div className="inv-spec-item">
+                                            <span className="inv-spec-label">Unit</span>
+                                            <span className="inv-spec-value">{detailItem.unit}</span>
+                                        </div>
+                                        {detailItem.gsm && <div className="inv-spec-item">
+                                            <span className="inv-spec-label">GSM</span>
+                                            <span className="inv-spec-value">{detailItem.gsm}</span>
+                                        </div>}
+                                        {detailItem.size_name && <div className="inv-spec-item">
+                                            <span className="inv-spec-label">Size</span>
+                                            <span className="inv-spec-value">{detailItem.size_name}</span>
+                                        </div>}
+                                        {detailItem.brand && <div className="inv-spec-item">
+                                            <span className="inv-spec-label">Brand</span>
+                                            <span className="inv-spec-value">{detailItem.brand}</span>
+                                        </div>}
+                                        {detailItem.finish && <div className="inv-spec-item">
+                                            <span className="inv-spec-label">Finish</span>
+                                            <span className="inv-spec-value">{detailItem.finish}</span>
+                                        </div>}
+                                        {detailItem.color && <div className="inv-spec-item">
+                                            <span className="inv-spec-label">Color</span>
+                                            <span className="inv-spec-value">{detailItem.color}</span>
+                                        </div>}
+                                        {detailItem.sku && <div className="inv-spec-item">
+                                            <span className="inv-spec-label">SKU</span>
+                                            <span className="inv-spec-value" style={{ fontFamily: 'monospace' }}>{detailItem.sku}</span>
+                                        </div>}
                                     </div>
+                                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: 8, marginTop: 4 }}>
+                                        <div className="inv-detail-row">
+                                            <span className="inv-detail-label">Stock Level</span>
+                                            <span className="inv-detail-value" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                <span className={`inv-status-dot inv-status-dot--${getStockLevel(detailItem) === 'critical' ? 'critical' : getStockLevel(detailItem) === 'low' ? 'low' : 'ok'}`} />
+                                                {detailItem.quantity_in_stock} {detailItem.unit}
+                                            </span>
+                                        </div>
+                                        <div className="inv-stock-vis" style={{ margin: '4px 0 8px' }}>
+                                            <div className="inv-stock-bar-track">
+                                                <div className={`inv-stock-bar-fill inv-stock-bar-fill--${getStockLevel(detailItem) === 'critical' ? 'critical' : getStockLevel(detailItem) === 'low' ? 'low' : getStockLevel(detailItem) === 'overstock' ? 'overstock' : 'normal'}`}
+                                                    style={{ width: `${getStockBarWidth(detailItem)}%` }} />
+                                            </div>
+                                            <div className="inv-stock-bar-labels">
+                                                {detailItem.min_stock_level && <span>min: {detailItem.min_stock_level}</span>}
+                                                {detailItem.max_stock_level && <span>max: {detailItem.max_stock_level}</span>}
+                                                {detailItem.reorder_level > 0 && <span>reorder: {detailItem.reorder_level}</span>}
+                                            </div>
+                                        </div>
+                                        <div className="inv-detail-row">
+                                            <span className="inv-detail-label">Reorder Level</span>
+                                            <span className="inv-detail-value">{detailItem.reorder_level}</span>
+                                        </div>
+                                        {detailItem.min_stock_level && <div className="inv-detail-row">
+                                            <span className="inv-detail-label">Min Stock</span>
+                                            <span className="inv-detail-value">{detailItem.min_stock_level}</span>
+                                        </div>}
+                                        {detailItem.max_stock_level && <div className="inv-detail-row">
+                                            <span className="inv-detail-label">Max Stock</span>
+                                            <span className="inv-detail-value">{detailItem.max_stock_level}</span>
+                                        </div>}
+                                        {detailItem.location && <div className="inv-detail-row">
+                                            <span className="inv-detail-label">Location</span>
+                                            <span className="inv-detail-value">{detailItem.location}</span>
+                                        </div>}
+                                    </div>
+                                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: 8, marginTop: 4 }}>
+                                        <div className="inv-detail-row">
+                                            <span className="inv-detail-label">Current Rate</span>
+                                            <span className="inv-detail-value" style={{ fontSize: 16, color: 'var(--accent)' }}>₹{Number(detailItem.unit_cost || 0).toLocaleString()}</span>
+                                        </div>
+                                        <div className="inv-detail-row">
+                                            <span className="inv-detail-label">Supplier</span>
+                                            <span className="inv-detail-value">{detailItem.supplier_name || '-'}</span>
+                                        </div>
+                                        <div className="inv-detail-row">
+                                            <span className="inv-detail-label">Branch</span>
+                                            <span className="inv-detail-value">{detailItem.branch}</span>
+                                        </div>
+                                        {detailItem.notes && <div className="inv-detail-row">
+                                            <span className="inv-detail-label">Notes</span>
+                                            <span className="inv-detail-value" style={{ maxWidth: 200, textAlign: 'right' }}>{detailItem.notes}</span>
+                                        </div>}
+                                    </div>
+                                    <button className="btn btn-secondary btn-sm btn--full" style={{ marginTop: 8 }} onClick={() => setShowAddRateModal(true)}>
+                                        <TrendingUp size={14} /> Update Rate
+                                    </button>
                                 </div>
                             )}
                             {detailTab === 'rates' && (
                                 <div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                                        <span style={{ fontSize: 12, color: 'var(--muted)' }}>Rate change history</span>
+                                    <div className="inv-section-header">
+                                        <span className="inv-section-label">Rate change history</span>
                                         <button className="btn btn-secondary btn-sm" onClick={() => setShowAddRateModal(true)}><Plus size={14} /> Add Rate</button>
                                     </div>
                                     {detailLoading ? <div className="muted" style={{ fontSize: 12, textAlign: 'center', padding: 16 }}>Loading...</div> :
                                      rateHistory.length === 0 ? <div className="muted" style={{ fontSize: 12, textAlign: 'center', padding: 16 }}>No rate history</div> :
                                      rateHistory.map(r => (
-                                        <div key={r.id} style={{
-                                            padding: '8px 10px', borderBottom: '1px solid var(--border)',
-                                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                                            background: r.id === detailItem.current_rate_id ? 'var(--accent-light)' : 'transparent'
-                                        }}>
+                                        <div key={r.id} className={`inv-rate-item ${r.id === detailItem.current_rate_id ? 'inv-rate-item--active' : ''}`}>
                                             <div>
-                                                <div style={{ fontWeight: 600, fontSize: 14 }}>₹{Number(r.rate).toLocaleString()}</div>
-                                                <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                                                <div className="inv-rate-amount">₹{Number(r.rate).toLocaleString()}</div>
+                                                <div className="inv-rate-meta">
                                                     {r.effective_date ? new Date(r.effective_date).toLocaleDateString() : '-'}
                                                     {r.supplier_name && ` • ${r.supplier_name}`}
                                                 </div>
                                             </div>
                                             <div>
                                                 {r.id === detailItem.current_rate_id && (
-                                                    <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--accent)' }}>ACTIVE</span>
+                                                    <span className="inv-rate-badge">ACTIVE</span>
                                                 )}
                                             </div>
                                         </div>
@@ -536,16 +618,16 @@ const ConsumablesManagement = () => {
                                     {detailLoading ? <div className="muted" style={{ fontSize: 12, textAlign: 'center', padding: 16 }}>Loading...</div> :
                                      purchaseHistory.length === 0 ? <div className="muted" style={{ fontSize: 12, textAlign: 'center', padding: 16 }}>No purchase history</div> :
                                      purchaseHistory.map(p => (
-                                        <div key={p.id} style={{ padding: '8px 10px', borderBottom: '1px solid var(--border)' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                <span style={{ fontWeight: 600, fontSize: 14 }}>₹{Number(p.total_amount).toLocaleString()}</span>
-                                                <span style={{ fontSize: 12, color: 'var(--muted)' }}>{p.purchase_date ? new Date(p.purchase_date).toLocaleDateString() : '-'}</span>
+                                        <div key={p.id} className="inv-purchase-item">
+                                            <div className="inv-purchase-top">
+                                                <span className="inv-purchase-amount">₹{Number(p.total_amount).toLocaleString()}</span>
+                                                <span className="inv-purchase-date">{p.purchase_date ? new Date(p.purchase_date).toLocaleDateString() : '-'}</span>
                                             </div>
-                                            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+                                            <div className="inv-purchase-detail">
                                                 {p.quantity} × ₹{Number(p.unit_price).toLocaleString()}
                                                 {p.supplier_name && ` • ${p.supplier_name}`}
                                             </div>
-                                            {p.invoice_ref && <div style={{ fontSize: 11, color: 'var(--muted)' }}>Ref: {p.invoice_ref}</div>}
+                                            {p.invoice_ref && <div className="inv-purchase-ref">Ref: {p.invoice_ref}</div>}
                                         </div>
                                      ))}
                                 </div>
@@ -644,11 +726,35 @@ const ConsumablesManagement = () => {
                             <h2 className="section-title">Quick Adjust</h2>
                             <button className="modal-close" onClick={() => setShowAdjustModal(false)}><X size={20} /></button>
                         </div>
-                        <div className="mb-16">
-                            <div className="font-bold">{adjustData.name}</div>
-                            <div className="text-xs muted">Use positive number to add stock and negative number to reduce.</div>
+                        <div className="stack-md">
+                            <div className="font-bold" style={{ padding: '0 16px' }}>{adjustData.name}</div>
+                            <div className="inv-adjust-current" style={{ margin: '0 16px' }}>
+                                <span className="inv-adjust-current-label">Current Stock</span>
+                                <span className="inv-adjust-current-value">
+                                    {(() => {
+                                        const item = items.find(i => i.id === adjustData.id);
+                                        return item ? `${item.quantity_in_stock} ${item.unit}` : '-';
+                                    })()}
+                                </span>
+                            </div>
+                            {adjustData.quantity_delta && Number(adjustData.quantity_delta) !== 0 && (() => {
+                                const item = items.find(i => i.id === adjustData.id);
+                                const currentQty = item ? Number(item.quantity_in_stock) : 0;
+                                const delta = Number(adjustData.quantity_delta);
+                                const sign = adjustData.adjustment_type === 'INWARD' ? 1 : adjustData.adjustment_type === 'OUTWARD' ? -1 : adjustData.adjustment_type === 'RETURN' ? 1 : -1;
+                                const newQty = currentQty + (delta * sign);
+                                const isInward = adjustData.adjustment_type === 'INWARD' || adjustData.adjustment_type === 'RETURN';
+                                return (
+                                    <div className={`inv-adjust-preview inv-adjust-preview--${isInward ? 'inward' : 'outward'}`} style={{ margin: '0 16px' }}>
+                                        <span className="inv-adjust-current-label">After adjustment</span>
+                                        <span className="inv-adjust-current-value" style={{ color: isInward ? 'var(--success, #22c55e)' : 'var(--error, #ef4444)' }}>
+                                            {newQty.toLocaleString()} {item?.unit || ''}
+                                        </span>
+                                    </div>
+                                );
+                            })()}
                         </div>
-                        <form onSubmit={handleAdjustSubmit} className="stack-md">
+                        <form onSubmit={handleAdjustSubmit} className="stack-md" style={{ padding: '0 16px 16px' }}>
                             <div>
                                 <label className="label">Adjustment Type</label>
                                 <select className="input-field" value={adjustData.adjustment_type}
@@ -660,11 +766,11 @@ const ConsumablesManagement = () => {
                                 </select>
                             </div>
                             <div>
-                                <label className="label">Quantity Delta *</label>
+                                <label className="label">Quantity *</label>
                                 <input type="number" step="0.001" className="input-field" required autoFocus
                                     value={adjustData.quantity_delta}
                                     onChange={e => setAdjustData({ ...adjustData, quantity_delta: e.target.value })}
-                                    placeholder="e.g. 2 or -0.5" />
+                                    placeholder="e.g. 2 or 0.5" />
                             </div>
                             <div>
                                 <label className="label">Reason *</label>
@@ -673,7 +779,7 @@ const ConsumablesManagement = () => {
                                     onChange={e => setAdjustData({ ...adjustData, reason: e.target.value })}
                                     placeholder="e.g. Received from supplier, damaged unit" />
                             </div>
-                            <div className="row justify-end gap-sm mt-md">
+                            <div className="row justify-end gap-sm">
                                 <button type="button" className="btn btn-ghost" onClick={() => setShowAdjustModal(false)}>Cancel</button>
                                 <button type="submit" className="btn btn-primary" disabled={!adjustData.quantity_delta || !adjustData.reason}>Confirm</button>
                             </div>
@@ -725,12 +831,5 @@ const ConsumablesManagement = () => {
         </PageContainer>
     );
 };
-
-const Row = ({ label, value }) => (
-    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', padding: '4px 0' }}>
-        <span style={{ color: 'var(--muted)' }}>{label}</span>
-        <span style={{ fontWeight: 500 }}>{value}</span>
-    </div>
-);
 
 export default ConsumablesManagement;
