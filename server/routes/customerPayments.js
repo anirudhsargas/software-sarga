@@ -801,7 +801,7 @@ router.get('/stats/dashboard', authenticateToken, authorizeRoles('Admin', 'Accou
                 SUM(total_amount) as total_sales,
                 SUM(CASE WHEN DATE(created_at) = ? THEN total_amount ELSE 0 END) as total_sales_today,
                 SUM(advance_paid) as total_collected,
-                SUM(balance_amount) as total_balance,
+                SUM(GREATEST(COALESCE(total_amount, 0) - COALESCE(advance_paid, 0), 0)) as total_balance,
                 COUNT(CASE WHEN DATE(created_at) = ? THEN 1 END) as new_today,
                 COUNT(CASE WHEN status = 'Completed' AND DATE(updated_at) = ? THEN 1 END) as completed_today,
                 COUNT(CASE WHEN priority = 'Urgent' AND DATE(delivery_date) = ? THEN 1 END) as urgent_today,
