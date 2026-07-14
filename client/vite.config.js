@@ -180,8 +180,7 @@ export default defineConfig({
     chunkSizeWarningLimit: 500,
     // Emit module preload polyfill
     modulePreload: {
-      polyfill: false,
-      resolveDependencies: () => []
+      polyfill: false
     },
     // Optimize chunk size
     target: 'esnext',
