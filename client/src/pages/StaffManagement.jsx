@@ -17,146 +17,88 @@ import { filterMobile } from '../utils/validators';
 
 import BranchSelect from '../components/ui/BranchSelect';
 import PageContainer from '../components/ui/PageContainer';
-// Memoized staff row
-const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEditModal, setEditStaffImage, setEditStaffPreview, handleDelete, isAdmin, handleResetPassword, handleMarkAttendance, todayAttendance, onOpenSettings }) => (
-    <tr
-        key={s.id}
-        onDoubleClick={() => navigate(`/dashboard/employee/${s.id}`)}
-        style={{ cursor: 'pointer' }}
-        title="Double click to view dashboard"
-    >
-        <td>
-            <div className="row gap-sm">
-                <div className="user-avatar avatar-sm">
-                    {s.image_url ? (
-                        <SecureImage src={s.image_url} alt={s.name} className="avatar-img" onError={(e) => { e.currentTarget.src = ''; e.currentTarget.style.display = 'none'; }} />
-                    ) : (
-                        <User size={16} aria-hidden="true" />
-                    )}
-                </div>
-                <span className="user-name">{s.name}</span>
-            </div>
-        </td>
-        <td style={{ whiteSpace: 'nowrap' }}>{s.role}</td>
-        <td>{s.branch_name || 'N/A'}</td>
-        <td>{formatForDisplay(s.user_id || s.mobile)}</td>
-        <td>{new Date(s.created_at).toLocaleDateString()}</td>
-        <td>
-            {isAdmin ? (
-                <div role="button" tabIndex={0} className="row gap-sm" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
-                    <button
-                        className="btn btn-ghost"
-                        style={{ padding: '6px', minWidth: 'auto', border: 'none' }}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            handleMarkAttendance(s.id);
-                        }}
-                        title={todayAttendance[s.id]?.in_time && !todayAttendance[s.id]?.out_time ? "Mark Gone" : "Mark Attendance"}
-                        aria-label={todayAttendance[s.id]?.in_time && !todayAttendance[s.id]?.out_time ? "Mark Gone" : "Mark Attendance"}
-                    >
-                        {todayAttendance[s.id]?.in_time && !todayAttendance[s.id]?.out_time ? <LogOut size={15} aria-hidden="true" /> : <LogIn size={15} aria-hidden="true" />}
-                    </button>
-                    <button
-                        className="btn btn-ghost"
-                        style={{ padding: '6px', minWidth: 'auto', border: 'none' }}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            navigate('/dashboard/attendance-salary', {
-                                state: {
-                                    paymentPrefill: {
-                                        type: 'Salary',
-                                        staff_id: s.id,
-                                        payee_name: s.name,
-                                        description: `Salary for ${new Date().toLocaleString('default', { month: 'long' })}`
-                                    }
-                                }
-                            });
-                        }}
-                        title="Pay Salary"
-                        aria-label="Pay Salary"
-                    >
-                        <Banknote size={15} aria-hidden="true" />
-                    </button>
-                    <button
-                        className="btn btn-ghost"
-                        style={{ padding: '6px', minWidth: 'auto', border: 'none' }}
-                        onClick={(e) => { e.stopPropagation(); navigate(`/dashboard/employee/${s.id}`); }}
-                        title="View Dashboard"
-                        aria-label="View Dashboard"
-                    >
-                        <BarChart3 size={15} aria-hidden="true" />
-                    </button>
-                    <button
-                        className="btn btn-ghost"
-                        style={{ padding: '6px', minWidth: 'auto', border: 'none' }}
-                            onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedStaff({ ...s, countryCode: s.countryCode || '+91' });
-                            setEditStaffImage(null);
-                            setEditStaffPreview('');
-                            setShowEditModal(true);
-                        }}
-                        title="Edit Staff Member"
-                        aria-label="Edit Staff Member"
-                    >
-                        <Edit2 size={15} aria-hidden="true" />
-                    </button>
-                    <button
-                        className="btn btn-ghost"
-                        style={{ padding: '6px', minWidth: 'auto', border: 'none' }}
-                        onClick={(e) => { e.stopPropagation(); handleResetPassword(s.id); }}
-                        title="Reset Password to Default"
-                        aria-label="Reset Password to Default"
-                    >
-                        <Key size={15} aria-hidden="true" />
-                    </button>
-                    <button
-                        className="btn btn-ghost"
-                        style={{ padding: '6px', minWidth: 'auto', border: 'none' }}
-                        onClick={(e) => { e.stopPropagation(); onOpenSettings(s); }}
-                        title="Staff Settings"
-                        aria-label="Staff Settings"
-                    >
-                        <Settings size={15} aria-hidden="true" />
-                    </button>
-                    <button
-                        className="btn btn-ghost text-error"
-                        style={{ padding: '6px', minWidth: 'auto', border: 'none' }}
-                        onClick={(e) => { e.stopPropagation(); handleDelete(s.id); }}
-                        title="Delete Staff Member"
-                        aria-label="Delete Staff Member"
-                    >
-                        <Trash2 size={15} aria-hidden="true" />
-                    </button>
-                </div>
+import './StaffManagement.css';
+
+const roleBadgeClass = (role) => {
+  const map = {
+    'Front Office': 'staff-role-badge--front-office',
+    'Designer': 'staff-role-badge--designer',
+    'Printer': 'staff-role-badge--printer',
+    'Accountant': 'staff-role-badge--accountant',
+    'Admin': 'staff-role-badge--admin',
+  };
+  return map[role] || 'staff-role-badge--other';
+};
+
+const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEditModal, setEditStaffImage, setEditStaffPreview, handleDelete, isAdmin, handleResetPassword, handleMarkAttendance, todayAttendance, onOpenSettings }) => {
+  const att = todayAttendance[s.id];
+  const isPresent = att?.in_time && !att?.out_time;
+  return (
+    <tr className="staff-row" onDoubleClick={() => navigate(`/dashboard/employee/${s.id}`)} title="Double click to view dashboard">
+      <td>
+        <div className="staff-name-cell">
+          <div className="staff-avatar-sm">
+            {s.image_url ? (
+              <SecureImage src={s.image_url} alt={s.name} onError={(e) => { e.currentTarget.src = ''; e.currentTarget.style.display = 'none'; }} />
             ) : (
-                <>
-                    <button
-                        className="btn btn-ghost"
-                        style={{ padding: '6px', minWidth: 'auto', border: 'none' }}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            handleMarkAttendance(s.id);
-                        }}
-                        title={todayAttendance[s.id]?.in_time && !todayAttendance[s.id]?.out_time ? "Mark Gone" : "Mark Attendance"}
-                        aria-label={todayAttendance[s.id]?.in_time && !todayAttendance[s.id]?.out_time ? "Mark Gone" : "Mark Attendance"}
-                    >
-                        {todayAttendance[s.id]?.in_time && !todayAttendance[s.id]?.out_time ? <LogOut size={15} aria-hidden="true" /> : <LogIn size={15} aria-hidden="true" />}
-                    </button>
-                    <button
-                        className="btn btn-ghost"
-                        style={{ padding: '6px', minWidth: 'auto', border: 'none' }}
-                        onClick={(e) => { e.stopPropagation(); navigate(`/dashboard/employee/${s.id}`); }}
-                        title="View Dashboard"
-                        aria-label="View Dashboard"
-                    >
-                        <BarChart3 size={15} aria-hidden="true" />
-                    </button>
-                </>
+              <User size={16} aria-hidden="true" />
             )}
-        </td>
+          </div>
+          <div>
+            <div className="staff-name-text">{s.name}</div>
+            <span className={`staff-role-badge ${roleBadgeClass(s.role)}`}>{s.role}</span>
+          </div>
+        </div>
+      </td>
+      <td>
+        <div className="flex items-center gap-xs">
+          <span className={`staff-attendance-dot ${isPresent ? 'staff-attendance-dot--present' : 'staff-attendance-dot--absent'}`} />
+          <span className="staff-branch-text">{s.branch_name || 'N/A'}</span>
+        </div>
+      </td>
+      <td className="staff-mobile-cell">{formatForDisplay(s.user_id || s.mobile)}</td>
+      <td className="staff-joined-text">{new Date(s.created_at).toLocaleDateString()}</td>
+      <td>
+        <div className="staff-actions" onClick={(e) => e.stopPropagation()}>
+          {isAdmin ? (
+            <>
+              <button className="btn-icon" onClick={() => handleMarkAttendance(s.id)} title={isPresent ? "Mark Gone" : "Mark Attendance"}>
+                {isPresent ? <LogOut size={15} /> : <LogIn size={15} />}
+              </button>
+              <button className="btn-icon" onClick={() => navigate('/dashboard/attendance-salary', { state: { paymentPrefill: { type: 'Salary', staff_id: s.id, payee_name: s.name, description: `Salary for ${new Date().toLocaleString('default', { month: 'long' })}` } } })} title="Pay Salary">
+                <Banknote size={15} />
+              </button>
+              <button className="btn-icon" onClick={() => navigate(`/dashboard/employee/${s.id}`)} title="View Dashboard">
+                <BarChart3 size={15} />
+              </button>
+              <button className="btn-icon" onClick={() => { setSelectedStaff({ ...s, countryCode: s.countryCode || '+91' }); setEditStaffImage(null); setEditStaffPreview(''); setShowEditModal(true); }} title="Edit Staff Member">
+                <Edit2 size={15} />
+              </button>
+              <button className="btn-icon" onClick={() => handleResetPassword(s.id)} title="Reset Password">
+                <Key size={15} />
+              </button>
+              <button className="btn-icon" onClick={() => onOpenSettings(s)} title="Staff Settings">
+                <Settings size={15} />
+              </button>
+              <button className="btn-icon text-error" onClick={() => handleDelete(s.id)} title="Delete Staff Member">
+                <Trash2 size={15} />
+              </button>
+            </>
+          ) : (
+            <>
+              <button className="btn-icon" onClick={() => handleMarkAttendance(s.id)} title={isPresent ? "Mark Gone" : "Mark Attendance"}>
+                {isPresent ? <LogOut size={15} /> : <LogIn size={15} />}
+              </button>
+              <button className="btn-icon" onClick={() => navigate(`/dashboard/employee/${s.id}`)} title="View Dashboard">
+                <BarChart3 size={15} />
+              </button>
+            </>
+          )}
+        </div>
+      </td>
     </tr>
-));
+  );
+});
 
 const STAFF_ROLES = ['Front Office', 'Designer', 'Printer', 'Accountant', 'Other Staff'];
 
@@ -485,6 +427,30 @@ const StaffManagement = () => {
                 </div>
             </div>
 
+            <div className="staff-stats">
+              <div className="staff-stat-card">
+                <div className="staff-stat-icon staff-stat-icon--users"><Users size={18} /></div>
+                <div>
+                  <div className="staff-stat-value">{total}</div>
+                  <div className="staff-stat-label">Total Staff</div>
+                </div>
+              </div>
+              <div className="staff-stat-card">
+                <div className="staff-stat-icon staff-stat-icon--present"><LogIn size={18} /></div>
+                <div>
+                  <div className="staff-stat-value">{Object.values(todayAttendance).filter(a => a.in_time && !a.out_time).length}</div>
+                  <div className="staff-stat-label">Present Now</div>
+                </div>
+              </div>
+              <div className="staff-stat-card">
+                <div className="staff-stat-icon staff-stat-icon--roles"><Briefcase size={18} /></div>
+                <div>
+                  <div className="staff-stat-value">{new Set(staff.map(s => s.role)).size}</div>
+                  <div className="staff-stat-label">Roles</div>
+                </div>
+              </div>
+            </div>
+
             <div className="staff-toolbar">
                 <div className="staff-search-wrap">
                     <Search className="staff-search-icon" size={16} aria-hidden="true" />
@@ -521,21 +487,25 @@ const StaffManagement = () => {
                     <thead>
                         <tr>
                             <th scope="col">Staff Details</th>
-                            <th scope="col">Role</th>
                             <th scope="col">Branch</th>
                             <th scope="col">Mobile (User ID)</th>
                             <th scope="col">Joined</th>
-                            <th scope="col">Actions</th>
+                            <th scope="col" className="th-actions">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {loading && filteredStaff.length === 0 ? (
-                            <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--muted)' }}>
-                                <Loader2 className="animate-spin" style={{ display: 'inline', marginRight: 8 }} aria-hidden="true" /> Loading staff...
+                            <tr><td colSpan={5}>
+                                <div className="staff-loading">
+                                    <Loader2 className="animate-spin" size={18} aria-hidden="true" /> Loading staff...
+                                </div>
                             </td></tr>
                         ) : filteredStaff.length === 0 ? (
-                            <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--muted)' }}>
-                                No staff members found.
+                            <tr><td colSpan={5}>
+                                <div className="staff-empty">
+                                    <Users size={40} />
+                                    <span>No staff members found.</span>
+                                </div>
                             </td></tr>
                         ) : filteredStaff.map(s => (
                             <StaffRow
@@ -562,169 +532,10 @@ const StaffManagement = () => {
 
             {showAddModal && (
                 <div className="modal-backdrop" style={{ zIndex: 'var(--z-modal, 1000)' }}>
-                    <style>{`
-                        .staff-modal-container {
-                            background: var(--surface);
-                            border: 1px solid var(--border-subtle);
-                            border-radius: 24px;
-                            width: 100%;
-                            max-width: 580px;
-                            max-height: 90vh;
-                            overflow: hidden;
-                            display: flex;
-                            flex-direction: column;
-                            box-shadow: var(--shadow-lg);
-                            animation: modal-enter 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-                        }
-                        @keyframes modal-enter {
-                            from { opacity: 0; transform: scale(0.96) translateY(10px); }
-                            to { opacity: 1; transform: scale(1) translateY(0); }
-                        }
-                        .staff-form-body {
-                            padding: 32px;
-                            overflow-y: auto;
-                        }
-                        .staff-form-wrapper {
-                            display: flex;
-                            flex-direction: column;
-                            gap: 22px;
-                        }
-                        .staff-photo-section {
-                            display: flex;
-                            flex-direction: column;
-                            align-items: center;
-                            gap: 16px;
-                            padding: 20px;
-                            background: var(--surface-2);
-                            border: 2px dashed var(--border-subtle);
-                            border-radius: 16px;
-                            text-align: center;
-                            position: relative;
-                            transition: border-color 0.2s ease;
-                        }
-                        .staff-photo-section:hover {
-                            border-color: var(--accent);
-                        }
-                        .staff-avatar-preview-container {
-                            width: 100px;
-                            height: 100px;
-                            border-radius: 50%;
-                            background: var(--surface);
-                            border: 2px solid var(--border-subtle);
-                            box-shadow: var(--shadow-sm);
-                            display: grid;
-                            place-items: center;
-                            overflow: hidden;
-                            position: relative;
-                        }
-                        .staff-avatar-preview {
-                            width: 100%;
-                            height: 100%;
-                            object-fit: cover;
-                        }
-                        .staff-avatar-placeholder {
-                            color: var(--text-muted, var(--muted));
-                            display: flex;
-                            flex-direction: column;
-                            align-items: center;
-                            gap: 6px;
-                        }
-                        .staff-photo-input-label {
-                            display: inline-flex;
-                            align-items: center;
-                            gap: 8px;
-                            padding: 8px 16px;
-                            border-radius: 8px;
-                            background: var(--surface);
-                            border: 1px solid var(--border);
-                            color: var(--text);
-                            font-size: 13px;
-                            font-weight: 600;
-                            cursor: pointer;
-                            box-shadow: var(--shadow-2xs);
-                            transition: all 0.15s ease;
-                        }
-                        .staff-photo-input-label:hover {
-                            background: var(--surface-2);
-                            border-color: var(--text-muted);
-                        }
-                        .staff-field-group {
-                            display: flex;
-                            flex-direction: column;
-                            gap: 6px;
-                        }
-                        .staff-label {
-                            font-size: 11px;
-                            font-weight: 700;
-                            color: var(--text-muted, var(--muted));
-                            text-transform: uppercase;
-                            letter-spacing: 0.06em;
-                            padding-left: 2px;
-                        }
-                        .staff-input-container {
-                            position: relative;
-                            display: flex;
-                            align-items: center;
-                            width: 100%;
-                        }
-                        .staff-input-decorator {
-                            position: absolute;
-                            left: 14px;
-                            color: var(--text-muted, var(--muted));
-                            pointer-events: none;
-                            transition: color 0.15s ease;
-                            display: flex;
-                            align-items: center;
-                            z-index: 1;
-                        }
-                        .staff-input {
-                            width: 100%;
-                            padding: 11px 14px 11px 40px;
-                            border: 1.5px solid var(--border-subtle);
-                            border-radius: 10px;
-                            background: var(--surface);
-                            color: var(--text);
-                            font-size: 14px;
-                            line-height: 1.4;
-                            transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
-                            outline: none;
-                            font-family: inherit;
-                        }
-                        .staff-input:hover {
-                            border-color: var(--text-muted, var(--muted));
-                        }
-                        .staff-input:focus {
-                            border-color: var(--accent);
-                            background: var(--surface);
-                            box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
-                        }
-                        .staff-input-container:focus-within .staff-input-decorator {
-                            color: var(--accent);
-                        }
-                        .staff-input-row {
-                            display: flex;
-                            gap: 12px;
-                            width: 100%;
-                        }
-                        .staff-input-row select.input-field {
-                            width: 120px;
-                            flex-shrink: 0;
-                        }
-                        select.staff-input {
-                            appearance: none;
-                            -webkit-appearance: none;
-                            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-                            background-repeat: no-repeat;
-                            background-position: right 14px center;
-                            background-size: 16px;
-                            padding-right: 40px;
-                            cursor: pointer;
-                        }
-                    `}</style>
                     <div className="staff-modal-container">
-                        <div className="modal-header" style={{ padding: '20px 28px', borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <h2 className="modal-title" style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Add Staff Member</h2>
-                            <button className="modal-close modal-close--static" onClick={() => setShowAddModal(false)} style={{ display: 'grid', placeItems: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={20} /></button>
+                        <div className="modal-header">
+                            <h2 className="modal-title">Add Staff Member</h2>
+                            <button className="modal-close modal-close--static" onClick={() => setShowAddModal(false)}><X size={20} /></button>
                         </div>
                         <form onSubmit={handleAddStaff} className="staff-form-body">
                             <div className="staff-form-wrapper">
@@ -884,11 +695,11 @@ const StaffManagement = () => {
                                 )}
                             </div>
 
-                            <div style={{ marginTop: 28, paddingTop: 20, borderTop: '1px solid var(--border-subtle)', display: 'flex', gap: 16 }}>
-                                <button type="button" onClick={() => setShowAddModal(false)} className="btn btn-ghost" style={{ flex: 1, height: 44, borderRadius: 10 }}>
+                            <div className="staff-form-footer">
+                                <button type="button" onClick={() => setShowAddModal(false)} className="btn btn-ghost btn--full">
                                     Cancel
                                 </button>
-                                <button type="submit" disabled={loading} className="btn btn-primary" style={{ flex: 1, height: 44, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <button type="submit" disabled={loading} className="btn btn-primary btn--full">
                                     {loading ? <Loader2 size={16} className="animate-spin" /> : 'Create Account'}
                                 </button>
                             </div>
@@ -900,9 +711,9 @@ const StaffManagement = () => {
             {showEditModal && selectedStaff && (
                 <div className="modal-backdrop" style={{ zIndex: 'var(--z-modal, 1000)' }}>
                     <div className="staff-modal-container">
-                        <div className="modal-header" style={{ padding: '20px 28px', borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <h2 className="modal-title" style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Edit Staff Member</h2>
-                            <button className="modal-close modal-close--static" onClick={() => setShowEditModal(false)} style={{ display: 'grid', placeItems: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={20} /></button>
+                        <div className="modal-header">
+                            <h2 className="modal-title">Edit Staff Member</h2>
+                            <button className="modal-close modal-close--static" onClick={() => setShowEditModal(false)}><X size={20} /></button>
                         </div>
                         <form onSubmit={handleUpdateStaff} className="staff-form-body">
                             <div className="staff-form-wrapper">
@@ -1067,11 +878,11 @@ const StaffManagement = () => {
                                 )}
                             </div>
 
-                            <div style={{ marginTop: 28, paddingTop: 20, borderTop: '1px solid var(--border-subtle)', display: 'flex', gap: 16 }}>
-                                <button type="button" onClick={() => setShowEditModal(false)} className="btn btn-ghost" style={{ flex: 1, height: 44, borderRadius: 10 }}>
+                            <div className="staff-form-footer">
+                                <button type="button" onClick={() => setShowEditModal(false)} className="btn btn-ghost btn--full">
                                     Cancel
                                 </button>
-                                <button type="submit" disabled={loading} className="btn btn-primary" style={{ flex: 1, height: 44, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <button type="submit" disabled={loading} className="btn btn-primary btn--full">
                                     {loading ? <Loader2 size={16} className="animate-spin" /> : 'Update Details'}
                                 </button>
                             </div>
