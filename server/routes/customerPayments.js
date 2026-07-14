@@ -886,6 +886,23 @@ router.get('/stats/dashboard', authenticateToken, authorizeRoles('Admin', 'Accou
         `, branchIds ? [branchIds] : []);
         p6.done();
 
+        // 7a. Outstanding Jobs Breakdown
+        const p6b = profile('outstandingJobs');
+        const [outstandingJobs] = await pool.query(`
+            SELECT j.id, j.job_number, j.job_name, j.total_amount, j.advance_paid,
+                   ROUND(GREATEST(COALESCE(j.total_amount,0) - COALESCE(j.advance_paid,0), 0), 2) as balance,
+                   j.status, j.payment_status, j.created_at,
+                   COALESCE(c.name, 'Walk-in') as customer_name
+            FROM sarga_jobs j
+            LEFT JOIN sarga_customers c ON j.customer_id = c.id
+            WHERE 1=1 ${branchIds ? " AND j.branch_id IN (?)" : ""}
+              AND j.status != 'Cancelled'
+              AND GREATEST(COALESCE(j.total_amount,0) - COALESCE(j.advance_paid,0), 0) > 0
+            ORDER BY balance DESC
+            LIMIT 20
+        `, branchIds ? [branchIds] : []);
+        p6b.done();
+
         // 7. Status Counts
         const p7 = profile('statusCounts');
         const [statusCounts] = await pool.query(`
@@ -1170,6 +1187,7 @@ router.get('/stats/dashboard', authenticateToken, authorizeRoles('Admin', 'Accou
             },
             machines: machines,
             recent_jobs: recentJobs,
+            outstanding_jobs: outstandingJobs,
             status_counts: statusMap,
             low_stock: lowStockItems,
             inventory: {

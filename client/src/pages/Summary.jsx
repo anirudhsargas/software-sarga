@@ -12,6 +12,7 @@ const OrderForecastWidget = React.lazy(() => import('../components/OrderForecast
 
 import BranchSelect from '../components/ui/BranchSelect';
 import PageContainer from '../components/ui/PageContainer';
+import { X, ChevronDown, ChevronUp } from 'lucide-react';
 const AIMonitoring = React.lazy(() => import('./AIMonitoring'));
 const OrderPredictions = React.lazy(() => import('./OrderPredictions'));
 
@@ -53,6 +54,7 @@ const Summary = () => {
   const { branches, selectedBranchId, selectBranch } = useBranches();
   const [loading, setLoading] = useState(!cachedStats);
   const [error, setError] = useState(false);
+  const [showOutstandingDetail, setShowOutstandingDetail] = useState(false);
 
   const fetchStats = useCallback(async (signal, isRefresh = false) => {
     if (isRefresh || !cachedStats) {
@@ -261,7 +263,9 @@ const Summary = () => {
             <KpiCard title="Sales Today" value={fmt(stats?.jobs?.total_sales_today)} subtitle={`${fmtNum(stats?.jobs?.new_today)} jobs`} icon={TrendingUp} color='var(--success)' />
             <KpiCard title="Collections" value={fmt(stats?.payments?.total_collected_today)} subtitle={`Cash ${fmt(stats?.payments?.cash_today)} · UPI ${fmt(stats?.payments?.upi_today)}`} icon={Wallet} color='var(--accent)' />
             <KpiCard title="Expenses" value={fmt(stats?.expenses?.today)} subtitle={`Month: ${fmt(stats?.expenses?.month)}`} icon={IndianRupee} color='var(--destructive)' />
-            <KpiCard title="Outstanding" value={fmt(stats?.jobs?.total_balance)} subtitle="Pending receivables" icon={AlertTriangle} color='var(--warning)' />
+            <div style={{ cursor: 'pointer' }} onClick={() => setShowOutstandingDetail(v => !v)} title="Click to see breakdown">
+              <KpiCard title="Outstanding" value={fmt(stats?.jobs?.total_balance)} subtitle={showOutstandingDetail ? 'Hide breakdown' : 'Click for details'} icon={AlertTriangle} color='var(--warning)' />
+            </div>
           </div>
 
           {/* ROW 2: Secondary KPIs */}
@@ -271,6 +275,34 @@ const Summary = () => {
             <KpiCard title="Inventory Value" value={fmt(stats?.inventory?.total_value)} subtitle={`${fmtNum(stats?.inventory?.total_items)} items`} icon={Package} color='var(--accent)' />
             <KpiCard title="Urgent / Overdue" value={`${fmtNum(stats?.jobs?.urgent_today)} / ${fmtNum(stats?.jobs?.overdue)}`} subtitle="Needs attention" icon={ShieldAlert} color='var(--destructive)' />
           </div>
+
+          {/* Outstanding Breakdown */}
+          {showOutstandingDetail && stats?.outstanding_jobs?.length > 0 && (
+            <div className="summary-section-card">
+              <div className="summary-section-card__header">
+                <h3>Outstanding Breakdown ({stats.outstanding_jobs.length} jobs)</h3>
+                <button className="btn btn-ghost btn-icon" onClick={() => setShowOutstandingDetail(false)} style={{ width: 28, height: 28 }}><X size={14} /></button>
+              </div>
+              <div className="data-list" style={{ maxHeight: 320, overflowY: 'auto' }}>
+                {stats.outstanding_jobs.map(job => (
+                  <div key={job.id} className="data-list__row" style={{ cursor: 'pointer' }} onClick={() => navigate(`/dashboard/jobs/${job.id}`)}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <span style={{ fontWeight: 600, fontSize: 13 }}>#{job.job_number} — {job.customer_name}</span>
+                      <span style={{ fontSize: 11, color: 'var(--muted)' }}>{job.job_name || ''} · {job.status}</span>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--warning)' }}>{fmt(job.balance)}</span>
+                      <div style={{ fontSize: 10, color: 'var(--muted)' }}>of {fmt(job.total_amount)}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="data-list__total" style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 16px', borderTop: '1px solid var(--border-subtle)', fontWeight: 700 }}>
+                <span>Total Outstanding</span>
+                <span style={{ color: 'var(--warning)' }}>{fmt(stats?.jobs?.total_balance)}</span>
+              </div>
+            </div>
+          )}
 
           {/* Fraud Alert Banner */}
           {stats?.monitoring_stats?.active_alerts > 0 && (
