@@ -152,7 +152,7 @@ const Billing = () => {
   const [assignError, setAssignError] = useState('');
   const staffByRole = useMemo(() => {
     const groups = {};
-    (staffOptions || []).forEach(s => {
+    (Array.isArray(staffOptions) ? staffOptions : []).forEach(s => {
       const role = s.role || 'Other';
       if (!groups[role]) groups[role] = [];
       groups[role].push(s);
@@ -289,7 +289,7 @@ const Billing = () => {
     }).catch(() => {});
     api.get('/branches').then(r => {
       if (cancelled || !r.data) return;
-      setBranches(r.data || []);
+      setBranches(Array.isArray(r.data) ? r.data : []);
     }).catch(() => {});
     return () => { cancelled = true; };
   }, []);
@@ -303,7 +303,7 @@ const Billing = () => {
   useEffect(() => {
     if (!selectedBranchId) { setBranchUpiId(''); return; }
     api.get('/branches').then(r => {
-      const branch = (r.data || []).find(b => String(b.id) === String(selectedBranchId));
+      const branch = (Array.isArray(r.data) ? r.data : []).find(b => String(b.id) === String(selectedBranchId));
       setBranchUpiId(branch?.upi_id || '');
     }).catch(() => {});
   }, [selectedBranchId]);
@@ -1008,7 +1008,7 @@ const Billing = () => {
         {!['admin', 'super_admin'].includes(user?.role?.toLowerCase()) ? (
           <div className="billing-summary-bar__item">
             <Building2 size={14} aria-hidden="true" />
-            <span>{branches.find(b => String(b.id) === String(selectedBranchId || user?.branch_id))?.name || user?.branch_short_name || 'Branch'}</span>
+            <span>{(Array.isArray(branches) ? branches : []).find(b => String(b.id) === String(selectedBranchId || user?.branch_id))?.name || user?.branch_short_name || 'Branch'}</span>
           </div>
         ) : (
           <div className={`billing-summary-bar__item${branchRequiresAttention ? ' billing-summary-bar__item--branch-required' : ''}`}>
@@ -1020,7 +1020,7 @@ const Billing = () => {
               title={branchRequiresAttention ? 'Branch is required' : ''}
             >
               <option value="">Branch *</option>
-              {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+              {(Array.isArray(branches) ? branches : []).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
           </div>
         )}

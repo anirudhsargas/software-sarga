@@ -138,6 +138,7 @@ export default defineConfig({
             // charts-vendor
             if (
               path.startsWith('recharts/') ||
+              path.startsWith('victory-vendor/') ||
               path.startsWith('d3-') ||
               path.startsWith('d3/')
             ) {
