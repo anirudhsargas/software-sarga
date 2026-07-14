@@ -365,7 +365,7 @@ const Dashboard = () => {
     const { confirm } = useConfirm();
     const navigate = useNavigate();
     const location = useLocation();
-    const { branches, selectedBranchId, selectBranch } = useBranches();
+    const { branches, assignedBranches, selectedBranchId, selectBranch } = useBranches();
     const [sidebarCollapsed, setSidebarCollapsed] = React.useState(() => {
         try {
             const saved = localStorage.getItem('sargaSidebarCollapsed');
@@ -676,6 +676,21 @@ const Dashboard = () => {
         let items = menuItems.filter(item => 
             item.roles.map(r => r.toLowerCase().trim()).includes(normalizedUserRole.toLowerCase().trim())
         );
+        
+        // Accountant role restriction: only finance-related modules
+        if (normalizedUserRole === 'Accountant') {
+            const accountantAllowedGroups = ['main', 'sales', 'accounts', 'admin'];
+            const accountantAllowedKeys = [
+                'dashboard', 'sales_customers', 'sales_orders', 'sales_quotes',
+                'sales_invoices', 'sales_payments', 'shortcuts',
+                'reports', 'expenses', 'manage', 'finance',
+                'sample_requests'
+            ];
+            items = items.filter(item => 
+                accountantAllowedGroups.includes(item.group) && 
+                accountantAllowedKeys.includes(item.key)
+            );
+        }
         
         if (user?.settings) {
             try {
@@ -1137,8 +1152,17 @@ const Dashboard = () => {
                                 onChange={(e) => selectBranch(e.target.value)}
                                 className="appbar-select"
                             >
-                                <option value="">All Branches</option>
-                                {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                {user?.role === 'Admin' ? (
+                                  <>
+                                    <option value="">All Branches</option>
+                                    {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                  </>
+                                ) : (
+                                  <>
+                                    <option value="">{(assignedBranches.length > 1) ? 'All Assigned Branches' : 'My Branch'}</option>
+                                    {(assignedBranches.length > 0 ? assignedBranches : branches).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                  </>
+                                )}
                             </BranchSelect>
                         </div>
 

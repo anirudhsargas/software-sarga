@@ -1,3 +1,4 @@
+const { pool } = require('../database');
 const { getUserBranchId } = require('../helpers');
 
 const PRIVILEGED_ROLES = new Set(['Admin', 'Accountant']);
@@ -25,7 +26,34 @@ async function branchFilter(req, options = {}) {
             branchId = req?.user?.branch_id || null;
         }
     } else {
-        branchId = await getUserBranchId(req.user.id);
+        // Check if user has multi-branch assignments
+        try {
+            const [assignments] = await pool.query(
+                'SELECT branch_id FROM staff_branch_assignments WHERE staff_id = ?',
+                [req.user.id]
+            );
+            if (assignments.length > 0) {
+                // Use the branch_id from query param if it's in their assignments
+                if (req?.query?.[queryKey]) {
+                    const requestedBranchId = req.query[queryKey];
+                    const hasAccess = assignments.some(a => String(a.branch_id) === String(requestedBranchId));
+                    if (hasAccess) {
+                        branchId = requestedBranchId;
+                    } else {
+                        // Default to primary branch
+                        const primary = assignments.find(a => a.is_primary);
+                        branchId = primary ? primary.branch_id : assignments[0].branch_id;
+                    }
+                } else {
+                    const primary = assignments.find(a => a.is_primary);
+                    branchId = primary ? primary.branch_id : assignments[0].branch_id;
+                }
+            } else {
+                branchId = await getUserBranchId(req.user.id);
+            }
+        } catch {
+            branchId = await getUserBranchId(req.user.id);
+        }
     }
 
     const hasBranch = branchId !== null && branchId !== undefined && branchId !== '';

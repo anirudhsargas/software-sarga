@@ -319,6 +319,127 @@ module.exports = (upload, removeUploadFile) => {
         }
     });
 
+    // ─── Multi-Branch Staff Assignment ───
+
+    // GET /staff/:id/branches - Get all branch assignments for a staff member
+    router.get('/:id/branches', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
+        const { id } = req.params;
+        try {
+            const [assignments] = await pool.query(`
+                SELECT sba.*, b.name as branch_name, b.short_name
+                FROM staff_branch_assignments sba
+                JOIN sarga_branches b ON sba.branch_id = b.id
+                WHERE sba.staff_id = ?
+                ORDER BY sba.is_primary DESC, b.name ASC
+            `, [id]);
+            res.json(assignments);
+        } catch (err) {
+            console.error('Fetch branch assignments error:', err);
+            res.status(500).json({ message: 'Database error' });
+        }
+    });
+
+    // POST /staff/:id/branches - Assign a branch to a staff member
+    router.post('/:id/branches', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+        const { id } = req.params;
+        const { branch_id, is_primary, permissions } = req.body;
+        if (!branch_id) return res.status(400).json({ message: 'branch_id is required' });
+        try {
+            // If setting as primary, unset any existing primary first
+            if (is_primary) {
+                await pool.query('UPDATE staff_branch_assignments SET is_primary = 0 WHERE staff_id = ?', [id]);
+            }
+            const permissionsJson = permissions ? JSON.stringify(permissions) : null;
+            await pool.query(`
+                INSERT INTO staff_branch_assignments (staff_id, branch_id, is_primary, permissions, assigned_by)
+                VALUES (?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE is_primary = VALUES(is_primary), permissions = VALUES(permissions), assigned_by = VALUES(assigned_by)
+            `, [id, branch_id, is_primary ? 1 : 0, permissionsJson, req.user.id]);
+            // Also update the primary branch_id on sarga_staff if this is primary
+            if (is_primary) {
+                await pool.query('UPDATE sarga_staff SET branch_id = ? WHERE id = ?', [branch_id, id]);
+            }
+            auditLog(req.user.id, 'STAFF_BRANCH_ASSIGN', `Assigned staff ${id} to branch ${branch_id}`);
+            res.status(201).json({ message: 'Branch assigned successfully' });
+        } catch (err) {
+            console.error('Assign branch error:', err);
+            res.status(500).json({ message: 'Database error' });
+        }
+    });
+
+    // PUT /staff/:id/branches/:assignmentId - Update branch assignment
+    router.put('/:id/branches/:assignmentId', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+        const { id, assignmentId } = req.params;
+        const { is_primary, permissions } = req.body;
+        try {
+            if (is_primary) {
+                await pool.query('UPDATE staff_branch_assignments SET is_primary = 0 WHERE staff_id = ?', [id]);
+            }
+            const permissionsJson = permissions ? JSON.stringify(permissions) : null;
+            await pool.query('UPDATE staff_branch_assignments SET is_primary = ?, permissions = ? WHERE id = ? AND staff_id = ?',
+                [is_primary ? 1 : 0, permissionsJson, assignmentId, id]);
+            // Update sarga_staff.branch_id if primary changed
+            if (is_primary) {
+                const [[assignment]] = await pool.query('SELECT branch_id FROM staff_branch_assignments WHERE id = ?', [assignmentId]);
+                if (assignment) {
+                    await pool.query('UPDATE sarga_staff SET branch_id = ? WHERE id = ?', [assignment.branch_id, id]);
+                }
+            }
+            auditLog(req.user.id, 'STAFF_BRANCH_UPDATE', `Updated branch assignment ${assignmentId} for staff ${id}`);
+            res.json({ message: 'Branch assignment updated' });
+        } catch (err) {
+            console.error('Update branch assignment error:', err);
+            res.status(500).json({ message: 'Database error' });
+        }
+    });
+
+    // DELETE /staff/:id/branches/:assignmentId - Remove branch assignment
+    router.delete('/:id/branches/:assignmentId', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
+        const { id, assignmentId } = req.params;
+        try {
+            const [[assignment]] = await pool.query('SELECT branch_id, is_primary FROM staff_branch_assignments WHERE id = ? AND staff_id = ?', [assignmentId, id]);
+            if (!assignment) return res.status(404).json({ message: 'Assignment not found' });
+            await pool.query('DELETE FROM staff_branch_assignments WHERE id = ? AND staff_id = ?', [assignmentId, id]);
+            // If removed assignment was primary, assign a new primary or clear branch_id
+            if (assignment.is_primary) {
+                const [[nextPrimary]] = await pool.query('SELECT branch_id FROM staff_branch_assignments WHERE staff_id = ? LIMIT 1', [id]);
+                if (nextPrimary) {
+                    await pool.query('UPDATE staff_branch_assignments SET is_primary = 1 WHERE staff_id = ? AND branch_id = ?', [id, nextPrimary.branch_id]);
+                    await pool.query('UPDATE sarga_staff SET branch_id = ? WHERE id = ?', [nextPrimary.branch_id, id]);
+                } else {
+                    await pool.query('UPDATE sarga_staff SET branch_id = NULL WHERE id = ?', [id]);
+                }
+            }
+            auditLog(req.user.id, 'STAFF_BRANCH_REMOVE', `Removed branch assignment ${assignmentId} for staff ${id}`);
+            res.json({ message: 'Branch assignment removed' });
+        } catch (err) {
+            console.error('Remove branch assignment error:', err);
+            res.status(500).json({ message: 'Database error' });
+        }
+    });
+
+    // GET /staff/:id/assigned-branches - Simplified list of branch IDs for current user
+    router.get('/my-branches', authenticateToken, async (req, res) => {
+        try {
+            const [assignments] = await pool.query(`
+                SELECT sba.branch_id, b.name as branch_name, sba.is_primary
+                FROM staff_branch_assignments sba
+                JOIN sarga_branches b ON sba.branch_id = b.id
+                WHERE sba.staff_id = ?
+                ORDER BY sba.is_primary DESC, b.name ASC
+            `, [req.user.id]);
+            // Always include the user's primary branch
+            const primaryBranch = assignments.find(a => a.is_primary);
+            if (!primaryBranch && req.user.branch_id) {
+                assignments.unshift({ branch_id: req.user.branch_id, branch_name: '', is_primary: 1 });
+            }
+            res.json(assignments);
+        } catch (err) {
+            console.error('Fetch my branches error:', err);
+            res.status(500).json({ message: 'Database error' });
+        }
+    });
+
     // Reset Staff Password (to their mobile/user_id@Sarga)
     router.put('/:id/reset-password', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
         const { id } = req.params;

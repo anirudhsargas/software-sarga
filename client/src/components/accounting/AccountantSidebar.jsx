@@ -4,7 +4,7 @@ import {
   LayoutDashboard, TrendingUp, Receipt, Users, Building2, 
   ShoppingCart, CreditCard, BookOpen, Landmark, Activity,
   FileText, CheckSquare, Calendar, BarChart2, Settings,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, DollarSign, UserCheck, Camera, Clock, Wallet
 } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
 import './AccountantSidebar.css';
@@ -20,10 +20,13 @@ const LINKS = [
   { to: '/accounting/ledger', icon: BookOpen, label: 'Ledger', key: 'internal' },
   { to: '/accounting/banks', icon: Landmark, label: 'Bank Accounts', key: 'internal' },
   { to: '/accounting/transactions', icon: Activity, label: 'Transactions', key: 'internal' },
-  { to: '/accounting/bills', icon: FileText, label: 'Bills', key: 'billing' },
+  { to: '/accounting/bills', icon: Wallet, label: 'Bills', key: 'billing' },
   { to: '/accounting/approvals', icon: CheckSquare, label: 'Approvals', key: 'operations' },
   { to: '/accounting/daily-book', icon: Calendar, label: 'Daily Book', key: 'reports' },
-  { to: '/accounting/reports', icon: BarChart2, label: 'Reports', key: 'reports' },
+  { to: '/accounting/salary', icon: DollarSign, label: 'Salary & Payroll', key: 'finance' },
+  { to: '/accounting/attendance', icon: Camera, label: 'CCTV Attendance', key: 'operations' },
+  { to: '/accounting/attendance-records', icon: UserCheck, label: 'Attendance Records', key: 'operations' },
+  { to: '/accounting/reports', icon: BarChart2, label: 'Financial Reports', key: 'reports' },
   { to: '/accounting/settings', icon: Settings, label: 'Settings', key: 'manage' }
 ];
 
@@ -44,10 +47,7 @@ export default function AccountantSidebar({ isOpen, onClose }) {
       if (settings.sidebar) {
         return LINKS.filter(link => {
           if (settings.sidebar[link.key] === false) return false;
-          // Fallback check for expenses/finance
-          if (link.key === 'finance' && settings.sidebar.expenses === false && (link.label === 'Expenses' || link.label === 'Vendors')) {
-            return false;
-          }
+          if (link.key === 'finance' && settings.sidebar.expenses === false && (link.label === 'Expenses' || link.label === 'Vendors')) return false;
           return true;
         });
       }
@@ -60,7 +60,7 @@ export default function AccountantSidebar({ isOpen, onClose }) {
   return (
     <aside className={`acc-sidebar ${collapsed ? 'collapsed' : ''} ${isOpen ? 'open' : ''}`}>
       <div className="acc-sidebar-header">
-        {!collapsed && <div className="acc-logo">Accounting</div>}
+        {!collapsed && <div className="acc-logo">Finance</div>}
         <button className="acc-toggle-btn" onClick={() => setCollapsed(!collapsed)}>
           {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
         </button>

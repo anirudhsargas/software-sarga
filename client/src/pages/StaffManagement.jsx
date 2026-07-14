@@ -71,7 +71,7 @@ const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEdit
               <button className="btn-icon" onClick={() => navigate(`/dashboard/employee/${s.id}`)} title="View Dashboard">
                 <BarChart3 size={15} />
               </button>
-              <button className="btn-icon" onClick={() => { setSelectedStaff({ ...s, countryCode: s.countryCode || '+91' }); setEditStaffImage(null); setEditStaffPreview(''); setShowEditModal(true); }} title="Edit Staff Member">
+              <button className="btn-icon" onClick={() => { setSelectedStaff({ ...s, countryCode: s.countryCode || '+91' }); setEditStaffImage(null); setEditStaffPreview(''); setShowEditModal(true); if (user?.role === 'Admin') fetchBranchAssignments(s.id); }} title="Edit Staff Member">
                 <Edit2 size={15} />
               </button>
               <button className="btn-icon" onClick={() => handleResetPassword(s.id)} title="Reset Password">
@@ -125,6 +125,9 @@ const StaffManagement = () => {
     const [editStaffImage, setEditStaffImage] = useState(null);
     const [editStaffPreview, setEditStaffPreview] = useState('');
     const [cropState, setCropState] = useState(null);
+    const [branchAssignments, setBranchAssignments] = useState([]);
+    const [showBranchAssignModal, setShowBranchAssignModal] = useState(false);
+    const [newBranchAssign, setNewBranchAssign] = useState({ branch_id: '', is_primary: false });
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [total, setTotal] = useState(0);
@@ -360,6 +363,58 @@ const StaffManagement = () => {
             setError('Failed to reset password');
         }
     };
+
+    async function fetchBranchAssignments(staffId) {
+        try {
+            const response = await api.get(`/staff/${staffId}/branches`);
+            setBranchAssignments(response.data || []);
+        } catch {
+            setBranchAssignments([]);
+        }
+    }
+
+    async function handleAssignBranch(staffId) {
+        if (!newBranchAssign.branch_id) return;
+        try {
+            await api.post(`/staff/${staffId}/branches`, newBranchAssign);
+            toast.success('Branch assigned');
+            setShowBranchAssignModal(false);
+            setNewBranchAssign({ branch_id: '', is_primary: false });
+            fetchBranchAssignments(staffId);
+            fetchStaff();
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Failed to assign branch');
+        }
+    }
+
+    async function handleRemoveBranch(staffId, assignmentId) {
+        const isConfirmed = await confirm({
+            title: 'Remove Branch Assignment',
+            message: 'Remove this branch assignment?',
+            confirmText: 'Remove',
+            type: 'danger'
+        });
+        if (!isConfirmed) return;
+        try {
+            await api.delete(`/staff/${staffId}/branches/${assignmentId}`);
+            toast.success('Branch assignment removed');
+            fetchBranchAssignments(staffId);
+            fetchStaff();
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Failed to remove branch');
+        }
+    }
+
+    async function handleSetPrimaryBranch(staffId, assignmentId) {
+        try {
+            await api.put(`/staff/${staffId}/branches/${assignmentId}`, { is_primary: true });
+            toast.success('Primary branch updated');
+            fetchBranchAssignments(staffId);
+            fetchStaff();
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Failed to update primary branch');
+        }
+    }
 
     async function fetchTodayAttendance() {
         try {
@@ -876,6 +931,63 @@ const StaffManagement = () => {
                                         )}
                                     </>
                                 )}
+
+                                {/* Multi-Branch Assignments */}
+                                {user?.role === 'Admin' && (
+                                    <div className="staff-field-group" style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+                                        <label className="staff-label">Branch Assignments</label>
+                                        <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>
+                                            Assign staff member to multiple branches. Each staff has one primary branch.
+                                        </p>
+                                        {branchAssignments.length > 0 ? (
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+                                                {branchAssignments.map(ba => (
+                                                    <div key={ba.id} style={{
+                                                        display: 'flex', alignItems: 'center', gap: 6,
+                                                        padding: '6px 10px', borderRadius: 8,
+                                                        border: `1px solid ${ba.is_primary ? 'var(--accent)' : 'var(--border)'}`,
+                                                        background: ba.is_primary ? 'var(--accent-light, rgba(67,97,238,0.08))' : 'var(--surface)',
+                                                        fontSize: 13
+                                                    }}>
+                                                        <span>{ba.branch_name}</span>
+                                                        {ba.is_primary && (
+                                                            <span style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 600 }}>PRIMARY</span>
+                                                        )}
+                                                        {!ba.is_primary && (
+                                                            <button
+                                                                type="button"
+                                                                className="btn btn-ghost btn-sm"
+                                                                style={{ fontSize: 10, padding: '2px 6px', height: 'auto' }}
+                                                                onClick={() => handleSetPrimaryBranch(selectedStaff.id, ba.id)}
+                                                                title="Set as primary"
+                                                            >
+                                                                Set Primary
+                                                            </button>
+                                                        )}
+                                                        <button
+                                                            type="button"
+                                                            className="btn btn-ghost btn-sm text-error"
+                                                            style={{ fontSize: 10, padding: '2px 6px', height: 'auto' }}
+                                                            onClick={() => handleRemoveBranch(selectedStaff.id, ba.id)}
+                                                            title="Remove branch assignment"
+                                                        >
+                                                            <X size={12} />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>No additional branch assignments.</p>
+                                        )}
+                                        <button
+                                            type="button"
+                                            className="btn btn-secondary btn-sm"
+                                            onClick={() => { fetchBranchAssignments(selectedStaff.id); setShowBranchAssignModal(true); }}
+                                        >
+                                            <Plus size={14} /> Manage Branch Assignments
+                                        </button>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="staff-form-footer">
@@ -887,6 +999,50 @@ const StaffManagement = () => {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {showBranchAssignModal && selectedStaff && (
+                <div className="modal-backdrop">
+                    <div className="modal" style={{ maxWidth: 420 }}>
+                        <div className="modal-header">
+                            <h2 className="modal-title">Assign Branch: {selectedStaff.name}</h2>
+                            <button className="modal-close modal-close--static" onClick={() => setShowBranchAssignModal(false)}><X size={20} /></button>
+                        </div>
+                        <div className="stack-md" style={{ padding: '16px 24px' }}>
+                            <p style={{ fontSize: 13, color: 'var(--muted)' }}>
+                                Select additional branches to assign this staff member to.
+                            </p>
+                            <div>
+                                <label className="label">Branch</label>
+                                <select
+                                    className="input-field"
+                                    value={newBranchAssign.branch_id}
+                                    onChange={(e) => setNewBranchAssign({ ...newBranchAssign, branch_id: e.target.value })}
+                                >
+                                    <option value="">Select Branch</option>
+                                    {branches
+                                        .filter(b => !branchAssignments.find(ba => String(ba.branch_id) === String(b.id)))
+                                        .map(b => <option key={b.id} value={b.id}>{b.name}</option>)
+                                    }
+                                </select>
+                            </div>
+                            <label className="row gap-sm items-center" style={{ cursor: 'pointer' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={newBranchAssign.is_primary}
+                                    onChange={(e) => setNewBranchAssign({ ...newBranchAssign, is_primary: e.target.checked })}
+                                />
+                                <span style={{ fontSize: 14 }}>Set as primary branch</span>
+                            </label>
+                            <div className="row justify-end gap-sm">
+                                <button type="button" className="btn btn-ghost" onClick={() => setShowBranchAssignModal(false)}>Cancel</button>
+                                <button type="button" className="btn btn-primary" onClick={() => handleAssignBranch(selectedStaff.id)} disabled={!newBranchAssign.branch_id}>
+                                    Assign Branch
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}

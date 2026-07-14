@@ -14,12 +14,12 @@ export const useBranches = () => {
 
 export const BranchProvider = ({ children }) => {
   const [branches, setBranches] = useState([]);
+  const [assignedBranches, setAssignedBranches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedBranchId, setSelectedBranchId] = useState(() => {
     try {
       const stored = localStorage.getItem('sargaSelectedBranchId') || '';
-      // Only accept plain positive integers — discard anything else (e.g. "4:1", "all", etc.)
       return /^\d+$/.test(stored) ? stored : '';
     } catch {
       return '';
@@ -27,7 +27,6 @@ export const BranchProvider = ({ children }) => {
   });
 
   const selectBranch = useCallback((id) => {
-    // Sanitize: only store if empty ("All Branches") or a valid integer string
     const safe = (!id || /^\d+$/.test(String(id))) ? String(id || '') : '';
     setSelectedBranchId(safe);
     try {
@@ -54,13 +53,48 @@ export const BranchProvider = ({ children }) => {
     }
   }, []);
 
+  // Fetch branches the current user is assigned to
+  const fetchAssignedBranches = useCallback(async () => {
+    const user = auth.getUser();
+    if (!user) return;
+    try {
+      if (user.role === 'Admin') {
+        // Admin sees all branches
+        const res = await api.get('/branches');
+        setAssignedBranches(res.data?.data || res.data || []);
+        return;
+      }
+      const res = await api.get('/staff/my-branches');
+      const data = res.data || [];
+      // Map to full branch objects
+      if (data.length > 0) {
+        const fullRes = await api.get('/branches');
+        const allBranches = fullRes.data?.data || fullRes.data || [];
+        const assigned = data.map(a => {
+          const branch = allBranches.find(b => b.id === a.branch_id || String(b.id) === String(a.branch_id));
+          return branch || { id: a.branch_id, name: a.branch_name, short_name: '' };
+        });
+        setAssignedBranches(assigned);
+      } else {
+        setAssignedBranches([]);
+      }
+    } catch {
+      // Fallback to all branches
+      try {
+        const res = await api.get('/branches');
+        setAssignedBranches(res.data?.data || res.data || []);
+      } catch {}
+    }
+  }, []);
+
   useEffect(() => {
     if (!auth.isAuthenticated()) {
       setLoading(false);
       return;
     }
     fetchBranches();
-  }, [fetchBranches]);
+    fetchAssignedBranches();
+  }, [fetchBranches, fetchAssignedBranches]);
 
   const getBranchName = useCallback((id) => {
     if (!id) return '';
@@ -77,28 +111,42 @@ export const BranchProvider = ({ children }) => {
   const isFrontOffice = auth.normalizeRole(user?.role) === 'Front Office';
   const assignedBranchName = getBranchName(user?.branch_id);
 
+  // Determine which branches to show in the switcher
+  const visibleBranches = useCallback(() => {
+    if (!user) return branches;
+    if (user.role === 'Admin') return branches;
+    if (assignedBranches.length > 0) return assignedBranches;
+    return branches;
+  }, [branches, assignedBranches, user]);
+
   const contextValue = React.useMemo(() => ({
     branches,
+    assignedBranches,
     loading,
     error,
     refetch: fetchBranches,
+    refetchAssigned: fetchAssignedBranches,
     getBranchName,
     getUserBranch,
     selectedBranchId,
     selectBranch,
     isFrontOffice,
-    assignedBranchName
+    assignedBranchName,
+    visibleBranches: visibleBranches()
   }), [
     branches,
+    assignedBranches,
     loading,
     error,
     fetchBranches,
+    fetchAssignedBranches,
     getBranchName,
     getUserBranch,
     selectedBranchId,
     selectBranch,
     isFrontOffice,
-    assignedBranchName
+    assignedBranchName,
+    visibleBranches
   ]);
 
   return (

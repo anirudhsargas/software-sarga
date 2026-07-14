@@ -205,12 +205,22 @@ const paperTransferSchema = z.object({
 
 const consumablesInventorySchema = z.object({
     name: requiredString('Name'),
-    category: z.enum(['ink', 'chemical', 'plate', 'spare_part', 'other']).default('other'),
-    unit: z.enum(['litre', 'kg', 'piece', 'box', 'set']).default('piece'),
+    category: z.enum(['ink', 'chemical', 'plate', 'spare_part', 'other', 'paper', 'binding', 'packaging']).default('other'),
+    unit: z.enum(['litre', 'kg', 'piece', 'box', 'set', 'sheet', 'roll', 'meter', 'pair', 'pack']).default('piece'),
+    gsm: z.preprocess((v) => (v === '' || v === null || v === undefined ? undefined : Number(v)), z.number().int().positive().optional()),
+    size_name: z.string().optional().nullable().or(z.literal('')),
+    brand: z.string().optional().nullable().or(z.literal('')),
+    finish: z.string().optional().nullable().or(z.literal('')),
+    color: z.string().optional().nullable().or(z.literal('')),
     quantity_in_stock: z.preprocess((v) => (v === '' || v === null ? 0 : Number(v)), z.number().min(0).default(0)),
     reorder_level: z.preprocess((v) => (v === '' || v === null ? 0 : Number(v)), z.number().min(0).default(0)),
+    min_stock_level: z.preprocess((v) => (v === '' || v === null || v === undefined ? undefined : Number(v)), z.number().min(0).optional()),
+    max_stock_level: z.preprocess((v) => (v === '' || v === null || v === undefined ? undefined : Number(v)), z.number().min(0).optional()),
+    location: z.string().optional().nullable().or(z.literal('')),
     unit_cost: positiveDecimal,
     supplier_name: z.string().optional().nullable().or(z.literal('')),
+    supplier_id: z.preprocess((v) => (v === '' || v === null || v === undefined ? undefined : Number(v)), z.number().int().positive().optional()),
+    sku: z.string().optional().nullable().or(z.literal('')),
     branch: z.preprocess((v) => {
         if (typeof v !== 'string') return v;
         const lower = v.toLowerCase();

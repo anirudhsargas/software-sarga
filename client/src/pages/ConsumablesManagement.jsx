@@ -1,21 +1,10 @@
 import { useSEO } from '../hooks/useSEO';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-    Package,
-    AlertTriangle,
-    Plus,
-    Search,
-    RefreshCcw,
-    Edit2,
-    Trash2,
-    X,
-    ArrowUp,
-    ArrowDown,
-    MapPin,
-    Download,
-    Layers,
-    ShoppingCart,
-    IndianRupee
+    Package, AlertTriangle, Plus, Search, RefreshCcw,
+    Edit2, Trash2, X, ArrowUp, ArrowDown, MapPin,
+    Download, Layers, ShoppingCart, IndianRupee,
+    History, TrendingUp, Tag, FileText, Building2, DollarSign, Eye
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api, { devFallback } from '../services/api';
@@ -30,21 +19,19 @@ const CATEGORY_TABS = [
     { label: 'Chemical', value: 'chemical' },
     { label: 'Plate', value: 'plate' },
     { label: 'Spare Part', value: 'spare_part' },
+    { label: 'Paper', value: 'paper' },
+    { label: 'Binding', value: 'binding' },
+    { label: 'Packaging', value: 'packaging' },
     { label: 'Other', value: 'other' }
 ];
 
-const UNIT_OPTIONS = ['litre', 'kg', 'piece', 'box', 'set'];
+const UNIT_OPTIONS = ['litre', 'kg', 'piece', 'box', 'set', 'sheet', 'roll', 'meter', 'pair', 'pack'];
 
 const emptyForm = {
-    name: '',
-    category: 'other',
-    unit: 'piece',
-    quantity_in_stock: 0,
-    reorder_level: 0,
-    unit_cost: '',
-    supplier_name: '',
-    branch: 'Perambra',
-    notes: ''
+    name: '', category: 'other', unit: 'piece',
+    gsm: '', size_name: '', brand: '', finish: '', color: '',
+    quantity_in_stock: 0, reorder_level: 0, min_stock_level: '', max_stock_level: '', location: '',
+    unit_cost: '', supplier_name: '', supplier_id: '', sku: '', branch: 'Perambra', notes: ''
 };
 
 const toDisplayCategory = (category) => {
@@ -56,21 +43,38 @@ const toDisplayCategory = (category) => {
 const csvEscape = (value) => {
     if (value === null || value === undefined) return '';
     const text = String(value);
-    if (text.includes(',') || text.includes('"') || text.includes('\n')) {
-        return `"${text.replace(/"/g, '""')}"`;
-    }
+    if (text.includes(',') || text.includes('"') || text.includes('\n')) return `"${text.replace(/"/g, '""')}"`;
     return text;
 };
 
 const ConsumablesManagement = () => {
     useSEO('Consumables Management');
-
     const user = auth.getUser();
     const isManager = ['Admin', 'Accountant'].includes(user?.role);
     const navigate = useNavigate();
 
     const [tabCounts, setTabCounts] = useState({ general: 0, paper: 0, consumables: 0 });
     const [consumables, setConsumables] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [items, setItems] = useState([]);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [categoryFilter, setCategoryFilter] = useState('all');
+    const [branchFilter, setBranchFilter] = useState('All');
+    const [showModal, setShowModal] = useState(false);
+    const [modalMode, setModalMode] = useState('add');
+    const [selectedItem, setSelectedItem] = useState(null);
+    const [showAdjustModal, setShowAdjustModal] = useState(false);
+    const [adjustData, setAdjustData] = useState({ id: null, name: '', quantity_delta: '', reason: '', adjustment_type: 'INWARD' });
+    const [formData, setFormData] = useState(emptyForm);
+    // Detail panel states
+    const [detailItem, setDetailItem] = useState(null);
+    const [detailTab, setDetailTab] = useState('details');
+    const [rateHistory, setRateHistory] = useState([]);
+    const [purchaseHistory, setPurchaseHistory] = useState([]);
+    const [detailLoading, setDetailLoading] = useState(false);
+    // Add rate modal
+    const [showAddRateModal, setShowAddRateModal] = useState(false);
+    const [newRate, setNewRate] = useState({ rate: '', effective_date: new Date().toISOString().split('T')[0], supplier_name: '', notes: '' });
 
     useEffect(() => {
         let isMounted = true;
@@ -82,80 +86,48 @@ const ConsumablesManagement = () => {
                     api.get('/inventory/consumables')
                 ]);
                 if (!isMounted) return;
-                
-                const generalCount = genRes.data?.total || (Array.isArray(genRes.data) ? genRes.data.length : 0);
-                const paperCount = Array.isArray(paperRes.data) ? paperRes.data.length : 0;
-                const consumablesCount = Array.isArray(consRes.data) ? consRes.data.length : 0;
-
                 setTabCounts({
-                    general: generalCount,
-                    paper: paperCount,
-                    consumables: consumablesCount
+                    general: genRes.data?.total || (Array.isArray(genRes.data) ? genRes.data.length : 0),
+                    paper: Array.isArray(paperRes.data) ? paperRes.data.length : 0,
+                    consumables: Array.isArray(consRes.data) ? consRes.data.length : 0
                 });
-            } catch (err) {
-                console.error('Error fetching tab counts:', err);
-            }
+            } catch { }
         };
         fetchTabCounts();
         return () => { isMounted = false; };
     }, []);
 
-    const [loading, setLoading] = useState(true);
-    const [items, setItems] = useState([]);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [categoryFilter, setCategoryFilter] = useState('all');
-    const [branchFilter, setBranchFilter] = useState('All');
-    const [showModal, setShowModal] = useState(false);
-    const [modalMode, setModalMode] = useState('add');
-    const [selectedItem, setSelectedItem] = useState(null);
-    const [showAdjustModal, setShowAdjustModal] = useState(false);
-    const [adjustData, setAdjustData] = useState({ id: null, name: '', quantity_delta: '', reason: '' });
-    const [formData, setFormData] = useState(emptyForm);
-
     const fetchConsumables = async () => {
         setLoading(true);
         try {
             const res = await api.get(devFallback('/inventory/consumables'), {
-                params: {
-                    category: categoryFilter,
-                    branch: branchFilter,
-                    search: searchTerm || undefined
-                }
+                params: { category: categoryFilter, branch: branchFilter, search: searchTerm || undefined }
             });
             setItems(res.data || []);
         } catch (err) {
             if (err.response?.status === 401) {
-                toast.error('Authentication required — please login');
+                toast.error('Authentication required');
                 window.dispatchEvent(new CustomEvent('navigate', { detail: { path: '/login' } }));
                 return;
             }
-            toast.error('Failed to load consumables inventory');
+            toast.error('Failed to load consumables');
         } finally {
             setLoading(false);
         }
     };
 
-    useEffect(() => {
-        fetchConsumables();
-    }, [categoryFilter, branchFilter, searchTerm]);
+    useEffect(() => { fetchConsumables(); }, [categoryFilter, branchFilter, searchTerm]);
 
     const stats = useMemo(() => {
-        const lowStock = items.filter((i) => Number(i.quantity_in_stock) <= Number(i.reorder_level || 0));
+        const lowStock = items.filter(i => Number(i.quantity_in_stock) <= Number(i.reorder_level || 0));
         const totalValue = items.reduce((acc, curr) => acc + (Number(curr.quantity_in_stock) * Number(curr.unit_cost || 0)), 0);
-        return {
-            totalItems: items.length,
-            lowStock: lowStock.length,
-            totalValue
-        };
+        return { totalItems: items.length, lowStock: lowStock.length, totalValue };
     }, [items]);
 
     const handleOpenAdd = () => {
         setModalMode('add');
         setSelectedItem(null);
-        setFormData({
-            ...emptyForm,
-            branch: user?.branch_name || 'Perambra'
-        });
+        setFormData({ ...emptyForm, branch: user?.branch_name || 'Perambra' });
         setShowModal(true);
     };
 
@@ -163,21 +135,40 @@ const ConsumablesManagement = () => {
         setModalMode('edit');
         setSelectedItem(item);
         setFormData({
-            name: item.name || '',
-            category: item.category || 'other',
-            unit: item.unit || 'piece',
-            quantity_in_stock: Number(item.quantity_in_stock) || 0,
-            reorder_level: Number(item.reorder_level) || 0,
-            unit_cost: item.unit_cost || '',
-            supplier_name: item.supplier_name || '',
-            branch: item.branch || 'Perambra',
-            notes: item.notes || ''
+            name: item.name || '', category: item.category || 'other', unit: item.unit || 'piece',
+            gsm: item.gsm || '', size_name: item.size_name || '', brand: item.brand || '',
+            finish: item.finish || '', color: item.color || '',
+            quantity_in_stock: Number(item.quantity_in_stock) || 0, reorder_level: Number(item.reorder_level) || 0,
+            min_stock_level: item.min_stock_level || '', max_stock_level: item.max_stock_level || '',
+            location: item.location || '',
+            unit_cost: item.unit_cost || '', supplier_name: item.supplier_name || '',
+            supplier_id: item.supplier_id || '', sku: item.sku || '',
+            branch: item.branch || 'Perambra', notes: item.notes || ''
         });
         setShowModal(true);
     };
 
+    const handleOpenDetail = async (item) => {
+        setDetailItem(item);
+        setDetailTab('details');
+        setDetailLoading(true);
+        try {
+            const [ratesRes, purchasesRes] = await Promise.all([
+                api.get(`/inventory/consumables/${item.id}/rates`),
+                api.get(`/inventory/consumables/${item.id}/purchases`)
+            ]);
+            setRateHistory(ratesRes.data || []);
+            setPurchaseHistory(purchasesRes.data || []);
+        } catch {
+            setRateHistory([]);
+            setPurchaseHistory([]);
+        } finally {
+            setDetailLoading(false);
+        }
+    };
+
     const handleOpenAdjust = (item) => {
-        setAdjustData({ id: item.id, name: item.name, quantity_delta: '', reason: '' });
+        setAdjustData({ id: item.id, name: item.name, quantity_delta: '', reason: '', adjustment_type: 'INWARD' });
         setShowAdjustModal(true);
     };
 
@@ -188,7 +179,7 @@ const ConsumablesManagement = () => {
             toast.success('Consumable deleted');
             fetchConsumables();
         } catch (err) {
-            toast.error(err.response?.data?.message || 'Failed to delete consumable');
+            toast.error(err.response?.data?.message || 'Failed to delete');
         }
     };
 
@@ -197,18 +188,15 @@ const ConsumablesManagement = () => {
         try {
             if (modalMode === 'add') {
                 await api.post('/inventory/consumables', formData);
-                toast.success('Consumable item added');
+                toast.success('Consumable added');
             } else {
-                // Optimistic UI Update for edit
-                const _prevConsumables = [...consumables];
-                setConsumables(prev => prev.map(c => c.id === selectedItem.id ? { ...c, ...formData } : c));
                 await api.put(`/inventory/consumables/${selectedItem.id}`, formData);
-                toast.success('Consumable item updated');
+                toast.success('Consumable updated');
             }
             setShowModal(false);
             fetchConsumables();
         } catch (err) {
-            toast.error(err.response?.data?.message || 'Failed to save consumable item');
+            toast.error(err.response?.data?.message || 'Failed to save');
             fetchConsumables();
         }
     };
@@ -218,91 +206,85 @@ const ConsumablesManagement = () => {
         try {
             await api.put(`/inventory/consumables/${adjustData.id}/adjust`, {
                 quantity_delta: Number(adjustData.quantity_delta),
-                reason: adjustData.reason
+                reason: adjustData.reason,
+                adjustment_type: adjustData.adjustment_type
             });
             toast.success('Stock adjusted');
             setShowAdjustModal(false);
             fetchConsumables();
+            if (detailItem?.id === adjustData.id) handleOpenDetail(detailItem);
         } catch (err) {
             toast.error(err.response?.data?.message || 'Failed to adjust stock');
         }
     };
 
-    const handleExportCsv = () => {
-        if (!items.length) {
-            toast.error('No data to export');
-            return;
+    const handleAddRate = async () => {
+        if (!newRate.rate || newRate.rate <= 0) { toast.error('Valid rate required'); return; }
+        try {
+            await api.post(`/inventory/consumables/${detailItem.id}/rates`, {
+                rate: Number(newRate.rate),
+                effective_date: newRate.effective_date,
+                supplier_name: newRate.supplier_name || undefined,
+                notes: newRate.notes || undefined
+            });
+            toast.success('Rate added');
+            setShowAddRateModal(false);
+            setNewRate({ rate: '', effective_date: new Date().toISOString().split('T')[0], supplier_name: '', notes: '' });
+            // Refresh
+            const ratesRes = await api.get(`/inventory/consumables/${detailItem.id}/rates`);
+            setRateHistory(ratesRes.data || []);
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Failed to add rate');
         }
+    };
 
-        const headers = ['Name', 'Category', 'Unit', 'Stock', 'Reorder Level', 'Unit Cost', 'Supplier', 'Branch', 'Notes'];
-        const rows = items.map((item) => [
-            item.name,
-            toDisplayCategory(item.category),
-            item.unit,
-            item.quantity_in_stock,
-            item.reorder_level,
-            item.unit_cost,
-            item.supplier_name || '',
-            item.branch,
-            item.notes || ''
+    const handleExportCsv = () => {
+        if (!items.length) { toast.error('No data to export'); return; }
+        const headers = ['Name', 'Category', 'Unit', 'GSM', 'Size', 'Brand', 'Finish', 'Color', 'Stock', 'Reorder', 'Min Stock', 'Max Stock', 'Location', 'Unit Cost', 'Supplier', 'SKU', 'Branch', 'Notes'];
+        const rows = items.map(item => [
+            item.name, toDisplayCategory(item.category), item.unit, item.gsm || '',
+            item.size_name || '', item.brand || '', item.finish || '', item.color || '',
+            item.quantity_in_stock, item.reorder_level, item.min_stock_level || '',
+            item.max_stock_level || '', item.location || '', item.unit_cost,
+            item.supplier_name || '', item.sku || '', item.branch, item.notes || ''
         ]);
-
-        const csv = [headers, ...rows]
-            .map((row) => row.map(csvEscape).join(','))
-            .join('\n');
-
+        const csv = [headers, ...rows].map(row => row.map(csvEscape).join(',')).join('\n');
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
-        link.download = `consumables_inventory_${new Date().toISOString().slice(0, 10)}.csv`;
+        link.download = `consumables_${new Date().toISOString().slice(0, 10)}.csv`;
         link.click();
         URL.revokeObjectURL(link.href);
     };
 
     return (
         <PageContainer>
-            {/* ─── Header ─── */}
             <div className="inv-header">
                 <div className="inv-header-left">
                     <div className="text-xs uppercase tracking-wider text-accent font-semibold mb-2">Inventory / Consumables</div>
-                    <h1 className="inv-header-title">Inventory</h1>
-                    <p className="inv-header-desc">Track ink, chemicals, plates, and other print consumables by branch.</p>
+                    <h1 className="inv-header-title">Consumables Inventory</h1>
+                    <p className="inv-header-desc">Track ink, chemicals, plates, paper, bindings, and other print consumables with rate history.</p>
                 </div>
             </div>
 
-            {/* ─── Segmented Tab Navigation ─── */}
+            {/* Tab Navigation */}
             <div className="inv-tabs">
-                <div 
-                    onClick={() => navigate('/dashboard/inventory')}
-                    className="inv-tab"
-                >
-                    <div className="inv-tab-icon">
-                        <Package size={20} />
-                    </div>
+                <div onClick={() => navigate('/dashboard/inventory')} className="inv-tab">
+                    <div className="inv-tab-icon"><Package size={20} /></div>
                     <div className="inv-tab-info">
                         <span className="inv-tab-label">General Inventory</span>
                         <span className="inv-tab-count">{tabCounts.general.toLocaleString()} Items</span>
                     </div>
                 </div>
-                <div 
-                    onClick={() => navigate('/dashboard/inventory/paper')}
-                    className="inv-tab"
-                >
-                    <div className="inv-tab-icon">
-                        <Layers size={20} />
-                    </div>
+                <div onClick={() => navigate('/dashboard/inventory/paper')} className="inv-tab">
+                    <div className="inv-tab-icon"><Layers size={20} /></div>
                     <div className="inv-tab-info">
                         <span className="inv-tab-label">Paper Stock</span>
                         <span className="inv-tab-count">{tabCounts.paper.toLocaleString()} Types</span>
                     </div>
                 </div>
-                <div 
-                    onClick={() => navigate('/dashboard/inventory/consumables')}
-                    className="inv-tab inv-tab--active"
-                >
-                    <div className="inv-tab-icon">
-                        <ShoppingCart size={20} />
-                    </div>
+                <div onClick={() => navigate('/dashboard/inventory/consumables')} className="inv-tab inv-tab--active">
+                    <div className="inv-tab-icon"><ShoppingCart size={20} /></div>
                     <div className="inv-tab-info">
                         <span className="inv-tab-label">Consumables</span>
                         <span className="inv-tab-count">{tabCounts.consumables.toLocaleString()} Items</span>
@@ -310,7 +292,7 @@ const ConsumablesManagement = () => {
                 </div>
             </div>
 
-            {/* ─── KPI Row ─── */}
+            {/* KPI Row */}
             <div className="inv-kpi-row">
                 <div className="inv-kpi-card">
                     <div className="inv-kpi-icon"><Package size={16} /></div>
@@ -334,255 +316,315 @@ const ConsumablesManagement = () => {
                     </div>
                 </div>
                 <div className="inv-kpi-card">
-                    <div className="inv-kpi-icon"><MapPin size={16} /></div>
+                    <div className="inv-kpi-icon"><Tag size={16} /></div>
                     <div className="inv-kpi-info">
-                        <span className="inv-kpi-value">{branchFilter === 'All' ? '2' : '1'}</span>
-                        <span className="inv-kpi-label">Branches Active</span>
+                        <span className="inv-kpi-value">{new Set(items.map(i => i.category)).size}</span>
+                        <span className="inv-kpi-label">Categories</span>
                     </div>
                 </div>
             </div>
 
-            {/* ─── Toolbar ─── */}
+            {/* Toolbar */}
             <div className="inv-toolbar">
-                {/* Row 1: Search and Primary Action */}
                 <div className="inv-toolbar-row">
                     <div className="inv-search">
                         <span className="inv-search-icon"><Search size={16} /></span>
-                        <input
-                            type="text"
-                            className="inv-search-input"
-                            placeholder="Search consumables by name..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                        {searchTerm && (
-                            <button className="inv-search-clear" onClick={() => setSearchTerm('')}>
-                                <X size={14} />
-                            </button>
-                        )}
+                        <input type="text" className="inv-search-input" placeholder="Search by name, brand, SKU, size..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                        {searchTerm && <button className="inv-search-clear" onClick={() => setSearchTerm('')}><X size={14} /></button>}
                     </div>
                     {isManager && (
-                        <button className="btn btn-primary" onClick={handleOpenAdd}>
-                            <Plus size={18} /> Add Consumable
-                        </button>
+                        <button className="btn btn-primary" onClick={handleOpenAdd}><Plus size={18} /> Add Consumable</button>
                     )}
                 </div>
-
-                {/* Row 2: Filter Chips and Export/Reset */}
                 <div className="inv-toolbar-row justify-between wrap gap-sm">
-                    {/* Filter Chips */}
                     <div className="inv-chips">
                         <div className="inv-chip">
                             <MapPin size={12} className="muted" style={{ marginRight: 4 }} />
-                            <select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)}>
+                            <select value={branchFilter} onChange={e => setBranchFilter(e.target.value)}>
                                 <option value="All">All Branches</option>
                                 <option value="Perambra">Perambra</option>
                                 <option value="Meppayur">Meppayur</option>
                             </select>
                         </div>
                         <div className="inv-chip">
-                            <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+                            <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
                                 <option value="all">All Categories</option>
-                                {CATEGORY_TABS.filter((c) => c.value !== 'all').map((c) => (
+                                {CATEGORY_TABS.filter(c => c.value !== 'all').map(c => (
                                     <option key={c.value} value={c.value}>{c.label}</option>
                                 ))}
                             </select>
                         </div>
                         {(searchTerm || categoryFilter !== 'all' || branchFilter !== 'All') && (
-                            <button
-                                className="inv-chip-clear"
-                                onClick={() => {
-                                    setSearchTerm('');
-                                    setCategoryFilter('all');
-                                    setBranchFilter('All');
-                                }}
-                            >
+                            <button className="inv-chip-clear" onClick={() => { setSearchTerm(''); setCategoryFilter('all'); setBranchFilter('All'); }}>
                                 <X size={12} /> Clear
                             </button>
                         )}
                     </div>
-
-                    {/* Secondary Actions */}
                     <div className="row gap-xs items-center">
-                        <button className="btn btn-ghost btn-sm" onClick={handleExportCsv}>
-                            <Download size={14} /> Export CSV
-                        </button>
+                        <button className="btn btn-ghost btn-sm" onClick={handleExportCsv}><Download size={14} /> Export CSV</button>
                     </div>
                 </div>
             </div>
 
-            {/* Table */}
-            <div className="inv-table-container">
-                <div className="inv-table-scroll">
-                    <table className="inv-table">
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Category</th>
-                                <th>Unit</th>
-                                <th>Stock</th>
-                                <th>Reorder Level</th>
-                                <th>Unit Cost</th>
-                                <th>Supplier</th>
-                                <th>Branch</th>
-                                <th style={{ textAlign: 'right', width: 120 }}>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loading ? (
+            {/* Main content area with side panel */}
+            <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+                {/* Table */}
+                <div className="inv-table-container" style={{ flex: 1, minWidth: 0 }}>
+                    <div className="inv-table-scroll">
+                        <table className="inv-table">
+                            <thead>
                                 <tr>
-                                    <td colSpan="9" className="text-center p-xl">
-                                        <RefreshCcw className="animate-spin muted" size={30} />
-                                    </td>
+                                    <th>Name</th>
+                                    <th>Category</th>
+                                    <th>Unit</th>
+                                    <th>Stock</th>
+                                    <th>Reorder</th>
+                                    <th>Rate</th>
+                                    <th>Supplier</th>
+                                    <th>Branch</th>
+                                    <th style={{ textAlign: 'right', width: 140 }}>Actions</th>
                                 </tr>
-                            ) : items.length === 0 ? (
-                                <tr>
-                                    <td colSpan="9" className="text-center p-xl muted">
+                            </thead>
+                            <tbody>
+                                {loading ? (
+                                    <tr><td colSpan="9" className="text-center p-xl"><RefreshCcw className="animate-spin muted" size={30} /></td></tr>
+                                ) : items.length === 0 ? (
+                                    <tr><td colSpan="9" className="text-center p-xl muted">
                                         <Package size={44} style={{ opacity: 0.2, marginBottom: 12 }} />
                                         <div>No consumables found.</div>
-                                    </td>
-                                </tr>
-                            ) : (
-                                items.map((item) => {
-                                    const isLow = Number(item.quantity_in_stock) <= Number(item.reorder_level || 0);
-                                    return (
-                                        <tr
-                                            key={item.id}
-                                            className={isLow ? 'row-selected' : ''}
-                                        >
-                                            <td>
-                                                <div className="font-bold">{item.name}</div>
-                                                {isLow && <div className="text-xs text-danger font-medium">Low Stock</div>}
-                                            </td>
-                                            <td><span className="inv-pill inv-pill--ok">{toDisplayCategory(item.category)}</span></td>
-                                            <td>{item.unit}</td>
-                                            <td className={isLow ? 'text-danger font-bold' : 'font-bold'}>{item.quantity_in_stock}</td>
-                                            <td>{item.reorder_level}</td>
-                                            <td>₹{Number(item.unit_cost || 0).toLocaleString()}</td>
-                                            <td>{item.supplier_name || '-'}</td>
-                                            <td>{item.branch}</td>
-                                            <td style={{ textAlign: 'right' }}>
-                                                <div className="inv-actions justify-end">
-                                                    {isManager && (
-                                                        <>
-                                                            <button className="inv-action-btn" title="Quick Adjust" onClick={() => handleOpenAdjust(item)}>
-                                                                <ArrowUp size={12} style={{ marginRight: -4 }} />
-                                                                <ArrowDown size={12} />
-                                                            </button>
-                                                            <button className="inv-action-btn" title="Edit" onClick={() => handleOpenEdit(item)}>
-                                                                <Edit2 size={14} />
-                                                            </button>
-                                                            <button className="inv-action-btn inv-action-btn--danger" title="Delete" onClick={() => handleDelete(item.id)}>
-                                                                <Trash2 size={14} />
-                                                            </button>
-                                                        </>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })
-                            )}
-                        </tbody>
-                    </table>
+                                    </td></tr>
+                                ) : (
+                                    items.map(item => {
+                                        const isLow = Number(item.quantity_in_stock) <= Number(item.reorder_level || 0);
+                                        return (
+                                            <tr key={item.id} className={isLow ? 'row-selected' : ''} style={{ cursor: 'pointer' }}>
+                                                <td onClick={() => handleOpenDetail(item)}>
+                                                    <div className="font-bold">{item.name}</div>
+                                                    <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                                                        {[item.brand, item.size_name, item.gsm ? `${item.gsm} GSM` : '', item.color, item.finish].filter(Boolean).join(' • ') || item.sku}
+                                                    </div>
+                                                    {isLow && <div className="text-xs text-danger font-medium">Low Stock</div>}
+                                                </td>
+                                                <td onClick={() => handleOpenDetail(item)}><span className="inv-pill inv-pill--ok">{toDisplayCategory(item.category)}</span></td>
+                                                <td onClick={() => handleOpenDetail(item)}>{item.unit}</td>
+                                                <td onClick={() => handleOpenDetail(item)} className={isLow ? 'text-danger font-bold' : 'font-bold'}>{item.quantity_in_stock}</td>
+                                                <td onClick={() => handleOpenDetail(item)}>{item.reorder_level}</td>
+                                                <td onClick={() => handleOpenDetail(item)}>
+                                                    <span style={{ fontWeight: 500 }}>₹{Number(item.unit_cost || 0).toLocaleString()}</span>
+                                                    {item.current_rate_id && <History size={12} style={{ marginLeft: 4, verticalAlign: 'middle', color: 'var(--muted)' }} />}
+                                                </td>
+                                                <td onClick={() => handleOpenDetail(item)}>{item.supplier_name || '-'}</td>
+                                                <td onClick={() => handleOpenDetail(item)}>{item.branch}</td>
+                                                <td style={{ textAlign: 'right' }}>
+                                                    <div className="inv-actions justify-end">
+                                                        {isManager && (
+                                                            <>
+                                                                <button className="inv-action-btn" title="Quick Adjust" onClick={() => handleOpenAdjust(item)}>
+                                                                    <ArrowUp size={12} style={{ marginRight: -4 }} /><ArrowDown size={12} />
+                                                                </button>
+                                                                <button className="inv-action-btn" title="View Details" onClick={() => handleOpenDetail(item)}>
+                                                                    <Eye size={14} />
+                                                                </button>
+                                                                <button className="inv-action-btn" title="Edit" onClick={() => handleOpenEdit(item)}>
+                                                                    <Edit2 size={14} />
+                                                                </button>
+                                                                <button className="inv-action-btn inv-action-btn--danger" title="Delete" onClick={() => handleDelete(item.id)}>
+                                                                    <Trash2 size={14} />
+                                                                </button>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
+
+                {/* Detail Panel */}
+                {detailItem && (
+                    <div style={{
+                        width: 360, minWidth: 360, border: '1px solid var(--border)',
+                        borderRadius: 12, background: 'var(--surface)', overflow: 'hidden',
+                        position: 'sticky', top: 16
+                    }}>
+                        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>{detailItem.name}</h3>
+                            <button className="inv-action-btn" onClick={() => setDetailItem(null)}><X size={16} /></button>
+                        </div>
+                        {/* Tab bar */}
+                        <div style={{ display: 'flex', borderBottom: '1px solid var(--border)' }}>
+                            {['details', 'rates', 'purchases'].map(tab => (
+                                <button key={tab}
+                                    onClick={() => setDetailTab(tab)}
+                                    style={{
+                                        flex: 1, padding: '8px', fontSize: 12, fontWeight: 500,
+                                        background: detailTab === tab ? 'var(--accent-light)' : 'transparent',
+                                        border: 'none', borderBottom: detailTab === tab ? '2px solid var(--accent)' : '2px solid transparent',
+                                        cursor: 'pointer', color: detailTab === tab ? 'var(--accent)' : 'var(--muted)',
+                                        textTransform: 'capitalize'
+                                    }}
+                                >
+                                    {tab === 'details' ? <><FileText size={12} style={{ marginRight: 4 }} />Details</> :
+                                     tab === 'rates' ? <><TrendingUp size={12} style={{ marginRight: 4 }} />Rates</> :
+                                     <><ShoppingCart size={12} style={{ marginRight: 4 }} />Purchases</>}
+                                </button>
+                            ))}
+                        </div>
+                        <div style={{ padding: 16, maxHeight: 400, overflowY: 'auto' }}>
+                            {detailTab === 'details' && (
+                                <div style={{ fontSize: 13, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                    <Row label="Category" value={toDisplayCategory(detailItem.category)} />
+                                    <Row label="Unit" value={detailItem.unit} />
+                                    {detailItem.gsm && <Row label="GSM" value={`${detailItem.gsm}`} />}
+                                    {detailItem.size_name && <Row label="Size" value={detailItem.size_name} />}
+                                    {detailItem.brand && <Row label="Brand" value={detailItem.brand} />}
+                                    {detailItem.finish && <Row label="Finish" value={detailItem.finish} />}
+                                    {detailItem.color && <Row label="Color" value={detailItem.color} />}
+                                    <Row label="Stock" value={`${detailItem.quantity_in_stock} ${detailItem.unit}`} />
+                                    <Row label="Reorder Level" value={`${detailItem.reorder_level}`} />
+                                    {detailItem.min_stock_level && <Row label="Min Stock" value={`${detailItem.min_stock_level}`} />}
+                                    {detailItem.max_stock_level && <Row label="Max Stock" value={`${detailItem.max_stock_level}`} />}
+                                    {detailItem.location && <Row label="Location" value={detailItem.location} />}
+                                    <Row label="Current Rate" value={`₹${Number(detailItem.unit_cost || 0).toLocaleString()}`} />
+                                    {detailItem.sku && <Row label="SKU" value={detailItem.sku} />}
+                                    <Row label="Supplier" value={detailItem.supplier_name || '-'} />
+                                    <Row label="Branch" value={detailItem.branch} />
+                                    {detailItem.notes && <Row label="Notes" value={detailItem.notes} />}
+                                    <div style={{ marginTop: 8 }}>
+                                        <button className="btn btn-secondary btn-sm btn--full" onClick={() => setShowAddRateModal(true)}>
+                                            <TrendingUp size={14} /> Update Rate
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                            {detailTab === 'rates' && (
+                                <div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                                        <span style={{ fontSize: 12, color: 'var(--muted)' }}>Rate change history</span>
+                                        <button className="btn btn-secondary btn-sm" onClick={() => setShowAddRateModal(true)}><Plus size={14} /> Add Rate</button>
+                                    </div>
+                                    {detailLoading ? <div className="muted" style={{ fontSize: 12, textAlign: 'center', padding: 16 }}>Loading...</div> :
+                                     rateHistory.length === 0 ? <div className="muted" style={{ fontSize: 12, textAlign: 'center', padding: 16 }}>No rate history</div> :
+                                     rateHistory.map(r => (
+                                        <div key={r.id} style={{
+                                            padding: '8px 10px', borderBottom: '1px solid var(--border)',
+                                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                            background: r.id === detailItem.current_rate_id ? 'var(--accent-light)' : 'transparent'
+                                        }}>
+                                            <div>
+                                                <div style={{ fontWeight: 600, fontSize: 14 }}>₹{Number(r.rate).toLocaleString()}</div>
+                                                <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                                                    {r.effective_date ? new Date(r.effective_date).toLocaleDateString() : '-'}
+                                                    {r.supplier_name && ` • ${r.supplier_name}`}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                {r.id === detailItem.current_rate_id && (
+                                                    <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--accent)' }}>ACTIVE</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                     ))}
+                                </div>
+                            )}
+                            {detailTab === 'purchases' && (
+                                <div>
+                                    {detailLoading ? <div className="muted" style={{ fontSize: 12, textAlign: 'center', padding: 16 }}>Loading...</div> :
+                                     purchaseHistory.length === 0 ? <div className="muted" style={{ fontSize: 12, textAlign: 'center', padding: 16 }}>No purchase history</div> :
+                                     purchaseHistory.map(p => (
+                                        <div key={p.id} style={{ padding: '8px 10px', borderBottom: '1px solid var(--border)' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                <span style={{ fontWeight: 600, fontSize: 14 }}>₹{Number(p.total_amount).toLocaleString()}</span>
+                                                <span style={{ fontSize: 12, color: 'var(--muted)' }}>{p.purchase_date ? new Date(p.purchase_date).toLocaleDateString() : '-'}</span>
+                                            </div>
+                                            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+                                                {p.quantity} × ₹{Number(p.unit_price).toLocaleString()}
+                                                {p.supplier_name && ` • ${p.supplier_name}`}
+                                            </div>
+                                            {p.invoice_ref && <div style={{ fontSize: 11, color: 'var(--muted)' }}>Ref: {p.invoice_ref}</div>}
+                                        </div>
+                                     ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
 
+            {/* Add/Edit Modal */}
             {showModal && (
                 <div className="modal-backdrop">
-                    <div className="modal" style={{ maxWidth: '650px' }}>
+                    <div className="modal" style={{ maxWidth: '750px' }}>
                         <div className="modal-header">
                             <h2 className="section-title">{modalMode === 'add' ? 'Add Consumable' : 'Edit Consumable'}</h2>
                             <button className="modal-close" onClick={() => setShowModal(false)}><X size={20} /></button>
                         </div>
                         <form onSubmit={handleSubmit} className="stack-md">
-                            <div className="grid grid--2 gap-md">
-                                <div className="span-2">
-                                    <label className="label">Name *</label>
-                                    <input
-                                        className="input-field"
-                                        required
-                                        value={formData.name}
-                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    />
+                            <div className="grid grid--3 gap-md">
+                                <div className="span-3"><label className="label">Name *</label>
+                                    <input className="input-field" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
                                 </div>
-
-                                <div>
-                                    <label className="label">Category *</label>
-                                    <select className="input-field" value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })}>
-                                        {CATEGORY_TABS.filter((c) => c.value !== 'all').map((c) => (
-                                            <option key={c.value} value={c.value}>{c.label}</option>
-                                        ))}
+                                <div><label className="label">Category</label>
+                                    <select className="input-field" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
+                                        {CATEGORY_TABS.filter(c => c.value !== 'all').map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                                     </select>
                                 </div>
-
-                                <div>
-                                    <label className="label">Unit *</label>
-                                    <select className="input-field" value={formData.unit} onChange={(e) => setFormData({ ...formData, unit: e.target.value })}>
-                                        {UNIT_OPTIONS.map((u) => (
-                                            <option key={u} value={u}>{u}</option>
-                                        ))}
+                                <div><label className="label">Unit</label>
+                                    <select className="input-field" value={formData.unit} onChange={e => setFormData({ ...formData, unit: e.target.value })}>
+                                        {UNIT_OPTIONS.map(u => <option key={u} value={u}>{u}</option>)}
                                     </select>
                                 </div>
-
-                                <div>
-                                    <label className="label">Quantity in Stock *</label>
-                                    <input
-                                        type="number"
-                                        step="0.001"
-                                        className="input-field"
-                                        value={formData.quantity_in_stock}
-                                        onChange={(e) => setFormData({ ...formData, quantity_in_stock: e.target.value })}
-                                    />
+                                <div><label className="label">GSM</label>
+                                    <input type="number" className="input-field" value={formData.gsm} onChange={e => setFormData({ ...formData, gsm: e.target.value })} placeholder="e.g. 80" />
                                 </div>
-
-                                <div>
-                                    <label className="label">Reorder Level *</label>
-                                    <input
-                                        type="number"
-                                        step="0.001"
-                                        className="input-field"
-                                        value={formData.reorder_level}
-                                        onChange={(e) => setFormData({ ...formData, reorder_level: e.target.value })}
-                                    />
+                                <div><label className="label">Size</label>
+                                    <input className="input-field" value={formData.size_name} onChange={e => setFormData({ ...formData, size_name: e.target.value })} placeholder="e.g. A4, 8.5x11" />
                                 </div>
-
-                                <div>
-                                    <label className="label">Unit Cost (₹)</label>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        className="input-field"
-                                        value={formData.unit_cost}
-                                        onChange={(e) => setFormData({ ...formData, unit_cost: e.target.value })}
-                                    />
+                                <div><label className="label">Brand</label>
+                                    <input className="input-field" value={formData.brand} onChange={e => setFormData({ ...formData, brand: e.target.value })} />
                                 </div>
-
-                                <div>
-                                    <label className="label">Branch *</label>
-                                    <select className="input-field" value={formData.branch} onChange={(e) => setFormData({ ...formData, branch: e.target.value })}>
+                                <div><label className="label">Finish</label>
+                                    <input className="input-field" value={formData.finish} onChange={e => setFormData({ ...formData, finish: e.target.value })} placeholder="e.g. Glossy, Matte" />
+                                </div>
+                                <div><label className="label">Color</label>
+                                    <input className="input-field" value={formData.color} onChange={e => setFormData({ ...formData, color: e.target.value })} />
+                                </div>
+                                <div><label className="label">SKU</label>
+                                    <input className="input-field" value={formData.sku} onChange={e => setFormData({ ...formData, sku: e.target.value })} />
+                                </div>
+                                <div><label className="label">Quantity *</label>
+                                    <input type="number" step="0.001" className="input-field" value={formData.quantity_in_stock} onChange={e => setFormData({ ...formData, quantity_in_stock: e.target.value })} />
+                                </div>
+                                <div><label className="label">Reorder Level</label>
+                                    <input type="number" step="0.001" className="input-field" value={formData.reorder_level} onChange={e => setFormData({ ...formData, reorder_level: e.target.value })} />
+                                </div>
+                                <div><label className="label">Min Stock</label>
+                                    <input type="number" step="0.001" className="input-field" value={formData.min_stock_level} onChange={e => setFormData({ ...formData, min_stock_level: e.target.value })} />
+                                </div>
+                                <div><label className="label">Max Stock</label>
+                                    <input type="number" step="0.001" className="input-field" value={formData.max_stock_level} onChange={e => setFormData({ ...formData, max_stock_level: e.target.value })} />
+                                </div>
+                                <div><label className="label">Location</label>
+                                    <input className="input-field" value={formData.location} onChange={e => setFormData({ ...formData, location: e.target.value })} placeholder="e.g. Rack A, Shelf 3" />
+                                </div>
+                                <div><label className="label">Unit Cost (₹)</label>
+                                    <input type="number" step="0.01" className="input-field" value={formData.unit_cost} onChange={e => setFormData({ ...formData, unit_cost: e.target.value })} />
+                                </div>
+                                <div><label className="label">Supplier</label>
+                                    <input className="input-field" value={formData.supplier_name} onChange={e => setFormData({ ...formData, supplier_name: e.target.value })} />
+                                </div>
+                                <div><label className="label">Branch *</label>
+                                    <select className="input-field" value={formData.branch} onChange={e => setFormData({ ...formData, branch: e.target.value })}>
                                         <option value="Perambra">Perambra</option>
                                         <option value="Meppayur">Meppayur</option>
                                     </select>
                                 </div>
-
-                                <div className="span-2">
-                                    <label className="label">Supplier Name</label>
-                                    <input
-                                        className="input-field"
-                                        value={formData.supplier_name}
-                                        onChange={(e) => setFormData({ ...formData, supplier_name: e.target.value })}
-                                    />
-                                </div>
-
-                                <div className="span-2">
-                                    <label className="label">Notes</label>
-                                    <textarea
-                                        className="input-field"
-                                        rows="2"
-                                        value={formData.notes}
-                                        onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                                    />
+                                <div className="span-3"><label className="label">Notes</label>
+                                    <textarea className="input-field" rows="2" value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} />
                                 </div>
                             </div>
                             <div className="row justify-end gap-sm mt-md">
@@ -594,6 +636,7 @@ const ConsumablesManagement = () => {
                 </div>
             )}
 
+            {/* Adjust Modal */}
             {showAdjustModal && (
                 <div className="modal-backdrop">
                     <div className="modal" style={{ maxWidth: '420px' }}>
@@ -607,49 +650,87 @@ const ConsumablesManagement = () => {
                         </div>
                         <form onSubmit={handleAdjustSubmit} className="stack-md">
                             <div>
+                                <label className="label">Adjustment Type</label>
+                                <select className="input-field" value={adjustData.adjustment_type}
+                                    onChange={e => setAdjustData({ ...adjustData, adjustment_type: e.target.value })}>
+                                    <option value="INWARD">Inward (Add Stock)</option>
+                                    <option value="OUTWARD">Outward (Remove Stock)</option>
+                                    <option value="WASTE">Waste</option>
+                                    <option value="RETURN">Return</option>
+                                </select>
+                            </div>
+                            <div>
                                 <label className="label">Quantity Delta *</label>
-                                <div className="row items-center gap-sm">
-                                    <input
-                                        type="number"
-                                        step="0.001"
-                                        className="input-field"
-                                        required
-                                        autoFocus
-                                        value={adjustData.quantity_delta}
-                                        onChange={(e) => setAdjustData({ ...adjustData, quantity_delta: e.target.value })}
-                                        placeholder="e.g. 2 or -0.5"
-                                    />
-                                    <div className={`badge ${Number(adjustData.quantity_delta) >= 0 ? 'badge--success' : 'badge--danger'}`}>
-                                        {Number(adjustData.quantity_delta) >= 0 ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
-                                    </div>
-                                </div>
+                                <input type="number" step="0.001" className="input-field" required autoFocus
+                                    value={adjustData.quantity_delta}
+                                    onChange={e => setAdjustData({ ...adjustData, quantity_delta: e.target.value })}
+                                    placeholder="e.g. 2 or -0.5" />
                             </div>
                             <div>
                                 <label className="label">Reason *</label>
-                                <input
-                                    className="input-field"
-                                    required
+                                <input className="input-field" required
                                     value={adjustData.reason}
-                                    onChange={(e) => setAdjustData({ ...adjustData, reason: e.target.value })}
-                                    placeholder="e.g. Received from supplier, damaged unit"
-                                />
+                                    onChange={e => setAdjustData({ ...adjustData, reason: e.target.value })}
+                                    placeholder="e.g. Received from supplier, damaged unit" />
                             </div>
                             <div className="row justify-end gap-sm mt-md">
                                 <button type="button" className="btn btn-ghost" onClick={() => setShowAdjustModal(false)}>Cancel</button>
-                                <button
-                                    type="submit"
-                                    className="btn btn-primary"
-                                    disabled={!adjustData.quantity_delta || !adjustData.reason}
-                                >
-                                    Confirm
-                                </button>
+                                <button type="submit" className="btn btn-primary" disabled={!adjustData.quantity_delta || !adjustData.reason}>Confirm</button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Add Rate Modal */}
+            {showAddRateModal && detailItem && (
+                <div className="modal-backdrop">
+                    <div className="modal" style={{ maxWidth: '420px' }}>
+                        <div className="modal-header">
+                            <h2 className="section-title">Update Rate: {detailItem.name}</h2>
+                            <button className="modal-close" onClick={() => setShowAddRateModal(false)}><X size={20} /></button>
+                        </div>
+                        <div className="stack-md" style={{ padding: 16 }}>
+                            <div>
+                                <label className="label">New Rate (₹) *</label>
+                                <input type="number" step="0.01" className="input-field" required autoFocus
+                                    value={newRate.rate}
+                                    onChange={e => setNewRate({ ...newRate, rate: e.target.value })}
+                                    placeholder="Enter new rate" />
+                            </div>
+                            <div>
+                                <label className="label">Effective Date</label>
+                                <input type="date" className="input-field"
+                                    value={newRate.effective_date}
+                                    onChange={e => setNewRate({ ...newRate, effective_date: e.target.value })} />
+                            </div>
+                            <div>
+                                <label className="label">Supplier (optional)</label>
+                                <input className="input-field" value={newRate.supplier_name}
+                                    onChange={e => setNewRate({ ...newRate, supplier_name: e.target.value })} />
+                            </div>
+                            <div>
+                                <label className="label">Notes (optional)</label>
+                                <input className="input-field" value={newRate.notes}
+                                    onChange={e => setNewRate({ ...newRate, notes: e.target.value })} />
+                            </div>
+                            <div className="row justify-end gap-sm">
+                                <button type="button" className="btn btn-ghost" onClick={() => setShowAddRateModal(false)}>Cancel</button>
+                                <button type="button" className="btn btn-primary" onClick={handleAddRate}>Add Rate</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
         </PageContainer>
     );
 };
+
+const Row = ({ label, value }) => (
+    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', padding: '4px 0' }}>
+        <span style={{ color: 'var(--muted)' }}>{label}</span>
+        <span style={{ fontWeight: 500 }}>{value}</span>
+    </div>
+);
 
 export default ConsumablesManagement;
