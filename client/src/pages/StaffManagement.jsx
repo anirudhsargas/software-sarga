@@ -1,7 +1,7 @@
 import { usePageTitle } from '../hooks/usePageTitle';
 import React, { useEffect, useState, useMemo } from 'react';
 import { useDebounce } from '../hooks/useDebounce';
-import { User, Users, Loader2, Plus, X, Edit2, Trash2, Key, BarChart3, Banknote, Calendar, LogIn, LogOut, Settings, Search, Camera, Phone, Briefcase, DollarSign, MapPin } from 'lucide-react';
+import { User, Users, Loader2, Plus, X, Edit2, Trash2, Key, BarChart3, Banknote, Calendar, LogIn, LogOut, Settings, Search, Camera, Phone, Briefcase, DollarSign, MapPin, Building2, Star } from 'lucide-react';
 import HolidayCalendar from '../components/HolidayCalendar';
 import SecureImage from '../components/SecureImage';
 import { useNavigate } from 'react-router-dom';
@@ -934,54 +934,48 @@ const StaffManagement = () => {
 
                                 {/* Multi-Branch Assignments */}
                                 {user?.role === 'Admin' && (
-                                    <div className="staff-field-group" style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--border)', paddingTop: 16 }}>
-                                        <label className="staff-label">Branch Assignments</label>
-                                        <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>
-                                            Assign staff member to multiple branches. Each staff has one primary branch.
+                                    <div className="staff-branch-section">
+                                        <label className="staff-label"><Building2 size={14} /> Branch Assignments</label>
+                                        <p className="staff-branch-hint">
+                                            Staff can access multiple branches. One branch is designated as primary.
                                         </p>
                                         {branchAssignments.length > 0 ? (
-                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+                                            <div className="staff-branch-list">
                                                 {branchAssignments.map(ba => (
-                                                    <div key={ba.id} style={{
-                                                        display: 'flex', alignItems: 'center', gap: 6,
-                                                        padding: '6px 10px', borderRadius: 8,
-                                                        border: `1px solid ${ba.is_primary ? 'var(--accent)' : 'var(--border)'}`,
-                                                        background: ba.is_primary ? 'var(--accent-light, rgba(67,97,238,0.08))' : 'var(--surface)',
-                                                        fontSize: 13
-                                                    }}>
-                                                        <span>{ba.branch_name}</span>
+                                                    <div key={ba.id} className={`staff-branch-chip ${ba.is_primary ? 'staff-branch-chip--primary' : 'staff-branch-chip--assigned'}`}>
+                                                        <span className="staff-branch-chip-label">{ba.branch_name}</span>
                                                         {ba.is_primary && (
-                                                            <span style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 600 }}>PRIMARY</span>
+                                                            <span className="staff-branch-chip-badge">Primary</span>
                                                         )}
-                                                        {!ba.is_primary && (
+                                                        <span className="staff-branch-chip-actions">
+                                                            {!ba.is_primary && (
+                                                                <button
+                                                                    type="button"
+                                                                    className="btn-icon-nano text-accent"
+                                                                    onClick={() => handleSetPrimaryBranch(selectedStaff.id, ba.id)}
+                                                                    title="Set as primary branch"
+                                                                >
+                                                                    <Star size={10} />
+                                                                </button>
+                                                            )}
                                                             <button
                                                                 type="button"
-                                                                className="btn btn-ghost btn-sm"
-                                                                style={{ fontSize: 10, padding: '2px 6px', height: 'auto' }}
-                                                                onClick={() => handleSetPrimaryBranch(selectedStaff.id, ba.id)}
-                                                                title="Set as primary"
+                                                                className="btn-icon-nano text-error"
+                                                                onClick={() => handleRemoveBranch(selectedStaff.id, ba.id)}
+                                                                title="Remove branch assignment"
                                                             >
-                                                                Set Primary
+                                                                <X size={10} />
                                                             </button>
-                                                        )}
-                                                        <button
-                                                            type="button"
-                                                            className="btn btn-ghost btn-sm text-error"
-                                                            style={{ fontSize: 10, padding: '2px 6px', height: 'auto' }}
-                                                            onClick={() => handleRemoveBranch(selectedStaff.id, ba.id)}
-                                                            title="Remove branch assignment"
-                                                        >
-                                                            <X size={12} />
-                                                        </button>
+                                                        </span>
                                                     </div>
                                                 ))}
                                             </div>
                                         ) : (
-                                            <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>No additional branch assignments.</p>
+                                            <p className="staff-branch-empty">No additional branch assignments for this staff member.</p>
                                         )}
                                         <button
                                             type="button"
-                                            className="btn btn-secondary btn-sm"
+                                            className="btn btn-secondary btn-sm staff-branch-manage-btn"
                                             onClick={() => { fetchBranchAssignments(selectedStaff.id); setShowBranchAssignModal(true); }}
                                         >
                                             <Plus size={14} /> Manage Branch Assignments
@@ -1005,16 +999,16 @@ const StaffManagement = () => {
 
             {showBranchAssignModal && selectedStaff && (
                 <div className="modal-backdrop">
-                    <div className="modal" style={{ maxWidth: 420 }}>
+                    <div className="modal staff-ba-modal">
                         <div className="modal-header">
                             <h2 className="modal-title">Assign Branch: {selectedStaff.name}</h2>
                             <button className="modal-close modal-close--static" onClick={() => setShowBranchAssignModal(false)}><X size={20} /></button>
                         </div>
-                        <div className="stack-md" style={{ padding: '16px 24px' }}>
-                            <p style={{ fontSize: 13, color: 'var(--muted)' }}>
-                                Select additional branches to assign this staff member to.
+                        <div className="staff-ba-modal-body">
+                            <p className="staff-ba-modal-desc">
+                                Select a branch to assign this staff member to. Staff will have access to all assigned branches.
                             </p>
-                            <div>
+                            <div className="staff-ba-field">
                                 <label className="label">Branch</label>
                                 <select
                                     className="input-field"
@@ -1028,15 +1022,15 @@ const StaffManagement = () => {
                                     }
                                 </select>
                             </div>
-                            <label className="row gap-sm items-center" style={{ cursor: 'pointer' }}>
+                            <label className="staff-ba-checkbox">
                                 <input
                                     type="checkbox"
                                     checked={newBranchAssign.is_primary}
                                     onChange={(e) => setNewBranchAssign({ ...newBranchAssign, is_primary: e.target.checked })}
                                 />
-                                <span style={{ fontSize: 14 }}>Set as primary branch</span>
+                                Set as primary branch
                             </label>
-                            <div className="row justify-end gap-sm">
+                            <div className="staff-ba-footer">
                                 <button type="button" className="btn btn-ghost" onClick={() => setShowBranchAssignModal(false)}>Cancel</button>
                                 <button type="button" className="btn btn-primary" onClick={() => handleAssignBranch(selectedStaff.id)} disabled={!newBranchAssign.branch_id}>
                                     Assign Branch

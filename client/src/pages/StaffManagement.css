@@ -343,6 +343,144 @@ select.staff-input {
   font-size: 13px;
   color: var(--text);
 }
+/* Branch assignments section */
+.staff-branch-section {
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+}
+.staff-branch-section .staff-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.staff-branch-section .staff-label svg {
+  opacity: 0.5;
+}
+.staff-branch-hint {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+.staff-branch-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.staff-branch-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  transition: all 0.15s;
+}
+.staff-branch-chip--assigned {
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+.staff-branch-chip--primary {
+  border: 1px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.staff-branch-chip-label {
+  font-weight: 500;
+}
+.staff-branch-chip-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.staff-branch-chip--primary .staff-branch-chip-badge {
+  color: var(--accent);
+}
+.staff-branch-chip-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 2px;
+}
+.staff-branch-chip .btn-icon-nano {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--muted);
+  transition: all 0.15s;
+  padding: 0;
+  line-height: 1;
+}
+.staff-branch-chip .btn-icon-nano:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.staff-branch-chip .btn-icon-nano:hover.text-error {
+  background: var(--error-bg);
+  color: var(--error);
+}
+.staff-branch-chip .btn-icon-nano.text-accent:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.staff-branch-empty {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 12px;
+  font-style: italic;
+}
+.staff-branch-manage-btn {
+  margin-top: 4px;
+}
+
+/* Branch assign modal */
+.staff-ba-modal {
+  max-width: 440px;
+}
+.staff-ba-modal-body {
+  padding: 20px 24px;
+}
+.staff-ba-modal-desc {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+.staff-ba-field {
+  margin-bottom: 14px;
+}
+.staff-ba-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 8px 0;
+  font-size: 14px;
+  color: var(--text);
+}
+.staff-ba-checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.staff-ba-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  margin-top: 16px;
+}
+
 .staff-form-footer {
   margin-top: 28px;
   padding-top: 20px;
