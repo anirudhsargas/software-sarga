@@ -1,7 +1,7 @@
 import { usePageTitle } from '../hooks/usePageTitle';
 import React, { useEffect, useState, useMemo } from 'react';
 import { useDebounce } from '../hooks/useDebounce';
-import { User, Loader2, Plus, X, Edit2, Trash2, Key, BarChart3, Banknote, Calendar, LogIn, LogOut, Settings, Search, Camera, Phone, Briefcase, DollarSign, MapPin } from 'lucide-react';
+import { User, Users, Loader2, Plus, X, Edit2, Trash2, Key, BarChart3, Banknote, Calendar, LogIn, LogOut, Settings, Search, Camera, Phone, Briefcase, DollarSign, MapPin } from 'lucide-react';
 import HolidayCalendar from '../components/HolidayCalendar';
 import SecureImage from '../components/SecureImage';
 import { useNavigate } from 'react-router-dom';
