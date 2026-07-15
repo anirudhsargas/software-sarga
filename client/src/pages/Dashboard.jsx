@@ -679,12 +679,12 @@ const Dashboard = () => {
         
         // Accountant role restriction: only finance-related modules
         if (normalizedUserRole === 'Accountant') {
-            const accountantAllowedGroups = ['main', 'sales', 'accounts', 'admin', 'inventory'];
+            const accountantAllowedGroups = ['main', 'sales', 'accounts', 'admin', 'inventory', 'production'];
             const accountantAllowedKeys = [
                 'dashboard', 'sales_customers', 'sales_orders', 'sales_quotes',
                 'sales_invoices', 'sales_payments', 'shortcuts',
                 'reports', 'expenses', 'manage', 'finance',
-                'sample_requests', 'inventory'
+                'sample_requests', 'inventory', 'operations'
             ];
             items = items.filter(item => 
                 accountantAllowedGroups.includes(item.group) && 

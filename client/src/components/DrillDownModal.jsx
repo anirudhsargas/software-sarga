@@ -1,20 +1,53 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Loader2, AlertTriangle, ChevronDown, ChevronUp, Banknote, Smartphone, FileText } from 'lucide-react';
+import { X, AlertTriangle, ChevronDown, ChevronUp, Banknote, Smartphone, FileText, Calendar, Clock } from 'lucide-react';
 import api from '../services/api';
 import { formatCurrency } from '../constants';
 import './DrillDownModal.css';
 
-const METRIC_LABELS = {
-  todays_collection: "Today's Collection",
-  pending_amount: 'Pending Amount',
-  todays_jobs: "Today's Jobs",
-};
-
-const METRIC_COLUMNS = {
-  todays_collection: ['customer_name', 'job_number', 'amount', 'payment_mode'],
-  pending_amount: ['customer_name', 'job_number', 'balance_amount', 'status'],
-  todays_jobs: ['customer_name', 'job_number', 'total_amount', 'status'],
+const METRIC_CONFIG = {
+  todays_collection: {
+    label: "Today's Collection",
+    cols: ['Customer', 'Work', 'Amount', 'Mode'],
+    cellKey: ['customer_name', 'job_number', 'amount', 'payment_mode'],
+    hasAmountExpand: true,
+  },
+  pending_amount: {
+    label: 'Pending Amount',
+    cols: ['Customer', 'Work', 'Amount', 'Status'],
+    cellKey: ['customer_name', 'job_number', 'balance_amount', 'status'],
+    hasAmountExpand: true,
+  },
+  todays_jobs: {
+    label: "Today's Jobs",
+    cols: ['Customer', 'Work', 'Amount', 'Status'],
+    cellKey: ['customer_name', 'job_number', 'total_amount', 'status'],
+    hasAmountExpand: false,
+  },
+  todays_expenses: {
+    label: "Today's Expenses",
+    cols: ['Payee', 'Type', 'Amount', 'Method'],
+    cellKey: ['payee_name', 'type', 'amount', 'payment_method'],
+    hasAmountExpand: true,
+  },
+  in_progress_jobs: {
+    label: 'In Progress Jobs',
+    cols: ['Customer', 'Work', 'Amount', 'Status'],
+    cellKey: ['customer_name', 'job_number', 'total_amount', 'status'],
+    hasAmountExpand: false,
+  },
+  low_stock_items: {
+    label: 'Low Stock Items',
+    cols: ['Item', 'SKU', 'Stock', 'Category'],
+    cellKey: ['name', 'sku', 'quantity', 'category'],
+    hasAmountExpand: false,
+  },
+  urgent_overdue_jobs: {
+    label: 'Urgent / Overdue Jobs',
+    cols: ['Customer', 'Work', 'Amount', 'Status'],
+    cellKey: ['customer_name', 'job_number', 'total_amount', 'status'],
+    hasAmountExpand: false,
+  },
 };
 
 const PAYMENT_MODE_ICONS = {
@@ -24,7 +57,8 @@ const PAYMENT_MODE_ICONS = {
   'Account Transfer': <FileText size={14} />,
 };
 
-const fmt = (v) => (typeof v === 'number' ? formatCurrency(v, true) : v || '—');
+const fmt = (v) => (typeof v === 'number' ? formatCurrency(v, true) : v ?? '—');
+const fmtNum = (v) => (typeof v === 'number' ? v.toLocaleString() : v ?? '—');
 const formatDate = (d) => d ? new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
 
 const SkeletonRow = () => (
@@ -36,9 +70,11 @@ const SkeletonRow = () => (
   </div>
 );
 
-const AmountDetailRow = ({ record, metric, onClose }) => {
+const DetailRow = ({ record, metric, config, onClose }) => {
   const [expanded, setExpanded] = useState(false);
   const navigate = useNavigate();
+  const hasJobNav = config.cols[1] === 'Work';
+  const hasCustNav = config.cols[0] === 'Customer';
 
   const handleCustomerClick = (e) => {
     e.stopPropagation();
@@ -56,41 +92,84 @@ const AmountDetailRow = ({ record, metric, onClose }) => {
     }
   };
 
-  const amount = metric === 'todays_collection' ? record.amount
-    : metric === 'pending_amount' ? record.balance_amount
-    : record.total_amount;
+  const renderCell0 = () => {
+    if (hasCustNav) {
+      return <span className="drilldown-cell drilldown-cell--customer" onClick={handleCustomerClick} title="View customer">{record.customer_name || 'Walk-in'}</span>;
+    }
+    if (metric === 'low_stock_items') {
+      return <span className="drilldown-cell drilldown-cell--item-name">{record.name || '—'}</span>;
+    }
+    return <span className="drilldown-cell">{record.payee_name || '—'}</span>;
+  };
+
+  const renderCell1 = () => {
+    if (hasJobNav) {
+      return <span className="drilldown-cell drilldown-cell--job" onClick={handleJobClick} title="View job">{record.job_number || record.job_name || '—'}</span>;
+    }
+    if (metric === 'low_stock_items') {
+      return <span className="drilldown-cell drilldown-cell--sku">{record.sku || '—'}</span>;
+    }
+    return <span className="drilldown-cell drilldown-cell--type">{record.type || '—'}</span>;
+  };
+
+  const renderCell2 = () => {
+    let value;
+    let extra;
+    if (metric === 'todays_collection') { value = fmt(record.amount); }
+    else if (metric === 'pending_amount') { value = fmt(record.balance_amount); }
+    else if (metric === 'todays_expenses') { value = fmt(record.amount); }
+    else if (metric === 'low_stock_items') {
+      value = <>{fmtNum(record.quantity)} <span className="drilldown-cell__reorder">/ {fmtNum(record.reorder_level)}</span></>;
+    }
+    else { value = fmt(record.total_amount); }
+
+    return (
+      <span className="drilldown-cell drilldown-cell--amount">
+        {value}
+        {config.hasAmountExpand && !extra ? (
+          <button className="drilldown-expand-btn" onClick={(e) => { e.stopPropagation(); setExpanded(v => !v); }}>
+            {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+        ) : null}
+      </span>
+    );
+  };
+
+  const renderCell3 = () => {
+    if (metric === 'todays_collection') {
+      return (
+        <span className="drilldown-cell drilldown-cell--mode">
+          <span className="drilldown-payment-mode">
+            {PAYMENT_MODE_ICONS[record.payment_mode] || null}
+            {record.payment_mode || '—'}
+          </span>
+        </span>
+      );
+    }
+    if (metric === 'todays_expenses') {
+      return <span className="drilldown-cell drilldown-cell--mode">{record.payment_method || '—'}</span>;
+    }
+    if (metric === 'low_stock_items') {
+      return <span className="drilldown-cell"><span className="drilldown-status-badge drilldown-status-badge--low">{record.category || '—'}</span></span>;
+    }
+    return (
+      <span className={`drilldown-status-badge drilldown-status-badge--${(record.status || '').toLowerCase().replace(/\s+/g, '-')}`}>
+        {record.status || '—'}
+      </span>
+    );
+  };
+
+  const canExpand = config.hasAmountExpand;
 
   return (
     <>
-      <div className="drilldown-row" onClick={() => setExpanded(v => !v)}>
-        <span className="drilldown-cell drilldown-cell--customer" onClick={handleCustomerClick} title="View customer">
-          {record.customer_name || '—'}
-        </span>
-        <span className="drilldown-cell drilldown-cell--job" onClick={handleJobClick} title="View job">
-          {record.job_number || record.job_name || '—'}
-        </span>
-        <span className="drilldown-cell drilldown-cell--amount">
-          {fmt(amount)}
-          {metric === 'todays_collection' || metric === 'pending_amount' ? (
-            <button className="drilldown-expand-btn" onClick={(e) => { e.stopPropagation(); setExpanded(v => !v); }}>
-              {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            </button>
-          ) : null}
-        </span>
-        <span className="drilldown-cell drilldown-cell--mode">
-          {metric === 'todays_collection' ? (
-            <span className="drilldown-payment-mode">
-              {PAYMENT_MODE_ICONS[record.payment_mode] || null}
-              {record.payment_mode || '—'}
-            </span>
-          ) : (
-            <span className={`drilldown-status-badge drilldown-status-badge--${(record.status || '').toLowerCase().replace(/\s+/g, '-')}`}>
-              {record.status || '—'}
-            </span>
-          )}
-        </span>
+      <div className="drilldown-row" onClick={() => canExpand && setExpanded(v => !v)} style={{ cursor: canExpand ? 'pointer' : 'default' }}>
+        {renderCell0()}
+        {renderCell1()}
+        {renderCell2()}
+        {renderCell3()}
       </div>
-      {expanded && (metric === 'todays_collection' || metric === 'pending_amount') && (
+      {expanded && canExpand && (
         <div className="drilldown-expanded">
           <div className="drilldown-expanded__grid">
             {metric === 'todays_collection' && (
@@ -108,7 +187,7 @@ const AmountDetailRow = ({ record, metric, onClose }) => {
                   <span className="drilldown-expanded__value drilldown-expanded__value--discount">{fmt(record.discount)}</span>
                 </div>
                 <div className="drilldown-expanded__item">
-                  <span className="drilldown-expanded__label">Time</span>
+                  <span className="drilldown-expanded__label"><Clock size={12} /> Time</span>
                   <span className="drilldown-expanded__value drilldown-expanded__value--time">{formatDate(record.created_at)}</span>
                 </div>
               </>
@@ -133,6 +212,22 @@ const AmountDetailRow = ({ record, metric, onClose }) => {
                 </div>
               </>
             )}
+            {metric === 'todays_expenses' && (
+              <>
+                <div className="drilldown-expanded__item" style={{ gridColumn: '1/-1' }}>
+                  <span className="drilldown-expanded__label">Description</span>
+                  <span className="drilldown-expanded__value" style={{ fontWeight: 500, fontSize: 'var(--text-xs)' }}>{record.description || '—'}</span>
+                </div>
+                <div className="drilldown-expanded__item">
+                  <span className="drilldown-expanded__label">Reference</span>
+                  <span className="drilldown-expanded__value drilldown-expanded__value--time">{record.reference_number || '—'}</span>
+                </div>
+                <div className="drilldown-expanded__item">
+                  <span className="drilldown-expanded__label"><Calendar size={12} /> Date</span>
+                  <span className="drilldown-expanded__value drilldown-expanded__value--time">{formatDate(record.created_at)}</span>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -144,6 +239,8 @@ const DrillDownModal = ({ metric, date, branchId, isOpen, onClose }) => {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  const config = METRIC_CONFIG[metric] || { label: metric, cols: ['Name', 'Detail', 'Value', 'Info'], cellKey: ['customer_name', 'job_number', 'amount', 'status'], hasAmountExpand: false };
 
   const fetchRecords = useCallback(async () => {
     if (!metric || !isOpen) return;
@@ -165,6 +262,7 @@ const DrillDownModal = ({ metric, date, branchId, isOpen, onClose }) => {
 
   useEffect(() => {
     if (isOpen) {
+      setRecords([]);
       fetchRecords();
     }
   }, [isOpen, fetchRecords]);
@@ -180,14 +278,11 @@ const DrillDownModal = ({ metric, date, branchId, isOpen, onClose }) => {
 
   if (!isOpen) return null;
 
-  const title = METRIC_LABELS[metric] || metric;
-  const columns = METRIC_COLUMNS[metric] || ['customer_name', 'job_number', 'amount', 'payment_mode'];
-
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={title} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={config.label} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal modal--xlarge drilldown-modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h2 className="modal-title">{title}</h2>
+          <h2 className="modal-title">{config.label}</h2>
           <button className="modal-close modal-close--static" aria-label="Close" onClick={onClose}>
             <X size={18} />
           </button>
@@ -197,10 +292,7 @@ const DrillDownModal = ({ metric, date, branchId, isOpen, onClose }) => {
           {loading && (
             <div className="drilldown-loading">
               <div className="drilldown-table-header">
-                <span>Customer</span>
-                <span>Work</span>
-                <span>Amount</span>
-                <span>Status</span>
+                {config.cols.map((c, i) => <span key={i}>{c}</span>)}
               </div>
               {Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)}
             </div>
@@ -223,14 +315,11 @@ const DrillDownModal = ({ metric, date, branchId, isOpen, onClose }) => {
           {!loading && !error && records.length > 0 && (
             <div className="drilldown-table">
               <div className="drilldown-table-header">
-                <span>Customer</span>
-                <span>Work</span>
-                <span>Amount</span>
-                <span>{metric === 'todays_collection' ? 'Mode' : 'Status'}</span>
+                {config.cols.map((c, i) => <span key={i}>{c}</span>)}
               </div>
               <div className="drilldown-table-body">
                 {records.map((record, idx) => (
-                  <AmountDetailRow key={record.payment_id || record.job_id || idx} record={record} metric={metric} onClose={onClose} />
+                  <DetailRow key={record.payment_id || record.job_id || record.id || idx} record={record} metric={metric} config={config} onClose={onClose} />
                 ))}
               </div>
             </div>

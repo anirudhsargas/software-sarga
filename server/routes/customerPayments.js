@@ -1232,7 +1232,7 @@ router.get('/stats/dashboard/drilldown', authenticateToken, authorizeRoles('Admi
         if (branchIds.length === 0) branchIds = null;
     }
 
-    const branchClause = branchIds ? ' AND branch_id IN (?)' : '';
+    const branchClause = (alias) => branchIds ? ` AND ${alias}.branch_id IN (?)` : '';
     const branchParams = branchIds ? [branchIds] : [];
 
     switch (metric) {
@@ -1253,7 +1253,7 @@ router.get('/stats/dashboard/drilldown', authenticateToken, authorizeRoles('Admi
                     cp.created_at
                 FROM sarga_customer_payments cp
                 WHERE DATE(cp.payment_date) = ?
-                ${branchClause}
+                ${branchClause('cp')}
                 ORDER BY cp.created_at DESC
             `, [targetDate, ...branchParams]);
             return res.json(rows);
@@ -1276,7 +1276,7 @@ router.get('/stats/dashboard/drilldown', authenticateToken, authorizeRoles('Admi
                 LEFT JOIN sarga_customers c ON j.customer_id = c.id
                 WHERE j.status != 'Cancelled'
                   AND GREATEST(COALESCE(j.total_amount,0) - COALESCE(j.advance_paid,0), 0) > 0
-                  ${branchClause}
+                  ${branchClause('j')}
                 ORDER BY balance_amount DESC
                 LIMIT 50
             `, [...branchParams]);
@@ -1299,15 +1299,108 @@ router.get('/stats/dashboard/drilldown', authenticateToken, authorizeRoles('Admi
                 LEFT JOIN sarga_customers c ON j.customer_id = c.id
                 WHERE (DATE(j.created_at) = ? OR DATE(j.updated_at) = ?)
                   AND j.status != 'Cancelled'
-                  ${branchClause}
+                  ${branchClause('j')}
                 ORDER BY j.created_at DESC
                 LIMIT 50
             `, [targetDate, targetDate, ...branchParams]);
             return res.json(rows);
         }
 
+        case 'todays_expenses': {
+            const [rows] = await pool.query(`
+                SELECT
+                    sp.id AS payment_id,
+                    sp.payee_name,
+                    sp.amount,
+                    sp.payment_method,
+                    sp.type,
+                    sp.description,
+                    sp.reference_number,
+                    sp.created_at
+                FROM sarga_payments sp
+                WHERE DATE(sp.payment_date) = ?
+                  AND sp.type IN ('Vendor','Utility','Salary','Rent','Other')
+                  ${branchClause('sp')}
+                ORDER BY sp.created_at DESC
+                LIMIT 50
+            `, [targetDate, ...branchParams]);
+            return res.json(rows);
+        }
+
+        case 'in_progress_jobs': {
+            const [rows] = await pool.query(`
+                SELECT
+                    j.id AS job_id,
+                    j.job_number,
+                    j.job_name,
+                    j.total_amount,
+                    j.status,
+                    j.payment_status,
+                    j.created_at,
+                    COALESCE(c.id, 0) AS customer_id,
+                    COALESCE(c.name, 'Walk-in') AS customer_name
+                FROM sarga_jobs j
+                LEFT JOIN sarga_customers c ON j.customer_id = c.id
+                WHERE j.status IN ('Pending','Processing','Designing','Printing','Cutting','Lamination','Binding','Production','Approval Pending')
+                  ${branchClause('j')}
+                ORDER BY j.updated_at DESC
+                LIMIT 50
+            `, [...branchParams]);
+            return res.json(rows);
+        }
+
+        case 'low_stock_items': {
+            let query, params;
+            if (branchIds) {
+                query = `
+                    SELECT i.id, i.name, i.sku, i.category, bs.quantity, i.reorder_level, i.unit
+                    FROM sarga_inventory i
+                    JOIN sarga_branch_stock bs ON i.id = bs.inventory_item_id
+                    WHERE bs.branch_id IN (?)
+                      AND bs.quantity <= GREATEST(i.reorder_level, 1)
+                    ORDER BY bs.quantity ASC LIMIT 50
+                `;
+                params = [branchIds];
+            } else {
+                query = `
+                    SELECT id, name, sku, category, quantity, reorder_level, unit
+                    FROM sarga_inventory
+                    WHERE quantity <= GREATEST(reorder_level, 1)
+                    ORDER BY quantity ASC LIMIT 50
+                `;
+                params = [];
+            }
+            const [rows] = await pool.query(query, params);
+            return res.json(rows);
+        }
+
+        case 'urgent_overdue_jobs': {
+            const [rows] = await pool.query(`
+                SELECT
+                    j.id AS job_id,
+                    j.job_number,
+                    j.job_name,
+                    j.total_amount,
+                    j.status,
+                    j.payment_status,
+                    j.priority,
+                    j.delivery_date,
+                    j.created_at,
+                    COALESCE(c.id, 0) AS customer_id,
+                    COALESCE(c.name, 'Walk-in') AS customer_name
+                FROM sarga_jobs j
+                LEFT JOIN sarga_customers c ON j.customer_id = c.id
+                WHERE j.status NOT IN ('Delivered','Cancelled')
+                  AND (j.priority = 'Urgent' OR j.delivery_date < ?)
+                  ${branchClause('j')}
+                ORDER BY j.delivery_date ASC, j.priority DESC
+                LIMIT 50
+            `, [targetDate, ...branchParams]);
+            return res.json(rows);
+        }
+
         default:
-            return res.status(400).json({ message: `Unknown metric: ${metric}. Supported: todays_collection, pending_amount, todays_jobs` });
+            return res.status(400).json({ message: `Unknown metric: ${metric}. Supported: todays_collection, pending_amount, todays_jobs, todays_expenses, in_progress_jobs, low_stock_items, urgent_overdue_jobs` });
     }
 }));
 

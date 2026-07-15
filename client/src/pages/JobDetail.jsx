@@ -125,7 +125,7 @@ const Section = ({ title, icon: _Icon, action, children }) => (
     <div className="job-section">
         <div className="job-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Icon size={18} />
+                <_Icon size={18} />
                 <h3>{title}</h3>
             </div>
             {action && <div className="job-section-action">{action}</div>}
@@ -139,7 +139,7 @@ const StatCard = ({ label, value, icon: _Icon, color, subValue }) => (
         <div className="job-stat-card-header">
             <span className="job-stat-card-label">{label}</span>
             <div className="job-stat-card-icon" style={{ background: color + '15', color: color }}>
-                <Icon size={16} />
+                <_Icon size={16} />
             </div>
         </div>
         <div className="stat-value">{value}</div>
