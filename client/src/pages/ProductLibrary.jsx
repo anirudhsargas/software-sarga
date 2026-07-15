@@ -2209,13 +2209,7 @@ const ProductLibrary = () => {
                             </div>
 
                             {/* Product Identity Card */}
-                            <div className="product-identity-section" style={{ 
-                                display: 'grid', 
-                                gridTemplateColumns: '120px 1fr', 
-                                gap: '24px', 
-                                marginBottom: '24px',
-                                alignItems: 'start'
-                            }}>
+                            <div className="product-identity-section">
                                 {/* Left Side: Image Upload with a more premium frame */}
                                 <div className="stack-sm">
                                     <label className="label">Media</label>
@@ -2609,7 +2603,7 @@ const ProductLibrary = () => {
                             }}>
                                 <h3 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pricing Strategy</h3>
                                 
-                                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '20px', alignItems: 'end' }}>
+                                <div className="product-pricing-strategy-grid">
                                     <div>
                                         <label className="label">Calculation Method</label>
                                         <select

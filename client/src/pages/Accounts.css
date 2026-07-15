@@ -977,6 +977,92 @@
   .acc-btn span {
     display: none;
   }
+
+  /* Header action buttons grid */
+  .acc-header__right {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    width: 100% !important;
+    gap: var(--space-8) !important;
+    margin-top: var(--space-12) !important;
+  }
+  .acc-header__right .btn {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  /* Date filters and search blocks */
+  .acc-date-bar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: var(--space-10) !important;
+    padding: var(--space-12) !important;
+  }
+  .acc-date-bar > * {
+    width: 100% !important;
+  }
+
+  /* Cardify Table on Mobile */
+  .acc-table-wrap thead {
+    display: none !important;
+  }
+  
+  .acc-table-wrap table,
+  .acc-table-wrap tbody,
+  .acc-table-wrap tr,
+  .acc-table-wrap td {
+    display: block !important;
+    width: 100% !important;
+  }
+
+  .acc-table-wrap .acc-table {
+    min-width: 0 !important;
+  }
+
+  .acc-table-wrap tr {
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius-md) !important;
+    margin-bottom: var(--space-12) !important;
+    padding: var(--space-12) var(--space-16) !important;
+    box-shadow: var(--shadow-sm) !important;
+  }
+
+  .dark .acc-table-wrap tr {
+    background: var(--surface-2) !important;
+  }
+
+  .acc-table-wrap td {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent) !important;
+    padding: var(--space-8) 0 !important;
+    text-align: right !important;
+  }
+
+  .acc-table-wrap td:last-child {
+    border-bottom: none !important;
+    padding-bottom: 0 !important;
+  }
+
+  .acc-table-wrap td::before {
+    font-weight: 600 !important;
+    color: var(--muted) !important;
+    font-size: var(--text-xs) !important;
+    text-align: left !important;
+    margin-right: var(--space-16) !important;
+  }
+
+  /* General mappings for accounts tables */
+  .acc-table-wrap td:nth-of-type(1)::before { content: "Date / GSTIN" !important; }
+  .acc-table-wrap td:nth-of-type(2)::before { content: "Description / Name" !important; }
+  .acc-table-wrap td:nth-of-type(3)::before { content: "Voucher / Details" !important; }
+  .acc-table-wrap td:nth-of-type(4)::before { content: "Voucher No / Taxable" !important; }
+  .acc-table-wrap td:nth-of-type(5)::before { content: "Debit / SGST" !important; }
+  .acc-table-wrap td:nth-of-type(6)::before { content: "Credit / CGST" !important; }
+  .acc-table-wrap td:nth-of-type(7)::before { content: "Total / Balance" !important; }
+  .acc-table-wrap td:nth-of-type(8)::before { content: "Balance" !important; }
 }
 
 @media (max-width: 480px) {

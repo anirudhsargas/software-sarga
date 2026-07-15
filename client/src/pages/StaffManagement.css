@@ -488,3 +488,109 @@ select.staff-input {
   display: flex;
   gap: 16px;
 }
+
+/* ── Mobile Layout Overrides ── */
+@media (max-width: 768px) {
+  /* Toolbar styling */
+  .staff-toolbar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: var(--space-12) !important;
+  }
+  
+  .staff-toolbar .row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: var(--space-8) !important;
+    width: 100% !important;
+  }
+  
+  .staff-toolbar .btn-primary {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  /* Card-ify Table */
+  .table-scroll thead {
+    display: none !important;
+  }
+  
+  .table-scroll table,
+  .table-scroll tbody,
+  .table-scroll tr,
+  .table-scroll td {
+    display: block !important;
+    width: 100% !important;
+  }
+
+  .table-scroll tr {
+    background: var(--surface) !important;
+    border: 1px solid var(--border-subtle) !important;
+    border-radius: var(--radius-lg) !important;
+    margin-bottom: var(--space-16) !important;
+    padding: var(--space-16) !important;
+    box-shadow: var(--shadow-sm) !important;
+  }
+
+  .dark .table-scroll tr {
+    background: var(--surface-2) !important;
+  }
+
+  .table-scroll td {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 30%, transparent) !important;
+    padding: var(--space-8) 0 !important;
+    text-align: right !important;
+  }
+
+  .table-scroll td:last-child {
+    border-bottom: none !important;
+    padding-bottom: 0 !important;
+    justify-content: flex-end !important;
+  }
+
+  .table-scroll td::before {
+    font-weight: 600 !important;
+    color: var(--muted) !important;
+    font-size: var(--text-xs) !important;
+    text-align: left !important;
+    margin-right: var(--space-16) !important;
+  }
+
+  .table-scroll td:nth-of-type(1)::before { content: "Staff Member"; }
+  .table-scroll td:nth-of-type(2)::before { content: "Branch"; }
+  .table-scroll td:nth-of-type(3)::before { content: "Mobile (User ID)"; }
+  .table-scroll td:nth-of-type(4)::before { content: "Joined Date"; }
+  .table-scroll td:nth-of-type(5)::before { content: "Actions"; }
+
+  /* Actions wrapper */
+  .staff-actions {
+    flex-wrap: wrap !important;
+    justify-content: flex-end !important;
+    gap: var(--space-6) !important;
+    width: auto !important;
+    max-width: 100% !important;
+  }
+
+  .staff-actions .btn-icon {
+    width: 38px !important;
+    height: 38px !important;
+    display: grid !important;
+    place-items: center !important;
+    background: var(--surface-3) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius-sm) !important;
+  }
+
+  /* Modal responsive adjustments */
+  .staff-form-body {
+    padding: var(--space-16) !important;
+  }
+
+  .staff-modal-container {
+    max-height: 95vh !important;
+    border-radius: var(--radius-lg) !important;
+  }
+}

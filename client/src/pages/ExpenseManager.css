@@ -1324,6 +1324,96 @@ select.em-input {
     .em-sidepanel {
         width: 100vw;
     }
+
+    /* Header action buttons stacking */
+    .em-header__actions {
+        display: grid !important;
+        grid-template-columns: repeat(2, 1fr) !important;
+        width: 100% !important;
+        gap: var(--space-8) !important;
+        margin-top: var(--space-8) !important;
+    }
+    .em-header__actions .btn {
+        width: 100% !important;
+        justify-content: center !important;
+        white-space: nowrap !important;
+    }
+
+    /* Filter rows alignment */
+    .expense-filters {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: var(--space-8) !important;
+    }
+    .expense-filters > * {
+        width: 100% !important;
+    }
+
+    /* Cardify Table on Mobile */
+    .em-table-wrap thead {
+        display: none !important;
+    }
+    
+    .em-table-wrap table,
+    .em-table-wrap tbody,
+    .em-table-wrap tr,
+    .em-table-wrap td {
+        display: block !important;
+        width: 100% !important;
+    }
+
+    .em-table-wrap .em-table {
+        min-width: 0 !important;
+    }
+
+    .em-table-wrap tr {
+        background: var(--surface) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: var(--radius-md) !important;
+        margin-bottom: var(--space-12) !important;
+        padding: var(--space-12) var(--space-16) !important;
+        box-shadow: var(--shadow-sm) !important;
+    }
+
+    .dark .em-table-wrap tr {
+        background: var(--surface-2) !important;
+    }
+
+    .em-table-wrap td {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent) !important;
+        padding: var(--space-8) 0 !important;
+        text-align: right !important;
+    }
+
+    .em-table-wrap td:last-child {
+        border-bottom: none !important;
+        padding-bottom: 0 !important;
+        justify-content: flex-end !important;
+    }
+
+    .em-table-wrap td::before {
+        font-weight: 600 !important;
+        color: var(--muted) !important;
+        font-size: var(--text-xs) !important;
+        text-align: left !important;
+        margin-right: var(--space-16) !important;
+    }
+    
+    /* Support both the 7-column request table and 8-column main tables */
+    .em-table-wrap td:nth-of-type(1)::before { content: "Type / Date"; }
+    .em-table-wrap td:nth-of-type(2)::before { content: "Name / Branch"; }
+    .em-table-wrap td:nth-of-type(3)::before { content: "Contact / Category"; }
+    .em-table-wrap td:nth-of-type(4)::before { content: "Requested By / Desc"; }
+    .em-table-wrap td:nth-of-type(5)::before { content: "Date / Type"; }
+    .em-table-wrap td:nth-of-type(6)::before { content: "Status / Amount"; }
+    .em-table-wrap td:nth-of-type(7)::before { content: "Method / Actions"; }
+    .em-table-wrap td:nth-of-type(8)::before { content: "Actions"; }
+    
+    /* If 7th child is actions, hide the 8th pseudo-element label */
+    .em-table-wrap td:nth-of-type(7):last-child::before { content: "Actions" !important; }
 }
 
 /* ─── Dark mode fine-tuning ───────────────────────────── */
