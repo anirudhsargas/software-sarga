@@ -265,7 +265,7 @@ const VendorModal = ({ vendor, onClose, onSave }) => {
               <Store size={22} style={{ color: 'var(--accent)' }} />
             </div>
             <div>
-              <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>{vendor ? 'Modify Partner' : 'Onboard Partner'}</h2>
+              <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>{vendor?.id ? 'Modify Partner' : 'Onboard Partner'}</h2>
               <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}>Vendor Management Protocol</p>
             </div>
           </div>

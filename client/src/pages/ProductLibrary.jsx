@@ -27,6 +27,7 @@ import { CSS } from '@dnd-kit/utilities';
 import toast from 'react-hot-toast';
 import { onSocketEvent } from '../services/socketClient';
 import ImageCropModal from '../components/ImageCropModal';
+import VendorModal from '../components/VendorModal';
 import PageContainer from '../components/ui/PageContainer';
 
 const SortableItem = React.memo(({ id, children, className, disabled, _index, ...props }) => {
@@ -138,6 +139,8 @@ const ProductLibrary = () => {
     const [activeUpdateRequest, setActiveUpdateRequest] = useState(null);
     const [companyDropdownOpen, setCompanyDropdownOpen] = useState(false);
     const [vendors, setVendors] = useState([]);
+    const [showVendorModal, setShowVendorModal] = useState(false);
+    const [vendorNameForModal, setVendorNameForModal] = useState('');
 
     const [showAdvancedInventory, setShowAdvancedInventory] = useState(false);
     const [originalProduct, setOriginalProduct] = useState(null);
@@ -201,6 +204,26 @@ const ProductLibrary = () => {
             console.error('Failed to fetch vendors for autocomplete:', err);
         }
     }
+
+    const handleOpenVendorModal = (name) => {
+        setVendorNameForModal(name);
+        setShowVendorModal(true);
+        setCompanyDropdownOpen(false);
+    };
+
+    const handleVendorSaved = async () => {
+        setShowVendorModal(false);
+        await fetchVendors();
+        const name = vendorNameForModal.trim().toUpperCase();
+        if (name) {
+            setNewProduct(prev => ({
+                ...prev,
+                company_name: name,
+                extraInv: { ...prev.extraInv, vendor_name: name }
+            }));
+        }
+        setVendorNameForModal('');
+    };
 
     useEffect(() => {
         if (canManageHierarchy) fetchPendingImageRequests();
@@ -2355,7 +2378,10 @@ const ProductLibrary = () => {
                                             const matches = knownCompanies.filter(c =>
                                                 !q || c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q)
                                             );
-                                            if (matches.length === 0) return null;
+                                            const typedName = (newProduct.company_name || '').trim().toUpperCase();
+                                            const existsInVendors = typedName ? vendors.some(v => (v.name || '').toUpperCase() === typedName) : true;
+                                            const showAddVendor = typedName && !existsInVendors;
+                                            if (matches.length === 0 && !showAddVendor) return null;
                                             return (
                                                 <div style={{
                                                     position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0,
@@ -2364,7 +2390,7 @@ const ProductLibrary = () => {
                                                     border: '1px solid var(--border, #4a5568)',
                                                     borderRadius: '12px',
                                                     boxShadow: '0 12px 24px -6px rgba(0,0,0,0.4)',
-                                                    maxHeight: '220px',
+                                                    maxHeight: '260px',
                                                     overflowY: 'auto',
                                                     padding: '6px'
                                                 }}>
@@ -2415,6 +2441,32 @@ const ProductLibrary = () => {
                                                             }}>{c.code}</span>
                                                         </div>
                                                     ))}
+                                                    {showAddVendor && (
+                                                        <div
+                                                            onMouseDown={e => {
+                                                                e.preventDefault();
+                                                                handleOpenVendorModal(typedName);
+                                                            }}
+                                                            style={{
+                                                                padding: '10px 14px',
+                                                                cursor: 'pointer',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: '10px',
+                                                                borderRadius: '8px',
+                                                                borderTop: matches.length > 0 ? '1px solid var(--border, #4a5568)' : 'none',
+                                                                marginTop: matches.length > 0 ? '4px' : 0,
+                                                                color: 'var(--accent)',
+                                                                fontWeight: 600,
+                                                                fontSize: '13px'
+                                                            }}
+                                                            onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2, #1e293b)'}
+                                                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                                        >
+                                                            <Plus size={16} />
+                                                            <span>Add "<span style={{ textTransform: 'uppercase' }}>{typedName}</span>" as New Vendor</span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             );
                                         })()}
@@ -3102,6 +3154,13 @@ const ProductLibrary = () => {
                 onCancel={handleCropCancel}
                 onComplete={handleCropComplete}
             />
+            {showVendorModal && (
+                <VendorModal
+                    vendor={{ name: vendorNameForModal }}
+                    onClose={() => { setShowVendorModal(false); setVendorNameForModal(''); }}
+                    onSave={handleVendorSaved}
+                />
+            )}
             {showUpdateRequestModal && activeUpdateRequest && (
                 <div className="modal-backdrop" onClick={closeUpdateRequestModal}>
                     <div className="modal" style={{ maxWidth: '800px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
