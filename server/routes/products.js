@@ -10,7 +10,7 @@ module.exports = (upload, removeUploadFile) => {
 
 
     // Auto-create an inventory entry when a product is added to the Product Library
-    async function autoCreateInventoryFromProduct(productId, productName, productCode, subcategoryId, slabs, companyName, companyCode, size, extraInv = {}) {
+    async function autoCreateInventoryFromProduct(productId, productName, productCode, subcategoryId, slabs, companyName, companyCode, size, extraInv = {}, userId = null) {
         // Check if already linked — if so, skip (product already has its own inventory)
         const [existing] = await pool.query('SELECT inventory_item_id FROM sarga_products WHERE id = ? AND inventory_item_id IS NOT NULL', [productId]);
         if (existing.length > 0) return;
@@ -81,6 +81,31 @@ module.exports = (upload, removeUploadFile) => {
             'UPDATE sarga_products SET inventory_item_id = ?, is_physical_product = 1 WHERE id = ?',
             [inventoryId, productId]
         );
+
+        // Create branch stock entry if initial quantity > 0
+        const initQty = Number(extraInv.quantity) || 0;
+        if (initQty > 0 && userId) {
+            try {
+                const { getUserBranchId } = require('../helpers');
+                const branchId = await getUserBranchId(userId);
+                if (branchId) {
+                    await pool.query(
+                        `INSERT INTO sarga_branch_stock (inventory_item_id, branch_id, quantity)
+                         VALUES (?, ?, ?)
+                         ON DUPLICATE KEY UPDATE quantity = quantity + ?`,
+                        [inventoryId, branchId, initQty, initQty]
+                    );
+                    await pool.query(
+                        `INSERT INTO sarga_inventory_movement_log
+                         (inventory_item_id, branch_id, movement_type, quantity_change, quantity_before, quantity_after, reference_type, reference_id, notes, created_by)
+                         VALUES (?, ?, 'Purchase', ?, 0, ?, 'product_create', ?, ?, ?)`,
+                        [inventoryId, branchId, initQty, initQty, productId, 'Auto-created from product', userId]
+                    );
+                }
+            } catch (branchErr) {
+                console.warn('[AutoInventory] Failed to create branch stock (non-blocking):', branchErr.message);
+            }
+        }
 
         console.log(`[AutoInventory] Created fresh inventory #${inventoryId} for product #${productId} (${productName})`);
     }
@@ -687,7 +712,7 @@ module.exports = (upload, removeUploadFile) => {
             // Auto-create inventory entry if not already linked to one
             if (!inventory_item_id) {
                 try {
-                    await autoCreateInventoryFromProduct(productId, String(name).trim(), product_code, subcategory_id, slabs, company_name, company_code, size, parsedExtraInv);
+                    await autoCreateInventoryFromProduct(productId, String(name).trim(), product_code, subcategory_id, slabs, company_name, company_code, size, parsedExtraInv, req.user.id);
                 } catch (autoErr) {
                     console.error('Auto-create inventory from product failed (non-blocking):', autoErr.message);
                 }
@@ -877,7 +902,7 @@ module.exports = (upload, removeUploadFile) => {
             // Auto-create inventory entry if not already linked and is marked physical product
             if (isPhysicalProduct === 'true' || isPhysicalProduct === 1 || isPhysicalProduct === '1') {
                 try {
-                    await autoCreateInventoryFromProduct(id, String(name).trim(), product_code, subcategory_id, slabs, company_name, company_code, size, parsedExtraInv);
+                    await autoCreateInventoryFromProduct(id, String(name).trim(), product_code, subcategory_id, slabs, company_name, company_code, size, parsedExtraInv, req.user.id);
                 } catch (autoErr) {
                     console.error('Auto-create inventory in PUT failed (non-blocking):', autoErr.message);
                 }

@@ -701,8 +701,36 @@ async function autoCreateProductFromInventory(inventoryId, name, inventoryCatego
     }
 
     if (!matchedSubcategoryId) {
-        console.log(`[AutoProduct] No matching subcategory found for inventory category "${inventoryCategory}". Skipping auto-create.`);
-        return;
+        console.log(`[AutoProduct] No matching subcategory found for inventory category "${inventoryCategory}". Auto-creating category/subcategory.`);
+        const catName = 'Inventory Items';
+        const [existingCat] = await pool.query('SELECT id FROM sarga_product_categories WHERE name = ?', [catName]);
+        let catId;
+        if (existingCat.length > 0) {
+            catId = existingCat[0].id;
+        } else {
+            const [catInsert] = await pool.query(
+                'INSERT INTO sarga_product_categories (name, position) VALUES (?, 0)',
+                [catName]
+            );
+            catId = catInsert.insertId;
+        }
+        const [existingSub] = await pool.query(
+            'SELECT id FROM sarga_product_subcategories WHERE name = ? AND category_id = ?',
+            [inventoryCategory || 'General', catId]
+        );
+        if (existingSub.length > 0) {
+            matchedSubcategoryId = existingSub[0].id;
+        } else {
+            const [[{ nextPos }]] = await pool.query(
+                'SELECT COALESCE(MAX(position), 0) + 1 AS nextPos FROM sarga_product_subcategories WHERE category_id = ?',
+                [catId]
+            );
+            const [subInsert] = await pool.query(
+                'INSERT INTO sarga_product_subcategories (category_id, name, position) VALUES (?, ?, ?)',
+                [catId, inventoryCategory || 'General', nextPos]
+            );
+            matchedSubcategoryId = subInsert.insertId;
+        }
     }
 
     // Get next position
