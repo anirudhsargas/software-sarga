@@ -7,7 +7,7 @@ const { uploadBufferToCloudinary, deleteFromCloudinary: _deleteFromCloudinary } 
 const VALID_BRANCHES = ['perambra', 'meppayur_main', 'meppayur_room'];
 
 // ─── GET /cameras — list all cameras ─────────────────────────────────────────
-router.get('/cameras', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
+router.get('/cameras', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
   try {
     const [rows] = await pool.query(
       `SELECT id, name, branch, ip_address, port, username, rtsp_path, is_active, created_at, updated_at
@@ -113,7 +113,7 @@ router.delete('/cameras/:id', authenticateToken, authorizeRoles('Admin'), async 
 });
 
 // ─── GET /cameras/:id/snapshot — proxy a snapshot from camera ─────────────────
-router.get('/cameras/:id/snapshot', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
+router.get('/cameras/:id/snapshot', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
   try {
     const [rows] = await pool.query(
       'SELECT ip_address, port, username, password FROM sarga_cctv_cameras WHERE id = ? AND is_active = 1',
@@ -180,7 +180,7 @@ router.get('/cameras/:id/stream-url', authenticateToken, authorizeRoles('Admin')
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // ─── GET /face-data — list all face data entries ─────────────────────────────
-router.get('/face-data', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
+router.get('/face-data', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
   const { staff_id } = req.query;
   try {
     let query = `
@@ -204,7 +204,7 @@ router.get('/face-data', authenticateToken, authorizeRoles('Admin', 'Accountant'
 });
 
 // ─── GET /face-data/stats — face data count per staff ────────────────────────
-router.get('/face-data/stats', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
+router.get('/face-data/stats', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
   try {
     const [rows] = await pool.query(`
       SELECT s.id AS staff_id, s.name, s.image_url AS staff_image,

@@ -236,16 +236,18 @@ const Summary = () => {
     <PageContainer>
       <div className="summary-topbar">
         <h1 className="summary-topbar__title">Business Summary</h1>
-        <div className="summary-topbar__right">
-          <div className="branch-selector">
-            <Building2 size={16} />
-            <BranchSelect value={selectedBranchId} onChange={(e) => selectBranch(e.target.value)}>
-              <option value="">All Branches</option>
-              {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </BranchSelect>
-          </div>
-          <span className="summary-topbar__date">{branchName} — {new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+        <span className="summary-topbar__date">{new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+      </div>
+
+      <div className="summary-branch-row">
+        <div className="branch-selector">
+          <Building2 size={16} />
+          <BranchSelect value={selectedBranchId} onChange={(e) => selectBranch(e.target.value)}>
+            <option value="">All Branches</option>
+            {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </BranchSelect>
         </div>
+        <span className="summary-selected-branch-label">{branchName}</span>
       </div>
 
       <div className="summary-tabs">

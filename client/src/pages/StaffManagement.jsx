@@ -30,7 +30,7 @@ const roleBadgeClass = (role) => {
   return map[role] || 'staff-role-badge--other';
 };
 
-const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEditModal, setEditStaffImage, setEditStaffPreview, handleDelete, isAdmin, handleResetPassword, handleMarkAttendance, todayAttendance, onOpenSettings }) => {
+const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEditModal, setEditStaffImage, setEditStaffPreview, handleDelete, isAdmin, handleResetPassword, handleMarkAttendance, todayAttendance, onOpenSettings, userRole }) => {
   const att = todayAttendance[s.id];
   const isPresent = att?.in_time && !att?.out_time;
   return (
@@ -84,6 +84,12 @@ const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEdit
                 <Trash2 size={15} />
               </button>
             </>
+          ) : userRole === 'Accountant' ? (
+            <>
+              <button className="btn-icon" onClick={() => navigate(`/dashboard/employee/${s.id}`)} title="View Dashboard">
+                <BarChart3 size={15} />
+              </button>
+            </>
           ) : (
             <>
               <button className="btn-icon" onClick={() => handleMarkAttendance(s.id)} title={isPresent ? "Mark Gone" : "Mark Attendance"}>
@@ -108,7 +114,8 @@ const StaffManagement = () => {
     const { confirm } = useConfirm();
     const navigate = useNavigate();
     const user = auth.getUser();
-    const isAdmin = user?.role === 'Admin' || user?.role === 'Accountant';
+    const isAdmin = user?.role === 'Admin';
+    const userRole = user?.role;
     const [staff, setStaff] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
@@ -573,6 +580,7 @@ const StaffManagement = () => {
                                 setEditStaffPreview={setEditStaffPreview}
                                 handleDelete={handleDeleteStaff}
                                 isAdmin={isAdmin}
+                                userRole={userRole}
                                 handleResetPassword={handleResetPassword}
                                 handleMarkAttendance={handleMarkAttendance}
                                 todayAttendance={todayAttendance}

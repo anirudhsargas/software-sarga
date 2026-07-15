@@ -18,7 +18,6 @@ const InternalTransfers = React.lazy(() => import('../pages/InternalTransfers'))
 const Reports = React.lazy(() => import('../pages/Reports'));
 const Accounts = React.lazy(() => import('../pages/Accounts'));
 const AttendanceSalary = React.lazy(() => import('../pages/AttendanceSalary'));
-const CCTVAttendance = React.lazy(() => import('../pages/CCTVAttendance'));
 const RecurringInvoices = React.lazy(() => import('../pages/RecurringInvoices'));
 const UploadBills = React.lazy(() => import('../pages/UploadBills'));
 const PaymentVerification = React.lazy(() => import('../pages/PaymentVerification'));
@@ -92,7 +91,6 @@ export default function AccountantLayout() {
               <Route path="approvals" element={<PaymentVerification />} />
               <Route path="reports" element={<Reports />} />
               <Route path="salary" element={<AttendanceSalary />} />
-              <Route path="attendance" element={<CCTVAttendance />} />
               <Route path="attendance-records" element={<AttendanceSalary />} />
               <Route path="accounts" element={<Accounts />} />
               <Route path="purchases" element={<Vendors />} />

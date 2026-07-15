@@ -75,7 +75,7 @@ router.post('/attendance', authenticateToken, async (req, res) => {
 });
 
 // ─── GET /attendance/today?branch= — today's full attendance for one branch ─
-router.get('/attendance/today', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
+router.get('/attendance/today', authenticateToken, authorizeRoles('Admin', 'Front Office'), async (req, res) => {
   const { branch, date } = req.query;
   const targetDate = date || getTodayDate();
 
@@ -141,7 +141,7 @@ router.get('/attendance/staff/:id', authenticateToken, async (req, res) => {
 });
 
 // ─── GET /attendance/summary?branch=&date= — day summary with flags ─────────
-router.get('/attendance/summary', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
+router.get('/attendance/summary', authenticateToken, authorizeRoles('Admin', 'Front Office'), async (req, res) => {
   const { branch, date } = req.query;
   const targetDate = date || getTodayDate();
 

@@ -24,7 +24,6 @@ const LINKS = [
   { to: '/accounting/approvals', icon: CheckSquare, label: 'Approvals', key: 'operations' },
   { to: '/accounting/daily-book', icon: Calendar, label: 'Daily Book', key: 'reports' },
   { to: '/accounting/salary', icon: DollarSign, label: 'Salary & Payroll', key: 'finance' },
-  { to: '/accounting/attendance', icon: Camera, label: 'CCTV Attendance', key: 'operations' },
   { to: '/accounting/attendance-records', icon: UserCheck, label: 'Attendance Records', key: 'operations' },
   { to: '/accounting/reports', icon: BarChart2, label: 'Financial Reports', key: 'reports' },
   { to: '/accounting/settings', icon: Settings, label: 'Settings', key: 'manage' }

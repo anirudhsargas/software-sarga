@@ -17,6 +17,7 @@ import { CUSTOMER_TYPES } from '../constants';
 import { useConfirm } from '../contexts/ConfirmContext';
 import { calculateProductPrice } from '../utils/pricing';
 import './Billing.css';
+import { whatsappUrl } from '../utils/whatsapp';
 import PageContainer from '../components/ui/PageContainer';
 import ScannerErrorBoundary from '../components/ScannerErrorBoundary';
 
@@ -829,6 +830,31 @@ const Billing = () => {
       setLastOrderCustomerType(form.type);
       setLastOrderAutoDelivered(isWalkIn);
 
+      if (sendWhatsApp && form.mobile) {
+        const linesText = orderLines.map(l => `- ${l.product_name} (x${l.quantity}): ₹${Number(l.total_amount || 0).toFixed(2)}`).join('\n');
+        const balanceDue = Math.max(totals.gross - advancePaid, 0);
+        const invNum = result?.bill?.invoice_number || result?.invoice_number || `INV-${result?.bill?.id || result?.id || Date.now()}`;
+        const msg = [
+          `Dear ${form.name || 'Customer'},`,
+          '',
+          `Here are your bill details from Sarga:`,
+          `Invoice: ${invNum}`,
+          `Total Amount: ₹${totals.gross.toFixed(2)}`,
+          `Paid Amount: ₹${advancePaid.toFixed(2)}`,
+          `Balance Due: ₹${balanceDue.toFixed(2)}`,
+          '',
+          `Items:`,
+          linesText,
+          '',
+          `Thank you for your business! 🙏`
+        ].join('\n');
+        
+        const url = whatsappUrl(form.mobile, msg);
+        if (url) {
+          window.open(url, '_blank');
+        }
+      }
+
       // Prepare assign jobs from result
       if (result.jobs && result.jobs.length > 0) {
         setAssignJobs(result.jobs);
@@ -858,7 +884,7 @@ const Billing = () => {
       setError(err?.response?.data?.message || err.message || 'Failed to create invoice.');
       toast.error('Invoice creation failed.');
     } finally { setSaving(false); }
-  }, [canProceed, orderLines, advancePaid, totals, isWalkIn, existingCustomer, form, payment, discountPercent, totals.discountAmount, totals.gross, selectedBranchId, jobType, branchUpiId, discountError]);
+  }, [canProceed, orderLines, advancePaid, totals, isWalkIn, existingCustomer, form, payment, discountPercent, totals.discountAmount, totals.gross, selectedBranchId, jobType, branchUpiId, discountError, sendWhatsApp]);
 
   // ── Staff assignment submit ──
   const handleAssignStaff = useCallback(async () => {
@@ -1246,14 +1272,16 @@ const Billing = () => {
             </div>
           </div>
         )}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-          <button type="button" className="btn btn-primary btn-sm" disabled={!stepValid[0]} onClick={() => setActiveTab('products')}>
-            Next: Add Products →
-          </button>
+        <div className="billing-step-footer">
+          <div className="billing-step-actions">
+            <button type="button" className="btn btn-primary btn-sm" disabled={!stepValid[0]} onClick={() => setActiveTab('products')}>
+              Next: Add Products →
+            </button>
+          </div>
           {!stepValid[0] && (
-            <span className="billing-validation-hint">
+            <div className="billing-step-warning">
               {!form.type ? 'Please select a customer type' : 'Please enter customer name and 10-digit mobile number'}
-            </span>
+            </div>
           )}
         </div>
       </div>
@@ -1560,15 +1588,19 @@ const Billing = () => {
             <p className="muted text-xs">Search above or scan a barcode to add items</p>
           </div>
         )}
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16, alignItems: 'center' }}>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setActiveTab('customer')}>
-            ← Back: Customer
-          </button>
-          <button type="button" className="btn btn-primary btn-sm" disabled={!stepValid[1]} onClick={() => setActiveTab('payment')}>
-            Next: Payment →
-          </button>
+        <div className="billing-step-footer">
+          <div className="billing-step-actions">
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => setActiveTab('customer')}>
+              ← Back: Customer
+            </button>
+            <button type="button" className="btn btn-primary btn-sm" disabled={!stepValid[1]} onClick={() => setActiveTab('payment')}>
+              Next: Payment →
+            </button>
+          </div>
           {!stepValid[1] && (
-            <span className="billing-validation-hint">Add at least one product to continue</span>
+            <div className="billing-step-warning">
+              Add at least one product to continue
+            </div>
           )}
         </div>
       </div>
@@ -1684,15 +1716,19 @@ const Billing = () => {
             <span>Send Email</span>
           </label>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16, alignItems: 'center' }}>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setActiveTab('products')}>
-            ← Back: Products
-          </button>
-          <button type="button" className="btn btn-primary btn-sm" disabled={!stepValid[2]} onClick={() => setActiveTab('summary')}>
-            Next: Summary →
-          </button>
+        <div className="billing-step-footer">
+          <div className="billing-step-actions">
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => setActiveTab('products')}>
+              ← Back: Products
+            </button>
+            <button type="button" className="btn btn-primary btn-sm" disabled={!stepValid[2]} onClick={() => setActiveTab('summary')}>
+              Next: Summary →
+            </button>
+          </div>
           {!stepValid[2] && (
-            <span className="billing-validation-hint">Enter at least one payment amount to continue</span>
+            <div className="billing-step-warning">
+              Enter at least one payment amount to continue
+            </div>
           )}
         </div>
       </div>

@@ -1066,19 +1066,20 @@
     grid-template-columns: 44px 1fr 36px;
     grid-template-areas:
       "avatar info expand"
-      "actions actions actions";
-    gap: var(--space-8);
-    padding: 14px 16px;
+      "avatar outstanding outstanding"
+      "phone actions actions";
+    gap: var(--space-6) var(--space-8);
+    padding: var(--space-12) var(--space-16);
+    align-items: center;
   }
 
   .customer-row--compact {
-    padding: 10px 16px;
+    padding: 8px 16px;
   }
 
   .customer-avatar {
     grid-area: avatar;
-    align-self: flex-start;
-    margin-top: 2px;
+    align-self: center;
   }
 
   .customer-info {
@@ -1086,12 +1087,22 @@
   }
 
   .customer-phone {
-    margin-top: 4px;
+    grid-area: phone;
+    margin-top: 0;
     font-size: var(--text-xs);
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+  }
+
+  .phone-actions {
+    opacity: 1 !important;
   }
 
   .customer-outstanding {
-    margin-top: 4px;
+    grid-area: outstanding;
+    margin-top: 0;
     font-size: var(--text-xs);
   }
 
@@ -1102,11 +1113,11 @@
   .customer-actions {
     grid-area: actions;
     justify-content: flex-end;
-    border-top: 1px solid var(--border);
-    padding-top: var(--space-8);
-    margin-top: var(--space-4);
     display: flex;
-    gap: var(--space-4);
+    gap: var(--space-6);
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
   }
 
   .btn-expand {

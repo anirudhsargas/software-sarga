@@ -737,8 +737,21 @@
   .inv-table td:nth-child(2) {
     display: none;
   }
-  .inv-header__actions .btn-with-icon span:not(.sr-only) {
-    display: none;
+  .inv-header__actions {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    width: 100% !important;
+    gap: var(--space-8) !important;
+  }
+  .inv-header__actions .btn {
+    width: 100% !important;
+    justify-content: center !important;
+    font-size: var(--text-xs) !important;
+    padding: var(--space-8) var(--space-6) !important;
+    white-space: nowrap !important;
+  }
+  .inv-page .inv-header__actions .btn-with-icon span:not(.sr-only) {
+    display: inline !important;
   }
   .inv-empty {
     padding: var(--space-32) var(--space-16);

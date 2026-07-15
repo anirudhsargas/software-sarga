@@ -13,7 +13,7 @@ module.exports = (upload, removeUploadFile) => {
     // --- STAFF ROUTES (Admin Only) ---
 
     // Add Staff
-    router.post('/', authenticateToken, authorizeRoles('Admin', 'Accountant'), upload.single('image'), validate(addStaffSchema), attachNormalizedMobile('mobile', 'countryCode'), async (req, res) => {
+    router.post('/', authenticateToken, authorizeRoles('Admin'), upload.single('image'), validate(addStaffSchema), attachNormalizedMobile('mobile', 'countryCode'), async (req, res) => {
         const { mobile, countryCode, name, role, branch_id } = req.body;
         let imageUrl = null;
 
@@ -57,7 +57,7 @@ module.exports = (upload, removeUploadFile) => {
             let where = "WHERE s.role != 'Admin'";
             const params = [];
 
-            if (!['Admin', 'Accountant'].includes(req.user.role) && req.query.all !== 'true') {
+            if (req.user.role !== 'Admin' && req.query.all !== 'true') {
                 const branchId = await getUserBranchId(req.user.id);
                 where += ' AND s.branch_id = ?';
                 params.push(branchId);
@@ -84,8 +84,8 @@ module.exports = (upload, removeUploadFile) => {
         let { id } = req.params;
         if (id === 'me') id = req.user.id;
 
-        // Authorization: Admin, Accountant or Self (for profile updates only)
-        if (!['Admin', 'Accountant'].includes(req.user.role) && req.user.id != id) {
+        // Authorization: Admin or Self (for profile updates only)
+        if (req.user.role !== 'Admin' && req.user.id != id) {
             return res.status(403).json({ message: 'Access denied. Insufficient permissions.' });
         }
 
@@ -103,11 +103,11 @@ module.exports = (upload, removeUploadFile) => {
             }
         }
 
-        // Non-Admin/Accountant users can ONLY update their own name and image (profile updates)
+        // Non-Admin users can ONLY update their own name and image (profile updates)
         // They CANNOT change mobile, role, or branch_id
-        if (!['Admin', 'Accountant'].includes(req.user.role)) {
+        if (req.user.role !== 'Admin') {
             if (mobile || role || branch_id) {
-                return res.status(403).json({ message: 'Only Admin/Accountant can modify user ID, role, or branch assignment.' });
+                return res.status(403).json({ message: 'Only Admin can modify user ID, role, or branch assignment.' });
             }
 
             // Profile update only (name and/or image)
@@ -233,7 +233,7 @@ module.exports = (upload, removeUploadFile) => {
     });
 
     // Delete Staff
-    router.delete('/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
+    router.delete('/:id', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
         const { id } = req.params;
 
         try {
@@ -288,7 +288,7 @@ module.exports = (upload, removeUploadFile) => {
         let { id } = req.params;
         if (id === 'me') id = req.user.id;
 
-        if (!['Admin', 'Accountant'].includes(req.user.role) && req.user.id != id) {
+        if (req.user.role !== 'Admin' && req.user.id != id) {
             return res.status(403).json({ message: 'Access denied. Insufficient permissions.' });
         }
 
@@ -322,7 +322,7 @@ module.exports = (upload, removeUploadFile) => {
     // ─── Multi-Branch Staff Assignment ───
 
     // GET /staff/:id/branches - Get all branch assignments for a staff member
-    router.get('/:id/branches', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
+    router.get('/:id/branches', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
         const { id } = req.params;
         try {
             const [assignments] = await pool.query(`
@@ -441,7 +441,7 @@ module.exports = (upload, removeUploadFile) => {
     });
 
     // Reset Staff Password (to their mobile/user_id@Sarga)
-    router.put('/:id/reset-password', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
+    router.put('/:id/reset-password', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
         const { id } = req.params;
 
         try {

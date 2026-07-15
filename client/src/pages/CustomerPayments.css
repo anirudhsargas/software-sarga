@@ -1062,3 +1062,63 @@
   background: var(--foreground);
   color: var(--warning);
 }
+
+/* ── Mobile Payments Table to Cards conversion ── */
+@media (max-width: 768px) {
+  .cp-table-wrap thead {
+    display: none !important;
+  }
+  
+  .cp-table-wrap table,
+  .cp-table-wrap tbody,
+  .cp-table-wrap tr,
+  .cp-table-wrap td {
+    display: block !important;
+    width: 100% !important;
+  }
+
+  .cp-table-wrap tr {
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius-md) !important;
+    margin-bottom: var(--space-12) !important;
+    padding: var(--space-12) var(--space-16) !important;
+    box-shadow: var(--shadow-sm) !important;
+  }
+
+  .dark .cp-table-wrap tr {
+    background: var(--surface-2) !important;
+  }
+
+  .cp-table-wrap td {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent) !important;
+    padding: var(--space-8) 0 !important;
+    text-align: right !important;
+  }
+
+  .cp-table-wrap td:last-child {
+    border-bottom: none !important;
+    padding-bottom: 0 !important;
+    justify-content: flex-end !important;
+  }
+
+  .cp-table-wrap td::before {
+    font-weight: 600 !important;
+    color: var(--muted) !important;
+    font-size: var(--text-xs) !important;
+    text-align: left !important;
+    margin-right: var(--space-16) !important;
+  }
+
+  .cp-table-wrap td:nth-of-type(1)::before { content: "Date"; }
+  .cp-table-wrap td:nth-of-type(2)::before { content: "Customer"; }
+  .cp-table-wrap td:nth-of-type(3)::before { content: "Method"; }
+  .cp-table-wrap td:nth-of-type(4)::before { content: "Status"; }
+  .cp-table-wrap td:nth-of-type(5)::before { content: "Billed"; }
+  .cp-table-wrap td:nth-of-type(6)::before { content: "Paid"; }
+  .cp-table-wrap td:nth-of-type(7)::before { content: "Balance"; }
+  .cp-table-wrap td:nth-of-type(8)::before { content: "Actions"; }
+}

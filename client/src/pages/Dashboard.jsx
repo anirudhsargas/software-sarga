@@ -651,7 +651,7 @@ const Dashboard = () => {
         { key: 'manage', name: 'Branches', icon: Building2, path: '/dashboard/branches', roles: ['Admin'], group: 'admin' },
         { key: 'manage', name: 'Requests', icon: ShieldAlert, path: '/dashboard/requests', roles: ['Admin', 'Accountant'], group: 'admin' },
         { key: 'manage', name: 'Coupons', icon: Tag, path: '/dashboard/coupons', roles: ['Admin'], group: 'admin' },
-        { key: 'manage', name: 'Attendance', icon: Camera, path: '/dashboard/cctv-attendance', roles: ['Admin', 'Accountant'], group: 'admin' },
+        { key: 'manage', name: 'Attendance', icon: Camera, path: '/dashboard/cctv-attendance', roles: ['Admin'], group: 'admin' },
         { key: 'manage', name: 'CCTV', icon: Camera, path: '/dashboard/cctv-management', roles: ['Admin'], group: 'admin' },
         { key: 'manage', name: 'Schedule & Time', icon: Clock, path: '/dashboard/schedules', roles: ['Admin', 'Accountant'], group: 'admin' },
         { key: 'manage', name: 'Settings', icon: Settings, path: '/dashboard/settings', roles: ['Admin'], group: 'admin' },
@@ -679,12 +679,12 @@ const Dashboard = () => {
         
         // Accountant role restriction: only finance-related modules
         if (normalizedUserRole === 'Accountant') {
-            const accountantAllowedGroups = ['main', 'sales', 'accounts', 'admin'];
+            const accountantAllowedGroups = ['main', 'sales', 'accounts', 'admin', 'inventory'];
             const accountantAllowedKeys = [
                 'dashboard', 'sales_customers', 'sales_orders', 'sales_quotes',
                 'sales_invoices', 'sales_payments', 'shortcuts',
                 'reports', 'expenses', 'manage', 'finance',
-                'sample_requests'
+                'sample_requests', 'inventory'
             ];
             items = items.filter(item => 
                 accountantAllowedGroups.includes(item.group) && 
@@ -1275,7 +1275,7 @@ const Dashboard = () => {
                             <Route path="predictions" element={<ProtectedSubRoute roles={['Admin', 'Accountant']}><RequiresConnection feature="Sales Prediction"><SalesPrediction /></RequiresConnection></ProtectedSubRoute>} />
                             <Route path="production-tracker" element={<ProtectedSubRoute roles={['Admin', 'Front Office']}><RequiresConnection feature="Production Tracker"><ProductionTracker /></RequiresConnection></ProtectedSubRoute>} />
                             <Route path="coupons" element={<ProtectedSubRoute roles={['Admin']}><CouponManagement /></ProtectedSubRoute>} />
-                            <Route path="cctv-attendance" element={<ProtectedSubRoute roles={['Admin', 'Accountant']}><CCTVAttendance /></ProtectedSubRoute>} />
+                            <Route path="cctv-attendance" element={<ProtectedSubRoute roles={['Admin']}><CCTVAttendance /></ProtectedSubRoute>} />
                             <Route path="cctv-management" element={<ProtectedSubRoute roles={['Admin']}><CCTVManagement /></ProtectedSubRoute>} />
                             <Route path="schedules" element={<ProtectedSubRoute roles={['Admin', 'Accountant']}><ScheduleManagement /></ProtectedSubRoute>} />
                             <Route path="other-staff-dashboard" element={<ProtectedSubRoute roles={['Other Staff']}><OtherStaffDashboard /></ProtectedSubRoute>} />

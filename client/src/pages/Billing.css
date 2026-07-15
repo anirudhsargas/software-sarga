@@ -1561,9 +1561,20 @@
 }
 
 @media (max-width: 480px) {
+  .billing-header__right {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    width: 100% !important;
+    gap: var(--space-6) !important;
+  }
+  
   .billing-header__right .btn-ghost,
   .billing-header__right .btn-secondary {
-    display: none;
+    display: inline-flex !important;
+    width: 100% !important;
+    justify-content: center !important;
+    font-size: 11px !important;
+    padding: var(--space-6) var(--space-8) !important;
   }
 
   .customer-type-selector__chips {
@@ -1820,5 +1831,115 @@
 
   .billing-step--active .billing-step-content {
     display: flex;
+  }
+}
+
+/* ── Custom Step Footer and Validation Styles ── */
+.billing-step-footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  margin-top: var(--space-16);
+  width: 100%;
+}
+
+.billing-step-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  gap: var(--space-8);
+}
+
+.billing-step-actions .btn {
+  flex: 1;
+  justify-content: center;
+  min-width: 100px;
+}
+
+.billing-step-actions:has(> :only-child) {
+  justify-content: flex-end;
+}
+
+.billing-step-actions:has(> :only-child) .btn {
+  flex: 0 0 auto;
+  min-width: 140px;
+}
+
+.billing-step-warning {
+  font-size: var(--text-xs);
+  color: var(--destructive);
+  text-align: center;
+  font-weight: 500;
+  background: var(--destructive-alpha, rgba(239, 68, 68, 0.05));
+  border: 1px solid color-mix(in srgb, var(--destructive) 15%, transparent);
+  padding: var(--space-8) var(--space-12);
+  border-radius: var(--radius-sm);
+  width: 100%;
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+/* Category Dropdowns and Selection Inline */
+@media (max-width: 768px) {
+  .billing-category-row {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    gap: var(--space-8) !important;
+    width: 100% !important;
+  }
+  .billing-category-row .billing-select {
+    flex: 1 !important;
+    min-width: 0 !important;
+    width: 50% !important;
+  }
+}
+
+/* Quick Add Form layout on mobile */
+@media (max-width: 768px) {
+  .billing-quick-entry {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: var(--space-8) !important;
+    padding: var(--space-12) !important;
+    background: var(--surface-2) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius-md) !important;
+    width: 100% !important;
+    box-shadow: var(--shadow-sm);
+  }
+  .billing-quick-entry > .billing-field {
+    grid-column: span 2 !important;
+    margin-bottom: 0 !important;
+  }
+  .billing-quick-entry .billing-field__input {
+    width: 100% !important;
+  }
+  .billing-quick-entry input[type="number"],
+  .billing-quick-entry select,
+  .billing-quick-entry .btn {
+    grid-column: span 1 !important;
+    width: 100% !important;
+    margin-bottom: 0 !important;
+  }
+  .billing-quick-entry select {
+    height: 38px !important;
+  }
+  .billing-quick-entry .btn {
+    justify-content: center !important;
+    min-height: 38px !important;
+  }
+}
+
+/* Discount row stack on mobile */
+@media (max-width: 768px) {
+  .billing-discount-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: var(--space-6) !important;
+    width: 100% !important;
+  }
+  .billing-discount-row .row.gap-xs {
+    width: 100% !important;
   }
 }

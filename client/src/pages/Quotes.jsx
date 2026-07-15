@@ -403,16 +403,53 @@ export default function Quotes() {
                     0%, 100% { opacity: 0.6; }
                     50% { opacity: 0.3; }
                 }
+                .quotes-controls-row {
+                    display: flex;
+                    gap: 12px;
+                    margin-bottom: 16px;
+                    flex-wrap: wrap;
+                }
+                .quotes-search-wrapper {
+                    position: relative;
+                    flex: 1;
+                    min-width: 200px;
+                }
+                .quotes-filters-and-actions {
+                    display: flex;
+                    gap: 12px;
+                    flex: 0 0 auto;
+                }
+                @media (max-width: 640px) {
+                    .quotes-controls-row {
+                        flex-direction: column;
+                        gap: 8px;
+                    }
+                    .quotes-search-wrapper {
+                        width: 100%;
+                        flex: none;
+                    }
+                    .quotes-filters-and-actions {
+                        width: 100%;
+                        display: flex;
+                        gap: 8px;
+                    }
+                    .quotes-filters-and-actions > select,
+                    .quotes-filters-and-actions > button {
+                        flex: 1 !important;
+                        min-width: 0 !important;
+                        width: 50% !important;
+                        justify-content: center;
+                    }
+                }
             `}</style>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
                 <h2 style={{ display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}><FileText size={22} /> Quotes & Estimates</h2>
-                <button className="touch-target" style={btnStyle()} onClick={() => { setForm(emptyForm()); setEditing(null); setShowForm(true); }} aria-label="Create new quote"><Plus size={16} /> New Quote</button>
             </div>
 
-            {/* Filters */}
-            <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-                <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
-                    <Search size={16} style={{ position: 'absolute', left: 10, top: 10, color: 'var(--text-muted)' }} />
+            {/* Filters & Actions */}
+            <div className="quotes-controls-row">
+                <div className="quotes-search-wrapper">
+                    <Search size={16} style={{ position: 'absolute', left: 10, top: 12, color: 'var(--text-muted)' }} />
                     <input 
                         id="quote-search-filter"
                         placeholder="Search quotes..." 
@@ -422,16 +459,19 @@ export default function Quotes() {
                         aria-label="Search quotations"
                     />
                 </div>
-                <select 
-                    id="quote-status-filter"
-                    value={statusFilter} 
-                    onChange={e => setStatusFilter(e.target.value)} 
-                    style={{ ...inputStyle, width: 'auto', minWidth: 140 }}
-                    aria-label="Filter quotations by status"
-                >
-                    <option value="">All Statuses</option>
-                    {['draft', 'sent', 'accepted', 'rejected', 'expired', 'converted'].map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
-                </select>
+                <div className="quotes-filters-and-actions">
+                    <select 
+                        id="quote-status-filter"
+                        value={statusFilter} 
+                        onChange={e => setStatusFilter(e.target.value)} 
+                        style={{ ...inputStyle, width: 'auto', minWidth: 140 }}
+                        aria-label="Filter quotations by status"
+                    >
+                        <option value="">All Statuses</option>
+                        {['draft', 'sent', 'accepted', 'rejected', 'expired', 'converted'].map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+                    </select>
+                    <button className="touch-target" style={btnStyle()} onClick={() => { setForm(emptyForm()); setEditing(null); setShowForm(true); }} aria-label="Create new quote"><Plus size={16} /> New Quote</button>
+                </div>
             </div>
 
             {/* Quote List */}

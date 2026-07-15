@@ -2,12 +2,12 @@ import React from 'react';
 import { Zap, Pencil, Trash2, FileText, CreditCard, Stamp, Image, BookOpen, Printer, Camera, Scissors, Copy, Tag } from 'lucide-react';
 
 const colorMap = {
-  purple: { bg: '#EEEDFE', fg: '#3C3489' },
-  teal:   { bg: '#E1F5EE', fg: '#0F6E56' },
-  blue:   { bg: '#E6F1FB', fg: '#185FA5' },
-  amber:  { bg: '#FAEEDA', fg: '#854F0B' },
-  pink:   { bg: '#FBEAF0', fg: '#993556' },
-  green:  { bg: '#EAF3DE', fg: '#3B6D11' },
+  purple: { bg: 'var(--shortcut-purple-bg, #EEEDFE)', fg: 'var(--shortcut-purple-fg, #3C3489)' },
+  teal:   { bg: 'var(--shortcut-teal-bg, #E1F5EE)', fg: 'var(--shortcut-teal-fg, #0F6E56)' },
+  blue:   { bg: 'var(--shortcut-blue-bg, #E6F1FB)', fg: 'var(--shortcut-blue-fg, #185FA5)' },
+  amber:  { bg: 'var(--shortcut-amber-bg, #FAEEDA)', fg: 'var(--shortcut-amber-fg, #854F0B)' },
+  pink:   { bg: 'var(--shortcut-pink-bg, #FBEAF0)', fg: 'var(--shortcut-pink-fg, #993556)' },
+  green:  { bg: 'var(--shortcut-green-bg, #EAF3DE)', fg: 'var(--shortcut-green-fg, #3B6D11)' },
 };
 
 const iconMap = {
@@ -136,8 +136,8 @@ const ShortcutCard = React.memo(({ shortcut, onTap, onEdit, onDelete, editable }
       <div
         style={{
           fontSize: 12,
-          color: shortcut.color === 'purple' ? '#26215C' : shortcut.color === 'teal' ? '#085041' : colors.fg,
-          opacity: (shortcut.color === 'purple' || shortcut.color === 'teal') ? 1 : 0.7,
+          color: colors.fg,
+          opacity: 0.8,
         }}
       >
         {shortcut.customer_type?.replace('_', ' ')} &middot; {shortcut.payment_mode}

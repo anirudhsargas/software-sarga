@@ -1,4 +1,33 @@
-/* ── Quick Bill Shortcuts ── */
+/* ── CSS Theme Variables for Shortcut Colors ── */
+:root {
+  --shortcut-purple-bg: #EEEDFE;
+  --shortcut-purple-fg: #3C3489;
+  --shortcut-teal-bg: #E1F5EE;
+  --shortcut-teal-fg: #0F6E56;
+  --shortcut-blue-bg: #E6F1FB;
+  --shortcut-blue-fg: #185FA5;
+  --shortcut-amber-bg: #FAEEDA;
+  --shortcut-amber-fg: #854F0B;
+  --shortcut-pink-bg: #FBEAF0;
+  --shortcut-pink-fg: #993556;
+  --shortcut-green-bg: #EAF3DE;
+  --shortcut-green-fg: #3B6D11;
+}
+
+html[data-theme="dark"] {
+  --shortcut-purple-bg: #1e1b4b;
+  --shortcut-purple-fg: #c7d2fe;
+  --shortcut-teal-bg: #042f2e;
+  --shortcut-teal-fg: #99f6e4;
+  --shortcut-blue-bg: #1e3a8a;
+  --shortcut-blue-fg: #bfdbfe;
+  --shortcut-amber-bg: #451a03;
+  --shortcut-amber-fg: #fde68a;
+  --shortcut-pink-bg: #500724;
+  --shortcut-pink-fg: #fbcfe8;
+  --shortcut-green-bg: #14532d;
+  --shortcut-green-fg: #bbf7d0;
+}
 
 .shortcuts-page {
   display: flex;
@@ -25,6 +54,34 @@
   font-size: 18px;
   font-weight: 600;
   margin: 0;
+}
+
+@media (max-width: 640px) {
+  .shortcuts-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    flex-wrap: nowrap;
+    gap: var(--space-8);
+  }
+  .shortcuts-header h1 {
+    font-size: 15px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+  }
+  .shortcuts-header h1 svg {
+    display: none;
+  }
+  .shortcuts-header .btn {
+    font-size: var(--text-xs);
+    padding: var(--space-8) var(--space-12);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
 }
 
 /* ── Suggestions Banner ── */
