@@ -1116,7 +1116,7 @@ router.post('/inventory/:id/consume', authenticateToken, authorizeRoles('Admin',
 // Restock Inventory Item — updates sarga_branch_stock and logs movement
 router.post('/inventory/:id/restock', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     const { id } = req.params;
-    const { quantity_received, cost_price, notes: _notes } = req.body;
+    const { quantity_received, cost_price, sell_price, notes: _notes } = req.body;
 
     if (!quantity_received || Number(quantity_received) <= 0) {
         return res.status(400).json({ message: 'Invalid restock quantity' });
@@ -1135,15 +1135,16 @@ router.post('/inventory/:id/restock', authenticateToken, authorizeRoles('Admin',
             daysSince = Math.floor(diffTime / (1000 * 60 * 60 * 24));
         }
 
-        const [itemRows] = await pool.query('SELECT name, cost_price, quantity FROM sarga_inventory WHERE id = ?', [id]);
+        const [itemRows] = await pool.query('SELECT name, cost_price, sell_price, quantity FROM sarga_inventory WHERE id = ?', [id]);
         if (!itemRows.length) return res.status(404).json({ message: 'Inventory item not found' });
 
         const item = itemRows[0];
         const received = Number(quantity_received);
         const newCost = cost_price ? Number(cost_price) : Number(item.cost_price);
+        const newSell = sell_price ? Number(sell_price) : Number(item.sell_price);
 
         // Update main inventory stock
-        await pool.query('UPDATE sarga_inventory SET quantity = quantity + ?, cost_price = ? WHERE id = ?', [received, newCost, id]);
+        await pool.query('UPDATE sarga_inventory SET quantity = quantity + ?, cost_price = ?, sell_price = ? WHERE id = ?', [received, newCost, newSell, id]);
 
         // Log the reorder
         await pool.query(

@@ -41,6 +41,15 @@ const emptyItem = {
     purchase_link: ''
 };
 
+const calculateMargin = (cost, sell, gstRate) => {
+    const c = Number(cost) || 0;
+    const s = Number(sell) || 0;
+    const g = Number(gstRate) || 0;
+    const gstAmount = (c * g) / 100;
+    if (s <= 0) return 0;
+    return ((s - c - gstAmount) / s) * 100;
+};
+
 const Inventory = () => {
     useSEO('Inventory');
 
@@ -112,7 +121,7 @@ const Inventory = () => {
     const [showConsumeModal, setShowConsumeModal] = useState(false);
     const [consumeData, setConsumeData] = useState({ id: null, quantity: '', notes: '' });
     const [showRestockModal, setShowRestockModal] = useState(false);
-    const [restockData, setRestockData] = useState({ id: null, quantity: '', cost: '', notes: '' });
+    const [restockData, setRestockData] = useState({ id: null, quantity: '', cost: '', sell_price: '', gst_rate: 0, name: '', notes: '' });
 
     // Bill Upload state
     const [showSmartUpload, setShowSmartUpload] = useState(false);
@@ -930,10 +939,16 @@ const Inventory = () => {
         e.preventDefault();
         setSaving(true);
         try {
-            await api.post(`/inventory/${restockData.id}/restock`, { quantity_received: restockData.quantity, cost_price: restockData.cost, notes: restockData.notes, branch_id: filterBranch || undefined });
+            await api.post(`/inventory/${restockData.id}/restock`, { 
+                quantity_received: restockData.quantity, 
+                cost_price: restockData.cost, 
+                sell_price: restockData.sell_price,
+                notes: restockData.notes, 
+                branch_id: filterBranch || undefined 
+            });
             toast.success(`Restocked successfully`);
             setShowRestockModal(false);
-            setRestockData({ id: null, quantity: '', cost: '', notes: '' });
+            setRestockData({ id: null, quantity: '', cost: '', sell_price: '', gst_rate: 0, name: '', notes: '' });
             fetchInventory();
         } catch (err) {
             toast.error(err.response?.data?.message || 'Error restocking item');
@@ -1441,7 +1456,18 @@ const Inventory = () => {
                                                                 <button
                                                                     className="inv-action-btn inv-action-btn--primary"
                                                                     title="Restock"
-                                                                    onClick={() => { setRestockData({ id: item.id, quantity: '', cost: item.cost_price, notes: '' }); setShowRestockModal(true); }}
+                                                                    onClick={() => { 
+                                                                        setRestockData({ 
+                                                                            id: item.id, 
+                                                                            quantity: '', 
+                                                                            cost: item.cost_price || 0, 
+                                                                            sell_price: item.sell_price || 0, 
+                                                                            gst_rate: item.gst_rate || 0, 
+                                                                            name: item.name, 
+                                                                            notes: '' 
+                                                                        }); 
+                                                                        setShowRestockModal(true); 
+                                                                    }}
                                                                 >
                                                                     <Plus size={14} />
                                                                 </button>
@@ -2045,21 +2071,48 @@ const Inventory = () => {
                                                     )}
                                                 </div>
                                                 {newItem.item_type === 'Retail' && (
-                                                    <div>
-                                                        <label className="label">Sell Price (MRP)</label>
-                                                        <div style={{ position: 'relative', marginTop: 'var(--space-6)' }}>
-                                                            <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 'var(--text-sm)', color: 'var(--text-muted)', pointerEvents: 'none' }}>₹</span>
-                                                            <input
-                                                                name="addItemSellPrice"
-                                                                type="number"
-                                                                step="0.01"
-                                                                className="input-field"
-                                                                style={{ paddingLeft: 24 }}
-                                                                placeholder="0.00"
-                                                                value={newItem.sell_price}
-                                                                onChange={(e) => setNewItem({ ...newItem, sell_price: e.target.value })}
-                                                                min="0"
-                                                            />
+                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-12)' }}>
+                                                        <div>
+                                                            <label className="label">Sell Price (MRP)</label>
+                                                            <div style={{ position: 'relative', marginTop: 'var(--space-6)' }}>
+                                                                <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 'var(--text-sm)', color: 'var(--text-muted)', pointerEvents: 'none' }}>₹</span>
+                                                                <input
+                                                                    name="addItemSellPrice"
+                                                                    type="number"
+                                                                    step="0.01"
+                                                                    className="input-field"
+                                                                    style={{ paddingLeft: 24 }}
+                                                                    placeholder="0.00"
+                                                                    value={newItem.sell_price}
+                                                                    onChange={(e) => setNewItem({ ...newItem, sell_price: e.target.value })}
+                                                                    min="0"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <label className="label">Profit Margin</label>
+                                                            <div style={{ 
+                                                                marginTop: 'var(--space-6)', 
+                                                                height: '38px', 
+                                                                display: 'flex', 
+                                                                alignItems: 'center', 
+                                                                padding: '0 var(--space-12)', 
+                                                                borderRadius: 'var(--radius-sm)', 
+                                                                background: 'var(--surface-alt)', 
+                                                                border: '1px solid var(--border)',
+                                                                fontWeight: 600,
+                                                                fontSize: 'var(--text-sm)'
+                                                            }}>
+                                                                {(() => {
+                                                                    const m = calculateMargin(newItem.cost_price, newItem.sell_price, newItem.gst_rate);
+                                                                    const isPositive = m > 0;
+                                                                    return (
+                                                                        <span style={{ color: isPositive ? 'var(--text-success, #22c55e)' : m < 0 ? 'var(--text-danger, #ef4444)' : 'var(--text-muted)' }}>
+                                                                            {m.toFixed(1)}%
+                                                                        </span>
+                                                                    );
+                                                                })()}
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 )}
@@ -2342,7 +2395,7 @@ const Inventory = () => {
                                             <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'var(--accent-2, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>&#8377;</div>
                                             <span style={{ fontSize: '13px', fontWeight: 600 }}>Pricing &amp; Tax</span>
                                         </div>
-                                        <div className="row gap-sm">
+                                        <div className="row gap-sm mb-12">
                                             <div className="flex-1">
                                                 <label className="label">Cost Price (&#8377;)</label>
                                                 <input
@@ -2352,18 +2405,6 @@ const Inventory = () => {
                                                     className="input-field"
                                                     value={selectedItem.cost_price}
                                                     onChange={(e) => setSelectedItem({ ...selectedItem, cost_price: e.target.value })}
-                                                    min="0"
-                                                />
-                                            </div>
-                                            <div className="flex-1">
-                                                <label className="label">Sell Price (&#8377;)</label>
-                                                <input
-                                                    name="editItemSellPrice"
-                                                    type="number"
-                                                    step="0.01"
-                                                    className="input-field"
-                                                    value={selectedItem.sell_price}
-                                                    onChange={(e) => setSelectedItem({ ...selectedItem, sell_price: e.target.value })}
                                                     min="0"
                                                 />
                                             </div>
@@ -2388,6 +2429,41 @@ const Inventory = () => {
                                                     onChange={(e) => setSelectedItem({ ...selectedItem, discount: e.target.value })}
                                                     min="0"
                                                 />
+                                            </div>
+                                        </div>
+                                        <div className="row gap-sm">
+                                            <div className="flex-1">
+                                                <label className="label">Sell Price (MRP) (&#8377;)</label>
+                                                <input
+                                                    name="editItemSellPrice"
+                                                    type="number"
+                                                    step="0.01"
+                                                    className="input-field"
+                                                    value={selectedItem.sell_price}
+                                                    onChange={(e) => setSelectedItem({ ...selectedItem, sell_price: e.target.value })}
+                                                    min="0"
+                                                />
+                                            </div>
+                                            <div className="flex-1">
+                                                <label className="label">Profit Margin</label>
+                                                <div className="input-field" style={{ 
+                                                    background: 'var(--surface-alt)', 
+                                                    display: 'flex', 
+                                                    alignItems: 'center', 
+                                                    fontWeight: 600,
+                                                    border: '1px solid var(--border)',
+                                                    cursor: 'default'
+                                                }}>
+                                                    {(() => {
+                                                        const m = calculateMargin(selectedItem.cost_price, selectedItem.sell_price, selectedItem.gst_rate);
+                                                        const isPositive = m > 0;
+                                                        return (
+                                                            <span style={{ color: isPositive ? 'var(--text-success, #22c55e)' : m < 0 ? 'var(--text-danger, #ef4444)' : 'var(--text-muted)' }}>
+                                                                {m.toFixed(1)}%
+                                                            </span>
+                                                        );
+                                                    })()}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -2906,14 +2982,19 @@ const Inventory = () => {
 
             {showRestockModal && restockData.id && (
                 <div className="modal-backdrop" style={{ zIndex: 'var(--z-modal-high)' }}>
-                    <div className="modal" style={{ maxWidth: '400px' }}>
+                    <div className="modal" style={{ maxWidth: '450px', padding: 'var(--space-24)' }}>
                         <button className="modal-close" onClick={() => setShowRestockModal(false)}>
                             <X size={22} />
                         </button>
-                        <h2 className="section-title mb-16">Restock Supply</h2>
-                        <form onSubmit={handleRestock} className="stack-md">
+                        <h2 className="section-title mb-16" style={{ marginBottom: 'var(--space-12)' }}>Restock Supply</h2>
+                        {restockData.name && (
+                            <div className="muted text-xs mb-16" style={{ marginBottom: 'var(--space-16)', fontWeight: 500 }}>
+                                Item: <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{restockData.name}</span>
+                            </div>
+                        )}
+                        <form onSubmit={handleRestock} className="stack-md" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-16)' }}>
                             <div>
-                                <label className="label">Quantity Received</label>
+                                <label className="label" style={{ marginBottom: 'var(--space-6)', display: 'block' }}>Quantity Received</label>
                                 <input
                                     name="restockQty"
                                     type="number"
@@ -2924,20 +3005,64 @@ const Inventory = () => {
                                     onChange={e => setRestockData({ ...restockData, quantity: e.target.value })}
                                 />
                             </div>
-                            <div>
-                                <label className="label">New Cost Price (Optional)</label>
-                                <input
-                                    name="restockCost"
-                                    type="number"
-                                    step="0.01"
-                                    className="input-field"
-                                    value={restockData.cost}
-                                    onChange={e => setRestockData({ ...restockData, cost: e.target.value })}
-                                />
-                                <div className="text-xs muted mt-4">Leave empty to keep current cost.</div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-12)' }}>
+                                <div>
+                                    <label className="label" style={{ marginBottom: 'var(--space-6)', display: 'block' }}>New Cost Price</label>
+                                    <div style={{ position: 'relative' }}>
+                                        <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 'var(--text-sm)', color: 'var(--text-muted)', pointerEvents: 'none' }}>₹</span>
+                                        <input
+                                            name="restockCost"
+                                            type="number"
+                                            step="0.01"
+                                            className="input-field"
+                                            style={{ paddingLeft: 24 }}
+                                            value={restockData.cost}
+                                            onChange={e => setRestockData({ ...restockData, cost: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="label" style={{ marginBottom: 'var(--space-6)', display: 'block' }}>Sell Price (MRP)</label>
+                                    <div style={{ position: 'relative' }}>
+                                        <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 'var(--text-sm)', color: 'var(--text-muted)', pointerEvents: 'none' }}>₹</span>
+                                        <input
+                                            name="restockSellPrice"
+                                            type="number"
+                                            step="0.01"
+                                            className="input-field"
+                                            style={{ paddingLeft: 24 }}
+                                            value={restockData.sell_price}
+                                            onChange={e => setRestockData({ ...restockData, sell_price: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                            <div style={{
+                                padding: 'var(--space-12)',
+                                borderRadius: 'var(--radius-md)',
+                                background: 'var(--surface-alt)',
+                                border: '1px solid var(--border)',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center'
+                            }}>
+                                <span style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-muted)' }}>Estimated Margin:</span>
+                                {(() => {
+                                    const m = calculateMargin(restockData.cost, restockData.sell_price, restockData.gst_rate);
+                                    const isPositive = m > 0;
+                                    return (
+                                        <span style={{ 
+                                            fontSize: 'var(--text-sm)', 
+                                            fontWeight: 700, 
+                                            color: isPositive ? 'var(--text-success, #22c55e)' : m < 0 ? 'var(--text-danger, #ef4444)' : 'var(--text-muted)' 
+                                        }}>
+                                            {m.toFixed(1)}%
+                                        </span>
+                                    );
+                                })()}
                             </div>
                             <div>
-                                <label className="label">Notes (Optional)</label>
+                                <label className="label" style={{ marginBottom: 'var(--space-6)', display: 'block' }}>Notes (Optional)</label>
                                 <textarea
                                     name="restockNotes"
                                     className="input-field"
@@ -2946,7 +3071,7 @@ const Inventory = () => {
                                     onChange={e => setRestockData({ ...restockData, notes: e.target.value })}
                                 />
                             </div>
-                            <button type="submit" className="btn btn-primary btn--full" disabled={saving}>
+                            <button type="submit" className="btn btn-primary btn--full" style={{ marginTop: 'var(--space-8)' }} disabled={saving}>
                                 {saving ? 'Restocking...' : 'Log Restock'}
                             </button>
                         </form>
@@ -3027,7 +3152,15 @@ const Inventory = () => {
                                                     className="btn btn-primary btn-sm"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        setRestockData({ id: detailItem.id, quantity: '', cost: detailItem.cost_price || 0, notes: '' });
+                                                        setRestockData({
+                                                            id: detailItem.id,
+                                                            quantity: '',
+                                                            cost: detailItem.cost_price || 0,
+                                                            sell_price: detailItem.sell_price || 0,
+                                                            gst_rate: detailItem.gst_rate || 0,
+                                                            name: detailItem.name,
+                                                            notes: ''
+                                                        });
                                                         setShowRestockModal(true);
                                                     }}
                                                 >
