@@ -26,6 +26,7 @@ const PaperInward = () => {
         unit: 'Reams',
         purchase_rate: '',
         supplier_name: '',
+        effective_date: new Date().toISOString().split('T')[0],
         notes: ''
     });
 
@@ -52,7 +53,8 @@ const PaperInward = () => {
             await api.post('/paperInventory/inward', {
                 ...formData,
                 quantity: Number(formData.quantity),
-                purchase_rate: Number(formData.purchase_rate) || 0
+                purchase_rate: Number(formData.purchase_rate) || 0,
+                effective_date: formData.effective_date || undefined
             });
             toast.success('Stock inward recorded');
             navigate('/dashboard/paper/stock');
@@ -168,6 +170,17 @@ const PaperInward = () => {
                                     onChange={(e) => setFormData({...formData, purchase_rate: e.target.value})}
                                 />
                             </div>
+                            <div className="text-xs muted mt-4">Rate is saved to rate history. Update whenever price changes.</div>
+                        </div>
+
+                        <div>
+                            <label className="label">Rate Effective Date</label>
+                            <input 
+                                type="date"
+                                className="input-field"
+                                value={formData.effective_date}
+                                onChange={(e) => setFormData({...formData, effective_date: e.target.value})}
+                            />
                         </div>
 
                         <div className="span-2">

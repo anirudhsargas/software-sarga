@@ -172,17 +172,30 @@ const paperInwardSchema = z.object({
     paper_type_id: z.preprocess(Number, z.number().int().positive()),
     branch_id: z.preprocess(Number, z.number().int().positive()),
     quantity: z.preprocess(Number, z.number().int().positive()),
-    unit: z.enum(['SHEETS', 'REAMS', 'PACKETS']).default('SHEETS'),
-    unit_cost: positiveDecimal,
-    reference_id: z.preprocess((v) => (v === '' || v === null ? null : Number(v)), z.number().int().positive().nullable()),
-    notes: z.string().optional().nullable(),
-    date_received: z.string().optional().nullable() // ISO or YYYY-MM-DD
+    unit: z.enum(['Reams', 'Packets', 'Sheets']).default('Reams'),
+    purchase_rate: z.preprocess((v) => (v === '' || v === null ? 0 : Number(v)), z.number().min(0)).default(0),
+    supplier_name: z.string().optional().nullable(),
+    effective_date: z.string().optional().nullable(),
+    notes: z.string().optional().nullable()
+});
+
+const paperRateSchema = z.object({
+    paper_type_id: z.preprocess(Number, z.number().int().positive()),
+    rate: z.preprocess(Number, z.number().positive()),
+    effective_date: z.string().optional().nullable(),
+    unit_type: z.enum(['Sheets', 'Reams', 'Packets']).default('Reams'),
+    supplier_name: z.string().optional().nullable(),
+    supplier_id: z.preprocess((v) => (v === '' || v === null ? null : Number(v)), z.number().int().positive().nullable()),
+    purchase_order_ref: z.string().optional().nullable(),
+    notes: z.string().optional().nullable()
 });
 
 const paperOutwardSchema = z.object({
     paper_type_id: z.preprocess(Number, z.number().int().positive()),
     branch_id: z.preprocess(Number, z.number().int().positive()),
     quantity: z.preprocess(Number, z.number().int().positive()),
+    unit: z.enum(['Reams', 'Packets', 'Sheets']).default('Reams'),
+    job_id: z.preprocess((v) => (v === '' || v === null ? null : Number(v)), z.number().int().positive().nullable()),
     reference_id: z.preprocess((v) => (v === '' || v === null ? null : Number(v)), z.number().int().positive().nullable()),
     reference_type: z.enum(['JOB', 'WASTE', 'SAMPLE', 'DEMO']).default('JOB'),
     notes: z.string().optional().nullable()
@@ -487,6 +500,7 @@ module.exports = {
     addPaperTypeSchema,
     paperInwardSchema,
     paperOutwardSchema,
+    paperRateSchema,
     paperAdjustmentSchema,
     paperTransferSchema,
     addVendorSchema,

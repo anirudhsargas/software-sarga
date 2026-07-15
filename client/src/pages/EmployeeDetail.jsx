@@ -180,7 +180,7 @@ const EmployeeDetail = () => {
     const [branches, setBranches] = useState([]);
 
     const user = auth.getUser();
-    const canEdit = user && (user.role === 'Admin' || user.role === 'Accountant' || user.id === employee?.id);
+    const canEdit = user && (user.role === 'Admin' || user.id === employee?.id);
     const isAdmin = user?.role === 'Admin';
 
     const lastFetchedRef = useRef({ staffId: null, currentMonth: null });
@@ -691,7 +691,7 @@ const EmployeeDetail = () => {
                                         onChange={(e) => setCurrentMonth(e.target.value)}
                                         className="employee-detail__month-selector"
                                     />
-                                    {['Admin', 'Accountant', 'Front Office', 'front office'].includes(auth.getUser()?.role) && (
+                                    {['Admin', 'Front Office'].includes(auth.getUser()?.role) && (
                                         attendanceMarkedToday ?
                                             <button
                                                 onClick={() => { const now = new Date(); setAttendanceForm(f => ({ ...f, time: now.toTimeString().slice(0, 5) })); setShowAttendanceModal(true); }}
@@ -706,7 +706,7 @@ const EmployeeDetail = () => {
                                                 ✓ Mark Attendance
                                             </button>
                                     )}
-                                    {['Admin', 'Accountant', 'Front Office', 'front office'].includes(auth.getUser()?.role) && attendanceMarkedToday && ((todayStatus || (todayRecord && todayRecord.status)) === 'Present' || (todayStatus || (todayRecord && todayRecord.status)) === 'Half Day') && (
+                                    {['Admin', 'Front Office'].includes(auth.getUser()?.role) && attendanceMarkedToday && ((todayStatus || (todayRecord && todayRecord.status)) === 'Present' || (todayStatus || (todayRecord && todayRecord.status)) === 'Half Day') && (
                                         <button
                                             onClick={markGoneNow}
                                             className="employee-detail__cta employee-detail__cta--ghost"
@@ -716,7 +716,7 @@ const EmployeeDetail = () => {
                                             Mark Gone
                                         </button>
                                     )}
-                                    {['Admin', 'Accountant', 'Front Office', 'front office'].includes(auth.getUser()?.role) && (
+                                    {['Admin', 'Front Office'].includes(auth.getUser()?.role) && (
                                         <button
                                             onClick={() => setShowPaySalaryModal(true)}
                                             className="employee-detail__cta employee-detail__cta--pay"

@@ -629,7 +629,7 @@ const Dashboard = () => {
         { key: 'operations', name: 'Stock Planning', icon: Package, path: '/dashboard/stock-planning', roles: ['Admin', 'Front Office', 'Accountant'], group: 'inventory' },
         { key: 'scanner', name: 'Scan Item', icon: Camera, path: '/dashboard/inventory/scan', roles: ['Admin', 'Front Office', 'Accountant'], group: 'inventory' },
         // Production
-        { key: 'operations', name: 'Product Library', icon: Grid, path: '/dashboard/products', roles: ['Admin', 'Front Office', 'Designer'], group: 'production' },
+        { key: 'operations', name: 'Product Library', icon: Grid, path: '/dashboard/products', roles: ['Admin', 'Front Office', 'Designer', 'Accountant'], group: 'production' },
         { key: 'operations', name: 'Plate Planning', icon: Layers, path: '/dashboard/plates', roles: ['Designer', 'Admin'], group: 'production' },
         { key: 'operations', name: 'Machine Management', icon: Settings, path: '/dashboard/machines', roles: ['Admin', 'Front Office'], group: 'production' },
         { key: 'operations', name: 'Production Tracker', icon: Layers, path: '/dashboard/production-tracker', roles: ['Admin', 'Front Office'], group: 'production' },
@@ -1245,7 +1245,7 @@ const Dashboard = () => {
                             <Route path="staff" element={<ProtectedSubRoute roles={['Admin', 'Accountant', 'Front Office']}><StaffManagement /></ProtectedSubRoute>} />
                             <Route path="employee/:staffId" element={<ProtectedSubRoute roles={['Admin', 'Accountant', 'Front Office']}><EmployeeDetail /></ProtectedSubRoute>} />
                             <Route path="branches" element={<ProtectedSubRoute roles={['Admin']}><Branches /></ProtectedSubRoute>} />
-                            <Route path="products" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Designer']}><ProductLibrary /></ProtectedSubRoute>} />
+                            <Route path="products" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Designer', 'Accountant']}><ProductLibrary /></ProtectedSubRoute>} />
                             <Route path="product-requests" element={<ProtectedSubRoute roles={['Admin', 'Accountant']}><ProductRequests /></ProtectedSubRoute>} />
                             <Route path="requests" element={<ProtectedSubRoute roles={['Admin', 'Accountant']}><IDChangeRequests /></ProtectedSubRoute>} />
                             <Route path="inventory" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><Inventory /></ProtectedSubRoute>} />

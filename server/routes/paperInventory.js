@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
-const { validate, addPaperTypeSchema, paperInwardSchema, paperOutwardSchema, _paperAdjustmentSchema, paperTransferSchema } = require('../middleware/validate');
+const { validate, addPaperTypeSchema, paperInwardSchema, paperOutwardSchema, paperRateSchema, _paperAdjustmentSchema, paperTransferSchema } = require('../middleware/validate');
 
 // --- HELPERS ---
 
@@ -59,19 +59,25 @@ function convertToSheets(quantity, unit, _category) {
 router.get('/types', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { category, search } = req.query;
-        let query = 'SELECT * FROM paper_types WHERE is_active = 1';
+        let query = `
+            SELECT t.*, rh.rate as current_rate, rh.unit_type as current_rate_unit, 
+                   rh.effective_date as rate_effective_date, rh.supplier_name as rate_supplier
+            FROM paper_types t
+            LEFT JOIN paper_rate_history rh ON t.current_rate_id = rh.id
+            WHERE t.is_active = 1
+        `;
         const params = [];
 
         if (category) {
-            query += ' AND category = ?';
+            query += ' AND t.category = ?';
             params.push(category);
         }
         if (search) {
-            query += ' AND (size_name LIKE ? OR brand LIKE ?)';
+            query += ' AND (t.size_name LIKE ? OR t.brand LIKE ?)';
             params.push(`%${search}%`, `%${search}%`);
         }
 
-        query += ' ORDER BY category, size_name, gsm';
+        query += ' ORDER BY t.category, t.size_name, t.gsm';
         const [rows] = await pool.query(query, params);
         res.json(rows);
     } catch (err) {
@@ -99,9 +105,11 @@ router.get('/stock', authenticateToken, authorizeRoles('Admin', 'Accountant', 'F
         const { branch_id, category } = req.query;
         let query = `
             SELECT s.*, t.category, t.size_name, t.width_mm, t.height_mm, t.gsm, t.brand,
+                   t.current_rate_id, rh.rate as current_rate, rh.unit_type as current_rate_unit,
                    COALESCE(sb.name, b.name) as branch_name
                 FROM paper_stock_summary s
                 JOIN paper_types t ON s.paper_type_id = t.id
+                LEFT JOIN paper_rate_history rh ON t.current_rate_id = rh.id
                 LEFT JOIN branches b ON s.branch_id = b.id
                 LEFT JOIN sarga_branches sb ON s.branch_id = sb.id
                 WHERE 1=1
@@ -129,10 +137,10 @@ router.post('/inward', authenticateToken, authorizeRoles('Admin', 'Accountant', 
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
-        const { paper_type_id, branch_id, quantity, unit, purchase_rate, supplier_name, notes } = req.body;
+        const { paper_type_id, branch_id, quantity, unit, purchase_rate, supplier_name, effective_date, notes } = req.body;
 
-        // Fetch category for conversion
-        const [[paperType]] = await connection.query('SELECT category FROM paper_types WHERE id = ?', [paper_type_id]);
+        // Fetch paper type info
+        const [[paperType]] = await connection.query('SELECT category, current_rate_id FROM paper_types WHERE id = ? FOR UPDATE', [paper_type_id]);
         if (!paperType) throw new Error('Invalid paper type');
 
         const totalSheets = convertToSheets(quantity, unit, paperType.category);
@@ -142,6 +150,23 @@ router.post('/inward', authenticateToken, authorizeRoles('Admin', 'Accountant', 
             INSERT INTO paper_stock_movements (paper_type_id, branch_id, movement_type, quantity_sheets, unit_type, unit_quantity, rate_per_unit, supplier_name, notes, created_by)
             VALUES (?, ?, 'INWARD', ?, ?, ?, ?, ?, ?, ?)
         `, [paper_type_id, branch_id, totalSheets, unit, quantity, purchase_rate, supplier_name, notes, req.user.id]);
+
+        // Create rate history record if rate is provided and differs from current
+        if (purchase_rate > 0) {
+            const [[currentRateRec]] = await connection.query(
+                'SELECT rate FROM paper_rate_history WHERE id = ?', [paperType.current_rate_id]
+            );
+            const currentRate = currentRateRec ? Number(currentRateRec.rate) : 0;
+
+            if (Math.abs(currentRate - purchase_rate) > 0.01 || !paperType.current_rate_id) {
+                const rateDate = effective_date || new Date().toISOString().split('T')[0];
+                const [rateResult] = await connection.query(`
+                    INSERT INTO paper_rate_history (paper_type_id, rate, effective_date, unit_type, supplier_name, notes, created_by)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                `, [paper_type_id, purchase_rate, rateDate, unit, supplier_name, `Inward: ${quantity} ${unit}`, req.user.id]);
+                await connection.query('UPDATE paper_types SET current_rate_id = ? WHERE id = ?', [rateResult.insertId, paper_type_id]);
+            }
+        }
 
         // Update summary
         await updateStockAndCheckAlerts(connection, paper_type_id, branch_id, totalSheets);
@@ -188,18 +213,19 @@ router.post('/outward', authenticateToken, authorizeRoles('Admin', 'Accountant',
 
         // Update job cost if job_id is provided
         if (job_id) {
-            // Get last purchase rate for this paper type at this branch (or overall)
-            const [[lastInward]] = await connection.query(`
-                SELECT rate_per_unit, unit_type FROM paper_stock_movements 
-                WHERE paper_type_id = ? AND movement_type = 'INWARD' 
-                ORDER BY created_at DESC LIMIT 1
+            // Get current rate from paper_rate_history via paper_types
+            const [[rateRec]] = await connection.query(`
+                SELECT rh.rate, rh.unit_type
+                FROM paper_types t
+                LEFT JOIN paper_rate_history rh ON t.current_rate_id = rh.id
+                WHERE t.id = ?
             `, [paper_type_id]);
 
-            if (lastInward) {
+            if (rateRec && rateRec.rate > 0) {
                 let ratePerSheet = 0;
-                if (lastInward.unit_type === 'Reams') ratePerSheet = lastInward.rate_per_unit / 500;
-                else if (lastInward.unit_type === 'Packets') ratePerSheet = lastInward.rate_per_unit / 100;
-                else ratePerSheet = lastInward.rate_per_unit;
+                if (rateRec.unit_type === 'Reams') ratePerSheet = rateRec.rate / 500;
+                else if (rateRec.unit_type === 'Packets') ratePerSheet = rateRec.rate / 100;
+                else ratePerSheet = rateRec.rate;
 
                 const paperCost = totalSheets * ratePerSheet;
 
@@ -316,7 +342,71 @@ router.get('/movements', authenticateToken, authorizeRoles('Admin', 'Accountant'
     }
 });
 
-// 8. GET /alerts - Current low stock alerts
+// 8. GET /types/:id/rates - Rate history for a paper type
+router.get('/types/:id/rates', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
+    try {
+        const [rates] = await pool.query(`
+            SELECT rh.*, s.name as created_by_name
+            FROM paper_rate_history rh
+            LEFT JOIN sarga_staff s ON rh.created_by = s.id
+            WHERE rh.paper_type_id = ?
+            ORDER BY rh.effective_date DESC, rh.created_at DESC
+        `, [req.params.id]);
+        res.json(rates);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// 9. POST /types/:id/rates - Add new rate for a paper type
+router.post('/types/:id/rates', authenticateToken, authorizeRoles('Admin', 'Accountant'), validate(paperRateSchema), async (req, res) => {
+    const { id } = req.params;
+    const { rate, effective_date, unit_type, supplier_name, supplier_id, purchase_order_ref, notes } = req.body;
+    const connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+        const [rateResult] = await connection.query(`
+            INSERT INTO paper_rate_history (paper_type_id, rate, effective_date, unit_type, supplier_name, supplier_id, purchase_order_ref, notes, created_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [id, rate, effective_date || new Date().toISOString().split('T')[0], unit_type || 'Reams', supplier_name || null, supplier_id || null, purchase_order_ref || null, notes || null, req.user.id]);
+        await connection.query('UPDATE paper_types SET current_rate_id = ? WHERE id = ?', [rateResult.insertId, id]);
+        await connection.commit();
+        res.status(201).json({ id: rateResult.insertId, message: 'Rate added successfully' });
+    } catch (err) {
+        await connection.rollback();
+        res.status(500).json({ message: err.message });
+    } finally {
+        connection.release();
+    }
+});
+
+// 10. GET /types/:id/current-rate - Get current rate for a paper type
+router.get('/types/:id/current-rate', authenticateToken, async (req, res) => {
+    try {
+        const [[row]] = await pool.query(`
+            SELECT t.id, t.size_name, t.gsm, t.category,
+                   rh.rate as current_rate, rh.effective_date, rh.unit_type, rh.supplier_name
+            FROM paper_types t
+            LEFT JOIN paper_rate_history rh ON t.current_rate_id = rh.id
+            WHERE t.id = ?
+        `, [req.params.id]);
+        if (!row) return res.status(404).json({ message: 'Paper type not found' });
+        res.json({
+            id: row.id,
+            size_name: row.size_name,
+            gsm: row.gsm,
+            category: row.category,
+            rate: Number(row.current_rate) || 0,
+            effective_date: row.effective_date,
+            unit_type: row.unit_type || 'Reams',
+            supplier_name: row.supplier_name
+        });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// 11. GET /alerts - Current low stock alerts
 router.get('/alerts', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const [rows] = await pool.query(`

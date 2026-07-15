@@ -193,7 +193,7 @@ router.get('/:id/salary-info', authenticateToken, routeCache(STAFF_TTL, (req) =>
 });
 
 // Pay salary
-router.post('/:id/pay-salary', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), salaryPaymentLimiter, async (req, res) => {
+router.post('/:id/pay-salary', authenticateToken, authorizeRoles('Admin', 'Front Office'), salaryPaymentLimiter, async (req, res) => {
     try {
         const { id } = req.params;
         const {
@@ -340,7 +340,7 @@ router.post('/:id/pay-salary', authenticateToken, authorizeRoles('Admin', 'Accou
 });
 
 // Bulk salary payment for selected staff
-router.post('/bulk-pay-salary', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
+router.post('/bulk-pay-salary', authenticateToken, authorizeRoles('Admin', 'Front Office'), async (req, res) => {
     try {
         const {
             staff_ids,
@@ -572,9 +572,9 @@ router.post('/:id/attendance', authenticateToken, validate(attendanceSchema), as
         : null;
 
     // Authorization
-    const allowedRoles = ["Admin", "Accountant", "Front Office", "front office"];
+    const allowedRoles = ["Admin", "Front Office"];
     if (!allowedRoles.includes(req.user.role)) {
-        return res.status(403).json({ message: 'Only Admin/Accountant/Front Office can record attendance' });
+        return res.status(403).json({ message: 'Only Admin/Front Office can record attendance' });
     }
 
     if (!attendance_date || !status) {

@@ -1,8 +1,9 @@
 import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect } from 'react';
 import { 
-    Package, ArrowRight, ArrowLeft, AlertTriangle, TrendingUp, 
-    Search, Filter, MapPin, Layers, RefreshCcw, Plus, Minus, History, Repeat, ShoppingCart, X
+    Package, AlertTriangle, TrendingUp, 
+    Search, MapPin, Layers, RefreshCcw, Plus, Minus, History, Repeat, ShoppingCart, X,
+    IndianRupee, FileText, Tag, Eye
 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../services/api';
@@ -11,6 +12,7 @@ import './InventoryModern.css';
 
 import BranchSelect from '../components/ui/BranchSelect';
 import PageContainer from '../components/ui/PageContainer';
+
 const PaperStockDashboard = () => {
     useSEO('Paper Stock Dashboard');
 
@@ -25,6 +27,16 @@ const PaperStockDashboard = () => {
     });
 
     const [tabCounts, setTabCounts] = useState({ general: 0, paper: 0, consumables: 0 });
+
+    // Detail panel
+    const [detailItem, setDetailItem] = useState(null);
+    const [detailTab, setDetailTab] = useState('details');
+    const [rateHistory, setRateHistory] = useState([]);
+    const [detailLoading, setDetailLoading] = useState(false);
+
+    // Add rate modal
+    const [showAddRateModal, setShowAddRateModal] = useState(false);
+    const [newRate, setNewRate] = useState({ rate: '', effective_date: new Date().toISOString().split('T')[0], unit_type: 'Reams', supplier_name: '', notes: '' });
 
     useEffect(() => {
         let isMounted = true;
@@ -74,10 +86,52 @@ const PaperStockDashboard = () => {
         fetchStock();
     }, [filters]);
 
+    const handleOpenDetail = async (item) => {
+        setDetailItem(item);
+        setDetailTab('details');
+        setDetailLoading(true);
+        try {
+            const ratesRes = await api.get(`/paperInventory/types/${item.paper_type_id}/rates`);
+            setRateHistory(ratesRes.data || []);
+        } catch {
+            setRateHistory([]);
+        } finally {
+            setDetailLoading(false);
+        }
+    };
+
+    const handleAddRate = async () => {
+        if (!newRate.rate || newRate.rate <= 0) { toast.error('Valid rate required'); return; }
+        try {
+            await api.post(`/paperInventory/types/${detailItem.paper_type_id}/rates`, {
+                rate: Number(newRate.rate),
+                effective_date: newRate.effective_date,
+                unit_type: newRate.unit_type,
+                supplier_name: newRate.supplier_name || undefined,
+                notes: newRate.notes || undefined
+            });
+            toast.success('Rate added');
+            setShowAddRateModal(false);
+            setNewRate({ rate: '', effective_date: new Date().toISOString().split('T')[0], unit_type: 'Reams', supplier_name: '', notes: '' });
+            const ratesRes = await api.get(`/paperInventory/types/${detailItem.paper_type_id}/rates`);
+            setRateHistory(ratesRes.data || []);
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Failed to add rate');
+        }
+    };
+
+    // Deduplicate stock items by paper_type_id for the detail view
+    const uniquePaperTypes = stock.reduce((acc, item) => {
+        if (!acc.find(a => a.paper_type_id === item.paper_type_id)) {
+            acc.push(item);
+        }
+        return acc;
+    }, []);
+
     const stats = {
         totalSheets: stock.reduce((acc, item) => acc + Number(item.current_sheets), 0),
         lowStockCount: stock.filter(item => Number(item.current_sheets) < Number(item.reorder_level)).length,
-        totalSkus: stock.length
+        totalSkus: uniquePaperTypes.length
     };
 
     return (
@@ -165,7 +219,6 @@ const PaperStockDashboard = () => {
 
             {/* ─── Toolbar ─── */}
             <div className="inv-toolbar">
-                {/* Row 1: Search and Primary Action */}
                 <div className="inv-toolbar-row">
                     <div className="inv-search">
                         <span className="inv-search-icon"><Search size={16} /></span>
@@ -186,7 +239,6 @@ const PaperStockDashboard = () => {
                     </button>
                 </div>
 
-                {/* Row 2: Filters and Secondary Actions */}
                 <div className="inv-toolbar-row justify-between wrap gap-sm">
                     <div className="inv-chips">
                         <div className="inv-chip">
@@ -229,99 +281,256 @@ const PaperStockDashboard = () => {
                 </div>
             </div>
 
-            {/* Stock List */}
-            <div className="inv-table-container">
-                <div className="inv-table-scroll">
-                    <table className="inv-table">
-                        <thead>
-                            <tr>
-                                <th>Paper Type</th>
-                                <th>Branch</th>
-                                <th>Category</th>
-                                <th>Current Stock</th>
-                                <th>Unit Equivalent</th>
-                                <th>Status</th>
-                                <th style={{ textAlign: 'right', width: 80 }}>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loading ? (
+            {/* ─── Main content with detail panel ─── */}
+            <div className="inv-flex-row">
+                {/* Stock List */}
+                <div className="inv-table-container" style={{ flex: 1, minWidth: 0 }}>
+                    <div className="inv-table-scroll">
+                        <table className="inv-table">
+                            <thead>
                                 <tr>
-                                    <td colSpan="7" className="text-center p-xl">
-                                        <RefreshCcw className="animate-spin muted" size={32} />
-                                    </td>
+                                    <th>Paper Type</th>
+                                    <th>Branch</th>
+                                    <th>Category</th>
+                                    <th>Current Stock</th>
+                                    <th>Unit Equivalent</th>
+                                    <th>Status</th>
+                                    <th style={{ textAlign: 'right', width: 80 }}>Actions</th>
                                 </tr>
-                            ) : stock.length === 0 ? (
-                                <tr>
-                                    <td colSpan="7" className="text-center p-xl muted">
-                                        No paper stock found.
-                                    </td>
-                                </tr>
-                            ) : (
-                                stock.map(item => {
-                                    const isLow = Number(item.current_sheets) < Number(item.reorder_level);
-                                    // Calculate reams/packets for laser
-                                    let unitEquivalent = '-';
-                                    if (item.category === 'LASER') {
-                                        const reams = Math.floor(item.current_sheets / 500);
-                                        const extra = item.current_sheets % 500;
-                                        unitEquivalent = `${reams} Reams ${extra > 0 ? `+ ${extra} Sh` : ''}`;
-                                    }
+                            </thead>
+                            <tbody>
+                                {loading ? (
+                                    <tr>
+                                        <td colSpan="7" className="text-center p-xl">
+                                            <RefreshCcw className="animate-spin muted" size={32} />
+                                        </td>
+                                    </tr>
+                                ) : stock.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="7" className="text-center p-xl muted">
+                                            No paper stock found.
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    stock.map(item => {
+                                        const isLow = Number(item.current_sheets) < Number(item.reorder_level);
+                                        let unitEquivalent = '-';
+                                        if (item.category === 'LASER') {
+                                            const reams = Math.floor(item.current_sheets / 500);
+                                            const extra = item.current_sheets % 500;
+                                            unitEquivalent = `${reams} Reams ${extra > 0 ? `+ ${extra} Sh` : ''}`;
+                                        }
 
-                                    return (
-                                        <tr key={`${item.paper_type_id}-${item.branch_id}`}>
-                                            <td>
-                                                <div className="font-bold">{item.size_name}</div>
-                                                <div className="text-xs muted">{item.gsm ? `${item.gsm} GSM` : ''} {item.brand ? `• ${item.brand}` : ''}</div>
-                                            </td>
-                                            <td>
-                                                <div className="row items-center gap-xs">
-                                                    <MapPin size={14} className="muted" />
-                                                    {item.branch_name}
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <span className={`inv-pill ${item.category === 'LASER' ? 'inv-pill--ok' : 'inv-pill--low'}`} style={{ textTransform: 'uppercase' }}>
-                                                    {item.category}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <div style={{ fontSize: '14px', fontWeight: 700, color: isLow ? 'var(--error)' : 'inherit' }}>
-                                                    {Number(item.current_sheets).toLocaleString()} <span className="text-xs font-normal muted">Sheets</span>
-                                                </div>
-                                            </td>
-                                            <td className="muted text-sm">{unitEquivalent}</td>
-                                            <td>
-                                                <span className={`inv-pill ${isLow ? 'inv-pill--low' : 'inv-pill--ok'}`}>
-                                                    {isLow ? 'Low Stock' : 'Good'}
-                                                </span>
-                                            </td>
-                                            <td style={{ textAlign: 'right' }}>
-                                                <div className="inv-actions justify-end">
-                                                    <button 
-                                                        className="inv-action-btn" 
-                                                        title="Quick Inward"
-                                                        onClick={() => navigate('/dashboard/paper/inward', { state: { paper_type_id: item.paper_type_id, branch_id: item.branch_id } })}
-                                                    >
-                                                        <Plus size={14} />
-                                                    </button>
-                                                    <button 
-                                                        className="inv-action-btn" 
-                                                        title="Quick Outward"
-                                                        onClick={() => navigate('/dashboard/paper/outward', { state: { paper_type_id: item.paper_type_id, branch_id: item.branch_id } })}
-                                                    >
-                                                        <Minus size={14} />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })
-                            )}
-                        </tbody>
-                    </table>
+                                        return (
+                                            <tr key={`${item.paper_type_id}-${item.branch_id}`} onClick={() => handleOpenDetail(item)} style={{ cursor: 'pointer' }}>
+                                                <td>
+                                                    <div className="font-bold">{item.size_name}</div>
+                                                    <div className="text-xs muted">{item.gsm ? `${item.gsm} GSM` : ''} {item.brand ? `• ${item.brand}` : ''}</div>
+                                                </td>
+                                                <td>
+                                                    <div className="row items-center gap-xs">
+                                                        <MapPin size={14} className="muted" />
+                                                        {item.branch_name}
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <span className={`inv-pill ${item.category === 'LASER' ? 'inv-pill--ok' : 'inv-pill--low'}`} style={{ textTransform: 'uppercase' }}>
+                                                        {item.category}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <div style={{ fontSize: '14px', fontWeight: 700, color: isLow ? 'var(--error)' : 'inherit' }}>
+                                                        {Number(item.current_sheets).toLocaleString()} <span className="text-xs font-normal muted">Sheets</span>
+                                                    </div>
+                                                </td>
+                                                <td className="muted text-sm">{unitEquivalent}</td>
+                                                <td>
+                                                    <span className={`inv-pill ${isLow ? 'inv-pill--low' : 'inv-pill--ok'}`}>
+                                                        {isLow ? 'Low Stock' : 'Good'}
+                                                    </span>
+                                                </td>
+                                                <td style={{ textAlign: 'right' }}>
+                                                    <div className="inv-actions justify-end">
+                                                        <button 
+                                                            className="inv-action-btn" 
+                                                            title="Quick Inward"
+                                                            onClick={(e) => { e.stopPropagation(); navigate('/dashboard/paper/inward', { state: { paper_type_id: item.paper_type_id, branch_id: item.branch_id } }); }}
+                                                        >
+                                                            <Plus size={14} />
+                                                        </button>
+                                                        <button 
+                                                            className="inv-action-btn" 
+                                                            title="Quick Outward"
+                                                            onClick={(e) => { e.stopPropagation(); navigate('/dashboard/paper/outward', { state: { paper_type_id: item.paper_type_id, branch_id: item.branch_id } }); }}
+                                                        >
+                                                            <Minus size={14} />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
+
+                {/* Detail Panel */}
+                {detailItem && (
+                    <div className="inv-detail-panel">
+                        <div className="inv-detail-header">
+                            <h3 className="inv-detail-title">{detailItem.size_name}</h3>
+                            <button className="inv-action-btn" onClick={() => setDetailItem(null)}><X size={16} /></button>
+                        </div>
+                        <div className="inv-detail-tabs">
+                            {['details', 'rates'].map(tab => (
+                                <button key={tab}
+                                    onClick={() => setDetailTab(tab)}
+                                    className={`inv-detail-tab ${detailTab === tab ? 'inv-detail-tab--active' : ''}`}
+                                >
+                                    {tab === 'details' ? <><FileText size={12} />Details</> : <><TrendingUp size={12} />Rates</>}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="inv-detail-body">
+                            {detailTab === 'details' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                    <div className="inv-spec-grid">
+                                        <div className="inv-spec-item">
+                                            <span className="inv-spec-label">Size</span>
+                                            <span className="inv-spec-value">{detailItem.size_name}</span>
+                                        </div>
+                                        {detailItem.gsm && <div className="inv-spec-item">
+                                            <span className="inv-spec-label">GSM</span>
+                                            <span className="inv-spec-value">{detailItem.gsm}</span>
+                                        </div>}
+                                        {detailItem.brand && <div className="inv-spec-item">
+                                            <span className="inv-spec-label">Brand</span>
+                                            <span className="inv-spec-value">{detailItem.brand}</span>
+                                        </div>}
+                                        <div className="inv-spec-item">
+                                            <span className="inv-spec-label">Category</span>
+                                            <span className="inv-spec-value">{detailItem.category}</span>
+                                        </div>
+                                        {detailItem.width_mm && <div className="inv-spec-item">
+                                            <span className="inv-spec-label">Width</span>
+                                            <span className="inv-spec-value">{detailItem.width_mm} mm</span>
+                                        </div>}
+                                        {detailItem.height_mm && <div className="inv-spec-item">
+                                            <span className="inv-spec-label">Height</span>
+                                            <span className="inv-spec-value">{detailItem.height_mm} mm</span>
+                                        </div>}
+                                    </div>
+                                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: 8, marginTop: 4 }}>
+                                        <div className="inv-detail-row">
+                                            <span className="inv-detail-label">Current Stock</span>
+                                            <span className="inv-detail-value" style={{ fontWeight: 700 }}>
+                                                {Number(detailItem.current_sheets).toLocaleString()} Sheets
+                                            </span>
+                                        </div>
+                                        <div className="inv-detail-row">
+                                            <span className="inv-detail-label">Reorder Level</span>
+                                            <span className="inv-detail-value">{detailItem.reorder_level || 0} Sheets</span>
+                                        </div>
+                                        <div className="inv-detail-row">
+                                            <span className="inv-detail-label">Branch</span>
+                                            <span className="inv-detail-value">{detailItem.branch_name}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                            {detailTab === 'rates' && (
+                                <div>
+                                    <div className="inv-section-header">
+                                        <span className="inv-section-label">Rate change history</span>
+                                        <button className="btn btn-secondary btn-sm" onClick={() => setShowAddRateModal(true)}><Plus size={14} /> Add Rate</button>
+                                    </div>
+                                    {detailLoading ? (
+                                        <div className="muted" style={{ fontSize: 12, textAlign: 'center', padding: 16 }}>Loading...</div>
+                                    ) : rateHistory.length === 0 ? (
+                                        <div className="muted" style={{ fontSize: 12, textAlign: 'center', padding: 16 }}>No rate history recorded. Add a rate or record an inward entry with a rate.</div>
+                                    ) : (
+                                        rateHistory.map(r => (
+                                            <div key={r.id} className={`inv-rate-item ${r.id === detailItem.current_rate_id ? 'inv-rate-item--active' : ''}`}>
+                                                <div>
+                                                    <div className="inv-rate-amount">₹{Number(r.rate).toLocaleString()}/{r.unit_type || 'Reams'}</div>
+                                                    <div className="inv-rate-meta">
+                                                        {r.effective_date ? new Date(r.effective_date).toLocaleDateString() : '-'}
+                                                        {r.supplier_name && ` • ${r.supplier_name}`}
+                                                    </div>
+                                                    {r.notes && <div className="inv-rate-meta" style={{ fontSize: 11 }}>{r.notes}</div>}
+                                                </div>
+                                                <div>
+                                                    {r.id === detailItem.current_rate_id && (
+                                                        <span className="inv-rate-badge">ACTIVE</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
+
+            {/* Add Rate Modal */}
+            {showAddRateModal && (
+                <div className="modal-backdrop">
+                    <div className="modal" style={{ maxWidth: '420px' }}>
+                        <div className="modal-header">
+                            <h2 className="section-title">Add Paper Rate</h2>
+                            <button className="modal-close" onClick={() => setShowAddRateModal(false)}><X size={20} /></button>
+                        </div>
+                        <div className="stack-md" style={{ padding: '0 16px 16px' }}>
+                            <div className="inv-detail-row" style={{ padding: '8px 0' }}>
+                                <span className="inv-detail-label">Paper</span>
+                                <span className="inv-detail-value font-bold">{detailItem?.size_name} {detailItem?.gsm ? `${detailItem.gsm} GSM` : ''}</span>
+                            </div>
+                            <div>
+                                <label className="label">Rate (₹) *</label>
+                                <input type="number" step="0.01" className="input-field" required autoFocus
+                                    value={newRate.rate}
+                                    onChange={e => setNewRate({ ...newRate, rate: e.target.value })}
+                                    placeholder="e.g. 450.00" />
+                            </div>
+                            <div>
+                                <label className="label">Per Unit</label>
+                                <select className="input-field" value={newRate.unit_type}
+                                    onChange={e => setNewRate({ ...newRate, unit_type: e.target.value })}>
+                                    <option value="Reams">Ream (500 sheets)</option>
+                                    <option value="Packets">Packet (100 sheets)</option>
+                                    <option value="Sheets">Sheet</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="label">Effective Date</label>
+                                <input type="date" className="input-field"
+                                    value={newRate.effective_date}
+                                    onChange={e => setNewRate({ ...newRate, effective_date: e.target.value })} />
+                            </div>
+                            <div>
+                                <label className="label">Supplier Name</label>
+                                <input className="input-field" placeholder="e.g. ABC Paper Mill"
+                                    value={newRate.supplier_name}
+                                    onChange={e => setNewRate({ ...newRate, supplier_name: e.target.value })} />
+                            </div>
+                            <div>
+                                <label className="label">Notes</label>
+                                <input className="input-field" placeholder="Optional notes"
+                                    value={newRate.notes}
+                                    onChange={e => setNewRate({ ...newRate, notes: e.target.value })} />
+                            </div>
+                            <div className="row justify-end gap-sm">
+                                <button type="button" className="btn btn-ghost" onClick={() => setShowAddRateModal(false)}>Cancel</button>
+                                <button type="button" className="btn btn-primary" onClick={handleAddRate}>Save Rate</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </PageContainer>
     );
 };

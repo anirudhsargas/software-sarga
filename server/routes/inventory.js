@@ -40,16 +40,18 @@ async function findInventoryByScannedCode(rawCode) {
     let rows;
     const itemIdMatch = normalized.match(/^ITEM-(\d+)$/i);
 
+    const disabledProductFilter = 'NOT EXISTS (SELECT 1 FROM sarga_products WHERE inventory_item_id = i.id AND is_deleted = 0 AND is_active = 0)';
+
     if (itemIdMatch) {
         [rows] = await pool.query(
-            'SELECT i.*, p.image_url FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id AND p.is_active = 1 AND p.is_deleted = 0 WHERE i.id = ? LIMIT 1',
+            `SELECT i.*, p.image_url FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id AND p.is_active = 1 AND p.is_deleted = 0 WHERE i.id = ? AND ${disabledProductFilter} LIMIT 1`,
             [itemIdMatch[1]]
         );
         return { normalized, item: rows[0] || null, matchType: rows[0] ? 'fallback-id' : null };
     }
 
     [rows] = await pool.query(
-        "SELECT i.*, p.image_url FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id AND p.is_active = 1 AND p.is_deleted = 0 WHERE REPLACE(UPPER(i.sku), ' ', '') = ? LIMIT 1",
+        `SELECT i.*, p.image_url FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id AND p.is_active = 1 AND p.is_deleted = 0 WHERE REPLACE(UPPER(i.sku), ' ', '') = ? AND ${disabledProductFilter} LIMIT 1`,
         [normalized]
     );
     return { normalized, item: rows[0] || null, matchType: rows[0] ? 'sku' : null };
@@ -125,6 +127,8 @@ router.get('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant'
             isDeletedFilter = '1=1';
         }
         whereClauses.push(isDeletedFilter);
+        // Exclude inventory items linked to a disabled (is_active=0) product
+        whereClauses.push(`NOT EXISTS (SELECT 1 FROM sarga_products WHERE inventory_item_id = i.id AND is_deleted = 0 AND is_active = 0)`);
         let joinClauses = [];
         let selectExtra = '';
 
@@ -259,13 +263,14 @@ router.get('/inventory/low-stock', authenticateToken, authorizeRoles('Admin', 'A
     try {
         const { branchId: filterBranchId } = await branchFilter(req, { column: 'bs.branch_id', allowPrivilegedQuery: true, queryKey: 'branch_id' });
 
-        let where = '';
+        const disabledFilter = 'NOT EXISTS (SELECT 1 FROM sarga_products WHERE inventory_item_id = i.id AND is_deleted = 0 AND is_active = 0)';
+        let where = `WHERE ${disabledFilter}`;
         let params = [];
         if (filterBranchId) {
-            where = 'WHERE bs.branch_id = ? AND bs.quantity <= COALESCE(i.reorder_level, 10)';
+            where += ' AND bs.branch_id = ? AND bs.quantity <= COALESCE(i.reorder_level, 10)';
             params.push(filterBranchId);
         } else {
-            where = 'WHERE i.quantity <= COALESCE(i.reorder_level, 10)';
+            where += ' AND i.quantity <= COALESCE(i.reorder_level, 10)';
         }
 
         const [rows] = await pool.query(
