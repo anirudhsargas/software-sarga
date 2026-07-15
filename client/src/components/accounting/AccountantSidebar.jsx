@@ -15,7 +15,7 @@ const LINKS = [
   { to: '/accounting/expenses', icon: Receipt, label: 'Expenses', key: 'finance' },
   { to: '/accounting/vendors', icon: Building2, label: 'Vendors', key: 'finance' },
   { to: '/accounting/customers', icon: Users, label: 'Customers', key: 'customers' },
-  { to: '/dashboard/products', icon: Grid, label: 'Product Library', key: 'products' },
+  { to: '/accounting/products', icon: Grid, label: 'Product Library', key: 'operations' },
   { to: '/accounting/purchases', icon: ShoppingCart, label: 'Purchases', key: 'billing' },
   { to: '/accounting/payments', icon: CreditCard, label: 'Payments', key: 'billing' },
   { to: '/accounting/ledger', icon: BookOpen, label: 'Ledger', key: 'internal' },

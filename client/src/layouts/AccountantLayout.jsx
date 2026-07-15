@@ -21,6 +21,7 @@ const AttendanceSalary = React.lazy(() => import('../pages/AttendanceSalary'));
 const RecurringInvoices = React.lazy(() => import('../pages/RecurringInvoices'));
 const UploadBills = React.lazy(() => import('../pages/UploadBills'));
 const PaymentVerification = React.lazy(() => import('../pages/PaymentVerification'));
+const ProductLibrary = React.lazy(() => import('../pages/ProductLibrary'));
 
 export default function AccountantLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -89,6 +90,7 @@ export default function AccountantLayout() {
               <Route path="banks" element={<InternalTransfers />} />
               <Route path="bills" element={<UploadBills />} />
               <Route path="approvals" element={<PaymentVerification />} />
+              <Route path="products" element={<ProductLibrary />} />
               <Route path="reports" element={<Reports />} />
               <Route path="salary" element={<AttendanceSalary />} />
               <Route path="attendance-records" element={<AttendanceSalary />} />

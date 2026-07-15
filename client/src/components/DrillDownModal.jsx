@@ -22,7 +22,7 @@ const METRIC_CONFIG = {
     label: "Today's Jobs",
     cols: ['Customer', 'Work', 'Amount', 'Status'],
     cellKey: ['customer_name', 'job_number', 'total_amount', 'status'],
-    hasAmountExpand: false,
+    hasAmountExpand: true,
   },
   todays_expenses: {
     label: "Today's Expenses",
@@ -34,7 +34,7 @@ const METRIC_CONFIG = {
     label: 'In Progress Jobs',
     cols: ['Customer', 'Work', 'Amount', 'Status'],
     cellKey: ['customer_name', 'job_number', 'total_amount', 'status'],
-    hasAmountExpand: false,
+    hasAmountExpand: true,
   },
   low_stock_items: {
     label: 'Low Stock Items',
@@ -46,7 +46,7 @@ const METRIC_CONFIG = {
     label: 'Urgent / Overdue Jobs',
     cols: ['Customer', 'Work', 'Amount', 'Status'],
     cellKey: ['customer_name', 'job_number', 'total_amount', 'status'],
-    hasAmountExpand: false,
+    hasAmountExpand: true,
   },
 };
 
@@ -224,6 +224,54 @@ const DetailRow = ({ record, metric, config, onClose }) => {
                 </div>
                 <div className="drilldown-expanded__item">
                   <span className="drilldown-expanded__label"><Calendar size={12} /> Date</span>
+                  <span className="drilldown-expanded__value drilldown-expanded__value--time">{formatDate(record.created_at)}</span>
+                </div>
+              </>
+            )}
+            {(metric === 'todays_jobs' || metric === 'in_progress_jobs') && (
+              <>
+                <div className="drilldown-expanded__item">
+                  <span className="drilldown-expanded__label">Job Name</span>
+                  <span className="drilldown-expanded__value">{record.job_name || '—'}</span>
+                </div>
+                <div className="drilldown-expanded__item">
+                  <span className="drilldown-expanded__label">Paid</span>
+                  <span className="drilldown-expanded__value">{fmt(record.advance_paid)}</span>
+                </div>
+                <div className="drilldown-expanded__item">
+                  <span className="drilldown-expanded__label">Balance</span>
+                  <span className="drilldown-expanded__value drilldown-expanded__value--balance">{fmt(record.balance_amount)}</span>
+                </div>
+                <div className="drilldown-expanded__item">
+                  <span className="drilldown-expanded__label">Payment</span>
+                  <span className="drilldown-expanded__value">{record.payment_status || '—'}</span>
+                </div>
+                <div className="drilldown-expanded__item">
+                  <span className="drilldown-expanded__label"><Clock size={12} /> Created</span>
+                  <span className="drilldown-expanded__value drilldown-expanded__value--time">{formatDate(record.created_at)}</span>
+                </div>
+              </>
+            )}
+            {metric === 'urgent_overdue_jobs' && (
+              <>
+                <div className="drilldown-expanded__item">
+                  <span className="drilldown-expanded__label">Job Name</span>
+                  <span className="drilldown-expanded__value">{record.job_name || '—'}</span>
+                </div>
+                <div className="drilldown-expanded__item">
+                  <span className="drilldown-expanded__label">Priority</span>
+                  <span className="drilldown-expanded__value drilldown-expanded__value--priority">{record.priority || '—'}</span>
+                </div>
+                <div className="drilldown-expanded__item">
+                  <span className="drilldown-expanded__label">Delivery Date</span>
+                  <span className="drilldown-expanded__value drilldown-expanded__value--time">{record.delivery_date || '—'}</span>
+                </div>
+                <div className="drilldown-expanded__item">
+                  <span className="drilldown-expanded__label">Payment</span>
+                  <span className="drilldown-expanded__value">{record.payment_status || '—'}</span>
+                </div>
+                <div className="drilldown-expanded__item">
+                  <span className="drilldown-expanded__label"><Clock size={12} /> Created</span>
                   <span className="drilldown-expanded__value drilldown-expanded__value--time">{formatDate(record.created_at)}</span>
                 </div>
               </>
