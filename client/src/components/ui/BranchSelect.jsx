@@ -6,11 +6,12 @@ import auth from '../../services/auth';
 const ADMIN_ROLES = ['admin', 'super_admin'];
 
 const BranchSelect = ({ children, className, style, ...props }) => {
-    const { getBranchName } = useBranches();
+    const { getBranchName, assignedBranches } = useBranches();
     const user = auth.getUser();
     const isAdmin = ADMIN_ROLES.includes(user?.role?.toLowerCase());
+    const hasMultipleBranches = assignedBranches && assignedBranches.length > 1;
 
-    if (!isAdmin) {
+    if (!isAdmin && !hasMultipleBranches) {
         const assignedBranchId = user?.branch_id;
         const branchName = getBranchName(assignedBranchId) || user?.branch_short_name || 'Assigned Branch';
 
@@ -19,16 +20,19 @@ const BranchSelect = ({ children, className, style, ...props }) => {
                 className={`readonly-branch ${className || ''}`}
                 style={{
                     display: 'flex', alignItems: 'center', gap: '6px',
-                    background: 'var(--surface2)',
+                    background: 'var(--surface-2, var(--surface2))',
                     color: 'var(--text-muted)', cursor: 'not-allowed',
                     opacity: 0.9,
+                    fontSize: '0.85rem',
+                    padding: '6px 12px',
+                    borderRadius: 'var(--radius-md, 8px)',
+                    border: '1px solid var(--border)',
                     ...style
                 }}
                 onClick={() => toast('Your account is restricted to your assigned branch.', { icon: '🔒' })}
                 title="Branch is restricted for your role"
             >
-                <span>Current Branch: <strong>{branchName}</strong></span>
-                <span style={{ fontSize: '10px', background: 'var(--border)', padding: '2px 4px', borderRadius: '4px', marginLeft: '4px' }}>Read Only</span>
+                <span>Branch: <strong>{branchName}</strong></span>
                 <input type="hidden" name="branch_id" value={assignedBranchId || ''} />
             </div>
         );

@@ -1159,8 +1159,7 @@ const Dashboard = () => {
                                   </>
                                 ) : (
                                   <>
-                                    <option value="">{(assignedBranches.length > 1) ? 'All Assigned Branches' : 'My Branch'}</option>
-                                    {(assignedBranches.length > 0 ? assignedBranches : branches).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                    {assignedBranches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                                   </>
                                 )}
                             </BranchSelect>

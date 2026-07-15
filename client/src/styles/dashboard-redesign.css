@@ -608,6 +608,26 @@
   border-color: var(--text-muted);
 }
 
+.kpi-card--clickable {
+  cursor: pointer;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+
+.kpi-card--clickable:hover {
+  border-color: var(--accent);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+}
+
+.kpi-card--clickable:active {
+  transform: translateY(0);
+}
+
+.kpi-card--clickable:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
 .kpi-card__header {
   display: flex;
   align-items: center;

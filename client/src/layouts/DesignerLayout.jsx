@@ -2,10 +2,12 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   PenTool, Image, BookOpen, Clock, Settings, LogOut,
-  Briefcase, BarChart2, Menu, X, Plus, ChevronRight
+  Briefcase, BarChart2, Menu, X, Plus, ChevronRight, Building2
 } from 'lucide-react';
 import auth from '../services/auth';
 import useAuth from '../hooks/useAuth';
+import { useBranches } from '../contexts/BranchContext';
+import BranchSelect from '../components/ui/BranchSelect';
 import '../styles/designer-dashboard.css';
 
 const NAV_ITEMS = [
@@ -71,6 +73,7 @@ const DesignerLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
+  const { assignedBranches, selectedBranchId, selectBranch } = useBranches();
 
   const handleLogout = useCallback(() => {
     logout();
@@ -239,6 +242,21 @@ const DesignerLayout = () => {
 
           {/* Top right actions */}
           <div className="designer-topbar__actions">
+            {assignedBranches.length > 1 && (
+              <div className="designer-branch-switcher">
+                <Building2 size={15} aria-hidden="true" />
+                <BranchSelect
+                  value={selectedBranchId}
+                  onChange={(e) => selectBranch(e.target.value)}
+                  className="designer-branch-select"
+                >
+                  {assignedBranches.map(b => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </BranchSelect>
+              </div>
+            )}
+
             {useMemo(() => {
               if (!user?.settings) return true;
               try {

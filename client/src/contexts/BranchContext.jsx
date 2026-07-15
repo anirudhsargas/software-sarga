@@ -13,6 +13,7 @@ export const useBranches = () => {
 };
 
 export const BranchProvider = ({ children }) => {
+  const { user, updateUser } = useAuth();
   const [branches, setBranches] = useState([]);
   const [assignedBranches, setAssignedBranches] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -20,13 +21,25 @@ export const BranchProvider = ({ children }) => {
   const [selectedBranchId, setSelectedBranchId] = useState(() => {
     try {
       const stored = localStorage.getItem('sargaSelectedBranchId') || '';
-      return /^\d+$/.test(stored) ? stored : '';
+      if (/^\d+$/.test(stored)) return stored;
+      const currentUser = auth.getUser();
+      return currentUser?.branch_id ? String(currentUser.branch_id) : '';
     } catch {
       return '';
     }
   });
 
-  const selectBranch = useCallback((id) => {
+  // Sync selectedBranchId if user active branch changes
+  useEffect(() => {
+    if (user?.branch_id) {
+      const stored = localStorage.getItem('sargaSelectedBranchId') || '';
+      if (!stored || !/^\d+$/.test(stored)) {
+        setSelectedBranchId(String(user.branch_id));
+      }
+    }
+  }, [user]);
+
+  const selectBranch = useCallback(async (id) => {
     const safe = (!id || /^\d+$/.test(String(id))) ? String(id || '') : '';
     setSelectedBranchId(safe);
     try {
@@ -38,7 +51,24 @@ export const BranchProvider = ({ children }) => {
     } catch (e) {
       console.error('Failed to save selected branch:', e);
     }
-  }, []);
+
+    // Call backend switch-branch endpoint if logged in, role is not Admin, and target branch is different
+    const currentUser = auth.getUser();
+    if (currentUser && currentUser.role !== 'Admin' && safe && String(currentUser.branch_id) !== String(safe)) {
+      try {
+        const response = await api.post('/auth/switch-branch', { branch_id: Number(safe) });
+        if (response.data?.token) {
+          localStorage.setItem('token', response.data.token);
+          localStorage.setItem('user', JSON.stringify(response.data.user));
+          if (updateUser) {
+            updateUser(response.data.user);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to switch active branch on backend:', err);
+      }
+    }
+  }, [updateUser]);
 
   const fetchBranches = useCallback(async () => {
     try {
@@ -107,7 +137,6 @@ export const BranchProvider = ({ children }) => {
     return branches.find(b => b.id === user.branch_id || b.id === Number(user.branch_id)) || null;
   }, [branches]);
 
-  const { user } = useAuth();
   const isFrontOffice = auth.normalizeRole(user?.role) === 'Front Office';
   const assignedBranchName = getBranchName(user?.branch_id);
 

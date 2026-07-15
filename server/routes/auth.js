@@ -274,6 +274,128 @@ module.exports = (upload) => {
         }
     });
 
+    // Switch active branch endpoint
+    router.post('/auth/switch-branch', authenticateToken, async (req, res) => {
+        const { branch_id } = req.body;
+        if (!branch_id) {
+            return res.status(400).json({ message: 'Branch ID is required' });
+        }
+
+        try {
+            const userId = req.user.id;
+
+            // 1. Verify if user is Admin, or if they are assigned to this branch
+            const userRoleNormalized = req.user.role; // already normalized by authenticateToken
+            if (userRoleNormalized !== 'Admin') {
+                const [assignment] = await pool.query(
+                    'SELECT 1 FROM staff_branch_assignments WHERE staff_id = ? AND branch_id = ? LIMIT 1',
+                    [userId, branch_id]
+                );
+                if (assignment.length === 0) {
+                    return res.status(403).json({ message: 'Access denied. You are not assigned to this branch.' });
+                }
+            } else {
+                // Admin can switch to any branch; verify it exists
+                const [branch] = await pool.query(
+                    'SELECT 1 FROM sarga_branches WHERE id = ? LIMIT 1',
+                    [branch_id]
+                );
+                if (branch.length === 0) {
+                    return res.status(404).json({ message: 'Branch not found' });
+                }
+            }
+
+            // 2. Update user's active branch in the DB
+            await pool.query(
+                'UPDATE sarga_staff SET branch_id = ? WHERE id = ?',
+                [branch_id, userId]
+            );
+
+            // 3. Fetch updated user details
+            const [users] = await pool.query(
+                `SELECT s.id, s.user_id, s.name, s.role, s.password, s.branch_id, s.is_first_login, s.image_url, s.settings, b.short_name AS branch_short_name 
+                 FROM sarga_staff s 
+                 LEFT JOIN sarga_branches b ON b.id = s.branch_id 
+                 WHERE s.id = ? LIMIT 1`,
+                [userId]
+            );
+            const user = users[0];
+            if (!user) {
+                return res.status(404).json({ message: 'User not found' });
+            }
+
+            // 4. Generate new JWT token with updated branch information
+            const { normalizeRole } = require('../middleware/auth');
+            const userRoleNormalizedDb = normalizeRole(user.role);
+            let permissions = [];
+            if (userRoleNormalizedDb === 'Admin') {
+                permissions = ['view_dashboard', 'manage_orders', 'manage_customers', 'manage_inventory', 'manage_staff', 'manage_expenses', 'manage_vendors', 'view_reports', 'manage_designs', 'manage_blog'];
+            } else if (userRoleNormalizedDb === 'Accountant') {
+                permissions = ['view_dashboard', 'manage_orders', 'manage_inventory', 'manage_expenses', 'manage_vendors', 'view_reports'];
+            } else if (userRoleNormalizedDb === 'Front Office') {
+                permissions = ['view_dashboard', 'manage_orders', 'manage_customers', 'manage_inventory'];
+            } else if (userRoleNormalizedDb === 'Designer') {
+                permissions = ['view_dashboard', 'manage_designs', 'manage_blog'];
+            }
+
+            const token = jwt.sign(
+                { 
+                    id: user.id, 
+                    user_id: user.user_id, 
+                    role: userRoleNormalizedDb, 
+                    branch_id: user.branch_id,
+                    sub: String(user.id),
+                    branch: user.branch_id,
+                    permissions: permissions
+                },
+                JWT_SECRET,
+                { expiresIn: '12h' }
+            );
+
+            // Revoke current session token and record the new one
+            const authHeader = req.headers['authorization'];
+            const oldToken = authHeader && authHeader.split(' ')[1];
+            if (oldToken) {
+                await revokeSessionInCache(oldToken);
+                try {
+                    await pool.query("UPDATE sarga_user_sessions SET is_revoked = 1 WHERE session_token = ?", [oldToken]);
+                } catch (sessionErr) {
+                    console.error('Old session revocation failed (non-fatal):', sessionErr.message);
+                }
+            }
+
+            try {
+                await pool.query(
+                    `INSERT INTO sarga_user_sessions (user_id_internal, session_token, ip_address, user_agent, expires_at) 
+                     VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 12 HOUR))`,
+                    [user.id, token, req.ip, req.headers['user-agent']]
+                );
+            } catch (sessionErr) {
+                console.error('Session recording failed (non-fatal):', sessionErr.message);
+            }
+
+            auditLog(user.id, 'BRANCH_SWITCH', `User ${user.user_id} switched active branch to ${branch_id}`);
+
+            res.json({
+                token,
+                user: {
+                    id: user.id,
+                    user_id: user.user_id,
+                    role: user.role,
+                    name: user.name,
+                    branch_id: user.branch_id || null,
+                    branch_short_name: user.branch_short_name || null,
+                    image_url: user.image_url || null,
+                    settings: user.settings || null,
+                    is_first_login: !!user.is_first_login
+                }
+            });
+        } catch (err) {
+            console.error('Branch switch error:', err);
+            res.status(500).json({ message: 'Database error' });
+        }
+    });
+
     return router;
 };
 

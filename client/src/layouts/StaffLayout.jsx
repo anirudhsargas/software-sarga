@@ -1,13 +1,17 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { LayoutDashboard, CalendarDays, CheckSquare, LogOut, Settings, Menu, X } from 'lucide-react';
+import { LayoutDashboard, CalendarDays, CheckSquare, LogOut, Settings, Menu, X, Building2 } from 'lucide-react';
 import auth from '../services/auth';
 import useAuth from '../hooks/useAuth';
+import { useBranches } from '../contexts/BranchContext';
+import BranchSelect from '../components/ui/BranchSelect';
+import '../styles/dashboard-redesign.css';
 
 const StaffLayout = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const location = useLocation();
     const { user, logout } = useAuth();
+    const { assignedBranches, selectedBranchId, selectBranch } = useBranches();
 
     const closeSidebar = useCallback(() => setSidebarOpen(false), []);
     const toggleSidebar = useCallback(() => setSidebarOpen(o => !o), []);
@@ -164,7 +168,21 @@ const StaffLayout = () => {
                             <span className="breadcrumb-current">Staff Portal</span>
                         </div>
                     </div>
-                    <div className="appbar-right">
+                    <div className="appbar-right" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-12, 12px)' }}>
+                        {assignedBranches.length > 1 && (
+                            <div className="appbar-branch-switcher">
+                                <Building2 size={16} aria-hidden="true" />
+                                <BranchSelect
+                                    value={selectedBranchId}
+                                    onChange={(e) => selectBranch(e.target.value)}
+                                    className="appbar-select"
+                                >
+                                    {assignedBranches.map(b => (
+                                        <option key={b.id} value={b.id}>{b.name}</option>
+                                    ))}
+                                </BranchSelect>
+                            </div>
+                        )}
                         <NavLink to="/staff-settings" className="appbar-icon-btn" title="Settings" aria-label="Settings" onClick={closeSidebar}>
                             <Settings size={18} aria-hidden="true" />
                         </NavLink>

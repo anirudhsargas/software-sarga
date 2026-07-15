@@ -1212,6 +1212,105 @@ router.get('/stats/dashboard', authenticateToken, authorizeRoles('Admin', 'Accou
     }
 });
 
+// --- DASHBOARD DRILLDOWN ROUTE ---
+router.get('/stats/dashboard/drilldown', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), asyncHandler(async (req, res) => {
+    const { metric, date, branch_id } = req.query;
+
+    if (!metric) {
+        return res.status(400).json({ message: 'Missing required query param: metric' });
+    }
+
+    const targetDate = date || getTodayDate();
+
+    // Branch filtering
+    let branchIds = null;
+    if (!['Admin', 'Accountant'].includes(req.user.role)) {
+        const userBranch = await getUserBranchId(req.user.id);
+        branchIds = userBranch ? [userBranch] : null;
+    } else if (branch_id && branch_id !== 'undefined' && branch_id !== '') {
+        branchIds = branch_id.split(',').map(Number).filter(Boolean);
+        if (branchIds.length === 0) branchIds = null;
+    }
+
+    const branchClause = branchIds ? ' AND branch_id IN (?)' : '';
+    const branchParams = branchIds ? [branchIds] : [];
+
+    switch (metric) {
+        case 'todays_collection': {
+            const [rows] = await pool.query(`
+                SELECT
+                    cp.id AS payment_id,
+                    cp.customer_id,
+                    cp.customer_name,
+                    NULL AS job_id,
+                    NULL AS job_number,
+                    cp.advance_paid AS amount,
+                    cp.payment_method AS payment_mode,
+                    COALESCE(cp.cash_amount, 0) AS cash_amount,
+                    COALESCE(cp.upi_amount, 0) AS upi_amount,
+                    0 AS card_amount,
+                    COALESCE(cp.discount_amount, 0) AS discount,
+                    cp.created_at
+                FROM sarga_customer_payments cp
+                WHERE DATE(cp.payment_date) = ?
+                ${branchClause}
+                ORDER BY cp.created_at DESC
+            `, [targetDate, ...branchParams]);
+            return res.json(rows);
+        }
+
+        case 'pending_amount': {
+            const [rows] = await pool.query(`
+                SELECT
+                    j.id AS job_id,
+                    j.job_number,
+                    j.job_name,
+                    j.total_amount,
+                    j.advance_paid,
+                    ROUND(GREATEST(COALESCE(j.total_amount,0) - COALESCE(j.advance_paid,0), 0), 2) AS balance_amount,
+                    j.status,
+                    j.created_at,
+                    COALESCE(c.id, 0) AS customer_id,
+                    COALESCE(c.name, 'Walk-in') AS customer_name
+                FROM sarga_jobs j
+                LEFT JOIN sarga_customers c ON j.customer_id = c.id
+                WHERE j.status != 'Cancelled'
+                  AND GREATEST(COALESCE(j.total_amount,0) - COALESCE(j.advance_paid,0), 0) > 0
+                  ${branchClause}
+                ORDER BY balance_amount DESC
+                LIMIT 50
+            `, [...branchParams]);
+            return res.json(rows);
+        }
+
+        case 'todays_jobs': {
+            const [rows] = await pool.query(`
+                SELECT
+                    j.id AS job_id,
+                    j.job_number,
+                    j.job_name,
+                    j.total_amount,
+                    j.status,
+                    j.payment_status,
+                    j.created_at,
+                    COALESCE(c.id, 0) AS customer_id,
+                    COALESCE(c.name, 'Walk-in') AS customer_name
+                FROM sarga_jobs j
+                LEFT JOIN sarga_customers c ON j.customer_id = c.id
+                WHERE (DATE(j.created_at) = ? OR DATE(j.updated_at) = ?)
+                  AND j.status != 'Cancelled'
+                  ${branchClause}
+                ORDER BY j.created_at DESC
+                LIMIT 50
+            `, [targetDate, targetDate, ...branchParams]);
+            return res.json(rows);
+        }
+
+        default:
+            return res.status(400).json({ message: `Unknown metric: ${metric}. Supported: todays_collection, pending_amount, todays_jobs` });
+    }
+}));
+
 // --- PAYMENT VERIFICATION ROUTES ---
 
 // List payments pending verification (UPI, Cheque, Account Transfer only)

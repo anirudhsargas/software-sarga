@@ -7,6 +7,7 @@ import api from '../services/api';
 import { formatCurrency as formatCurrencyShared } from '../constants';
 import { useBranches } from '../contexts/BranchContext';
 import LazyViewport from '../components/LazyViewport';
+import DrillDownModal from '../components/DrillDownModal';
 
 const OrderForecastWidget = React.lazy(() => import('../components/OrderForecastWidget'));
 
@@ -19,22 +20,26 @@ const OrderPredictions = React.lazy(() => import('./OrderPredictions'));
 // Cache variable outside component for immediate render on revisit
 let cachedStats = null;
 
-const KpiCard = React.memo(({ title, value, subtitle, icon: _Icon, color, trend }) => (
-  <div className="kpi-card">
-    <div className="kpi-card__header">
-      <span className="kpi-card__title">{title}</span>
-      {_Icon && <_Icon size={18} className={`kpi-card__icon ${color ? `kpi-card__icon--${color.replace('var(--', '').replace(')', '')}` : ''}`} />}
-    </div>
-    <div className="kpi-card__value">{value}</div>
-    {subtitle && <div className="kpi-card__subtitle">{subtitle}</div>}
-    {trend && (
-      <div className={`kpi-card__trend ${trend >= 0 ? 'kpi-card__trend--up' : 'kpi-card__trend--down'}`}>
-        {trend >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
-        <span>{Math.abs(trend)}%</span>
+const KpiCard = React.memo(({ title, value, subtitle, icon: _Icon, color, trend, onClick }) => {
+  const Wrapper = onClick ? 'button' : 'div';
+  const clickableProps = onClick ? { onClick, type: 'button' } : {};
+  return (
+    <Wrapper className={`kpi-card ${onClick ? 'kpi-card--clickable' : ''}`} {...clickableProps}>
+      <div className="kpi-card__header">
+        <span className="kpi-card__title">{title}</span>
+        {_Icon && <_Icon size={18} className={`kpi-card__icon ${color ? `kpi-card__icon--${color.replace('var(--', '').replace(')', '')}` : ''}`} />}
       </div>
-    )}
-  </div>
-));
+      <div className="kpi-card__value">{value}</div>
+      {subtitle && <div className="kpi-card__subtitle">{subtitle}</div>}
+      {trend && (
+        <div className={`kpi-card__trend ${trend >= 0 ? 'kpi-card__trend--up' : 'kpi-card__trend--down'}`}>
+          {trend >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
+          <span>{Math.abs(trend)}%</span>
+        </div>
+      )}
+    </Wrapper>
+  );
+});
 
 const EmptyState = React.memo(({ icon: _Icon, title, message, actions }) => (
   <div className="empty-state">
@@ -55,6 +60,8 @@ const Summary = () => {
   const [loading, setLoading] = useState(!cachedStats);
   const [error, setError] = useState(false);
   const [showOutstandingDetail, setShowOutstandingDetail] = useState(false);
+  const [drilldownMetric, setDrilldownMetric] = useState(null);
+  const todayStr = new Date().toISOString().slice(0, 10);
 
   const fetchStats = useCallback(async (signal, isRefresh = false) => {
     if (isRefresh || !cachedStats) {
@@ -262,8 +269,8 @@ const Summary = () => {
         <>
           {/* ROW 1: KPI Cards */}
           <div className="kpi-grid">
-            <KpiCard title="Sales Today" value={fmt(stats?.jobs?.total_sales_today)} subtitle={`${fmtNum(stats?.jobs?.new_today)} jobs`} icon={TrendingUp} color='var(--success)' />
-            <KpiCard title="Collections" value={fmt(stats?.payments?.total_collected_today)} subtitle={`Cash ${fmt(stats?.payments?.cash_today)} · UPI ${fmt(stats?.payments?.upi_today)}`} icon={Wallet} color='var(--accent)' />
+            <KpiCard title="Sales Today" value={fmt(stats?.jobs?.total_sales_today)} subtitle={`${fmtNum(stats?.jobs?.new_today)} jobs`} icon={TrendingUp} color='var(--success)' onClick={() => setDrilldownMetric('todays_jobs')} />
+            <KpiCard title="Collections" value={fmt(stats?.payments?.total_collected_today)} subtitle={`Cash ${fmt(stats?.payments?.cash_today)} · UPI ${fmt(stats?.payments?.upi_today)}`} icon={Wallet} color='var(--accent)' onClick={() => setDrilldownMetric('todays_collection')} />
             <KpiCard title="Expenses" value={fmt(stats?.expenses?.today)} subtitle={`Month: ${fmt(stats?.expenses?.month)}`} icon={IndianRupee} color='var(--destructive)' />
             <div style={{ cursor: 'pointer' }} onClick={() => setShowOutstandingDetail(v => !v)} title="Click to see breakdown">
               <KpiCard title="Outstanding" value={fmt(stats?.jobs?.total_balance)} subtitle={showOutstandingDetail ? 'Hide breakdown' : 'Click for details'} icon={AlertTriangle} color='var(--warning)' />
@@ -441,6 +448,14 @@ const Summary = () => {
           <OrderPredictions />
         </Suspense>
       )}
+
+      <DrillDownModal
+        metric={drilldownMetric}
+        date={todayStr}
+        branchId={selectedBranchId}
+        isOpen={!!drilldownMetric}
+        onClose={() => setDrilldownMetric(null)}
+      />
     </PageContainer>
   );
 };
