@@ -106,11 +106,14 @@ async function removeDuplicateCustomerCopies(primaryId, mobile, serverId) {
 const isOnline = () => navigator.onLine;
 
 /** Try server call, return null on failure (never throws) */
-async function tryServer(fn) {
+async function tryServer(fn, throwValidation = false) {
     if (!isOnline()) return null;
     try {
         return await fn();
     } catch (err) {
+        if (throwValidation && err.response && err.response.status >= 400 && err.response.status < 500) {
+            throw err;
+        }
         console.warn('[localDb] Server call failed, will sync later:', err.message);
         return null;
     }
@@ -1157,7 +1160,7 @@ export async function createBill(billData, matterFiles = []) {
         await offlineDb.updateBillStatus(idbKey, 'synced');
 
         return { jobs: createdJobs, payment: payRes?.data || null };
-    });
+    }, true);
 
     // Build synthetic payment & jobs as fallback (used when offline/server fails)
     const syntheticPayment = {
