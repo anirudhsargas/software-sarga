@@ -24,11 +24,41 @@ async function checkImageQuality(imageBuffer, label) {
   }
 }
 
+async function detectOrientation(imageBuffer, label) {
+  let degrees = 0;
+  let confidence = 0;
+  try {
+    const osdResult = await Tesseract.detect(imageBuffer);
+    degrees = osdResult.data.orientation_degrees;
+    confidence = osdResult.data.orientation_confidence;
+  } catch (osdErr) {
+    logger.warn('[OCR] OSD detection failed', { label, error: osdErr.message });
+  }
+  return { degrees, confidence };
+}
+
 async function preprocessImageForOCR(imageBuffer, label) {
   const originalInfo = await sharp(imageBuffer).metadata();
   const originalSizeKB = Math.round(imageBuffer.length / 1024);
 
-  let pipeline = sharp(imageBuffer);
+  const hadExifOrientation = originalInfo.orientation && originalInfo.orientation !== 1;
+  const exifRotated = await sharp(imageBuffer).rotate().jpeg({ quality: 85 }).toBuffer();
+  logger.info('[OCR] EXIF rotation applied', { label, hadExifOrientation: !!hadExifOrientation, originalOrientation: originalInfo.orientation });
+
+  const { degrees: osdDegrees, confidence: osdConfidence } = await detectOrientation(exifRotated, label);
+  let additionalRotation = 0;
+  if (osdDegrees !== 0 && osdConfidence > 5) {
+    additionalRotation = (360 - osdDegrees) % 360;
+    logger.info('[OCR] OSD additional rotation', {
+      label, osdDegrees, osdConfidence, correctionApplied: additionalRotation,
+    });
+  }
+
+  let pipeline = sharp(exifRotated);
+
+  if (additionalRotation !== 0) {
+    pipeline = pipeline.rotate(additionalRotation, { background: { r: 255, g: 255, b: 255 } });
+  }
 
   if (originalInfo.width > MAX_DIMENSION || originalInfo.height > MAX_DIMENSION) {
     pipeline = pipeline.resize({
