@@ -7,6 +7,13 @@ const EXTRACTION_PROMPT = `You are given RAW OCR text extracted from one or more
 
 The text may contain OCR errors (e.g. "l" vs "1", "O" vs "0", garbled characters, missing spaces). Use your best judgement to correct obvious OCR mistakes and infer the correct values.
 
+CRITICAL — Tabular data reconstruction: The OCR text likely comes from a printed TABLE with columns like SI No, Description, HSN/SAC, Quantity, Rate, Per, Disc%, Amount. OCR reads left-to-right per line, which interleaves these columns in a confusing order. To correctly reconstruct each line item:
+
+- Use SI No (serial number) as a strong row anchor — sequential counters are the most reliable signal for where a new row begins.
+- Match descriptions to their corresponding numbers by position: a description should be followed (in table reading order) by its numeric columns (Qty, Rate, Disc%, Amount). If numbers appear orphaned or descriptions appear without clear numbers nearby, align them by sequential position in the table rather than leaving fields blank or duplicating values.
+- Use contextual clues: HSN/SAC codes and item codes identify rows; unit words like "Nos", "Pcs", "Kg", "Ltr", "Mtr" indicate the quantity column; larger round numbers are typically amounts, while smaller decimals like xxx.xx are usually rates.
+- Arithmetic cross-check per item: quantity × rate should approximately equal the amount (allowing for rounding or a discount %). Use this sanity check to detect and correct misaligned rows — do NOT blindly output whatever order the text appears in.
+
 Extract the following fields and return them as JSON:
 - vendor_name: the vendor or supplier name
 - bill_number: the invoice or bill number
@@ -17,7 +24,9 @@ Extract the following fields and return them as JSON:
 - tax_amount: total tax amount
 - total_amount: grand total
 
-If a field is not found, use null. For items, return an empty array if no line items are clearly identified.`;
+If a field is not found, use null. For items, return an empty array if no line items are clearly identified.
+
+Totals cross-check: After extracting all items, verify that SUM(item amounts) approximately equals subtotal, and that subtotal + tax_amount approximately equals total_amount. If these don't reconcile, re-examine your line items and totals — do not default total_amount to 0 or leave it blank.`;
 
 const queue = new RequestQueue();
 
