@@ -22,8 +22,8 @@ const customerPaymentSchema = z.object({
     payment_date: z.string().min(1, "Payment date is required"),
     order_lines: z.array(z.object({
         product_id: z.coerce.number().optional().nullable(),
-        product_name: z.string().optional(),
-        job_name: z.string().optional(),
+        product_name: z.string().optional().nullable(),
+        job_name: z.string().optional().nullable(),
         description: z.string().optional().nullable(),
         quantity: z.coerce.number().default(1),
         unit_price: z.coerce.number().default(0),
