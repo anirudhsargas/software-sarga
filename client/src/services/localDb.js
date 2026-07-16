@@ -1077,6 +1077,7 @@ export async function createBill(billData, matterFiles = []) {
             const jobRes = await api.post('jobs/bulk', {
                 customer_id: billData.customerId || billData.customer_id || null,
                 order_lines: lines,
+                force: billData.force || false
             });
             createdJobs = jobRes.data?.jobs || [];
         }

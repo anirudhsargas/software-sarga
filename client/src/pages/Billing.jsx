@@ -835,7 +835,35 @@ const Billing = () => {
         branch_id: selectedBranchId,
       };
       const matterFiles = orderLines.map(l => l.matter_file).filter(Boolean);
-      const result = await localDb.createBill(billPayload, matterFiles);
+      let result;
+      try {
+        result = await localDb.createBill(billPayload, matterFiles);
+      } catch (err) {
+        if (err?.response?.status === 409) {
+          const proceedAnyway = await confirm({
+            title: 'Insufficient Stock',
+            message: `${err?.response?.data?.message || 'Insufficient stock to reserve inventory'}. Do you want to proceed and create the invoice anyway?`,
+            confirmText: 'Proceed Anyway',
+            cancelText: 'Cancel'
+          });
+          if (proceedAnyway) {
+            try {
+              setSaving(true);
+              result = await localDb.createBill({ ...billPayload, force: true }, matterFiles);
+            } catch (retryErr) {
+              setError(retryErr?.response?.data?.message || retryErr.message || 'Failed to create invoice.');
+              toast.error('Invoice creation failed.');
+              setSaving(false);
+              return;
+            }
+          } else {
+            setSaving(false);
+            return;
+          }
+        } else {
+          throw err;
+        }
+      }
       const lastBill = {
         customerId,
         invoiceNumber: result?.bill?.invoice_number || result?.invoice_number || `INV-${result?.bill?.id || result?.id || Date.now()}`,
@@ -903,7 +931,7 @@ const Billing = () => {
       setError(err?.response?.data?.message || err.message || 'Failed to create invoice.');
       toast.error('Invoice creation failed.');
     } finally { setSaving(false); }
-  }, [canProceed, orderLines, advancePaid, totals, isWalkIn, existingCustomer, form, payment, discountPercent, totals.discountAmount, totals.gross, selectedBranchId, jobType, branchUpiId, discountError, sendWhatsApp]);
+  }, [canProceed, orderLines, advancePaid, totals, isWalkIn, existingCustomer, form, payment, discountPercent, totals.discountAmount, totals.gross, selectedBranchId, jobType, branchUpiId, discountError, sendWhatsApp, confirm]);
 
   // ── Staff assignment submit ──
   const handleAssignStaff = useCallback(async () => {

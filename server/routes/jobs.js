@@ -585,7 +585,7 @@ router.get('/customers/:id/jobs', authenticateToken, async (req, res) => {
 
 // Bulk create jobs for multiple line items
 router.post('/jobs/bulk', authenticateToken, async (req, res) => {
-    const { customer_id, order_lines } = req.body;
+    const { customer_id, order_lines, force } = req.body;
 
     if (!Array.isArray(order_lines) || order_lines.length === 0) {
         return res.status(400).json({ message: 'Order lines are required' });
@@ -681,10 +681,12 @@ router.post('/jobs/bulk', authenticateToken, async (req, res) => {
                         if (invId) {
                             const [[invRow]] = await connection.query('SELECT quantity, COALESCE(reserved_quantity, 0) AS reserved FROM sarga_inventory WHERE id = ? FOR UPDATE', [invId]);
                             const available = (invRow ? Number(invRow.quantity || 0) : 0) - Number(invRow?.reserved || 0);
-                            if (available < qty) {
+                            if (available < qty && !force) {
                                 throw new Error(`Insufficient stock to reserve for product ${line.product_name || line.product_id}`);
                             }
-                            await connection.query('UPDATE sarga_inventory SET reserved_quantity = COALESCE(reserved_quantity,0) + ? WHERE id = ?', [qty, invId]);
+                            if (available >= qty || force) {
+                                await connection.query('UPDATE sarga_inventory SET reserved_quantity = COALESCE(reserved_quantity,0) + ? WHERE id = ?', [qty, invId]);
+                            }
                         }
                     } catch (reserveErr) {
                         console.error('Reserve failed (bulk jobs):', reserveErr.message || reserveErr);
