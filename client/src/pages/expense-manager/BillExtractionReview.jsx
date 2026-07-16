@@ -72,7 +72,7 @@ function ProductSearchCell({ match, override, isActive, onActivate, onSelect, on
 
   const filtered = search.trim()
     ? suggestions.filter(s =>
-        s.product_name.toLowerCase().includes(search.toLowerCase())
+        s.product_name && s.product_name.toLowerCase().includes(search.toLowerCase())
       )
     : suggestions;
 
@@ -169,12 +169,12 @@ function VendorSearchCell({ vendorName, vendorMatch, selectedVendorId, onSelect,
 
   const filtered = search.trim()
     ? suggestions.filter(s =>
-        s.vendor_name.toLowerCase().includes(search.toLowerCase())
+        s.vendor_name && s.vendor_name.toLowerCase().includes(search.toLowerCase())
       )
     : suggestions;
 
   const showAddOption = search.trim().length >= 2 && !suggestions.some(s =>
-    s.vendor_name.toLowerCase() === search.trim().toLowerCase()
+    s.vendor_name && s.vendor_name.toLowerCase() === search.trim().toLowerCase()
   );
 
   const handleSelect = (v) => {
