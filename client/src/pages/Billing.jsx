@@ -2037,62 +2037,59 @@ const Billing = () => {
       </ScannerErrorBoundary>
 
       {/* Post-bill options with Staff Assignment */}
-      {showPostBillOptions && lastBillData && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="post-bill-title" onClick={() => setShowPostBillOptions(false)}>
-          <div className="modal modal--lg" onClick={e => e.stopPropagation()} style={{ overflowY: 'auto', maxHeight: '90vh' }}>
-            <div className="modal__header" style={{ borderBottom: 'none', paddingBottom: '0', display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', position: 'relative' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', gap: '8px', padding: '16px 0 8px 0' }}>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '48px',
-                  height: '48px',
-                  borderRadius: '50%',
-                  background: 'color-mix(in srgb, var(--success) 12%, transparent)',
-                  color: 'var(--success)',
-                  marginBottom: '4px'
-                }}>
-                  <Check size={28} strokeWidth={3} aria-hidden="true" />
+      {showPostBillOptions && lastBillData && (() => {
+        const paidAmount = Number(lastBillData.payment?.cash_amount || 0) + 
+                           Number(lastBillData.payment?.upi_amount || 0) + 
+                           Number(lastBillData.payment?.cheque_amount || 0) + 
+                           Number(lastBillData.payment?.account_transfer_amount || 0);
+        const totalAmount = Number(lastBillData.totals?.gross || 0);
+        const balanceDue = Math.max(totalAmount - paidAmount, 0);
+        const isPaid = balanceDue < 0.05;
+
+        return (
+          <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="post-bill-title" onClick={() => setShowPostBillOptions(false)}>
+            <div className="modal modal--lg" onClick={e => e.stopPropagation()} style={{ overflowY: 'auto', maxHeight: '95vh', borderRadius: '16px', boxShadow: '0 20px 50px rgba(0,0,0,0.15)' }}>
+              <div className="modal__header" style={{ borderBottom: 'none', padding: '24px 24px 8px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', position: 'relative' }}>
+                <div className="invoice-success-icon-container">
+                  <Check size={32} strokeWidth={3} aria-hidden="true" />
                 </div>
-                <h3 id="post-bill-title" style={{ fontSize: '20px', fontWeight: '700', margin: '0', textAlign: 'center', color: 'var(--text-main)' }}>
+                <h3 id="post-bill-title" className="invoice-success-title">
                   Invoice Created Successfully!
                 </h3>
-                <p style={{ margin: '0', fontSize: '13px', color: 'var(--muted)', textAlign: 'center' }}>
+                <p className="invoice-success-subtitle">
                   Choose your next action below
                 </p>
+                <button className="modal-close" aria-label="Close" onClick={() => setShowPostBillOptions(false)} style={{ position: 'absolute', top: '20px', right: '20px' }}><X size={18} aria-hidden="true" /></button>
               </div>
-              <button className="modal-close" aria-label="Close" onClick={() => setShowPostBillOptions(false)} style={{ position: 'absolute', top: '16px', right: '16px' }}><X size={18} aria-hidden="true" /></button>
-            </div>
-            <div className="modal__body stack-sm" style={{ paddingTop: '10px' }}>
-              {/* Print / WhatsApp / New Invoice actions */}
-              <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
-                <button className="btn btn-primary flex-1" onClick={() => { handlePrintLast(); setShowPostBillOptions(false); }} style={{ height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Printer size={16} className="mr-8" aria-hidden="true" /> Print Invoice
-                </button>
-                {lastBillData?.customer?.mobile && lastBillData.customer.mobile.trim().length === 10 ? (
-                  <a
-                    href={directWhatsAppUrl || '#'}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn btn-success flex-1"
-                    style={{ height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
-                  >
-                    <WhatsAppIcon className="mr-8" aria-hidden="true" /> Send WhatsApp
-                  </a>
-                ) : (
-                  <button
-                    className="btn btn-success flex-1"
-                    onClick={handleWhatsAppClick}
-                    style={{ height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                  >
-                    <WhatsAppIcon className="mr-8" aria-hidden="true" /> Send WhatsApp
+              <div className="modal__body stack-sm" style={{ padding: '0 24px 24px 24px' }}>
+                {/* Print / WhatsApp / New Invoice actions */}
+                <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+                  <button className="btn btn-primary flex-1" onClick={() => { handlePrintLast(); setShowPostBillOptions(false); }} style={{ height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '600', borderRadius: '8px', boxShadow: '0 4px 12px rgba(var(--primary-rgb), 0.15)' }}>
+                    <Printer size={16} className="mr-8" aria-hidden="true" /> Print Invoice
                   </button>
-                )}
-                <button className="btn btn-ghost flex-1" onClick={() => { setShowPostBillOptions(false); }} style={{ height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)' }}>
-                  <Plus size={16} className="mr-8" aria-hidden="true" /> New Invoice
-                </button>
-              </div>
+                  {lastBillData?.customer?.mobile && lastBillData.customer.mobile.trim().length === 10 ? (
+                    <a
+                      href={directWhatsAppUrl || '#'}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-success flex-1"
+                      style={{ height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', fontWeight: '600', borderRadius: '8px', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.15)' }}
+                    >
+                      <WhatsAppIcon className="mr-8" aria-hidden="true" /> Send WhatsApp
+                    </a>
+                  ) : (
+                    <button
+                      className="btn btn-success flex-1"
+                      onClick={handleWhatsAppClick}
+                      style={{ height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '600', borderRadius: '8px', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.15)' }}
+                    >
+                      <WhatsAppIcon className="mr-8" aria-hidden="true" /> Send WhatsApp
+                    </button>
+                  )}
+                  <button className="btn btn-ghost flex-1" onClick={() => { setShowPostBillOptions(false); }} style={{ height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', fontWeight: '600', borderRadius: '8px' }}>
+                    <Plus size={16} className="mr-8" aria-hidden="true" /> New Invoice
+                  </button>
+                </div>
 
               {showWhatsAppInput && (
                 <div style={{ border: '1px solid var(--border)', padding: '12px', borderRadius: '6px', background: 'var(--bg-light)', marginBottom: 16 }}>
@@ -2150,81 +2147,67 @@ const Billing = () => {
               )}
 
               {/* High-Fidelity Live Invoice Summary Card */}
-              <div className="invoice-success-summary" style={{
-                background: 'var(--bg-light)',
-                border: '1px solid var(--border)',
-                borderRadius: '12px',
-                padding: '16px',
-                marginBottom: '16px',
-                boxShadow: '0 2px 10px rgba(0, 0, 0, 0.03)',
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px dashed var(--border)', paddingBottom: '12px', marginBottom: '12px' }}>
+              <div className="premium-receipt-card">
+                <div className="premium-receipt-header">
                   <div>
-                    <span style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Invoice No</span>
-                    <h4 style={{ margin: '2px 0 0 0', color: 'var(--primary)', fontWeight: '700', fontSize: '14px' }}>{lastBillData.invoiceNumber}</h4>
+                    <span className="premium-receipt-label">Invoice No</span>
+                    <h4 style={{ margin: '2px 0 0 0', color: 'var(--primary)', fontWeight: '700', fontSize: '15px' }}>{lastBillData.invoiceNumber}</h4>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <span style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Date</span>
-                    <p style={{ margin: '2px 0 0 0', fontWeight: '500', fontSize: '12px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+                    {isPaid ? (
+                      <span className="premium-receipt-badge premium-receipt-badge--paid">
+                        <Check size={10} strokeWidth={3} /> Paid
+                      </span>
+                    ) : (
+                      <span className="premium-receipt-badge premium-receipt-badge--partial">
+                        Partial
+                      </span>
+                    )}
+                    <p style={{ margin: '0', fontWeight: '500', fontSize: '11px', color: 'var(--text-muted)' }}>
                       {new Date(lastBillData.invoiceDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                     </p>
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '14px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                   <div>
-                    <span style={{ fontSize: '11px', color: 'var(--muted)' }}>Customer</span>
+                    <span className="premium-receipt-label">Customer</span>
                     <p style={{ margin: '2px 0 0 0', fontWeight: '600', fontSize: '13px' }}>{lastBillData.customer?.name || 'Walk-in Customer'}</p>
                     {lastBillData.customer?.mobile && (
-                      <span style={{ fontSize: '11px', color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
                         <Phone size={10} /> {lastBillData.customer.mobile}
                       </span>
                     )}
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <span style={{ fontSize: '11px', color: 'var(--muted)' }}>Payment Mode</span>
-                    <p style={{ margin: '2px 0 0 0', fontWeight: '500', fontSize: '12px' }}>{lastBillData.payment?.method || 'Cash'}</p>
+                    <span className="premium-receipt-label">Payment Mode</span>
+                    <p className="premium-receipt-value" style={{ fontWeight: '600' }}>{lastBillData.payment?.method || 'Cash'}</p>
                   </div>
                 </div>
 
-                <div style={{ background: 'var(--bg)', borderRadius: '8px', padding: '10px 12px', marginBottom: '12px', border: '1px solid var(--border)' }}>
-                  <span style={{ fontSize: '11px', color: 'var(--muted)', display: 'block', marginBottom: '6px', fontWeight: '500' }}>Items Summary</span>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '100px', overflowY: 'auto' }}>
+                <div className="premium-receipt-items-container">
+                  <span className="premium-receipt-label" style={{ display: 'block', marginBottom: '6px', fontSize: '10px' }}>Items Summary</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '120px', overflowY: 'auto' }}>
                     {lastBillData.orderLines?.map((line, idx) => (
-                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                        <span style={{ color: 'var(--text-main)', fontWeight: '400' }}>
-                          {line.product_name || line.name} <span style={{ color: 'var(--muted)', fontSize: '10px' }}>x{line.quantity}</span>
+                      <div key={idx} className="premium-receipt-item-row">
+                        <span style={{ color: 'var(--text-main)', fontWeight: '500' }}>
+                          {line.product_name || line.name} <span style={{ color: 'var(--text-muted)', fontSize: '10px', marginLeft: 4 }}>x{line.quantity}</span>
                         </span>
-                        <span style={{ fontWeight: '500' }}>₹{Number(line.total_amount || 0).toFixed(2)}</span>
+                        <span style={{ fontWeight: '600', color: 'var(--text-main)' }}>₹{Number(line.total_amount || 0).toFixed(2)}</span>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'color-mix(in srgb, var(--success) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--success) 20%, transparent)', borderRadius: '8px', padding: '10px 12px' }}>
+                <div className="premium-receipt-totals">
                   <div>
-                    <span style={{ fontSize: '11px', color: 'color-mix(in srgb, var(--success) 80%, black)', fontWeight: '500' }}>Total Amount</span>
-                    <h3 style={{ margin: '0', color: 'var(--success)', fontWeight: '700', fontSize: '16px' }}>₹{lastBillData.totals?.gross?.toFixed(2)}</h3>
+                    <span className="premium-receipt-total-label">Total Amount</span>
+                    <h3 className="premium-receipt-total-value">₹{totalAmount.toFixed(2)}</h3>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <span style={{ fontSize: '11px', color: 'var(--muted)' }}>Balance Due</span>
-                    <p style={{
-                      margin: '0',
-                      fontWeight: '600',
-                      fontSize: '13px',
-                      color: (lastBillData.totals?.gross - (
-                        Number(lastBillData.payment?.cash_amount || 0) +
-                        Number(lastBillData.payment?.upi_amount || 0) +
-                        Number(lastBillData.payment?.cheque_amount || 0) +
-                        Number(lastBillData.payment?.account_transfer_amount || 0)
-                      )) > 0.01 ? 'var(--warning)' : 'var(--success)'
-                    }}>
-                      ₹{Math.max(lastBillData.totals?.gross - (
-                        Number(lastBillData.payment?.cash_amount || 0) +
-                        Number(lastBillData.payment?.upi_amount || 0) +
-                        Number(lastBillData.payment?.cheque_amount || 0) +
-                        Number(lastBillData.payment?.account_transfer_amount || 0)
-                      ), 0).toFixed(2)}
+                    <span className="premium-receipt-total-label" style={{ color: 'var(--text-muted)' }}>Balance Due</span>
+                    <p className="premium-receipt-balance-value" style={{ color: balanceDue > 0.05 ? 'var(--warning)' : 'var(--success)' }}>
+                      {isPaid ? '₹0.00 ✓' : `₹${balanceDue.toFixed(2)}`}
                     </p>
                   </div>
                 </div>
@@ -2335,7 +2318,7 @@ const Billing = () => {
             </div>
           </div>
         </div>
-      )}
+      )})()}
 
       {/* Recent Bills Modal */}
       {showRecentBills && (
