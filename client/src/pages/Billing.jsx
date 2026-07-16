@@ -960,6 +960,7 @@ const Billing = () => {
       }
       setShowPostBillOptions(true);
     } catch (err) {
+      console.error('[Billing] Invoice creation error:', err?.response?.data || err?.message || err);
       setError(err?.response?.data?.message || err.message || 'Failed to create invoice.');
       toast.error('Invoice creation failed.');
     } finally { setSaving(false); }

@@ -1129,7 +1129,7 @@ export async function createBill(billData, matterFiles = []) {
         }
 
         // Create payment
-        const payRes = await api.post('customer-payments', {
+        const paymentPayload = {
             customer_id: billData.customerId || billData.customer_id || null,
             customer_name: billData.customerName || billData.customer_name,
             customer_mobile: billData.customerMobile || billData.customer_mobile || null,
@@ -1146,7 +1146,7 @@ export async function createBill(billData, matterFiles = []) {
             cheque_amount: billData.chequeAmount || billData.cheque_amount || 0,
             account_transfer_amount: billData.accountTransferAmount || billData.account_transfer_amount || 0,
             reference_number: billData.referenceNumber || billData.reference_number || null,
-            description: billData.description || `Offline bill synced (ref: ${localId})`,
+            description: billData.description || null,
             payment_date: billData.paymentDate || billData.payment_date,
             book_type: billData.book_type || billData.bookType || 'Laser',
             order_lines: lines,
@@ -1154,7 +1154,16 @@ export async function createBill(billData, matterFiles = []) {
             auto_deliver: billData.auto_deliver || billData.autoDeliver || false,
             is_internal: billData.is_internal || 0,
             internal_department: billData.internal_department || null,
-        });
+        };
+        console.log('[localDb] Sending customer-payment payload:', JSON.stringify(paymentPayload, null, 2));
+        let payRes;
+        try {
+            payRes = await api.post('customer-payments', paymentPayload);
+        } catch (payErr) {
+            console.error('[localDb] customer-payments 400 error. Server response:', payErr?.response?.data);
+            console.error('[localDb] Payload that caused error:', JSON.stringify(paymentPayload, null, 2));
+            throw payErr;
+        }
 
         // Mark as synced
         await offlineDb.updateBillStatus(idbKey, 'synced');
