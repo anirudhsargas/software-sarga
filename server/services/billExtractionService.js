@@ -2,7 +2,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const RequestQueue = require('../utils/requestQueue');
 const logger = require('../helpers/logger');
 
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite';
 const EXTRACTION_PROMPT = `You are given RAW OCR text extracted from one or more pages of a bill or invoice. The pages are separated with "--- Page N ---" markers. Combine information across all pages into a single structured JSON result — for example, an invoice header on page 1 and itemized list on page 2 should merge into one result, not two.
 
 The text may contain OCR errors (e.g. "l" vs "1", "O" vs "0", garbled characters, missing spaces). Use your best judgement to correct obvious OCR mistakes and infer the correct values.

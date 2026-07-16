@@ -53,7 +53,7 @@ services:
       - key: GEMINI_API_KEY
         fromSecret: GEMINI_API_KEY
       - key: GEMINI_MODEL
-        value: gemini-2.5-flash-lite
+        value: gemini-3.1-flash-lite
       # Add production secrets (DB, JWT, third-party keys) as Render secrets instead
       # Example using a secret reference:
       # - key: DATABASE_URL
