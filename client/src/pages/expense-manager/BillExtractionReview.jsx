@@ -302,16 +302,21 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
     setError('');
 
     try {
+      const originalIndices = form.items
+        .map((item, i) => item.description.trim() ? i : -1)
+        .filter(i => i >= 0);
+
       const payloadItems = form.items
         .filter(item => item.description.trim())
         .map((item, idx) => {
-          const match = itemMatches[idx] || {};
+          const origIdx = originalIndices[idx];
+          const match = (itemMatches && itemMatches[origIdx]) || {};
           return {
             item_name: item.description,
             quantity: Number(item.quantity) || 0,
             rate: Number(item.rate) || 0,
             amount: Number(item.amount) || 0,
-            serial_no: idx + 1,
+            serial_no: origIdx + 1,
             hsn_sac: item.hsn_sac || '',
             gst_percent: 0,
             mrp: match.mrp || 0,
@@ -331,7 +336,7 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
       uploadFormData.append('related_tab', 'vendors');
       uploadFormData.append('vendor_name', form.vendor_name.trim());
       uploadFormData.append('bill_number', form.bill_number.trim());
-      uploadFormData.append('bill_date', form.bill_date);
+      if (form.bill_date) uploadFormData.append('bill_date', form.bill_date);
       uploadFormData.append('amount', String(Number(form.total_amount) || 0));
       uploadFormData.append('subtotal', String(Number(form.subtotal) || 0));
       uploadFormData.append('tax_amount', String(Number(form.tax_amount) || 0));
@@ -594,9 +599,9 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
               </tr>
             </thead>
             <tbody>
-              {form.items.filter(it => it.description.trim()).map((item, i) => {
-                const match = itemMatches[i] || {};
-                const originalIdx = form.items.findIndex(it => it === item);
+              {form.items.map((item, originalIdx) => {
+                if (!item.description.trim()) return null;
+                const match = (itemMatches && itemMatches[originalIdx]) || {};
                 return (
                   <tr key={originalIdx}>
                     <td><span className="extraction-pricing-item-name">{item.description}</span></td>

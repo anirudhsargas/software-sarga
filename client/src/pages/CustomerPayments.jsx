@@ -424,10 +424,10 @@ const CustomerPayments = () => {
       // If we don't have job info (e.g. general credit payment), fall back to current payment total
       if (billAmount === 0) billAmount = Number(formData.total_amount);
 
-      const cashAmount = Number(payment.methodAmounts.Cash) || 0;
-      const upiAmount = Number(payment.methodAmounts.UPI) || 0;
-      const chequeAmount = Number(payment.methodAmounts.Cheque) || 0;
-      const transferAmount = Number(payment.methodAmounts['Account Transfer']) || 0;
+      const cashAmount = payment.selectedMethods.includes('Cash') ? (Number(payment.methodAmounts.Cash) || 0) : 0;
+      const upiAmount = payment.selectedMethods.includes('UPI') ? (Number(payment.methodAmounts.UPI) || 0) : 0;
+      const chequeAmount = payment.selectedMethods.includes('Cheque') ? (Number(payment.methodAmounts.Cheque) || 0) : 0;
+      const transferAmount = payment.selectedMethods.includes('Account Transfer') ? (Number(payment.methodAmounts['Account Transfer']) || 0) : 0;
       const totalAdvancePaid = cashAmount + upiAmount + chequeAmount + transferAmount;
       
       const selected = payment.selectedMethods.length > 0 ? payment.selectedMethods : ['Cash'];
@@ -510,10 +510,10 @@ const CustomerPayments = () => {
       if (isNetworkError) {
         // Queue payment for offline sync
         try {
-          const cashAmount = Number(payment.methodAmounts.Cash) || 0;
-          const upiAmount = Number(payment.methodAmounts.UPI) || 0;
-          const chequeAmount = Number(payment.methodAmounts.Cheque) || 0;
-          const transferAmount = Number(payment.methodAmounts['Account Transfer']) || 0;
+          const cashAmount = payment.selectedMethods.includes('Cash') ? (Number(payment.methodAmounts.Cash) || 0) : 0;
+          const upiAmount = payment.selectedMethods.includes('UPI') ? (Number(payment.methodAmounts.UPI) || 0) : 0;
+          const chequeAmount = payment.selectedMethods.includes('Cheque') ? (Number(payment.methodAmounts.Cheque) || 0) : 0;
+          const transferAmount = payment.selectedMethods.includes('Account Transfer') ? (Number(payment.methodAmounts['Account Transfer']) || 0) : 0;
           
           const { default: offlineDb } = await import('../services/offlineDb');
           await offlineDb.savePendingPayment({

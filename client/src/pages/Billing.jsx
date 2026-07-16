@@ -788,6 +788,7 @@ const Billing = () => {
     if (!canProceed) { setError('Complete customer details and add at least one product.'); return; }
     if (orderLines.length === 0) { setError('Add at least one product.'); return; }
     if (advancePaid < 0) { setError('Invalid payment amount.'); return; }
+    if (advancePaid > totals.gross * 1.01) { setError('Payment amount cannot exceed grand total.'); return; }
     if (discountError) { setError(discountError); return; }
     if (isWalkIn && advancePaid < totals.gross * 0.99) { setError('Walk-in customers must pay in full.'); return; }
     setError('');
@@ -799,10 +800,10 @@ const Billing = () => {
         const customer = await localDb.createCustomer(custPayload);
         customerId = customer.id;
       }
-      const cashAmt = Number(payment.methodAmounts.Cash) || 0;
-      const upiAmt = Number(payment.methodAmounts.UPI) || 0;
-      const chequeAmt = Number(payment.methodAmounts.Cheque) || 0;
-      const transferAmt = Number(payment.methodAmounts['Account Transfer']) || 0;
+      const cashAmt = payment.selectedMethods.includes('Cash') ? (Number(payment.methodAmounts.Cash) || 0) : 0;
+      const upiAmt = payment.selectedMethods.includes('UPI') ? (Number(payment.methodAmounts.UPI) || 0) : 0;
+      const chequeAmt = payment.selectedMethods.includes('Cheque') ? (Number(payment.methodAmounts.Cheque) || 0) : 0;
+      const transferAmt = payment.selectedMethods.includes('Account Transfer') ? (Number(payment.methodAmounts['Account Transfer']) || 0) : 0;
       const isCashUpiCombo = payment.selectedMethods.length === 2 && payment.selectedMethods.includes('Cash') && payment.selectedMethods.includes('UPI');
       const payMethodLabel = isCashUpiCombo ? 'Both' : (payment.selectedMethods[0] || 'Cash');
       const billPayload = {
@@ -1819,7 +1820,7 @@ const Billing = () => {
         {/* Per-method amounts */}
         <div className="billing-payment-inputs">
           {payment.selectedMethods.map((m) => (
-            <div key={m} className="billing-field">
+            <div key={m} className="billing-field" style={{ position: 'relative' }}>
               <IndianRupee size={14} className="billing-field__icon" aria-hidden="true" />
               <input
                 ref={m === 'Cash' ? paymentAmountRef : null}
@@ -1832,7 +1833,20 @@ const Billing = () => {
                 className="billing-field__input"
                 aria-label={`${m} amount`}
                 autoComplete="off"
+                style={{ paddingRight: '55px' }}
               />
+              <button
+                type="button"
+                className="btn btn-ghost btn-xs"
+                style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', zIndex: 10, padding: '2px 6px', height: 'auto', minHeight: 'unset', fontWeight: 600, color: 'var(--primary)' }}
+                onClick={() => {
+                  const otherAmt = payment.selectedMethods.reduce((s, method) => s + (method !== m ? (Number(payment.methodAmounts[method]) || 0) : 0), 0);
+                  const remaining = Math.max(0, totals.gross - otherAmt);
+                  updateMethodAmount(m, remaining.toFixed(2));
+                }}
+              >
+                Full
+              </button>
               <span className="text-xs text-muted">{m}</span>
             </div>
           ))}

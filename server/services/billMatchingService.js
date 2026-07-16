@@ -143,7 +143,8 @@ async function matchProducts(items, vendorId, canonicalVendorName) {
 
   const [inventoryRows] = await pool.query(
     `SELECT i.id AS inventory_id, i.name AS inventory_name, i.sku,
-            i.sell_price, i.mrp,
+            i.sell_price,
+            COALESCE(i.mrp, i.sell_price, 0) AS mrp,
             p.id AS product_id, p.name AS product_name, p.product_code
      FROM sarga_inventory i
      LEFT JOIN sarga_products p ON p.inventory_item_id = i.id`
