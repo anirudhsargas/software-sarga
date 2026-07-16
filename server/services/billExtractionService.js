@@ -78,8 +78,31 @@ async function callGeminiWithRetry(pages) {
   });
 
   const parts = [EXTRACTION_PROMPT, ...buildImageParts(pages)];
+  const totalBase64Bytes = pages.reduce((sum, p) => sum + p.buffer.toString('base64').length, 0);
+  logger.info('[BillExtraction] Calling Gemini', {
+    model: GEMINI_MODEL,
+    hasApiKey: !!process.env.GEMINI_API_KEY,
+    pageCount: pages.length,
+    mimeTypes: pages.map(p => p.mimeType).join(', '),
+    totalBase64SizeKB: Math.round(totalBase64Bytes / 1024),
+  });
 
-  const result = await model.generateContent(parts);
+  let result;
+  try {
+    result = await model.generateContent(parts);
+  } catch (geminiErr) {
+    logger.error('[BillExtraction] RAW GEMINI ERROR', {
+      message: geminiErr.message,
+      status: geminiErr.status,
+      statusText: geminiErr.statusText,
+      code: geminiErr.code,
+      details: geminiErr.errorDetails || geminiErr.details,
+      responseData: geminiErr.response?.data,
+      stack: geminiErr.stack,
+    });
+    throw geminiErr;
+  }
+
   const response = result.response;
   const text = response.text();
 
@@ -87,6 +110,11 @@ async function callGeminiWithRetry(pages) {
   try {
     parsed = JSON.parse(text);
   } catch (parseErr) {
+    logger.error('[BillExtraction] RAW JSON PARSE ERROR', {
+      message: parseErr.message,
+      stack: parseErr.stack,
+      preview: text.slice(0, 500),
+    });
     throw new Error(`Gemini returned invalid JSON: ${parseErr.message}`);
   }
 
@@ -123,7 +151,15 @@ async function extractBillData(pages) {
     if (err.message === 'Too many pending extractions, please try again in a few minutes') {
       throw err;
     }
-    logger.error('[BillExtraction] AI extraction failed', { error: err.message });
+    logger.error('[BillExtraction] RAW ERROR (before generic message)', {
+      message: err.message,
+      status: err.status,
+      code: err.code,
+      statusText: err.statusText,
+      details: err.errorDetails || err.details,
+      responseData: err.response?.data,
+      stack: err.stack,
+    });
     throw new Error('AI extraction temporarily unavailable, please enter manually');
   }
 }
