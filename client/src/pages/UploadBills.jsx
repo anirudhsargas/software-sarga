@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import SmartBillUpload from './expense-manager/SmartBillUpload';
+import BillExtractionReview from './expense-manager/BillExtractionReview';
 import PageContainer from '../components/ui/PageContainer';
 import auth from '../services/auth';
 import toast from 'react-hot-toast';
@@ -20,15 +20,15 @@ const UploadBills = () => {
   }, [userRole, navigate]);
 
   return (
-    <PageContainer title="Smart Bill Upload">
-      <SmartBillUpload
+    <PageContainer title="AI Bill Extraction">
+      <BillExtractionReview
         onClose={() => navigate(redirectPath)}
         onSuccess={() => {
-          toast.success('Bill processed successfully!');
+          toast.success('Bill saved successfully!');
           navigate(redirectPath);
         }}
         onError={(err) => {
-          toast.error(err || 'Failed to upload bill');
+          toast.error(err || 'Failed to save bill');
         }}
       />
     </PageContainer>

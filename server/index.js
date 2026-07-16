@@ -485,6 +485,7 @@ registerRoute('coupons', '/api', () => require('./routes/coupons'));
 registerRoute('stockVerification', '/api/stock-verification', () => require('./routes/stockVerification'));
 registerRoute('stockRequests', '/api', () => require('./routes/stockRequests'));
 registerRoute('ocr', '/api/ocr', () => require('./routes/ocr'));
+registerRoute('billExtraction', '/api', () => require('./routes/billExtraction'));
 
 // Three Books System Routes
 registerRoute('machines', '/api/machines', () => require('./routes/machines'));
