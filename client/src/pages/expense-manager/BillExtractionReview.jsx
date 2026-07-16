@@ -930,6 +930,8 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
             }}
           />
 
+        </div>
+
         <div className="extraction-field">
           <label>Bill Number</label>
           <input
