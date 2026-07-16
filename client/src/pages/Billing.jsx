@@ -1028,65 +1028,19 @@ const Billing = () => {
   }, [lastBillData]);
 
   // ── WhatsApp Actions ──
-  const handleWhatsAppClick = useCallback(() => {
-    const mobile = lastBillData?.customer?.mobile || '';
-    if (mobile && mobile.trim().length === 10) {
-      const customerName = lastBillData.customer?.name || 'Customer';
-      const linesText = lastBillData.orderLines?.map(l => `- ${l.product_name || l.name} (x${l.quantity}): ₹${Number(l.total_amount || 0).toFixed(2)}`).join('\n') || '';
-      const paidAmount = Number(lastBillData.payment?.cash_amount || 0) + 
-                         Number(lastBillData.payment?.upi_amount || 0) + 
-                         Number(lastBillData.payment?.cheque_amount || 0) + 
-                         Number(lastBillData.payment?.account_transfer_amount || 0);
-      const totalAmount = Number(lastBillData.totals?.gross || 0);
-      const balanceDue = Math.max(totalAmount - paidAmount, 0);
-      const invNum = lastBillData.invoiceNumber || `INV-${Date.now()}`;
-      
-      const msg = [
-        `Dear ${customerName},`,
-        '',
-        `Here are your bill details from Sarga:`,
-        `Invoice: ${invNum}`,
-        `Total Amount: ₹${totalAmount.toFixed(2)}`,
-        `Paid Amount: ₹${paidAmount.toFixed(2)}`,
-        `Balance Due: ₹${balanceDue.toFixed(2)}`,
-        '',
-        `Items:`,
-        linesText,
-        '',
-        `Thank you for your business! 🙏`
-      ].join('\n');
-      
-      const url = whatsappUrl(mobile, msg);
-      if (url) {
-        window.open(url, '_blank');
-      } else {
-        toast.error('Failed to generate WhatsApp URL');
-      }
-    } else {
-      setShowWhatsAppInput(true);
-    }
-  }, [lastBillData]);
-
-  const handleSendWhatsAppWithNumber = useCallback(() => {
-    if (whatsAppMobile.trim().length !== 10) {
-      toast.error('Please enter a valid 10-digit mobile number.');
-      return;
-    }
-
-    const mobile = whatsAppMobile.trim();
-
-    // 1. Build message and URL synchronously so window.open is not blocked by pop-up blocker
-    const customerName = lastBillData?.customer?.name || 'Customer';
-    const linesText = lastBillData?.orderLines?.map(l => `- ${l.product_name || l.name} (x${l.quantity}): ₹${Number(l.total_amount || 0).toFixed(2)}`).join('\n') || '';
-    const paidAmount = Number(lastBillData?.payment?.cash_amount || 0) + 
-                       Number(lastBillData?.payment?.upi_amount || 0) + 
-                       Number(lastBillData?.payment?.cheque_amount || 0) + 
-                       Number(lastBillData?.payment?.account_transfer_amount || 0);
-    const totalAmount = Number(lastBillData?.totals?.gross || 0);
+  const buildWhatsAppMessage = useCallback((billData) => {
+    if (!billData) return '';
+    const customerName = billData.customer?.name || 'Customer';
+    const linesText = billData.orderLines?.map(l => `- ${l.product_name || l.name} (x${l.quantity}): ₹${Number(l.total_amount || 0).toFixed(2)}`).join('\n') || '';
+    const paidAmount = Number(billData.payment?.cash_amount || 0) + 
+                       Number(billData.payment?.upi_amount || 0) + 
+                       Number(billData.payment?.cheque_amount || 0) + 
+                       Number(billData.payment?.account_transfer_amount || 0);
+    const totalAmount = Number(billData.totals?.gross || 0);
     const balanceDue = Math.max(totalAmount - paidAmount, 0);
-    const invNum = lastBillData?.invoiceNumber || `INV-${Date.now()}`;
+    const invNum = billData.invoiceNumber || `INV-${Date.now()}`;
     
-    const msg = [
+    return [
       `Dear ${customerName},`,
       '',
       `Here are your bill details from Sarga:`,
@@ -1100,17 +1054,28 @@ const Billing = () => {
       '',
       `Thank you for your business! 🙏`
     ].join('\n');
+  }, []);
 
-    const url = whatsappUrl(mobile, msg);
-    if (url) {
-      window.open(url, '_blank');
-      setShowWhatsAppInput(false);
-    } else {
-      toast.error('Failed to generate WhatsApp URL');
-      return;
-    }
+  const directWhatsAppUrl = useMemo(() => {
+    const mobile = lastBillData?.customer?.mobile || '';
+    if (!mobile || mobile.trim().length !== 10) return '';
+    const msg = buildWhatsAppMessage(lastBillData);
+    return whatsappUrl(mobile.trim(), msg);
+  }, [lastBillData, buildWhatsAppMessage]);
 
-    // 2. Update lastBillData customer mobile in-memory
+  const dynamicWhatsAppUrl = useMemo(() => {
+    const mobile = whatsAppMobile.trim();
+    if (mobile.length !== 10) return '';
+    const msg = buildWhatsAppMessage(lastBillData);
+    return whatsappUrl(mobile, msg);
+  }, [whatsAppMobile, lastBillData, buildWhatsAppMessage]);
+
+  const handleWhatsAppClick = useCallback(() => {
+    setShowWhatsAppInput(true);
+  }, []);
+
+  const handleSendWhatsAppEffects = useCallback((mobile) => {
+    // Update lastBillData customer mobile in-memory
     setLastBillData(prev => {
       if (!prev) return prev;
       return {
@@ -1122,7 +1087,7 @@ const Billing = () => {
       };
     });
 
-    // 3. Try to update customer in database if customerId is present (Asynchronously in background)
+    // Try to update customer in database if customerId is present
     if (lastBillData?.customerId) {
       api.put(`/customers/${lastBillData.customerId}`, {
         mobile: mobile,
@@ -1137,7 +1102,7 @@ const Billing = () => {
         console.error('Failed to update customer phone number in database:', err);
       });
     }
-  }, [whatsAppMobile, lastBillData]);
+  }, [lastBillData]);
 
   // ── Undo delete (5s) ──
   const handleRemoveWithUndo = useCallback((line) => {
@@ -2105,9 +2070,25 @@ const Billing = () => {
                 <button className="btn btn-primary flex-1" onClick={() => { handlePrintLast(); setShowPostBillOptions(false); }} style={{ height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Printer size={16} className="mr-8" aria-hidden="true" /> Print Invoice
                 </button>
-                <button className="btn btn-success flex-1" onClick={handleWhatsAppClick} style={{ height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <WhatsAppIcon className="mr-8" aria-hidden="true" /> Send WhatsApp
-                </button>
+                {lastBillData?.customer?.mobile && lastBillData.customer.mobile.trim().length === 10 ? (
+                  <a
+                    href={directWhatsAppUrl || '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-success flex-1"
+                    style={{ height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
+                  >
+                    <WhatsAppIcon className="mr-8" aria-hidden="true" /> Send WhatsApp
+                  </a>
+                ) : (
+                  <button
+                    className="btn btn-success flex-1"
+                    onClick={handleWhatsAppClick}
+                    style={{ height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <WhatsAppIcon className="mr-8" aria-hidden="true" /> Send WhatsApp
+                  </button>
+                )}
                 <button className="btn btn-ghost flex-1" onClick={() => { setShowPostBillOptions(false); }} style={{ height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)' }}>
                   <Plus size={16} className="mr-8" aria-hidden="true" /> New Invoice
                 </button>
@@ -2133,13 +2114,30 @@ const Billing = () => {
                           className="billing-field__input"
                         />
                       </div>
-                      <button
-                        className="btn btn-success btn-sm"
-                        onClick={handleSendWhatsAppWithNumber}
-                        disabled={whatsAppMobile.trim().length !== 10}
+                      <a
+                        href={dynamicWhatsAppUrl || '#'}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`btn btn-success btn-sm ${whatsAppMobile.trim().length !== 10 ? 'disabled' : ''}`}
+                        onClick={(e) => {
+                          if (whatsAppMobile.trim().length !== 10) {
+                            e.preventDefault();
+                            return;
+                          }
+                          handleSendWhatsAppEffects(whatsAppMobile.trim());
+                          setShowWhatsAppInput(false);
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          textDecoration: 'none',
+                          pointerEvents: whatsAppMobile.trim().length !== 10 ? 'none' : 'auto',
+                          opacity: whatsAppMobile.trim().length !== 10 ? 0.6 : 1
+                        }}
                       >
                         Send
-                      </button>
+                      </a>
                       <button
                         className="btn btn-ghost btn-sm"
                         onClick={() => setShowWhatsAppInput(false)}
