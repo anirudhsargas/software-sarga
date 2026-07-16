@@ -170,7 +170,9 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
     if (total < 0 || advance < 0 || cash < 0 || upi < 0 || cheque < 0 || transfer < 0) {
         return res.status(400).json({ message: 'Amounts cannot be negative.' });
     }
-    if (advance > total) {
+    // C-03: advance cannot exceed total with tolerance for rounding/discount edge cases
+    // Zod refine allows up to 1%; route check matches that plus a flat ₹1 floor for small amounts
+    if (advance > Math.max(total * 1.01, total + 1)) {
         return res.status(400).json({ message: `Advance (₹${advance}) cannot exceed total amount (₹${total})` });
     }
 
