@@ -1740,4 +1740,44 @@ router.post('/inventory/bulk-generate-images', authenticateToken, authorizeRoles
     }
 });
 
+router.post('/inventory/check-bulk-stock', authenticateToken, async (req, res) => {
+    const { items } = req.body;
+    if (!Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ message: 'Items array is required' });
+    }
+    try {
+        const insufficient = [];
+        for (const item of items) {
+            const productId = item.product_id;
+            const qty = Number(item.quantity) || 0;
+            if (!productId || qty <= 0) continue;
+            const [[prodRow]] = await pool.query(
+                'SELECT inventory_item_id, name FROM sarga_products WHERE id = ? AND is_active = 1 AND is_deleted = 0',
+                [productId]
+            );
+            const invId = prodRow ? prodRow.inventory_item_id : null;
+            if (!invId) continue;
+            const [[invRow]] = await pool.query(
+                'SELECT quantity, COALESCE(reserved_quantity, 0) AS reserved FROM sarga_inventory WHERE id = ?',
+                [invId]
+            );
+            if (!invRow) continue;
+            const available = Number(invRow.quantity || 0) - Number(invRow.reserved || 0);
+            if (available < qty) {
+                insufficient.push({
+                    product_id: productId,
+                    product_name: prodRow.name || `Product #${productId}`,
+                    available,
+                    requested: qty,
+                    shortfall: qty - available
+                });
+            }
+        }
+        res.json({ insufficient, has_insufficiency: insufficient.length > 0 });
+    } catch (err) {
+        console.error('Bulk stock check error:', err);
+        res.status(500).json({ message: 'Failed to check stock' });
+    }
+});
+
 module.exports = router;

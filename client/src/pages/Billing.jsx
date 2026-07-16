@@ -835,9 +835,39 @@ const Billing = () => {
         branch_id: selectedBranchId,
       };
       const matterFiles = orderLines.map(l => l.matter_file).filter(Boolean);
+
+      // Pre-flight stock check
+      const stockCheckItems = billPayload.order_lines
+        .filter(l => l.product_id)
+        .map(l => ({ product_id: l.product_id, quantity: l.quantity }));
+      let forceStock = false;
+      if (stockCheckItems.length > 0) {
+        try {
+          const { data: stockResult } = await api.post('/inventory/check-bulk-stock', { items: stockCheckItems });
+          if (stockResult?.has_insufficiency) {
+            const productNames = stockResult.insufficient.map(i =>
+              `  • ${i.product_name} (need ${i.requested}, only ${i.available} available)`
+            ).join('\n');
+            const proceedAnyway = await confirm({
+              title: 'Insufficient Stock',
+              message: `The following products have insufficient stock:\n${productNames}\n\nDo you want to proceed and create the invoice anyway?`,
+              confirmText: 'Proceed Anyway',
+              cancelText: 'Cancel'
+            });
+            if (!proceedAnyway) {
+              setSaving(false);
+              return;
+            }
+            forceStock = true;
+          }
+        } catch (_) {
+          // Stock check failed (offline/error) — proceed normally
+        }
+      }
+
       let result;
       try {
-        result = await localDb.createBill(billPayload, matterFiles);
+        result = await localDb.createBill(forceStock ? { ...billPayload, force: true } : billPayload, matterFiles);
       } catch (err) {
         if (err?.response?.status === 409) {
           const proceedAnyway = await confirm({
