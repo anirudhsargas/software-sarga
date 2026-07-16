@@ -3,6 +3,7 @@ const multer = require('multer');
 const { authenticateToken } = require('../middleware/auth');
 const { asyncHandler } = require('../helpers');
 const { extractBillData, queue } = require('../services/billExtractionService');
+const { extractTextFromImages } = require('../services/ocrService');
 const logger = require('../helpers/logger');
 
 const upload = multer({
@@ -32,9 +33,18 @@ router.post('/bills/extract-data', authenticateToken, upload.array('billPages', 
   const { queueLength, estimatedWaitSeconds } = queue.getQueueStatus();
   logger.info('[BillExtraction] Request received', { queueLength, estimatedWaitSeconds, pageCount: req.files.length, totalSize });
 
+  let ocrText;
   try {
     const pages = req.files.map(f => ({ buffer: f.buffer, mimeType: f.mimetype }));
-    const data = await extractBillData(pages);
+    ocrText = await extractTextFromImages(pages);
+    logger.info('[BillExtraction] OCR complete', { textLength: ocrText.length });
+  } catch (ocrErr) {
+    logger.error('[BillExtraction] OCR failed', { message: ocrErr.message, stack: ocrErr.stack });
+    return res.status(400).json({ success: false, message: ocrErr.message });
+  }
+
+  try {
+    const data = await extractBillData(ocrText);
     logger.info('[BillExtraction] Extraction successful', { queueLength: queue.getQueueStatus().queueLength });
     return res.json({ success: true, data, queueStatus: { queueLength, estimatedWaitSeconds } });
   } catch (err) {

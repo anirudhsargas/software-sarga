@@ -3,7 +3,9 @@ const RequestQueue = require('../utils/requestQueue');
 const logger = require('../helpers/logger');
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
-const EXTRACTION_PROMPT = `You are given one or more images that are different pages or sides of the SAME bill or invoice. Combine information across all images into a single structured JSON result — for example, an invoice header on page 1 and itemized list on page 2 should merge into one result, not two.
+const EXTRACTION_PROMPT = `You are given RAW OCR text extracted from one or more pages of a bill or invoice. The pages are separated with "--- Page N ---" markers. Combine information across all pages into a single structured JSON result — for example, an invoice header on page 1 and itemized list on page 2 should merge into one result, not two.
+
+The text may contain OCR errors (e.g. "l" vs "1", "O" vs "0", garbled characters, missing spaces). Use your best judgement to correct obvious OCR mistakes and infer the correct values.
 
 Extract the following fields and return them as JSON:
 - vendor_name: the vendor or supplier name
@@ -58,16 +60,7 @@ function getGenAI() {
   return genAIInstance;
 }
 
-function buildImageParts(pages) {
-  return pages.map(p => ({
-    inlineData: {
-      data: p.buffer.toString('base64'),
-      mimeType: p.mimeType,
-    },
-  }));
-}
-
-async function callGeminiWithRetry(pages) {
+async function callGeminiWithRetry(ocrText) {
   const genAI = getGenAI();
   const model = genAI.getGenerativeModel({
     model: GEMINI_MODEL,
@@ -77,19 +70,15 @@ async function callGeminiWithRetry(pages) {
     },
   });
 
-  const parts = [EXTRACTION_PROMPT, ...buildImageParts(pages)];
-  const totalBase64Bytes = pages.reduce((sum, p) => sum + p.buffer.toString('base64').length, 0);
   logger.info('[BillExtraction] Calling Gemini', {
     model: GEMINI_MODEL,
     hasApiKey: !!process.env.GEMINI_API_KEY,
-    pageCount: pages.length,
-    mimeTypes: pages.map(p => p.mimeType).join(', '),
-    totalBase64SizeKB: Math.round(totalBase64Bytes / 1024),
+    ocrTextLength: ocrText.length,
   });
 
   let result;
   try {
-    result = await model.generateContent(parts);
+    result = await model.generateContent([EXTRACTION_PROMPT, ocrText]);
   } catch (geminiErr) {
     logger.error('[BillExtraction] RAW GEMINI ERROR', {
       message: geminiErr.message,
@@ -121,28 +110,24 @@ async function callGeminiWithRetry(pages) {
   return parsed;
 }
 
-async function extractBillData(pages) {
+async function extractBillData(ocrText) {
   if (!process.env.GEMINI_API_KEY) {
     throw new Error('AI extraction temporarily unavailable, please enter manually');
   }
 
-  if (!Array.isArray(pages)) {
-    pages = [pages];
-  }
-
-  if (pages.length === 0) {
-    throw new Error('No image data provided');
+  if (typeof ocrText !== 'string' || ocrText.trim().length === 0) {
+    throw new Error('No text data provided');
   }
 
   try {
     return await queue.enqueue(async () => {
       try {
-        return await callGeminiWithRetry(pages);
+        return await callGeminiWithRetry(ocrText);
       } catch (err) {
         if (err.status === 429 || (err.message && err.message.includes('429'))) {
           logger.warn('[BillExtraction] 429 rate limit hit, retrying after 5s');
           await new Promise(resolve => setTimeout(resolve, 5000));
-          return await callGeminiWithRetry(pages);
+          return await callGeminiWithRetry(ocrText);
         }
         throw err;
       }
