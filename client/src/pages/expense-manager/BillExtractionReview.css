@@ -310,13 +310,26 @@
   box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.1);
 }
 
-.extraction-items-table td:first-child input {
+.extraction-items-table td:nth-child(1) input {
   min-width: 160px;
 }
 
-.extraction-items-table td:not(:first-child) input {
-  min-width: 80px;
+.extraction-items-table td:nth-child(2) input {
+  min-width: 70px;
+  font-family: monospace;
+  font-size: var(--text-xs);
+}
+
+.extraction-items-table td:nth-child(3) input,
+.extraction-items-table td:nth-child(4) input,
+.extraction-items-table td:nth-child(5) input {
+  min-width: 70px;
   text-align: right;
+}
+
+.extraction-items-table td:nth-child(6) {
+  width: 40px;
+  text-align: center;
 }
 
 .extraction-icon-btn {

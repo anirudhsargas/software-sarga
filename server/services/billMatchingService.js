@@ -124,15 +124,12 @@ async function matchProducts(items, vendorId, canonicalVendorName) {
             i.sell_price, i.mrp,
             p.id AS product_id, p.name AS product_name, p.product_code
      FROM sarga_inventory i
-     LEFT JOIN sarga_products p ON p.inventory_item_id = i.id
-       AND (p.is_deleted = 0 OR p.is_deleted IS NULL)
-     WHERE (i.is_deleted = 0 OR i.is_deleted IS NULL)`
+     LEFT JOIN sarga_products p ON p.inventory_item_id = i.id`
   );
 
   const [orphanProducts] = await pool.query(
     `SELECT id, name, product_code FROM sarga_products
-     WHERE inventory_item_id IS NULL
-       AND (is_deleted = 0 OR is_deleted IS NULL)`
+     WHERE inventory_item_id IS NULL`
   );
 
   const knownProducts = [];
