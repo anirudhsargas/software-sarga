@@ -48,7 +48,7 @@ router.post('/bills/extract-data', authenticateToken, upload.array('billPages', 
     logger.info('[BillExtraction] Extraction successful', { queueLength: queue.getQueueStatus().queueLength });
     return res.json({ success: true, data, queueStatus: { queueLength, estimatedWaitSeconds } });
   } catch (err) {
-    const status = err.message === 'Too many pending extractions, please try again in a few minutes' ? 503 : 500;
+    const status = err.message.includes('temporarily unavailable') || err.message === 'Too many pending extractions, please try again in a few minutes' ? 503 : 500;
     logger.error('[BillExtraction] Extraction failed', { error: err.message, queueLength: queue.getQueueStatus().queueLength });
     return res.status(status).json({ success: false, message: err.message, queueStatus: { queueLength, estimatedWaitSeconds } });
   }

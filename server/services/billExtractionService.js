@@ -19,33 +19,6 @@ Extract the following fields and return them as JSON:
 
 If a field is not found, use null. For items, return an empty array if no line items are clearly identified.`;
 
-const RESPONSE_SCHEMA = {
-  type: 'object',
-  properties: {
-    vendor_name: { type: 'string', nullable: true },
-    bill_number: { type: 'string', nullable: true },
-    bill_date: { type: 'string', nullable: true },
-    gst_number: { type: 'string', nullable: true },
-    items: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          description: { type: 'string' },
-          quantity: { type: 'number', nullable: true },
-          rate: { type: 'number', nullable: true },
-          amount: { type: 'number', nullable: true },
-        },
-        required: ['description'],
-      },
-    },
-    subtotal: { type: 'number', nullable: true },
-    tax_amount: { type: 'number', nullable: true },
-    total_amount: { type: 'number', nullable: true },
-  },
-  required: ['vendor_name', 'bill_number', 'bill_date', 'gst_number', 'items', 'subtotal', 'tax_amount', 'total_amount'],
-};
-
 const queue = new RequestQueue();
 
 let genAIInstance = null;
@@ -66,7 +39,6 @@ async function callGeminiWithRetry(ocrText) {
     model: GEMINI_MODEL,
     generationConfig: {
       responseMimeType: 'application/json',
-      responseSchema: RESPONSE_SCHEMA,
     },
   });
 

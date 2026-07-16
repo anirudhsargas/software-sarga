@@ -803,7 +803,8 @@ const Billing = () => {
       const upiAmt = Number(payment.methodAmounts.UPI) || 0;
       const chequeAmt = Number(payment.methodAmounts.Cheque) || 0;
       const transferAmt = Number(payment.methodAmounts['Account Transfer']) || 0;
-      const payMethodLabel = payment.selectedMethods.length === 1 ? payment.selectedMethods[0] : 'Split';
+      const isCashUpiCombo = payment.selectedMethods.length === 2 && payment.selectedMethods.includes('Cash') && payment.selectedMethods.includes('UPI');
+      const payMethodLabel = isCashUpiCombo ? 'Both' : (payment.selectedMethods[0] || 'Cash');
       const billPayload = {
         customer_id: customerId || null,
         customer_name: form.name.trim() || 'Walk-in Customer',
