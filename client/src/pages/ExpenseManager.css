@@ -144,7 +144,7 @@ a:focus-visible,
 
 .em-sidepanel__content {
     padding: var(--space-12) var(--space-16) var(--space-12);
-    overflow-y: hidden;
+    overflow-y: auto;
     overflow-x: hidden;
     flex: 1;
     min-height: 0;

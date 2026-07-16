@@ -25,7 +25,7 @@ import FinanceTab from './expense-manager/FinanceTab';
 import TransportTab from './expense-manager/TransportTab';
 import MiscTab from './expense-manager/MiscTab';
 import StaffExpensesTab from './expense-manager/StaffExpensesTab';
-import BillsDocsTab from './expense-manager/BillsDocsTab';
+import BillExtractionReview from './expense-manager/BillExtractionReview';
 import ReportsTab from './expense-manager/ReportsTab';
 import OfficeTab from './expense-manager/OfficeTab';
 import PaymentModal from './expense-manager/PaymentModal';
@@ -308,11 +308,18 @@ const ExpenseManager = () => {
         <div className="em-sidepanel-backdrop" onClick={() => setShowBillsPanel(false)} role="dialog" aria-modal="true" aria-labelledby="bills-panel-title">
           <div className="em-sidepanel" onClick={(e) => e.stopPropagation()}>
             <div className="em-sidepanel__header">
-              <div id="bills-panel-title" className="em-sidepanel__title"><FileText size={16} aria-hidden="true" /> Bills & Docs</div>
+              <div id="bills-panel-title" className="em-sidepanel__title"><FileText size={16} aria-hidden="true" /> Upload Bills</div>
               <button className="btn btn-ghost btn-icon" onClick={() => setShowBillsPanel(false)} aria-label="Close bills panel"><X size={18} aria-hidden="true" /></button>
             </div>
             <div className="em-sidepanel__content">
-              <BillsDocsTab onError={setError} />
+              <BillExtractionReview
+                onClose={() => setShowBillsPanel(false)}
+                onSuccess={() => {
+                  setShowBillsPanel(false);
+                  setRefreshKey(k => k + 1);
+                }}
+                onError={setError}
+              />
             </div>
           </div>
         </div>
