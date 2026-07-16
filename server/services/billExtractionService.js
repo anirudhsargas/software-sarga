@@ -1,18 +1,17 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const sharp = require('sharp');
 const RequestQueue = require('../utils/requestQueue');
 const logger = require('../helpers/logger');
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite';
-const EXTRACTION_PROMPT = `You are given RAW OCR text extracted from one or more pages of a bill or invoice. The pages are separated with "--- Page N ---" markers. Combine information across all pages into a single structured JSON result — for example, an invoice header on page 1 and itemized list on page 2 should merge into one result, not two.
+const EXTRACTION_PROMPT = `You are given images of one or more pages of a bill or invoice. Combine information across all pages into a single structured JSON result — for example, an invoice header on page 1 and itemized list on page 2 should merge into one result, not two.
 
-The text may contain OCR errors (e.g. "l" vs "1", "O" vs "0", garbled characters, missing spaces). Use your best judgement to correct obvious OCR mistakes and infer the correct values.
+CRITICAL — Table structure analysis: The invoice contains a printed TABLE with columns like SI No, Description, HSN/SAC, Quantity, Rate, Per, Disc%, Amount. Use your visual understanding of the table layout (grid lines, spacing, alignment, indentation) to correctly associate each value with its column and row. Do not rely on reading order alone — visually trace each row across its columns.
 
-CRITICAL — Tabular data reconstruction: The OCR text likely comes from a printed TABLE with columns like SI No, Description, HSN/SAC, Quantity, Rate, Per, Disc%, Amount. OCR reads left-to-right per line, which interleaves these columns in a confusing order. To correctly reconstruct each line item:
-
-- Use SI No (serial number) as a strong row anchor — sequential counters are the most reliable signal for where a new row begins.
-- Match descriptions to their corresponding numbers by position: a description should be followed (in table reading order) by its numeric columns (Qty, Rate, Disc%, Amount). If numbers appear orphaned or descriptions appear without clear numbers nearby, align them by sequential position in the table rather than leaving fields blank or duplicating values.
-- Use contextual clues: HSN/SAC codes and item codes identify rows; unit words like "Nos", "Pcs", "Kg", "Ltr", "Mtr" indicate the quantity column; larger round numbers are typically amounts, while smaller decimals like xxx.xx are usually rates.
-- Arithmetic cross-check per item: quantity × rate should approximately equal the amount (allowing for rounding or a discount %). Use this sanity check to detect and correct misaligned rows — do NOT blindly output whatever order the text appears in.
+- Use SI No (serial number) as a strong row anchor — sequential counters are the most reliable signal for where a new line item begins.
+- Unit words like "Nos", "Pcs", "Kg", "Ltr", "Mtr" typically appear in or near the quantity column.
+- Larger round numbers are typically amounts; smaller decimals like xxx.xx are usually rates.
+- Arithmetic cross-check per item: quantity × rate should approximately equal the amount (allowing for rounding or a discount %). Use this sanity check to detect and correct misaligned values.
 
 Extract the following fields and return them as JSON:
 - vendor_name: the vendor or supplier name
@@ -130,4 +129,111 @@ async function extractBillData(ocrText) {
   }
 }
 
-module.exports = { extractBillData, queue };
+async function pdfToImages(pdfBuffer) {
+  const pdfParse = require('pdf-parse');
+  const pdfData = await pdfParse(pdfBuffer);
+  const pageCount = pdfData.numpages || 1;
+  const pages = [];
+
+  for (let i = 0; i < pageCount; i++) {
+    const imgBuffer = await sharp(pdfBuffer, { page: i }).png().toBuffer();
+    pages.push({ buffer: imgBuffer, mimeType: 'image/png' });
+  }
+
+  logger.info('[BillExtraction] PDF converted to images', { pageCount });
+  return pages;
+}
+
+async function callGeminiWithImages(pages) {
+  const genAI = getGenAI();
+  const model = genAI.getGenerativeModel({
+    model: GEMINI_MODEL,
+    generationConfig: {
+      responseMimeType: 'application/json',
+    },
+  });
+
+  const parts = [EXTRACTION_PROMPT];
+  for (let i = 0; i < pages.length; i++) {
+    parts.push({
+      inlineData: {
+        data: pages[i].buffer.toString('base64'),
+        mimeType: pages[i].mimeType,
+      },
+    });
+  }
+
+  logger.info('[BillExtraction] Calling Gemini with images', {
+    model: GEMINI_MODEL,
+    hasApiKey: !!process.env.GEMINI_API_KEY,
+    pageCount: pages.length,
+  });
+
+  let result;
+  try {
+    result = await model.generateContent(parts);
+  } catch (geminiErr) {
+    logger.error('[BillExtraction] RAW GEMINI ERROR', {
+      message: geminiErr.message,
+      status: geminiErr.status,
+      statusText: geminiErr.statusText,
+      code: geminiErr.code,
+      details: geminiErr.errorDetails || geminiErr.details,
+      responseData: geminiErr.response?.data,
+      stack: geminiErr.stack,
+    });
+    throw geminiErr;
+  }
+
+  const response = result.response;
+  const text = response.text();
+
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch (parseErr) {
+    logger.error('[BillExtraction] RAW JSON PARSE ERROR', {
+      message: parseErr.message,
+      stack: parseErr.stack,
+      preview: text.slice(0, 500),
+    });
+    throw new Error(`Gemini returned invalid JSON: ${parseErr.message}`);
+  }
+
+  return parsed;
+}
+
+async function extractBillDataFromImages(pages) {
+  if (!process.env.GEMINI_API_KEY) {
+    throw new Error('AI extraction temporarily unavailable, please enter manually');
+  }
+
+  if (!pages || pages.length === 0) {
+    throw new Error('No images provided');
+  }
+
+  const resolved = [];
+  for (const page of pages) {
+    if (page.mimeType === 'application/pdf') {
+      const converted = await pdfToImages(page.buffer);
+      resolved.push(...converted);
+    } else {
+      resolved.push(page);
+    }
+  }
+
+  return await queue.enqueue(async () => {
+    try {
+      return await callGeminiWithImages(resolved);
+    } catch (err) {
+      if (err.status === 429 || (err.message && err.message.includes('429'))) {
+        logger.warn('[BillExtraction] 429 rate limit hit, retrying after 5s');
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        return await callGeminiWithImages(resolved);
+      }
+      throw err;
+    }
+  });
+}
+
+module.exports = { extractBillData, extractBillDataFromImages, queue };

@@ -2,9 +2,8 @@ const router = require('express').Router();
 const multer = require('multer');
 const { authenticateToken } = require('../middleware/auth');
 const { asyncHandler } = require('../helpers');
-const { extractBillData, queue } = require('../services/billExtractionService');
+const { extractBillDataFromImages, queue } = require('../services/billExtractionService');
 const { matchVendorAndProducts } = require('../services/billMatchingService');
-const { extractTextFromImages } = require('../services/ocrService');
 const { getIO } = require('../services/socketManager');
 const logger = require('../helpers/logger');
 
@@ -48,37 +47,22 @@ router.post('/bills/extract-data', authenticateToken, upload.array('billPages', 
 
   emitProgress(socketId, { stage: 'uploading', percent: 10, label: 'Uploading bill...' });
 
-  let ocrText;
   try {
     const pages = req.files.map(f => ({ buffer: f.buffer, mimeType: f.mimetype }));
-    ocrText = await extractTextFromImages(pages, (pageInfo) => {
-      emitProgress(socketId, {
-        stage: 'ocr_processing',
-        percent: 30,
-        label: `Reading page ${pageInfo.currentPage} of ${pageInfo.totalPages}...`,
-        page: { current: pageInfo.currentPage, total: pageInfo.totalPages },
-      });
-    });
-    logger.info('[BillExtraction] OCR complete', { textLength: ocrText.length });
-    emitProgress(socketId, { stage: 'ocr_complete', percent: 50, label: 'Text extracted successfully' });
-  } catch (ocrErr) {
-    logger.error('[BillExtraction] OCR failed', { message: ocrErr.message, stack: ocrErr.stack });
-    emitProgress(socketId, { stage: 'failed', failedStage: 'ocr_processing', message: ocrErr.message });
-    return res.status(400).json({ success: false, message: ocrErr.message });
-  }
 
-  try {
+    emitProgress(socketId, { stage: 'preparing', percent: 20, label: 'Preparing pages for AI...' });
+
     const currentQueue = queue.getQueueStatus();
     emitProgress(socketId, {
       stage: 'ai_extracting',
-      percent: 60,
+      percent: 40,
       label: currentQueue.queueLength > 0
         ? `Waiting in queue (${currentQueue.queueLength} ahead, ~${currentQueue.estimatedWaitSeconds}s)...`
-        : 'Extracting data with AI...',
+        : 'Analyzing invoice with AI...',
       queueStatus: currentQueue,
     });
 
-    const data = await extractBillData(ocrText);
+    const data = await extractBillDataFromImages(pages);
 
     emitProgress(socketId, { stage: 'ai_extracting', percent: 75, label: 'AI extraction complete' });
     emitProgress(socketId, { stage: 'matching', percent: 90, label: 'Matching vendors and products...' });
