@@ -1006,7 +1006,7 @@ const Billing = () => {
     }
   }, [lastBillData]);
 
-  const handleSendWhatsAppWithNumber = useCallback(async () => {
+  const handleSendWhatsAppWithNumber = useCallback(() => {
     if (whatsAppMobile.trim().length !== 10) {
       toast.error('Please enter a valid 10-digit mobile number.');
       return;
@@ -1014,36 +1014,7 @@ const Billing = () => {
 
     const mobile = whatsAppMobile.trim();
 
-    // 1. Try to update customer in database if customerId is present
-    if (lastBillData?.customerId) {
-      try {
-        await api.put(`/customers/${lastBillData.customerId}`, {
-          mobile: mobile,
-          name: lastBillData.customer?.name,
-          type: lastBillData.customer?.type || 'Retail',
-          email: lastBillData.customer?.email || null,
-          gst: lastBillData.customer?.gst || null,
-          address: lastBillData.customer?.address || null
-        });
-        toast.success('Customer mobile updated in database.');
-      } catch (err) {
-        console.error('Failed to update customer phone number in database:', err);
-      }
-    }
-
-    // 2. Update lastBillData customer mobile in-memory
-    setLastBillData(prev => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        customer: {
-          ...prev.customer,
-          mobile: mobile
-        }
-      };
-    });
-
-    // 3. Build message
+    // 1. Build message and URL synchronously so window.open is not blocked by pop-up blocker
     const customerName = lastBillData?.customer?.name || 'Customer';
     const linesText = lastBillData?.orderLines?.map(l => `- ${l.product_name || l.name} (x${l.quantity}): ₹${Number(l.total_amount || 0).toFixed(2)}`).join('\n') || '';
     const paidAmount = Number(lastBillData?.payment?.cash_amount || 0) + 
@@ -1075,6 +1046,35 @@ const Billing = () => {
       setShowWhatsAppInput(false);
     } else {
       toast.error('Failed to generate WhatsApp URL');
+      return;
+    }
+
+    // 2. Update lastBillData customer mobile in-memory
+    setLastBillData(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        customer: {
+          ...prev.customer,
+          mobile: mobile
+        }
+      };
+    });
+
+    // 3. Try to update customer in database if customerId is present (Asynchronously in background)
+    if (lastBillData?.customerId) {
+      api.put(`/customers/${lastBillData.customerId}`, {
+        mobile: mobile,
+        name: lastBillData.customer?.name,
+        type: lastBillData.customer?.type || 'Retail',
+        email: lastBillData.customer?.email || null,
+        gst: lastBillData.customer?.gst || null,
+        address: lastBillData.customer?.address || null
+      }).then(() => {
+        toast.success('Customer mobile updated in database.');
+      }).catch(err => {
+        console.error('Failed to update customer phone number in database:', err);
+      });
     }
   }, [whatsAppMobile, lastBillData]);
 
@@ -1998,32 +1998,49 @@ const Billing = () => {
       </ScannerErrorBoundary>
 
       {/* Post-bill options with Staff Assignment */}
-      {showPostBillOptions && (
+      {showPostBillOptions && lastBillData && (
         <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="post-bill-title" onClick={() => setShowPostBillOptions(false)}>
-          <div className="modal modal--lg" onClick={e => e.stopPropagation()}>
-            <div className="modal__header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <Check size={20} aria-hidden="true" style={{ color: 'var(--success)' }} />
-                <h3 id="post-bill-title">Invoice Created!</h3>
+          <div className="modal modal--lg" onClick={e => e.stopPropagation()} style={{ overflowY: 'auto', maxHeight: '90vh' }}>
+            <div className="modal__header" style={{ borderBottom: 'none', paddingBottom: '0', display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', position: 'relative' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', gap: '8px', padding: '16px 0 8px 0' }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '50%',
+                  background: 'color-mix(in srgb, var(--success) 12%, transparent)',
+                  color: 'var(--success)',
+                  marginBottom: '4px'
+                }}>
+                  <Check size={28} strokeWidth={3} aria-hidden="true" />
+                </div>
+                <h3 id="post-bill-title" style={{ fontSize: '20px', fontWeight: '700', margin: '0', textAlign: 'center', color: 'var(--text-main)' }}>
+                  Invoice Created Successfully!
+                </h3>
+                <p style={{ margin: '0', fontSize: '13px', color: 'var(--muted)', textAlign: 'center' }}>
+                  Choose your next action below
+                </p>
               </div>
-              <button className="modal-close" aria-label="Close" onClick={() => setShowPostBillOptions(false)}><X size={18} aria-hidden="true" /></button>
+              <button className="modal-close" aria-label="Close" onClick={() => setShowPostBillOptions(false)} style={{ position: 'absolute', top: '16px', right: '16px' }}><X size={18} aria-hidden="true" /></button>
             </div>
-            <div className="modal__body stack-sm">
+            <div className="modal__body stack-sm" style={{ paddingTop: '10px' }}>
               {/* Print / WhatsApp / New Invoice actions */}
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn btn-primary flex-1" onClick={() => { handlePrintLast(); setShowPostBillOptions(false); }}>
+              <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
+                <button className="btn btn-primary flex-1" onClick={() => { handlePrintLast(); setShowPostBillOptions(false); }} style={{ height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Printer size={16} className="mr-8" aria-hidden="true" /> Print Invoice
                 </button>
-                <button className="btn btn-success flex-1" onClick={handleWhatsAppClick}>
+                <button className="btn btn-success flex-1" onClick={handleWhatsAppClick} style={{ height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <WhatsAppIcon className="mr-8" aria-hidden="true" /> Send WhatsApp
                 </button>
-                <button className="btn btn-ghost flex-1" onClick={() => { setShowPostBillOptions(false); }}>
+                <button className="btn btn-ghost flex-1" onClick={() => { setShowPostBillOptions(false); }} style={{ height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)' }}>
                   <Plus size={16} className="mr-8" aria-hidden="true" /> New Invoice
                 </button>
               </div>
 
               {showWhatsAppInput && (
-                <div style={{ border: '1px solid var(--border)', padding: '12px', borderRadius: '6px', background: 'var(--bg-light)', marginTop: 8 }}>
+                <div style={{ border: '1px solid var(--border)', padding: '12px', borderRadius: '6px', background: 'var(--bg-light)', marginBottom: 16 }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontSize: 13, fontWeight: 600 }}>Enter WhatsApp Number</span>
@@ -2059,6 +2076,87 @@ const Billing = () => {
                   </div>
                 </div>
               )}
+
+              {/* High-Fidelity Live Invoice Summary Card */}
+              <div className="invoice-success-summary" style={{
+                background: 'var(--bg-light)',
+                border: '1px solid var(--border)',
+                borderRadius: '12px',
+                padding: '16px',
+                marginBottom: '16px',
+                boxShadow: '0 2px 10px rgba(0, 0, 0, 0.03)',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px dashed var(--border)', paddingBottom: '12px', marginBottom: '12px' }}>
+                  <div>
+                    <span style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Invoice No</span>
+                    <h4 style={{ margin: '2px 0 0 0', color: 'var(--primary)', fontWeight: '700', fontSize: '14px' }}>{lastBillData.invoiceNumber}</h4>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <span style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Date</span>
+                    <p style={{ margin: '2px 0 0 0', fontWeight: '500', fontSize: '12px' }}>
+                      {new Date(lastBillData.invoiceDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '14px' }}>
+                  <div>
+                    <span style={{ fontSize: '11px', color: 'var(--muted)' }}>Customer</span>
+                    <p style={{ margin: '2px 0 0 0', fontWeight: '600', fontSize: '13px' }}>{lastBillData.customer?.name || 'Walk-in Customer'}</p>
+                    {lastBillData.customer?.mobile && (
+                      <span style={{ fontSize: '11px', color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                        <Phone size={10} /> {lastBillData.customer.mobile}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <span style={{ fontSize: '11px', color: 'var(--muted)' }}>Payment Mode</span>
+                    <p style={{ margin: '2px 0 0 0', fontWeight: '500', fontSize: '12px' }}>{lastBillData.payment?.method || 'Cash'}</p>
+                  </div>
+                </div>
+
+                <div style={{ background: 'var(--bg)', borderRadius: '8px', padding: '10px 12px', marginBottom: '12px', border: '1px solid var(--border)' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--muted)', display: 'block', marginBottom: '6px', fontWeight: '500' }}>Items Summary</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '100px', overflowY: 'auto' }}>
+                    {lastBillData.orderLines?.map((line, idx) => (
+                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                        <span style={{ color: 'var(--text-main)', fontWeight: '400' }}>
+                          {line.product_name || line.name} <span style={{ color: 'var(--muted)', fontSize: '10px' }}>x{line.quantity}</span>
+                        </span>
+                        <span style={{ fontWeight: '500' }}>₹{Number(line.total_amount || 0).toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'color-mix(in srgb, var(--success) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--success) 20%, transparent)', borderRadius: '8px', padding: '10px 12px' }}>
+                  <div>
+                    <span style={{ fontSize: '11px', color: 'color-mix(in srgb, var(--success) 80%, black)', fontWeight: '500' }}>Total Amount</span>
+                    <h3 style={{ margin: '0', color: 'var(--success)', fontWeight: '700', fontSize: '16px' }}>₹{lastBillData.totals?.gross?.toFixed(2)}</h3>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <span style={{ fontSize: '11px', color: 'var(--muted)' }}>Balance Due</span>
+                    <p style={{
+                      margin: '0',
+                      fontWeight: '600',
+                      fontSize: '13px',
+                      color: (lastBillData.totals?.gross - (
+                        Number(lastBillData.payment?.cash_amount || 0) +
+                        Number(lastBillData.payment?.upi_amount || 0) +
+                        Number(lastBillData.payment?.cheque_amount || 0) +
+                        Number(lastBillData.payment?.account_transfer_amount || 0)
+                      )) > 0.01 ? 'var(--warning)' : 'var(--success)'
+                    }}>
+                      ₹{Math.max(lastBillData.totals?.gross - (
+                        Number(lastBillData.payment?.cash_amount || 0) +
+                        Number(lastBillData.payment?.upi_amount || 0) +
+                        Number(lastBillData.payment?.cheque_amount || 0) +
+                        Number(lastBillData.payment?.account_transfer_amount || 0)
+                      ), 0).toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+              </div>
 
               {/* Staff Assignment Panel */}
               <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
