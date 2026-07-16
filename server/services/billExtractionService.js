@@ -18,7 +18,7 @@ Extract the following fields and return them as JSON:
 - bill_number: the invoice or bill number
 - bill_date: date in YYYY-MM-DD format
 - gst_number: GST identification number (if present, otherwise null)
-- items: array of line items, each with {description, quantity, rate, amount}
+- items: array of line items, each with {description, quantity, rate, amount, hsn_sac}
 - subtotal: before-tax amount
 - tax_amount: total tax amount
 - total_amount: grand total

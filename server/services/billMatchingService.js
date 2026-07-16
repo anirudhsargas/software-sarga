@@ -121,6 +121,7 @@ async function matchProducts(items, vendorId, canonicalVendorName) {
 
   const [inventoryRows] = await pool.query(
     `SELECT i.id AS inventory_id, i.name AS inventory_name, i.sku,
+            i.sell_price, i.mrp,
             p.id AS product_id, p.name AS product_name, p.product_code
      FROM sarga_inventory i
      LEFT JOIN sarga_products p ON p.inventory_item_id = i.id
@@ -160,6 +161,7 @@ async function matchProducts(items, vendorId, canonicalVendorName) {
     knownProducts.push({
       product_id: inv.product_id || inv.inventory_id,
       product_name: inv.product_name || inv.inventory_name,
+      mrp: Number(inv.mrp) || Number(inv.sell_price) || 0,
       names: [...new Set(names)],
       codes: [...new Set(codes)],
     });
@@ -234,6 +236,7 @@ async function matchProducts(items, vendorId, canonicalVendorName) {
         matched: true,
         matched_product_id: bestMatch.product_id,
         canonical_product_name: bestMatch.product_name,
+        mrp: bestMatch.mrp,
         confidence: Math.round(bestScore * 100) / 100,
       };
     }
@@ -243,6 +246,7 @@ async function matchProducts(items, vendorId, canonicalVendorName) {
       matched: false,
       matched_product_id: null,
       canonical_product_name: null,
+      mrp: 0,
       confidence: 0,
     };
   });

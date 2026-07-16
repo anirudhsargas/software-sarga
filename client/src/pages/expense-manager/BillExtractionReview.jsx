@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Upload, X, Loader2, AlertCircle, CheckCircle, Plus, Trash2, Camera, Image as ImageIcon } from 'lucide-react';
+import { Upload, X, Loader2, AlertCircle, CheckCircle, Plus, Trash2, Camera, Image as ImageIcon, ChevronRight, ArrowLeft } from 'lucide-react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 import { onSocketEvent, getSocket } from '../../services/socketClient';
@@ -16,7 +16,7 @@ const EMPTY_FORM = {
   bill_number: '',
   bill_date: '',
   gst_number: '',
-  items: [{ description: '', quantity: '', rate: '', amount: '' }],
+  items: [{ description: '', quantity: '', rate: '', amount: '', hsn_sac: '', sell_price: '' }],
   subtotal: '',
   tax_amount: '',
   total_amount: '',
@@ -66,6 +66,7 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
   const cameraInputRef = useRef(null);
   const galleryInputRef = useRef(null);
   const [saving, setSaving] = useState(false);
+  const [itemMatches, setItemMatches] = useState([]);
   const cleanupSocketRef = useRef(null);
 
   useEffect(() => {
@@ -208,24 +209,31 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
           console.warn('[BillExtraction] response.data.data is null/undefined — sending to else branch');
           setError(response.data?.message || 'Extraction returned no data. You can fill in the details manually below.');
           setForm({ ...EMPTY_FORM, items: [{ ...EMPTY_FORM.items[0] }] });
+          setItemMatches([]);
           setStep('review');
         } else {
           console.log('[BillExtraction] Extracted data keys:', Object.keys(d));
           console.log('[BillExtraction] Extracted data values:', d);
           setQueueStatus(response.data.queueStatus || null);
+          setItemMatches(response.data.itemMatches || []);
           setForm({
             vendor_name: d.vendor_name || d.vendorName || '',
             bill_number: d.bill_number || d.billNumber || '',
             bill_date: d.bill_date || d.billDate || '',
             gst_number: d.gst_number || d.gstNumber || d.gstin || '',
             items: (d.items && d.items.length > 0)
-              ? d.items.map(item => ({
-                  description: item.description || item.name || '',
-                  quantity: item.quantity != null ? String(item.quantity) : '',
-                  rate: item.rate != null ? String(item.rate) : '',
-                  amount: item.amount != null ? String(item.amount) : '',
-                }))
-              : [{ description: '', quantity: '', rate: '', amount: '' }],
+              ? d.items.map((item, idx) => {
+                  const match = (response.data.itemMatches || [])[idx];
+                  return {
+                    description: item.description || item.name || '',
+                    quantity: item.quantity != null ? String(item.quantity) : '',
+                    rate: item.rate != null ? String(item.rate) : '',
+                    amount: item.amount != null ? String(item.amount) : '',
+                    hsn_sac: item.hsn_sac || item.hsn || '',
+                    sell_price: match?.mrp ? String(match.mrp) : '',
+                  };
+                })
+              : [{ description: '', quantity: '', rate: '', amount: '', hsn_sac: '', sell_price: '' }],
             subtotal: d.subtotal != null ? String(d.subtotal) : '',
             tax_amount: d.tax_amount || d.taxAmount || d.tax || '',
             total_amount: d.total_amount || d.totalAmount || d.total || '',
@@ -243,6 +251,7 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
       const msg = err.response?.data?.message || err.message || 'Network error';
       setError(msg + '. You can fill in the details manually below.');
       setForm({ ...EMPTY_FORM, items: [{ ...EMPTY_FORM.items[0] }] });
+      setItemMatches([]);
       setStep('review');
     } finally {
       setLoading(false);
@@ -268,7 +277,7 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
   const addItem = useCallback(() => {
     setForm(prev => ({
       ...prev,
-      items: [...prev.items, { description: '', quantity: '', rate: '', amount: '' }],
+      items: [...prev.items, { description: '', quantity: '', rate: '', amount: '', hsn_sac: '', sell_price: '' }],
     }));
   }, []);
 
@@ -295,23 +304,26 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
     try {
       const payloadItems = form.items
         .filter(item => item.description.trim())
-        .map(item => ({
-          item_name: item.description,
-          quantity: Number(item.quantity) || 0,
-          rate: Number(item.rate) || 0,
-          amount: Number(item.amount) || 0,
-          serial_no: 1,
-          hsn_sac: '',
-          gst_percent: 0,
-          mrp: 0,
-          sell_price: 0,
-          sku: '',
-          category_id: null,
-          subcategory_id: null,
-          category_name: '',
-          subcategory_name: '',
-          skip_product_library: true,
-        }));
+        .map((item, idx) => {
+          const match = itemMatches[idx] || {};
+          return {
+            item_name: item.description,
+            quantity: Number(item.quantity) || 0,
+            rate: Number(item.rate) || 0,
+            amount: Number(item.amount) || 0,
+            serial_no: idx + 1,
+            hsn_sac: item.hsn_sac || '',
+            gst_percent: 0,
+            mrp: match.mrp || 0,
+            sell_price: Number(item.sell_price) || 0,
+            sku: '',
+            category_id: null,
+            subcategory_id: null,
+            category_name: '',
+            subcategory_name: '',
+            skip_product_library: true,
+          };
+        });
 
       const uploadFormData = new FormData();
       if (pages.length > 0) uploadFormData.append('file', pages[0]);
@@ -373,10 +385,19 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
     setForm({ ...EMPTY_FORM, items: [{ ...EMPTY_FORM.items[0] }] });
     setQueueStatus(null);
     setExtractionProgress(null);
+    setItemMatches([]);
     if (cleanupSocketRef.current) {
       cleanupSocketRef.current();
       cleanupSocketRef.current = null;
     }
+  }, []);
+
+  const handleGoToPricing = useCallback(() => {
+    setStep('pricing');
+  }, []);
+
+  const handleBackToReview = useCallback(() => {
+    setStep('review');
   }, []);
 
   if (step === 'upload') {
@@ -545,6 +566,102 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
     );
   }
 
+  if (step === 'pricing') {
+    return (
+      <div className="extraction-review">
+        <div className="extraction-review-header">
+          <h2>Set Sale Prices</h2>
+          <p className="extraction-subtitle">Set the selling price for each item. Matched products from the library show their MRP.</p>
+        </div>
+
+        {error && (
+          <div className="extraction-error-banner">
+            <AlertCircle size={16} />
+            <span>{error}</span>
+          </div>
+        )}
+
+        <div className="extraction-items-table-wrapper">
+          <table className="extraction-items-table extraction-pricing-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>HSN/SAC</th>
+                <th>Qty</th>
+                <th>Matched Product</th>
+                <th>MRP (₹)</th>
+                <th>Sale Price (₹)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {form.items.filter(it => it.description.trim()).map((item, i) => {
+                const match = itemMatches[i] || {};
+                const originalIdx = form.items.findIndex(it => it === item);
+                return (
+                  <tr key={originalIdx}>
+                    <td><span className="extraction-pricing-item-name">{item.description}</span></td>
+                    <td><span className="extraction-pricing-cell">{item.hsn_sac || '—'}</span></td>
+                    <td><span className="extraction-pricing-cell">{item.quantity || '—'}</span></td>
+                    <td>
+                      {match.matched ? (
+                        <span className="extraction-pricing-matched">{match.canonical_product_name}</span>
+                      ) : (
+                        <span className="extraction-pricing-unmatched">Not in library</span>
+                      )}
+                    </td>
+                    <td>
+                      {match.mrp ? (
+                        <span className="extraction-pricing-mrp">₹{Number(match.mrp).toFixed(2)}</span>
+                      ) : (
+                        <span className="extraction-pricing-cell">—</span>
+                      )}
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        step="any"
+                        min="0"
+                        className="extraction-pricing-input"
+                        value={item.sell_price}
+                        onChange={e => updateItem(originalIdx, 'sell_price', e.target.value)}
+                        placeholder="0.00"
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="extraction-totals-grid">
+          <div className="extraction-field">
+            <label>Subtotal</label>
+            <input type="number" step="any" min="0" value={form.subtotal} readOnly placeholder="0.00" />
+          </div>
+          <div className="extraction-field">
+            <label>Tax Amount</label>
+            <input type="number" step="any" min="0" value={form.tax_amount} readOnly placeholder="0.00" />
+          </div>
+          <div className="extraction-field extraction-field-highlight">
+            <label>Total Amount</label>
+            <input type="number" step="any" min="0" value={form.total_amount} readOnly placeholder="0.00" />
+          </div>
+        </div>
+
+        <div className="extraction-actions extraction-actions-bottom">
+          <button className="btn btn-outline" onClick={handleBackToReview}>
+            <ArrowLeft size={16} /> Back to Review
+          </button>
+          <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+            {saving ? <Loader2 className="spin" size={16} /> : <CheckCircle size={16} />}
+            {saving ? 'Saving...' : 'Save Bill'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="extraction-review">
       <div className="extraction-review-header">
@@ -614,6 +731,7 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
           <thead>
             <tr>
               <th>Description</th>
+              <th>HSN/SAC</th>
               <th>Quantity</th>
               <th>Rate</th>
               <th>Amount</th>
@@ -629,6 +747,14 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
                     value={item.description}
                     onChange={e => updateItem(i, 'description', e.target.value)}
                     placeholder="Item description"
+                  />
+                </td>
+                <td>
+                  <input
+                    type="text"
+                    value={item.hsn_sac}
+                    onChange={e => updateItem(i, 'hsn_sac', e.target.value)}
+                    placeholder="HSN/SAC"
                   />
                 </td>
                 <td>
@@ -713,9 +839,8 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
 
       <div className="extraction-actions extraction-actions-bottom">
         <button className="btn btn-outline" onClick={handleRetry}>Upload Different Bill</button>
-        <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-          {saving ? <Loader2 className="spin" size={16} /> : <CheckCircle size={16} />}
-          {saving ? 'Saving...' : 'Save Bill'}
+        <button className="btn btn-primary" onClick={handleGoToPricing} disabled={saving}>
+          Next — Set Prices <ChevronRight size={16} />
         </button>
       </div>
     </div>
