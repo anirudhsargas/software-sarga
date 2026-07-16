@@ -176,16 +176,16 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
 
     // C-07: Multi-method payment validation
     const methodTotal = cash + upi + cheque + transfer;
-    if (advance > 0 && Math.abs(methodTotal - advance) > 1) {
+    if (Math.abs(methodTotal - advance) > 1) {
         return res.status(400).json({ message: `Payment methods total (₹${methodTotal.toFixed(2)}) must equal advance paid (₹${advance.toFixed(2)})` });
     }
     
-    // At least one method must have a positive amount
+    // At least one method must have a positive amount when advance is paid
     const totalPaidViaMethods = [cash, upi, cheque, transfer].reduce((sum, amount) => sum + (Number(amount) || 0), 0);
     const isInternal = req_is_internal ? 1 : 0;
     const internalDept = isInternal ? (req_internal_dept || null) : null;
 
-    if (!isInternal && totalPaidViaMethods <= 0) {
+    if (!isInternal && advance > 0 && totalPaidViaMethods <= 0) {
         return res.status(400).json({ message: 'At least one payment method must have an amount greater than 0.' });
     }
 
