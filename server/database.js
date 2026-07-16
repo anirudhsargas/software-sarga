@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
-const CURRENT_SCHEMA_VERSION = '041_erp_enhancements.sql';
+const CURRENT_SCHEMA_VERSION = '042_paper_rate_fix.sql';
 const BOOTSTRAP_SCHEMA_NAME = 'server_bootstrap';
 
 let poolInstance = null;

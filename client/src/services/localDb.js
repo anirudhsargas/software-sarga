@@ -1140,7 +1140,7 @@ export async function createBill(billData, matterFiles = []) {
             discount_percent: billData.discountPercent || billData.discount_percent || null,
             discount_amount: billData.discountAmount || billData.discount_amount || null,
             advance_paid: billData.advancePaid != null ? billData.advancePaid : (billData.advance_paid != null ? billData.advance_paid : 0),
-            payment_method: billData.paymentMethod || billData.payment_method,
+            payment_method: billData.paymentMethod || billData.payment_method || 'Cash',
             cash_amount: billData.cashAmount || billData.cash_amount || 0,
             upi_amount: billData.upiAmount || billData.upi_amount || 0,
             cheque_amount: billData.chequeAmount || billData.cheque_amount || 0,

@@ -13,6 +13,8 @@ const customerPaymentSchema = z.object({
     payment_method: z.enum(['Cash', 'UPI', 'Cheque', 'Account Transfer', 'Both']),
     cash_amount: z.coerce.number().min(0).optional().default(0),
     upi_amount: z.coerce.number().min(0).optional().default(0),
+    cheque_amount: z.coerce.number().min(0).optional().default(0),
+    account_transfer_amount: z.coerce.number().min(0).optional().default(0),
     reference_number: z.string().optional().nullable(),
     description: z.string().optional().nullable(),
     discount_percent: z.coerce.number().min(0).max(100).optional().nullable().default(0),
@@ -34,7 +36,10 @@ const customerPaymentSchema = z.object({
     }).passthrough()).optional().default([]),
     job_ids: z.array(z.coerce.number()).optional().default([]),
     auto_deliver: z.boolean().optional().default(false),
-    coupon_code: z.string().optional().nullable()
+    coupon_code: z.string().optional().nullable(),
+    book_type: z.string().optional().nullable(),
+    is_internal: z.coerce.number().optional().default(0),
+    internal_department: z.string().optional().nullable()
 }).refine(data => {
     if (data.advance_paid > data.total_amount * 1.01) return false;
     return true;
