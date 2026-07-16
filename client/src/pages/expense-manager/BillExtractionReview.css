@@ -311,24 +311,33 @@
 }
 
 .extraction-items-table td:nth-child(1) input {
-  min-width: 160px;
+  min-width: 130px;
 }
 
 .extraction-items-table td:nth-child(2) input {
-  min-width: 70px;
+  width: 65px;
+  min-width: 55px;
+  max-width: 80px;
   font-family: monospace;
   font-size: var(--text-xs);
 }
 
-.extraction-items-table td:nth-child(3) input,
+.extraction-items-table td:nth-child(3) input {
+  width: 65px;
+  min-width: 60px;
+  text-align: right;
+}
+
 .extraction-items-table td:nth-child(4) input,
 .extraction-items-table td:nth-child(5) input {
-  min-width: 70px;
+  width: 80px;
+  min-width: 65px;
   text-align: right;
 }
 
 .extraction-items-table td:nth-child(6) {
-  width: 40px;
+  width: 36px;
+  padding: var(--space-6) var(--space-4) !important;
   text-align: center;
 }
 

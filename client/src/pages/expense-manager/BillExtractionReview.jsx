@@ -226,7 +226,7 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
                   const match = (response.data.itemMatches || [])[idx];
                   return {
                     description: item.description || item.name || '',
-                    quantity: item.quantity != null ? String(item.quantity) : '',
+                    quantity: item.quantity != null ? String(item.quantity) : (item.qty != null ? String(item.qty) : ''),
                     rate: item.rate != null ? String(item.rate) : '',
                     amount: item.amount != null ? String(item.amount) : '',
                     hsn_sac: item.hsn_sac || item.hsn || '',

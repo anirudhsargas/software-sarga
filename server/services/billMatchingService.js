@@ -39,6 +39,8 @@ function diceCoefficient(a, b) {
 
 const NAME_FUZZY_THRESHOLD = 0.6;
 const PRODUCT_FUZZY_THRESHOLD = 0.5;
+const SUGGESTION_LIMIT = 5;
+const SUGGESTION_MIN_SCORE = 0.15;
 
 async function matchVendor(vendorName, gstNumber) {
   if (gstNumber && normalize(gstNumber)) {
@@ -116,6 +118,26 @@ async function matchVendor(vendorName, gstNumber) {
   };
 }
 
+function computeProductScore(desc, codeDesc, known) {
+  let bestScore = 0;
+
+  for (const name of known.names) {
+    if (desc === name) return { score: 0.95, type: 'exact_name' };
+    const s = diceCoefficient(desc, name);
+    if (s > bestScore) bestScore = s;
+  }
+
+  for (const code of known.codes) {
+    if (code.length > 0 && codeDesc === code) return { score: 0.9, type: 'exact_code' };
+    if (code.length >= 3) {
+      const s = diceCoefficient(codeDesc, code);
+      if (s > bestScore) bestScore = s;
+    }
+  }
+
+  return { score: bestScore, type: 'fuzzy' };
+}
+
 async function matchProducts(items, vendorId, canonicalVendorName) {
   if (!items || items.length === 0) return [];
 
@@ -174,6 +196,7 @@ async function matchProducts(items, vendorId, canonicalVendorName) {
     knownProducts.push({
       product_id: prod.id,
       product_name: prod.name,
+      mrp: 0,
       names,
       codes,
     });
@@ -184,67 +207,35 @@ async function matchProducts(items, vendorId, canonicalVendorName) {
     const normalizedDesc = normalize(desc);
     const codeDesc = normalizeCode(desc);
 
-    let bestMatch = null;
-    let bestScore = 0;
-
+    const candidates = [];
     for (const known of knownProducts) {
-      for (const name of known.names) {
-        if (normalizedDesc === name) {
-          if (0.95 > bestScore) {
-            bestScore = 0.95;
-            bestMatch = known;
-          }
-        }
-      }
-
-      for (const code of known.codes) {
-        if (codeDesc === code && code.length > 0) {
-          if (0.9 > bestScore) {
-            bestScore = 0.9;
-            bestMatch = known;
-          }
-        }
+      const { score } = computeProductScore(normalizedDesc, codeDesc, known);
+      if (score >= SUGGESTION_MIN_SCORE) {
+        candidates.push({ known, score });
       }
     }
 
-    if (!bestMatch) {
-      for (const known of knownProducts) {
-        for (const name of known.names) {
-          const score = diceCoefficient(normalizedDesc, name);
-          if (score > bestScore && score >= PRODUCT_FUZZY_THRESHOLD) {
-            bestScore = score;
-            bestMatch = known;
-          }
-        }
-        for (const code of known.codes) {
-          if (code.length < 3) continue;
-          const score = diceCoefficient(codeDesc, code);
-          if (score > bestScore && score >= PRODUCT_FUZZY_THRESHOLD) {
-            bestScore = score;
-            bestMatch = known;
-          }
-        }
-      }
-    }
+    candidates.sort((a, b) => b.score - a.score);
+    const topCandidates = candidates.slice(0, SUGGESTION_LIMIT);
 
-    if (bestMatch) {
-      return {
-        original_description: desc,
-        matched: true,
-        matched_product_id: bestMatch.product_id,
-        canonical_product_name: bestMatch.product_name,
-        mrp: bestMatch.mrp,
-        confidence: Math.round(bestScore * 100) / 100,
-      };
-    }
+    const suggestions = topCandidates.map(c => ({
+      product_id: c.known.product_id,
+      product_name: c.known.product_name,
+      mrp: c.known.mrp,
+      confidence: Math.round(c.score * 100) / 100,
+    }));
+
+    const bestCandidate = candidates[0];
+    const isMatched = bestCandidate && bestCandidate.score >= PRODUCT_FUZZY_THRESHOLD;
 
     return {
       original_description: desc,
-      matched: false,
-      matched_product_id: null,
-      canonical_product_name: null,
-      mrp: 0,
-      confidence: 0,
+      matched: isMatched,
+      matched_product_id: isMatched ? bestCandidate.known.product_id : null,
+      canonical_product_name: isMatched ? bestCandidate.known.product_name : null,
+      mrp: isMatched ? bestCandidate.known.mrp : (suggestions[0]?.mrp || 0),
+      confidence: isMatched ? Math.round(bestCandidate.score * 100) / 100 : 0,
+      suggestions,
     };
   });
 
@@ -252,6 +243,7 @@ async function matchProducts(items, vendorId, canonicalVendorName) {
   logger.info('[BillMatching] Product matching complete', {
     totalItems: items.length,
     matchedItems: matchedCount,
+    totalSuggestions: results.reduce((sum, r) => sum + r.suggestions.length, 0),
   });
 
   return results;
