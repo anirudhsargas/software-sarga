@@ -25,6 +25,12 @@ const ScannerModal = React.lazy(() => import('../components/ScannerModal'));
 
 const serverToday = () => new Date().toISOString().split('T')[0];
 
+const WhatsAppIcon = (props) => (
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" {...props}>
+    <path d="M12.012 2c-5.506 0-9.988 4.482-9.988 9.988 0 1.76.459 3.473 1.33 4.985L2 22l5.163-1.355C8.618 21.493 10.287 22 12.01 22c5.507 0 9.988-4.482 9.988-9.988C22 6.482 17.519 2 12.012 2zm-.008 18.232c-1.577 0-3.123-.423-4.475-1.222l-.32-.19-3.328.873.889-3.245-.208-.332c-.878-1.4-1.341-3.018-1.341-4.68 0-4.808 3.911-8.718 8.72-8.718 2.285 0 4.433.89 6.05 2.508a8.508 8.508 0 0 1 2.51 6.06c-.004 4.81-3.914 8.72-8.722 8.72zm4.783-6.543c-.262-.13-1.554-.767-1.794-.853-.24-.087-.414-.13-.588.13-.174.26-.675.852-.828 1.026-.153.173-.306.195-.568.065-.262-.13-1.107-.408-2.109-1.3c-.78-.695-1.306-1.555-1.46-1.815-.153-.26-.016-.4.115-.53.118-.117.262-.304.393-.456.13-.152.174-.26.262-.433.087-.174.043-.325-.022-.456-.065-.13-.588-1.417-.806-1.942-.213-.512-.426-.442-.588-.45l-.5-.008c-.174 0-.457.065-.696.325-.24.26-.914.89-.914 2.17s.935 2.516 1.066 2.69c.13.174 1.84 2.81 4.46 3.94 1.05.452 1.865.73 2.505.932.66.21 1.26.182 1.737.11.53-.08 1.554-.635 1.774-1.214.22-.58.22-1.077.153-1.214-.067-.137-.24-.22-.502-.35z" />
+  </svg>
+);
+
 // ─── Helpers ───
 const normalizeCode = (value) => {
   let code = String(value || '');
@@ -175,6 +181,16 @@ const Billing = () => {
   const [branchUpiId, setBranchUpiId] = useState('');
   const [printAfterSave, setPrintAfterSave] = useState(true);
   const [sendWhatsApp, setSendWhatsApp] = useState(false);
+  const [showWhatsAppInput, setShowWhatsAppInput] = useState(false);
+  const [whatsAppMobile, setWhatsAppMobile] = useState('');
+
+  useEffect(() => {
+    if (showPostBillOptions) {
+      setWhatsAppMobile(lastBillData?.customer?.mobile || '');
+      setShowWhatsAppInput(false);
+    }
+  }, [showPostBillOptions, lastBillData]);
+
   const [sendEmail, setSendEmail] = useState(false);
   const [recentProducts, setRecentProducts] = useState(
     () => {
@@ -821,7 +837,10 @@ const Billing = () => {
       const matterFiles = orderLines.map(l => l.matter_file).filter(Boolean);
       const result = await localDb.createBill(billPayload, matterFiles);
       const lastBill = {
-        customer: { name: form.name, mobile: form.mobile, address: form.address, gst: form.gst },
+        customerId,
+        invoiceNumber: result?.bill?.invoice_number || result?.invoice_number || `INV-${result?.bill?.id || result?.id || Date.now()}`,
+        invoiceDate: result?.bill?.created_at || result?.created_at || new Date().toISOString(),
+        customer: { name: form.name, mobile: form.mobile, address: form.address, gst: form.gst, type: form.type },
         orderLines, totals, payment: { method: payMethodLabel, cash_amount: cashAmt, upi_amount: upiAmt, cheque_amount: chequeAmt, account_transfer_amount: transferAmt },
         jobs: result.jobs || [], upiId: branchUpiId,
         description: payment.description || ''
@@ -946,6 +965,118 @@ const Billing = () => {
       printInvoicePDF(lastBillData);
     }
   }, [lastBillData]);
+
+  // ── WhatsApp Actions ──
+  const handleWhatsAppClick = useCallback(() => {
+    const mobile = lastBillData?.customer?.mobile || '';
+    if (mobile && mobile.trim().length === 10) {
+      const customerName = lastBillData.customer?.name || 'Customer';
+      const linesText = lastBillData.orderLines?.map(l => `- ${l.product_name || l.name} (x${l.quantity}): ₹${Number(l.total_amount || 0).toFixed(2)}`).join('\n') || '';
+      const paidAmount = Number(lastBillData.payment?.cash_amount || 0) + 
+                         Number(lastBillData.payment?.upi_amount || 0) + 
+                         Number(lastBillData.payment?.cheque_amount || 0) + 
+                         Number(lastBillData.payment?.account_transfer_amount || 0);
+      const totalAmount = Number(lastBillData.totals?.gross || 0);
+      const balanceDue = Math.max(totalAmount - paidAmount, 0);
+      const invNum = lastBillData.invoiceNumber || `INV-${Date.now()}`;
+      
+      const msg = [
+        `Dear ${customerName},`,
+        '',
+        `Here are your bill details from Sarga:`,
+        `Invoice: ${invNum}`,
+        `Total Amount: ₹${totalAmount.toFixed(2)}`,
+        `Paid Amount: ₹${paidAmount.toFixed(2)}`,
+        `Balance Due: ₹${balanceDue.toFixed(2)}`,
+        '',
+        `Items:`,
+        linesText,
+        '',
+        `Thank you for your business! 🙏`
+      ].join('\n');
+      
+      const url = whatsappUrl(mobile, msg);
+      if (url) {
+        window.open(url, '_blank');
+      } else {
+        toast.error('Failed to generate WhatsApp URL');
+      }
+    } else {
+      setShowWhatsAppInput(true);
+    }
+  }, [lastBillData]);
+
+  const handleSendWhatsAppWithNumber = useCallback(async () => {
+    if (whatsAppMobile.trim().length !== 10) {
+      toast.error('Please enter a valid 10-digit mobile number.');
+      return;
+    }
+
+    const mobile = whatsAppMobile.trim();
+
+    // 1. Try to update customer in database if customerId is present
+    if (lastBillData?.customerId) {
+      try {
+        await api.put(`/customers/${lastBillData.customerId}`, {
+          mobile: mobile,
+          name: lastBillData.customer?.name,
+          type: lastBillData.customer?.type || 'Retail',
+          email: lastBillData.customer?.email || null,
+          gst: lastBillData.customer?.gst || null,
+          address: lastBillData.customer?.address || null
+        });
+        toast.success('Customer mobile updated in database.');
+      } catch (err) {
+        console.error('Failed to update customer phone number in database:', err);
+      }
+    }
+
+    // 2. Update lastBillData customer mobile in-memory
+    setLastBillData(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        customer: {
+          ...prev.customer,
+          mobile: mobile
+        }
+      };
+    });
+
+    // 3. Build message
+    const customerName = lastBillData?.customer?.name || 'Customer';
+    const linesText = lastBillData?.orderLines?.map(l => `- ${l.product_name || l.name} (x${l.quantity}): ₹${Number(l.total_amount || 0).toFixed(2)}`).join('\n') || '';
+    const paidAmount = Number(lastBillData?.payment?.cash_amount || 0) + 
+                       Number(lastBillData?.payment?.upi_amount || 0) + 
+                       Number(lastBillData?.payment?.cheque_amount || 0) + 
+                       Number(lastBillData?.payment?.account_transfer_amount || 0);
+    const totalAmount = Number(lastBillData?.totals?.gross || 0);
+    const balanceDue = Math.max(totalAmount - paidAmount, 0);
+    const invNum = lastBillData?.invoiceNumber || `INV-${Date.now()}`;
+    
+    const msg = [
+      `Dear ${customerName},`,
+      '',
+      `Here are your bill details from Sarga:`,
+      `Invoice: ${invNum}`,
+      `Total Amount: ₹${totalAmount.toFixed(2)}`,
+      `Paid Amount: ₹${paidAmount.toFixed(2)}`,
+      `Balance Due: ₹${balanceDue.toFixed(2)}`,
+      '',
+      `Items:`,
+      linesText,
+      '',
+      `Thank you for your business! 🙏`
+    ].join('\n');
+
+    const url = whatsappUrl(mobile, msg);
+    if (url) {
+      window.open(url, '_blank');
+      setShowWhatsAppInput(false);
+    } else {
+      toast.error('Failed to generate WhatsApp URL');
+    }
+  }, [whatsAppMobile, lastBillData]);
 
   // ── Undo delete (5s) ──
   const handleRemoveWithUndo = useCallback((line) => {
@@ -1878,15 +2009,56 @@ const Billing = () => {
               <button className="modal-close" aria-label="Close" onClick={() => setShowPostBillOptions(false)}><X size={18} aria-hidden="true" /></button>
             </div>
             <div className="modal__body stack-sm">
-              {/* Print / New Invoice actions */}
+              {/* Print / WhatsApp / New Invoice actions */}
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className="btn btn-primary flex-1" onClick={() => { handlePrintLast(); setShowPostBillOptions(false); }}>
                   <Printer size={16} className="mr-8" aria-hidden="true" /> Print Invoice
+                </button>
+                <button className="btn btn-success flex-1" onClick={handleWhatsAppClick}>
+                  <WhatsAppIcon className="mr-8" aria-hidden="true" /> Send WhatsApp
                 </button>
                 <button className="btn btn-ghost flex-1" onClick={() => { setShowPostBillOptions(false); }}>
                   <Plus size={16} className="mr-8" aria-hidden="true" /> New Invoice
                 </button>
               </div>
+
+              {showWhatsAppInput && (
+                <div style={{ border: '1px solid var(--border)', padding: '12px', borderRadius: '6px', background: 'var(--bg-light)', marginTop: 8 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 13, fontWeight: 600 }}>Enter WhatsApp Number</span>
+                      {!lastBillData?.customer?.mobile && (
+                        <span style={{ fontSize: 11, color: 'var(--error)' }}>(No number available for this customer)</span>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <div className="billing-field" style={{ flex: 1, margin: 0 }}>
+                        <Phone size={14} className="billing-field__icon" aria-hidden="true" />
+                        <input
+                          type="tel"
+                          placeholder="10-digit Mobile"
+                          value={whatsAppMobile}
+                          onChange={e => setWhatsAppMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                          className="billing-field__input"
+                        />
+                      </div>
+                      <button
+                        className="btn btn-success btn-sm"
+                        onClick={handleSendWhatsAppWithNumber}
+                        disabled={whatsAppMobile.trim().length !== 10}
+                      >
+                        Send
+                      </button>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => setShowWhatsAppInput(false)}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Staff Assignment Panel */}
               <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
