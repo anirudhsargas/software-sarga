@@ -167,33 +167,47 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
         },
       });
 
+      console.log('[BillExtraction] Raw API response:', response);
+      console.log('[BillExtraction] response.data:', JSON.stringify(response.data, null, 2));
+
       if (response.data?.success) {
         const d = response.data.data;
-        setQueueStatus(response.data.queueStatus || null);
-        setForm({
-          vendor_name: d.vendor_name || '',
-          bill_number: d.bill_number || '',
-          bill_date: d.bill_date || '',
-          gst_number: d.gst_number || '',
-          items: (d.items && d.items.length > 0)
-            ? d.items.map(item => ({
-                description: item.description || '',
-                quantity: item.quantity != null ? String(item.quantity) : '',
-                rate: item.rate != null ? String(item.rate) : '',
-                amount: item.amount != null ? String(item.amount) : '',
-              }))
-            : [{ description: '', quantity: '', rate: '', amount: '' }],
-          subtotal: d.subtotal != null ? String(d.subtotal) : '',
-          tax_amount: d.tax_amount != null ? String(d.tax_amount) : '',
-          total_amount: d.total_amount != null ? String(d.total_amount) : '',
-        });
-        setStep('review');
+        if (!d) {
+          console.warn('[BillExtraction] response.data.data is null/undefined — sending to else branch');
+          setError(response.data?.message || 'Extraction returned no data. You can fill in the details manually below.');
+          setForm({ ...EMPTY_FORM, items: [{ ...EMPTY_FORM.items[0] }] });
+          setStep('review');
+        } else {
+          console.log('[BillExtraction] Extracted data keys:', Object.keys(d));
+          console.log('[BillExtraction] Extracted data values:', d);
+          setQueueStatus(response.data.queueStatus || null);
+          setForm({
+            vendor_name: d.vendor_name || d.vendorName || '',
+            bill_number: d.bill_number || d.billNumber || '',
+            bill_date: d.bill_date || d.billDate || '',
+            gst_number: d.gst_number || d.gstNumber || d.gstin || '',
+            items: (d.items && d.items.length > 0)
+              ? d.items.map(item => ({
+                  description: item.description || item.name || '',
+                  quantity: item.quantity != null ? String(item.quantity) : '',
+                  rate: item.rate != null ? String(item.rate) : '',
+                  amount: item.amount != null ? String(item.amount) : '',
+                }))
+              : [{ description: '', quantity: '', rate: '', amount: '' }],
+            subtotal: d.subtotal != null ? String(d.subtotal) : '',
+            tax_amount: d.tax_amount || d.taxAmount || d.tax || '',
+            total_amount: d.total_amount || d.totalAmount || d.total || '',
+          });
+          setStep('review');
+        }
       } else {
+        console.warn('[BillExtraction] response.data.success is falsy:', response.data);
         setError(response.data?.message || 'Extraction failed. You can fill in the details manually below.');
         setForm({ ...EMPTY_FORM, items: [{ ...EMPTY_FORM.items[0] }] });
         setStep('review');
       }
     } catch (err) {
+      console.error('[BillExtraction] API call threw an error:', err);
       const msg = err.response?.data?.message || err.message || 'Network error';
       setError(msg + '. You can fill in the details manually below.');
       setForm({ ...EMPTY_FORM, items: [{ ...EMPTY_FORM.items[0] }] });
