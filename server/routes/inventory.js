@@ -330,13 +330,16 @@ router.get('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Account
     try {
         const [rows] = await pool.query(
             `SELECT i.*, 
-                    p.id as linked_product_id, p.image_url as product_image_url, p.description as product_description,
+                    active_p.id as linked_product_id, active_p.image_url as product_image_url, active_p.description as product_description,
+                    active_p.is_active as product_is_active,
+                    dp.id as disabled_product_id, dp.is_active as disabled_product_is_active,
                     ps.name as product_subcategory_name, ps.id as subcategory_id,
                     pc.name as product_category_name, pc.id as category_id,
                     spi.image_url as cached_image_url, spi.source as image_source, spi.confidence as image_confidence, spi.is_locked as image_locked
              FROM sarga_inventory i 
-             LEFT JOIN sarga_products p ON i.id = p.inventory_item_id AND p.is_active = 1 AND p.is_deleted = 0
-             LEFT JOIN sarga_product_subcategories ps ON p.subcategory_id = ps.id
+             LEFT JOIN sarga_products active_p ON i.id = active_p.inventory_item_id AND active_p.is_active = 1 AND active_p.is_deleted = 0
+             LEFT JOIN sarga_products dp ON i.id = dp.inventory_item_id AND dp.is_active = 0 AND dp.is_deleted = 0
+             LEFT JOIN sarga_product_subcategories ps ON active_p.subcategory_id = ps.id
              LEFT JOIN sarga_product_categories pc ON ps.category_id = pc.id
              LEFT JOIN sarga_product_images spi ON i.id = spi.inventory_item_id
              WHERE i.id = ? LIMIT 1`,
@@ -395,6 +398,7 @@ router.get('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Account
 
         res.json({
             ...item,
+            has_disabled_product: !!item.disabled_product_id,
             gst_amount: gstAmount.toFixed(2),
             stock_value: stockValue.toFixed(2),
             margin: margin.toFixed(1),

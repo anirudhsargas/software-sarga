@@ -1,7 +1,7 @@
 import { useSEO } from '../hooks/useSEO';
 import React, { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Printer, Trash2, Edit2, Plus, ArrowLeftRight, Minus, Package, Search, Bell, Camera, Filter, FileText, ChevronDown, CheckSquare, Layers, Download, Share2, Phone, ShoppingCart, List, Grid, X, Image as ImageIcon, Settings, IndianRupee, BarChart3, TrendingUp, RefreshCw, Loader2, Link, Clock, Check, QrCode } from 'lucide-react';
+import { Printer, Trash2, Edit2, Plus, ArrowLeftRight, Minus, Package, Search, Bell, Camera, Filter, FileText, ChevronDown, CheckSquare, Layers, Download, Share2, Phone, ShoppingCart, List, Grid, X, Image as ImageIcon, Settings, IndianRupee, BarChart3, TrendingUp, RefreshCw, Loader2, Link, Clock, Check, QrCode, AlertTriangle } from 'lucide-react';
 import api, { imgUrl } from '../services/api';
 import auth from '../services/auth';
 import localDb from '../services/localDb';
@@ -121,7 +121,7 @@ const Inventory = () => {
     const [showConsumeModal, setShowConsumeModal] = useState(false);
     const [consumeData, setConsumeData] = useState({ id: null, quantity: '', notes: '' });
     const [showRestockModal, setShowRestockModal] = useState(false);
-    const [restockData, setRestockData] = useState({ id: null, quantity: '', cost: '', sell_price: '', gst_rate: 0, name: '', notes: '' });
+    const [restockData, setRestockData] = useState({ id: null, quantity: '', cost: '', sell_price: '', gst_rate: 0, name: '', notes: '', has_disabled_product: false, disabled_product_id: null });
 
     // Bill Upload state
     const [showSmartUpload, setShowSmartUpload] = useState(false);
@@ -948,7 +948,7 @@ const Inventory = () => {
             });
             toast.success(`Restocked successfully`);
             setShowRestockModal(false);
-            setRestockData({ id: null, quantity: '', cost: '', sell_price: '', gst_rate: 0, name: '', notes: '' });
+            setRestockData({ id: null, quantity: '', cost: '', sell_price: '', gst_rate: 0, name: '', notes: '', has_disabled_product: false, disabled_product_id: null });
             fetchInventory();
         } catch (err) {
             toast.error(err.response?.data?.message || 'Error restocking item');
@@ -2992,6 +2992,30 @@ const Inventory = () => {
                                 Item: <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{restockData.name}</span>
                             </div>
                         )}
+                        {restockData.has_disabled_product && restockData.disabled_product_id && (
+                            <div style={{ padding: '10px 12px', marginBottom: 8, background: 'rgba(245,158,11,0.1)', border: '1px solid var(--warning)', borderRadius: 6, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                <AlertTriangle size={16} style={{ color: 'var(--warning)', flexShrink: 0 }} />
+                                <span style={{ flex: 1, fontSize: 13, color: 'var(--text-primary)' }}>
+                                    Linked product is <strong>disabled</strong>. Stock will be added but product won't appear in billing.
+                                </span>
+                                <button
+                                    type="button"
+                                    className="btn btn-sm btn-outline"
+                                    onClick={async () => {
+                                        try {
+                                            await api.patch(`/products/${restockData.disabled_product_id}/toggle-active`);
+                                            toast.success('Product enabled');
+                                            setShowRestockModal(false);
+                                            if (detailItem) openItemDetail(detailItem.id);
+                                        } catch (err) {
+                                            toast.error(err.response?.data?.message || 'Failed to enable product');
+                                        }
+                                    }}
+                                >
+                                    Enable Product
+                                </button>
+                            </div>
+                        )}
                         <form onSubmit={handleRestock} className="stack-md" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-16)' }}>
                             <div>
                                 <label className="label" style={{ marginBottom: 'var(--space-6)', display: 'block' }}>Quantity Received</label>
@@ -3159,7 +3183,9 @@ const Inventory = () => {
                                                             sell_price: detailItem.sell_price || 0,
                                                             gst_rate: detailItem.gst_rate || 0,
                                                             name: detailItem.name,
-                                                            notes: ''
+                                                            notes: '',
+                                                            has_disabled_product: detailItem.has_disabled_product,
+                                                            disabled_product_id: detailItem.disabled_product_id
                                                         });
                                                         setShowRestockModal(true);
                                                     }}
@@ -3176,7 +3202,33 @@ const Inventory = () => {
                                             {detailItem.linked_product_id && (
                                                 <span className="badge badge--ok"><Link size={12} style={{ marginRight: 4 }} /> Linked</span>
                                             )}
+                                            {detailItem.has_disabled_product && (
+                                                <span className="badge badge--warn"><AlertTriangle size={12} style={{ marginRight: 4 }} /> Disabled Product</span>
+                                            )}
                                         </div>
+                                        {detailItem.has_disabled_product && detailItem.disabled_product_id && (
+                                            <div style={{ padding: '8px 12px', marginBottom: 12, background: 'rgba(245,158,11,0.1)', border: '1px solid var(--warning)', borderRadius: 6, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                                <AlertTriangle size={16} style={{ color: 'var(--warning)', flexShrink: 0 }} />
+                                                <span style={{ flex: 1, fontSize: 13, color: 'var(--text-primary)' }}>
+                                                    This item is linked to a <strong>disabled product</strong>. Stock operations will work but the product won't appear in the store or billing.
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-sm btn-outline"
+                                                    onClick={async () => {
+                                                        try {
+                                                            await api.patch(`/products/${detailItem.disabled_product_id}/toggle-active`);
+                                                            toast.success('Product enabled');
+                                                            openItemDetail(detailItem.id);
+                                                        } catch (err) {
+                                                            toast.error(err.response?.data?.message || 'Failed to enable product');
+                                                        }
+                                                    }}
+                                                >
+                                                    Enable Product
+                                                </button>
+                                            </div>
+                                        )}
                                         {(detailItem.product_category_name || detailItem.product_subcategory_name || detailItem.category) && (
                                             <p className="text-sm">
                                                 {detailItem.product_category_name && <span className="muted">{detailItem.product_category_name}</span>}

@@ -41,8 +41,11 @@ const NAME_FUZZY_THRESHOLD = 0.6;
 const PRODUCT_FUZZY_THRESHOLD = 0.5;
 const SUGGESTION_LIMIT = 5;
 const SUGGESTION_MIN_SCORE = 0.15;
+const VENDOR_SUGGESTION_MIN_SCORE = 0.1;
 
 async function matchVendor(vendorName, gstNumber) {
+  const suggestions = [];
+
   if (gstNumber && normalize(gstNumber)) {
     const [rows] = await pool.query(
       'SELECT id, name, gst_number FROM vendors WHERE gst_number = ? AND (is_active = 1 OR is_active IS NULL) LIMIT 1',
@@ -60,6 +63,7 @@ async function matchVendor(vendorName, gstNumber) {
         vendor_name: rows[0].name,
         match_type: 'gst',
         confidence: 0.95,
+        suggestions,
       };
     }
     logger.info('[BillMatching] No vendor matched by GST', { gst: gstNumber });
@@ -73,6 +77,7 @@ async function matchVendor(vendorName, gstNumber) {
 
     let bestMatch = null;
     let bestScore = 0;
+    const candidates = [];
 
     for (const v of vendors) {
       const normalizedDb = normalize(v.name);
@@ -84,10 +89,23 @@ async function matchVendor(vendorName, gstNumber) {
           : 0;
       const combined = Math.min(score + substringBonus, 1);
 
+      if (combined >= VENDOR_SUGGESTION_MIN_SCORE) {
+        candidates.push({ vendor: v, score: combined });
+      }
+
       if (combined > bestScore) {
         bestScore = combined;
         bestMatch = v;
       }
+    }
+
+    candidates.sort((a, b) => b.score - a.score);
+    for (const c of candidates) {
+      suggestions.push({
+        vendor_id: c.vendor.id,
+        vendor_name: c.vendor.name,
+        confidence: Math.round(c.score * 100) / 100,
+      });
     }
 
     if (bestMatch && bestScore >= NAME_FUZZY_THRESHOLD) {
@@ -103,6 +121,7 @@ async function matchVendor(vendorName, gstNumber) {
         vendor_name: bestMatch.name,
         match_type: 'name_fuzzy',
         confidence: Math.round(bestScore * 100) / 100,
+        suggestions,
       };
     }
 
@@ -115,6 +134,7 @@ async function matchVendor(vendorName, gstNumber) {
     vendor_name: null,
     match_type: 'none',
     confidence: 0,
+    suggestions,
   };
 }
 
@@ -255,10 +275,7 @@ async function matchVendorAndProducts(extractedData) {
 
   const vendorMatch = await matchVendor(vendor_name, gst_number);
 
-  let itemMatches = [];
-  if (vendorMatch.matched) {
-    itemMatches = await matchProducts(items, vendorMatch.vendor_id, vendorMatch.vendor_name);
-  }
+  let itemMatches = await matchProducts(items, vendorMatch.vendor_id, vendorMatch.vendor_name);
 
   logger.info('[BillMatching] Complete', {
     vendorMatched: vendorMatch.matched,

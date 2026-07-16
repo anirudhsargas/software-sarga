@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Upload, X, Loader2, AlertCircle, CheckCircle, Plus, Trash2, Camera, Image as ImageIcon, ChevronRight, ArrowLeft } from 'lucide-react';
+import { Upload, X, Loader2, AlertCircle, CheckCircle, Plus, Trash2, Camera, Image as ImageIcon, ChevronRight, ArrowLeft, Search } from 'lucide-react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 import { onSocketEvent, getSocket } from '../../services/socketClient';
@@ -53,6 +53,193 @@ function compressImage(file) {
   });
 }
 
+function ProductSearchCell({ match, override, isActive, onActivate, onSelect, onClear }) {
+  const [search, setSearch] = React.useState('');
+  const ref = React.useRef(null);
+
+  React.useEffect(() => {
+    if (isActive) {
+      const handler = (e) => {
+        if (ref.current && !ref.current.contains(e.target)) onActivate();
+      };
+      document.addEventListener('mousedown', handler);
+      return () => document.removeEventListener('mousedown', handler);
+    }
+  }, [isActive, onActivate]);
+
+  const suggestions = match.suggestions || [];
+  const displayName = override?.product_name || (match.matched ? match.canonical_product_name : null);
+
+  const filtered = search.trim()
+    ? suggestions.filter(s =>
+        s.product_name.toLowerCase().includes(search.toLowerCase())
+      )
+    : suggestions;
+
+  return (
+    <div className="pms-wrapper" ref={ref}>
+      <button
+        type="button"
+        className={`pms-trigger ${displayName ? 'pms-matched' : 'pms-unmatched'}`}
+        onClick={onActivate}
+        title={displayName || 'Click to search product'}
+      >
+        <span className="pms-label">{displayName || 'Not in library'}</span>
+        <Search size={12} className="pms-search-icon" />
+      </button>
+
+      {isActive && (
+        <div className="pms-dropdown">
+          <div className="pms-search-wrap">
+            <Search size={14} />
+            <input
+              type="text"
+              className="pms-search-input"
+              placeholder="Search products..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              autoFocus
+            />
+          </div>
+          <div className="pms-list">
+            {override && (
+              <button
+                type="button"
+                className="pms-item pms-item-selected"
+                onClick={() => { onSelect(override); setSearch(''); }}
+              >
+                <span className="pms-item-name">{override.product_name}</span>
+                {override.mrp > 0 && <span className="pms-item-mrp">₹{Number(override.mrp).toFixed(2)}</span>}
+                <span className="pms-item-badge">selected</span>
+              </button>
+            )}
+            {filtered.length === 0 && (
+              <div className="pms-empty">No matching products found</div>
+            )}
+            {filtered.map((s, i) => (
+              <button
+                key={i}
+                type="button"
+                className={`pms-item ${override?.product_id === s.product_id ? 'pms-item-selected' : ''}`}
+                onClick={() => { onSelect(s); setSearch(''); }}
+              >
+                <span className="pms-item-name">{s.product_name}</span>
+                {s.mrp > 0 && <span className="pms-item-mrp">₹{Number(s.mrp).toFixed(2)}</span>}
+                <span className="pms-item-conf">{Math.round(s.confidence * 100)}%</span>
+              </button>
+            ))}
+          </div>
+          {override && (
+            <button
+              type="button"
+              className="pms-clear"
+              onClick={() => { onClear(); setSearch(''); onActivate(); }}
+            >
+              Reset to auto-match
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function VendorSearchCell({ vendorName, vendorMatch, selectedVendorId, onSelect, onAddVendor, onChange }) {
+  const [search, setSearch] = React.useState(vendorName || '');
+  const [open, setOpen] = React.useState(false);
+  const [adding, setAdding] = React.useState(false);
+  const ref = React.useRef(null);
+
+  React.useEffect(() => {
+    if (open) {
+      const handler = (e) => {
+        if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+      };
+      document.addEventListener('mousedown', handler);
+      return () => document.removeEventListener('mousedown', handler);
+    }
+  }, [open]);
+
+  React.useEffect(() => {
+    setSearch(vendorName || '');
+  }, [vendorName]);
+
+  const suggestions = vendorMatch?.suggestions || [];
+  const isMatched = vendorMatch?.matched && selectedVendorId;
+
+  const filtered = search.trim()
+    ? suggestions.filter(s =>
+        s.vendor_name.toLowerCase().includes(search.toLowerCase())
+      )
+    : suggestions;
+
+  const showAddOption = search.trim().length >= 2 && !suggestions.some(s =>
+    s.vendor_name.toLowerCase() === search.trim().toLowerCase()
+  );
+
+  const handleSelect = (v) => {
+    onSelect(v);
+    setSearch(v.name);
+    setOpen(false);
+  };
+
+  return (
+    <div className="pms-wrapper" ref={ref}>
+      <div className="pms-trigger" onClick={() => setOpen(!open)} style={{ cursor: 'pointer', borderBottom: open ? '1px solid var(--accent)' : '1px solid var(--border)' }}>
+        <input
+          type="text"
+          className="pms-search-input"
+          style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: '13px', color: 'var(--text-primary)', padding: '4px 0' }}
+          value={search}
+          onChange={e => { setSearch(e.target.value); onChange(e.target.value); }}
+          onFocus={() => setOpen(true)}
+          placeholder="Vendor name"
+        />
+        {isMatched && <span className="pms-item-badge" style={{ fontSize: 9 }}>{Math.round((vendorMatch.confidence || 0) * 100)}%</span>}
+      </div>
+
+      {open && (
+        <div className="pms-dropdown">
+          <div className="pms-list">
+            {filtered.length === 0 && !showAddOption && (
+              <div className="pms-empty">Type to search vendors</div>
+            )}
+            {filtered.map((s, i) => (
+              <button
+                key={i}
+                type="button"
+                className={`pms-item ${String(s.vendor_id) === selectedVendorId ? 'pms-item-selected' : ''}`}
+                onClick={() => handleSelect({ id: s.vendor_id, name: s.vendor_name })}
+              >
+                <span className="pms-item-name">{s.vendor_name}</span>
+                <span className="pms-item-conf">{Math.round(s.confidence * 100)}%</span>
+              </button>
+            ))}
+            {showAddOption && (
+              <button
+                type="button"
+                className="pms-item"
+                style={{ borderTop: filtered.length > 0 ? '1px solid var(--border)' : 'none', color: 'var(--accent)' }}
+                onClick={async () => {
+                  setAdding(true);
+                  try {
+                    await onAddVendor(search.trim());
+                    setAdding(false);
+                    setOpen(false);
+                  } catch { setAdding(false); }
+                }}
+                disabled={adding}
+              >
+                {adding ? 'Adding...' : `+ Add "${search.trim()}" as new vendor`}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
   const [step, setStep] = useState('upload');
   const [pages, setPages] = useState([]);
@@ -67,6 +254,10 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
   const galleryInputRef = useRef(null);
   const [saving, setSaving] = useState(false);
   const [itemMatches, setItemMatches] = useState([]);
+  const [productOverrides, setProductOverrides] = useState({});
+  const [vendorMatch, setVendorMatch] = useState(null);
+  const [selectedVendorId, setSelectedVendorId] = useState('');
+  const [activeSelector, setActiveSelector] = useState(null);
   const cleanupSocketRef = useRef(null);
 
   useEffect(() => {
@@ -216,6 +407,12 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
           console.log('[BillExtraction] Extracted data values:', d);
           setQueueStatus(response.data.queueStatus || null);
           setItemMatches(response.data.itemMatches || []);
+          setVendorMatch(response.data.vendorMatch || null);
+          if (response.data.vendorMatch?.matched) {
+            setSelectedVendorId(String(response.data.vendorMatch.vendor_id));
+          }
+          setProductOverrides({});
+          setActiveSelector(null);
           setForm({
             vendor_name: d.vendor_name || d.vendorName || '',
             bill_number: d.bill_number || d.billNumber || '',
@@ -311,6 +508,7 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
         .map((item, idx) => {
           const origIdx = originalIndices[idx];
           const match = (itemMatches && itemMatches[origIdx]) || {};
+          const override = productOverrides[origIdx];
           return {
             item_name: item.description,
             quantity: Number(item.quantity) || 0,
@@ -319,7 +517,7 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
             serial_no: origIdx + 1,
             hsn_sac: item.hsn_sac || '',
             gst_percent: 0,
-            mrp: match.mrp || 0,
+            mrp: (override?.mrp ?? match.mrp) || 0,
             sell_price: Number(item.sell_price) || 0,
             sku: '',
             category_id: null,
@@ -391,11 +589,22 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
     setQueueStatus(null);
     setExtractionProgress(null);
     setItemMatches([]);
+    setVendorMatch(null);
+    setSelectedVendorId('');
+    setProductOverrides({});
+    setActiveSelector(null);
     if (cleanupSocketRef.current) {
       cleanupSocketRef.current();
       cleanupSocketRef.current = null;
     }
   }, []);
+
+  const handleVendorSelect = useCallback((vendor) => {
+    if (vendor) {
+      setSelectedVendorId(String(vendor.id));
+      updateField('vendor_name', vendor.name);
+    }
+  }, [updateField]);
 
   const handleGoToPricing = useCallback(() => {
     setStep('pricing');
@@ -403,6 +612,22 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
 
   const handleBackToReview = useCallback(() => {
     setStep('review');
+  }, []);
+
+  const handleProductSelect = useCallback((originalIdx, product) => {
+    setProductOverrides(prev => ({
+      ...prev,
+      [originalIdx]: product,
+    }));
+    setActiveSelector(null);
+  }, []);
+
+  const clearProductOverride = useCallback((originalIdx) => {
+    setProductOverrides(prev => {
+      const next = { ...prev };
+      delete next[originalIdx];
+      return next;
+    });
   }, []);
 
   if (step === 'upload') {
@@ -607,16 +832,19 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
                     <td><span className="extraction-pricing-item-name">{item.description}</span></td>
                     <td><span className="extraction-pricing-cell">{item.hsn_sac || '—'}</span></td>
                     <td><span className="extraction-pricing-cell">{item.quantity || '—'}</span></td>
-                    <td>
-                      {match.matched ? (
-                        <span className="extraction-pricing-matched">{match.canonical_product_name}</span>
-                      ) : (
-                        <span className="extraction-pricing-unmatched">Not in library</span>
-                      )}
+                    <td className="extraction-pricing-product-cell">
+                      <ProductSearchCell
+                        match={match}
+                        override={productOverrides[originalIdx]}
+                        isActive={activeSelector === originalIdx}
+                        onActivate={() => setActiveSelector(activeSelector === originalIdx ? null : originalIdx)}
+                        onSelect={(product) => handleProductSelect(originalIdx, product)}
+                        onClear={() => clearProductOverride(originalIdx)}
+                      />
                     </td>
                     <td>
-                      {match.mrp ? (
-                        <span className="extraction-pricing-mrp">₹{Number(match.mrp).toFixed(2)}</span>
+                      {(productOverrides[originalIdx]?.mrp || match.mrp) ? (
+                        <span className="extraction-pricing-mrp">₹{Number(productOverrides[originalIdx]?.mrp || match.mrp).toFixed(2)}</span>
                       ) : (
                         <span className="extraction-pricing-cell">—</span>
                       )}
@@ -686,13 +914,21 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
       <div className="extraction-form-grid">
         <div className="extraction-field">
           <label>Vendor Name</label>
-          <input
-            type="text"
-            value={form.vendor_name}
-            onChange={e => updateField('vendor_name', e.target.value)}
-            placeholder="Vendor name"
+          <VendorSearchCell
+            vendorName={form.vendor_name}
+            vendorMatch={vendorMatch}
+            selectedVendorId={selectedVendorId}
+            onSelect={handleVendorSelect}
+            onChange={(val) => { setSelectedVendorId(''); updateField('vendor_name', val); }}
+            onAddVendor={async (name) => {
+              const res = await api.post('/vendors', { name, gst_number: form.gst_number || '' });
+              if (res.data?.success) {
+                const v = res.data.data;
+                handleVendorSelect({ id: v.id, name: v.name || name });
+                toast.success(`Vendor "${name}" added`);
+              }
+            }}
           />
-        </div>
 
         <div className="extraction-field">
           <label>Bill Number</label>
