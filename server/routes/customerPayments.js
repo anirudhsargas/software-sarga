@@ -117,6 +117,11 @@ router.get('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Acc
     }
 });
 
+// Debug Logs Endpoint
+router.get('/customer-payments/debug-logs', (req, res) => {
+    res.json(global.recentValidationErrors || []);
+});
+
 // Add Customer Payment
 router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), validate(customerPaymentSchema), attachNormalizedMobile('customer_mobile', 'customer_country_code'), asyncHandler(async (req, res) => {
     const {
@@ -149,6 +154,19 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
     } = req.body;
     const idempotencyKey = String(req.headers['idempotency-key'] || '').trim();
 
+    // Helper to record route-level validation errors
+    const recordRouteError = (message) => {
+        if (!global.recentValidationErrors) global.recentValidationErrors = [];
+        global.recentValidationErrors.push({
+            timestamp: new Date().toISOString(),
+            method: 'POST',
+            path: '/customer-payments (route-level)',
+            body: req.body,
+            errors: [{ field: 'route', message }]
+        });
+        if (global.recentValidationErrors.length > 50) global.recentValidationErrors.shift();
+    };
+
     // --- DIAGNOSTIC LOG: remove after debugging ---
     console.log('[customer-payments POST] key=%s | customer=%s | total=%s | advance=%s | method=%s | cash=%s | upi=%s | cheque=%s | transfer=%s | date=%s',
         idempotencyKey ? 'present' : 'MISSING',
@@ -164,9 +182,11 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
     );
 
     if (!idempotencyKey) {
+        recordRouteError('Idempotency-Key header is required');
         return res.status(400).json({ message: 'Idempotency-Key header is required for customer payment submission.' });
     }
     if (idempotencyKey.length > 100) {
+        recordRouteError('Idempotency-Key must be 100 characters or fewer');
         return res.status(400).json({ message: 'Idempotency-Key must be 100 characters or fewer.' });
     }
 
@@ -182,17 +202,20 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
 
     // C-03: advance cannot exceed total (and values cannot be negative)
     if (total < 0 || advance < 0 || cash < 0 || upi < 0 || cheque < 0 || transfer < 0) {
+        recordRouteError('Amounts cannot be negative');
         return res.status(400).json({ message: 'Amounts cannot be negative.' });
     }
     // C-03: advance cannot exceed total with tolerance for rounding/discount edge cases
     // Zod refine allows up to 1%; route check matches that plus a flat ₹1 floor for small amounts
     if (advance > Math.max(total * 1.01, total + 1)) {
+        recordRouteError(`Advance (${advance}) exceeds total (${total})`);
         return res.status(400).json({ message: `Advance (₹${advance}) cannot exceed total amount (₹${total})` });
     }
 
     // C-07: Multi-method payment validation
     const methodTotal = cash + upi + cheque + transfer;
     if (Math.abs(methodTotal - advance) > 1) {
+        recordRouteError(`Payment methods total (${methodTotal}) does not equal advance paid (${advance})`);
         return res.status(400).json({ message: `Payment methods total (₹${methodTotal.toFixed(2)}) must equal advance paid (₹${advance.toFixed(2)})` });
     }
     
@@ -202,6 +225,7 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
     const internalDept = isInternal ? (req_internal_dept || null) : null;
 
     if (!isInternal && advance > 0 && totalPaidViaMethods <= 0) {
+        recordRouteError('At least one payment method must have an amount greater than 0');
         return res.status(400).json({ message: 'At least one payment method must have an amount greater than 0.' });
     }
 

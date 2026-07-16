@@ -474,6 +474,17 @@ const validate = (schema, property = 'body') => (req, res, next) => {
         if (error instanceof z.ZodError) {
             const details = error.errors.map((e) => `[${e.path.join('.')}] ${e.message} (got: ${JSON.stringify(e.received ?? req[property]?.[e.path[0]])})`).join(' | ');
             console.error(`[validate] Zod 400 on ${req.method} ${req.path}:`, details);
+            
+            if (!global.recentValidationErrors) global.recentValidationErrors = [];
+            global.recentValidationErrors.push({
+                timestamp: new Date().toISOString(),
+                method: req.method,
+                path: req.path,
+                body: req[property],
+                errors: error.errors.map(e => ({ field: e.path.join('.'), message: e.message }))
+            });
+            if (global.recentValidationErrors.length > 50) global.recentValidationErrors.shift();
+
             const messages = error.errors.map((e) => e.message).join(', ');
             return res.status(400).json({ message: messages, errors: error.errors.map(e => ({ field: e.path.join('.'), message: e.message })) });
         }
