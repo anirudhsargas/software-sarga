@@ -101,39 +101,44 @@ async function pdfToImages(pdfBuffer) {
   return pages;
 }
 
-async function extractTextFromImages(files) {
+async function extractTextFromImages(files, onPageProgress) {
+  const pages = [];
+  for (let i = 0; i < files.length; i++) {
+    const { buffer, mimeType } = files[i];
+    if (mimeType === 'application/pdf') {
+      const imgBuffers = await pdfToImages(buffer);
+      for (let j = 0; j < imgBuffers.length; j++) {
+        pages.push({ buffer: imgBuffers[j], label: `PDF page ${i + 1}.${j + 1}` });
+      }
+    } else {
+      pages.push({ buffer, label: `Page ${i + 1}` });
+    }
+  }
+
+  const totalPages = pages.length;
   const allPageTexts = [];
   const allConfidences = [];
 
-  for (let i = 0; i < files.length; i++) {
-    const { buffer, mimeType } = files[i];
-    const isPdf = mimeType === 'application/pdf';
+  for (let i = 0; i < pages.length; i++) {
+    const { buffer: imgBuffer, label: count } = pages[i];
 
-    let imagesToOcr;
-    if (isPdf) {
-      imagesToOcr = await pdfToImages(buffer);
-    } else {
-      imagesToOcr = [buffer];
+    if (onPageProgress) {
+      onPageProgress({ currentPage: i + 1, totalPages, pageLabel: count });
     }
 
-    for (let j = 0; j < imagesToOcr.length; j++) {
-      const imgBuffer = imagesToOcr[j];
-      const count = isPdf ? `PDF page ${i + 1}.${j + 1}` : `Page ${i + 1}`;
+    await checkImageQuality(imgBuffer, count);
 
-      await checkImageQuality(imgBuffer, count);
-
-      let ocrBuffer = imgBuffer;
-      try {
-        ocrBuffer = await preprocessImageForOCR(imgBuffer, count);
-      } catch (prepErr) {
-        logger.warn('[OCR] Preprocessing failed, using original', { page: count, error: prepErr.message });
-      }
-
-      const result = await Tesseract.recognize(ocrBuffer, 'eng');
-
-      allPageTexts.push(`--- ${count} ---\n${result.data.text}`);
-      allConfidences.push({ page: count, confidence: result.data.confidence });
+    let ocrBuffer = imgBuffer;
+    try {
+      ocrBuffer = await preprocessImageForOCR(imgBuffer, count);
+    } catch (prepErr) {
+      logger.warn('[OCR] Preprocessing failed, using original', { page: count, error: prepErr.message });
     }
+
+    const result = await Tesseract.recognize(ocrBuffer, 'eng');
+
+    allPageTexts.push(`--- ${count} ---\n${result.data.text}`);
+    allConfidences.push({ page: count, confidence: result.data.confidence });
   }
 
   logger.info('[OCR] Extraction complete', {

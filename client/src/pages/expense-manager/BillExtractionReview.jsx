@@ -1,7 +1,8 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Upload, X, Loader2, AlertCircle, CheckCircle, Plus, Trash2, Camera, Image as ImageIcon } from 'lucide-react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
+import { onSocketEvent, getSocket } from '../../services/socketClient';
 import './BillExtractionReview.css';
 
 const VALID_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
@@ -61,9 +62,20 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [queueStatus, setQueueStatus] = useState(null);
+  const [extractionProgress, setExtractionProgress] = useState(null);
   const cameraInputRef = useRef(null);
   const galleryInputRef = useRef(null);
   const [saving, setSaving] = useState(false);
+  const cleanupSocketRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (cleanupSocketRef.current) {
+        cleanupSocketRef.current();
+        cleanupSocketRef.current = null;
+      }
+    };
+  }, []);
 
   const validateFile = useCallback((f) => {
     if (!f) return 'No file selected';
@@ -151,11 +163,31 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
     setError('');
     setStep('processing');
     setQueueStatus(null);
+    setExtractionProgress(null);
+
+    const socket = getSocket();
+    const socketId = socket?.id || null;
+
+    if (socketId) {
+      cleanupSocketRef.current = onSocketEvent('billExtractionProgress', (progress) => {
+        if (progress.stage === 'failed') {
+          setExtractionProgress(null);
+          setError(progress.message || 'Extraction failed. Please try again.');
+          setForm({ ...EMPTY_FORM, items: [{ ...EMPTY_FORM.items[0] }] });
+          setStep('review');
+          return;
+        }
+        setExtractionProgress(progress);
+      });
+    }
 
     try {
       const formData = new FormData();
       for (const page of pages) {
         formData.append('billPages', page);
+      }
+      if (socketId) {
+        formData.append('socketId', socketId);
       }
       const response = await api.post('/bills/extract-data', formData, {
         timeout: 120000,
@@ -214,6 +246,10 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
       setStep('review');
     } finally {
       setLoading(false);
+      if (cleanupSocketRef.current) {
+        cleanupSocketRef.current();
+        cleanupSocketRef.current = null;
+      }
     }
   }, [pages]);
 
@@ -336,6 +372,11 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
     setPages([]);
     setForm({ ...EMPTY_FORM, items: [{ ...EMPTY_FORM.items[0] }] });
     setQueueStatus(null);
+    setExtractionProgress(null);
+    if (cleanupSocketRef.current) {
+      cleanupSocketRef.current();
+      cleanupSocketRef.current = null;
+    }
   }, []);
 
   if (step === 'upload') {
@@ -446,20 +487,59 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
   }
 
   if (step === 'processing') {
+    const stage = extractionProgress?.stage || 'uploading';
+    const percent = extractionProgress?.percent || 5;
+    const label = extractionProgress?.label || 'Starting extraction...';
+    const pageInfo = extractionProgress?.page;
+
     return (
       <div className="extraction-review">
-        <div className="extraction-processing">
-          <Loader2 className="spin" size={40} />
-          <h3>Processing bill{pages.length > 1 ? ` (${pages.length} pages)` : ''}...</h3>
-          {queueStatus && queueStatus.queueLength > 0 ? (
-            <p className="extraction-queue-msg">
-              {queueStatus.queueLength} bill{queueStatus.queueLength !== 1 ? 's' : ''} ahead of yours,
-              estimated wait: ~{queueStatus.estimatedWaitSeconds} seconds
-            </p>
-          ) : (
-            <p className="extraction-queue-msg">Running AI extraction, this may take a moment...</p>
+        <div className="extraction-progress">
+          <div className="extraction-progress-header">
+            <Loader2 className="spin" size={20} />
+            <div className="extraction-progress-title">Extracting Bill Data</div>
+          </div>
+
+          <div className="extraction-progress-bar-track">
+            <div
+              className="extraction-progress-bar-fill"
+              style={{ width: `${percent}%` }}
+            />
+          </div>
+
+          <div className="extraction-progress-label">{label}</div>
+
+          {pageInfo && pageInfo.total > 1 && (
+            <div className="extraction-progress-page">
+              Page {pageInfo.current} of {pageInfo.total}
+            </div>
           )}
-          <p className="extraction-hint">Please don't close or refresh this page</p>
+
+          <div className="extraction-progress-stages">
+            {(() => {
+              const stageOrder = ['uploading', 'ocr_processing', 'ai_extracting', 'matching', 'complete'];
+              const serverToDisplay = { uploading: 0, ocr_processing: 1, ocr_complete: 2, ai_extracting: 2, matching: 3, complete: 4 };
+              const displayIdx = serverToDisplay[stage] ?? 0;
+              return stageOrder.map((s, idx) => {
+                const isActive = idx <= displayIdx;
+                const isCurrent = idx === displayIdx;
+                return (
+                  <div key={s} className={`extraction-progress-stage${isActive ? ' active' : ''}${isCurrent ? ' current' : ''}`}>
+                    <div className="extraction-progress-dot" />
+                    <span>{s === 'ocr_processing' ? 'OCR' : s === 'ai_extracting' ? 'AI' : s.charAt(0).toUpperCase() + s.slice(1)}</span>
+                  </div>
+                );
+              });
+            })()}
+          </div>
+
+          {stage === 'ocr_complete' || stage === 'ocr_processing' || stage === 'uploading' ? (
+            <p className="extraction-progress-hint">Reading text from your bill images...</p>
+          ) : stage === 'ai_extracting' ? (
+            <p className="extraction-progress-hint">Analyzing text with AI to extract fields...</p>
+          ) : stage === 'matching' ? (
+            <p className="extraction-progress-hint">Matching vendors and products in database...</p>
+          ) : null}
         </div>
       </div>
     );
