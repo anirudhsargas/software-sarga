@@ -149,6 +149,20 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
     } = req.body;
     const idempotencyKey = String(req.headers['idempotency-key'] || '').trim();
 
+    // --- DIAGNOSTIC LOG: remove after debugging ---
+    console.log('[customer-payments POST] key=%s | customer=%s | total=%s | advance=%s | method=%s | cash=%s | upi=%s | cheque=%s | transfer=%s | date=%s',
+        idempotencyKey ? 'present' : 'MISSING',
+        customer_name,
+        total_amount,
+        advance_paid,
+        payment_method,
+        cash_amount,
+        upi_amount,
+        cheque_amount,
+        account_transfer_amount,
+        payment_date
+    );
+
     if (!idempotencyKey) {
         return res.status(400).json({ message: 'Idempotency-Key header is required for customer payment submission.' });
     }

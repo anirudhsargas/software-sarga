@@ -472,8 +472,10 @@ const validate = (schema, property = 'body') => (req, res, next) => {
         next();
     } catch (error) {
         if (error instanceof z.ZodError) {
+            const details = error.errors.map((e) => `[${e.path.join('.')}] ${e.message} (got: ${JSON.stringify(e.received ?? req[property]?.[e.path[0]])})`).join(' | ');
+            console.error(`[validate] Zod 400 on ${req.method} ${req.path}:`, details);
             const messages = error.errors.map((e) => e.message).join(', ');
-            return res.status(400).json({ message: messages });
+            return res.status(400).json({ message: messages, errors: error.errors.map(e => ({ field: e.path.join('.'), message: e.message })) });
         }
         next(error);
     }
