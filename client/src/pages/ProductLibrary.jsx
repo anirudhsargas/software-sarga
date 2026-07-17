@@ -1105,7 +1105,7 @@ const ProductLibrary = () => {
         }
     }, [location.state, loading, navigate]);
 
-    // Sync viewPath with URL search params for proper browser back navigation
+    // Sync viewPath and productPage with URL search params for proper browser back navigation
     const isUpdatingFromUrl = useRef(false);
     const skipNextUrlUpdate = useRef(false);
     useEffect(() => {
@@ -1127,9 +1127,16 @@ const ProductLibrary = () => {
             isUpdatingFromUrl.current = true;
             setViewPath([]);
         }
+        const pageParam = searchParams.get('page');
+        if (pageParam) {
+            const pageNum = parseInt(pageParam, 10);
+            if (pageNum > 0) {
+                setProductPage(pageNum);
+            }
+        }
     }, [location.search]);
 
-    // Update URL when viewPath changes (but not when updating from URL)
+    // Update URL when viewPath or productPage changes (but not when updating from URL)
     useEffect(() => {
         if (isUpdatingFromUrl.current) {
             isUpdatingFromUrl.current = false;
@@ -1142,11 +1149,23 @@ const ProductLibrary = () => {
         } else {
             searchParams.delete('path');
         }
+        if (productPage > 1) {
+            searchParams.set('page', String(productPage));
+        } else {
+            searchParams.delete('page');
+        }
         const newSearch = searchParams.toString();
         if (newSearch !== location.search) {
             navigate(`${location.pathname}?${newSearch}`, { replace: true });
         }
-    }, [viewPath, location.search, navigate]);
+    }, [viewPath, productPage, location.search, navigate]);
+
+    // Clamp productPage when data is loaded and page exceeds available pages
+    useEffect(() => {
+        if (viewInfo.type === 'subcategory' && allProducts.length > 0 && productPage > totalProductPages) {
+            setProductPage(totalProductPages);
+        }
+    }, [totalProductPages, productPage, viewInfo.type, allProducts.length]);
 
     const handleToggleProduct = async (prod) => {
         // Inventory-only items cannot be toggled
