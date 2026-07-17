@@ -2543,7 +2543,7 @@ const ProductLibrary = () => {
 
                                     {/* Size */}
                                     <div>
-                                        <label className="label">Dimensions / Size</label>
+                                        <label className="label">Number</label>
                                         <input
                                             className="input-field"
                                             value={newProduct.size}
@@ -2557,7 +2557,6 @@ const ProductLibrary = () => {
                                                 }
                                             }}
                                             placeholder="e.g. 12X18"
-                                            disabled={isEditing && !!newProduct.product_code}
                                         />
                                     </div>
                                 </div>
