@@ -2433,9 +2433,9 @@ const ProductLibrary = () => {
                                                                 setNewProduct(prev => ({
                                                                     ...prev,
                                                                     company_name: c.name,
-                                                                    company_code: c.code,
+                                                                    company_code: isEditing ? prev.company_code : c.code,
                                                                     product_code: isEditing ? prev.product_code : buildAutoSku(c.code, prev.name, prev.size),
-                                                                    isManualCompanyCode: true,
+                                                                    isManualCompanyCode: isEditing ? prev.isManualCompanyCode : true,
                                                                     extraInv: { ...prev.extraInv, vendor_name: c.name }
                                                                 }));
                                                                 setCompanyDropdownOpen(false);
@@ -2513,9 +2513,9 @@ const ProductLibrary = () => {
                                                     onClick={() => {
                                                         setNewProduct(prev => {
                                                             const newCode = (prev.company_name || '').replace(/[^A-Z0-9]/g, '').substring(0, 3).toUpperCase();
-                                                            return { ...prev, isManualCompanyCode: false, company_code: newCode, product_code: buildAutoSku(newCode, prev.name, prev.size) };
+                                                            return { ...prev, isManualCompanyCode: isEditing ? prev.isManualCompanyCode : false, company_code: isEditing ? prev.company_code : newCode, product_code: isEditing ? prev.product_code : buildAutoSku(newCode, prev.name, prev.size) };
                                                         });
-                                                        fetchUniqueCode(newProduct.company_name, newProduct);
+                                                        if (!isEditing) fetchUniqueCode(newProduct.company_name, newProduct);
                                                     }}
                                                 >
                                                     <RotateCcw size={10} style={{ marginRight: 2 }} /> Auto
@@ -2561,30 +2561,16 @@ const ProductLibrary = () => {
                                     </div>
                                 </div>
 
-                                {/* SKU Preview Area */}
-                                <div style={{ 
-                                    marginTop: '20px', 
-                                    padding: '16px', 
-                                    background: 'var(--surface-3, #0f172a)', 
-                                    borderRadius: '12px',
-                                    border: '1px solid var(--border)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between'
-                                }}>
-                                    <div className="stack-xs">
-                                        <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase' }}>Auto-Generated System SKU</span>
-                                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Code used for internal tracking & inventory sync.</span>
-                                    </div>
-                                    <div style={{ 
-                                        fontFamily: 'monospace', 
-                                        fontSize: '16px', 
-                                        fontWeight: 800, 
-                                        color: 'var(--text)',
-                                        letterSpacing: '0.05em'
-                                    }}>
-                                        {newProduct.product_code || '---'}
-                                    </div>
+                                {/* SKU / Product Code */}
+                                <div>
+                                    <label className="label">Product Code (SKU)</label>
+                                    <input
+                                        className="input-field"
+                                        style={{ fontFamily: 'monospace', fontWeight: 700, letterSpacing: '0.5px' }}
+                                        value={newProduct.product_code || ''}
+                                        onChange={e => setNewProduct({ ...newProduct, product_code: e.target.value.toUpperCase() })}
+                                        placeholder="AUTO-GENERATED"
+                                    />
                                 </div>
                             </div>
 

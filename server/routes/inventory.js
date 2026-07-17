@@ -1751,27 +1751,43 @@ router.post('/inventory/check-bulk-stock', authenticateToken, async (req, res) =
         return res.status(400).json({ message: 'Items array is required' });
     }
     try {
+        // Batch fetch all product inventory links in one query
+        const productIds = items.map(i => i.product_id).filter(Boolean);
+        if (productIds.length === 0) return res.json({ insufficient: [], has_insufficiency: false });
+
+        const [prodRows] = await pool.query(
+            'SELECT id, inventory_item_id, name FROM sarga_products WHERE id IN (?) AND is_active = 1 AND is_deleted = 0',
+            [productIds]
+        );
+        const prodMap = {};
+        for (const p of prodRows) {
+            if (p.inventory_item_id) prodMap[p.id] = p;
+        }
+
+        const invIds = Object.values(prodMap).map(p => p.inventory_item_id).filter(Boolean);
+        if (invIds.length === 0) return res.json({ insufficient: [], has_insufficiency: false });
+
+        const [invRows] = await pool.query(
+            'SELECT id, quantity, COALESCE(reserved_quantity, 0) AS reserved FROM sarga_inventory WHERE id IN (?)',
+            [invIds]
+        );
+        const invMap = {};
+        for (const i of invRows) invMap[i.id] = i;
+
         const insufficient = [];
         for (const item of items) {
             const productId = item.product_id;
             const qty = Number(item.quantity) || 0;
             if (!productId || qty <= 0) continue;
-            const [[prodRow]] = await pool.query(
-                'SELECT inventory_item_id, name FROM sarga_products WHERE id = ? AND is_active = 1 AND is_deleted = 0',
-                [productId]
-            );
-            const invId = prodRow ? prodRow.inventory_item_id : null;
-            if (!invId) continue;
-            const [[invRow]] = await pool.query(
-                'SELECT quantity, COALESCE(reserved_quantity, 0) AS reserved FROM sarga_inventory WHERE id = ?',
-                [invId]
-            );
-            if (!invRow) continue;
-            const available = Number(invRow.quantity || 0) - Number(invRow.reserved || 0);
+            const prod = prodMap[productId];
+            if (!prod) continue;
+            const inv = invMap[prod.inventory_item_id];
+            if (!inv) continue;
+            const available = Number(inv.quantity || 0) - Number(inv.reserved || 0);
             if (available < qty) {
                 insufficient.push({
                     product_id: productId,
-                    product_name: prodRow.name || `Product #${productId}`,
+                    product_name: prod.name || `Product #${productId}`,
                     available,
                     requested: qty,
                     shortfall: qty - available

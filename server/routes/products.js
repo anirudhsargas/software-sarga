@@ -11,19 +11,17 @@ module.exports = (upload, removeUploadFile) => {
 
     // Auto-create an inventory entry when a product is added to the Product Library
     async function autoCreateInventoryFromProduct(productId, productName, productCode, subcategoryId, slabs, companyName, companyCode, size, extraInv = {}, userId = null) {
-        // Check if already linked — if so, skip (product already has its own inventory)
-        const [existing] = await pool.query('SELECT inventory_item_id FROM sarga_products WHERE id = ? AND inventory_item_id IS NOT NULL', [productId]);
-        if (existing.length > 0) return;
-
-        // Get category name from subcategory → category chain
-        const [subRows] = await pool.query(
-            `SELECT s.name AS sub_name, c.name AS cat_name
-             FROM sarga_product_subcategories s
-             JOIN sarga_product_categories c ON s.category_id = c.id
-             WHERE s.id = ?`,
-            [subcategoryId]
+        // Check if already linked + get subcategory name in one query
+        const [[prodRow]] = await pool.query(
+            `SELECT p.inventory_item_id, s.name AS sub_name
+             FROM sarga_products p
+             LEFT JOIN sarga_product_subcategories s ON p.subcategory_id = s.id
+             WHERE p.id = ?`,
+            [productId]
         );
-        const inventoryCategory = subRows.length > 0 ? subRows[0].sub_name : null;
+        if (!prodRow || prodRow.inventory_item_id) return;
+
+        const inventoryCategory = prodRow.sub_name || null;
 
         // Extract cost and sell price from first slab and extraInv
         let slabSellPrice = 0;
@@ -112,20 +110,19 @@ module.exports = (upload, removeUploadFile) => {
 
     // Sync an existing linked inventory item from the updated product library data
     async function syncInventoryFromProduct(connection, productId, productName, productCode, subcategoryId, slabs, companyName, companyCode, size, extraInv = {}) {
-        // Find if this product is linked to an inventory item
-        const [prodRows] = await connection.query('SELECT inventory_item_id FROM sarga_products WHERE id = ?', [productId]);
-        if (!prodRows || prodRows.length === 0) return;
-        const inventoryId = prodRows[0].inventory_item_id;
+        // Find if this product is linked to an inventory item + get subcategory name in one query
+        const [[prodRow]] = await connection.query(
+            `SELECT p.inventory_item_id, s.name AS sub_name
+             FROM sarga_products p
+             LEFT JOIN sarga_product_subcategories s ON p.subcategory_id = s.id
+             WHERE p.id = ?`,
+            [productId]
+        );
+        if (!prodRow) return;
+        const inventoryId = prodRow.inventory_item_id;
         if (!inventoryId) return;
 
-        // Get subcategory name as category in inventory
-        const [subRows] = await connection.query(
-            `SELECT s.name AS sub_name
-             FROM sarga_product_subcategories s
-             WHERE s.id = ?`,
-            [subcategoryId]
-        );
-        const inventoryCategory = subRows.length > 0 ? subRows[0].sub_name : null;
+        const inventoryCategory = prodRow.sub_name || null;
 
         // Extract cost and sell price from first slab and extraInv
         let slabSellPrice = 0;
@@ -138,10 +135,8 @@ module.exports = (upload, removeUploadFile) => {
         const parsedSellPrice = slabSellPrice;
 
         // Use product_code as SKU with unique suffix, or auto-generate
-        // But never overwrite existing SKU (immutable after creation)
-        const [[existingInv]] = await connection.query('SELECT sku FROM sarga_inventory WHERE id = ?', [inventoryId]);
-        let sku = existingInv?.sku || productCode || null;
-        if (!existingInv?.sku && sku) {
+        let sku = productCode || null;
+        if (sku) {
             const [dup] = await connection.query('SELECT id FROM sarga_inventory WHERE sku = ? AND id != ?', [sku, inventoryId]);
             if (dup.length > 0) sku = `${sku}-${productId}`;
         }
@@ -805,15 +800,14 @@ module.exports = (upload, removeUploadFile) => {
                 const [pendingRows] = await pool.query(`SELECT id FROM sarga_product_update_requests WHERE product_id = ? AND status = 'pending' LIMIT 1`, [id]);
                 if (pendingRows.length > 0) return res.status(409).json({ message: 'An update request is already pending for this product.' });
 
-                // Fetch slabs, extras, links
-                const [currSlabs] = await pool.query('SELECT * FROM sarga_product_slabs WHERE product_id = ? ORDER BY min_qty ASC', [id]);
-                const [currExtras] = await pool.query('SELECT * FROM sarga_product_extras_template WHERE product_id = ?', [id]);
-                const [currLinks] = await pool.query('SELECT id, name, url FROM sarga_product_links WHERE product_id = ? ORDER BY id ASC', [id]);
+                // Fetch slabs, extras, links in parallel
+                const [[currSlabs], [currExtras], [currLinks]] = await Promise.all([
+                    pool.query('SELECT * FROM sarga_product_slabs WHERE product_id = ? ORDER BY min_qty ASC', [id]),
+                    pool.query('SELECT * FROM sarga_product_extras_template WHERE product_id = ?', [id]),
+                    pool.query('SELECT id, name, url FROM sarga_product_links WHERE product_id = ? ORDER BY id ASC', [id])
+                ]);
 
-                // product_code and company_code are immutable after creation
-                if (product.product_code && product_code !== undefined && product.product_code !== product_code) {
-                    return res.status(400).json({ message: 'Product code cannot be changed after creation' });
-                }
+                // company_code is immutable after creation
                 if (product.company_code && company_code !== undefined && product.company_code !== company_code) {
                     return res.status(400).json({ message: 'Company code cannot be changed after creation' });
                 }
@@ -859,17 +853,11 @@ module.exports = (upload, removeUploadFile) => {
         try {
             await connection.beginTransaction();
 
-            // product_code and company_code are immutable after creation
-            const [[existingProduct]] = await connection.query('SELECT product_code, company_code FROM sarga_products WHERE id = ?', [id]);
-            if (existingProduct) {
-                if (existingProduct.product_code && product_code && existingProduct.product_code !== product_code) {
-                    await connection.rollback();
-                    return res.status(400).json({ message: 'Product code cannot be changed after creation' });
-                }
-                if (existingProduct.company_code && company_code && existingProduct.company_code !== company_code) {
-                    await connection.rollback();
-                    return res.status(400).json({ message: 'Company code cannot be changed after creation' });
-                }
+            // company_code is immutable after creation
+            const [[existingProduct]] = await connection.query('SELECT company_code FROM sarga_products WHERE id = ?', [id]);
+            if (existingProduct && existingProduct.company_code && company_code && existingProduct.company_code !== company_code) {
+                await connection.rollback();
+                return res.status(400).json({ message: 'Company code cannot be changed after creation' });
             }
 
             await connection.query(
@@ -877,41 +865,41 @@ module.exports = (upload, removeUploadFile) => {
                 [subcategory_id, String(name).trim(), product_code || null, company_name || null, company_code || null, size || null, calculation_type, description, imageUrl, has_paper_rate === 'true' || has_paper_rate === 1 || has_paper_rate === '1' ? 1 : 0, Number(paper_rate) || 0, has_double_side_rate === 'true' || has_double_side_rate === 1 || has_double_side_rate === '1' ? 1 : 0, inventory_item_id || null, isPhysicalProduct === 'true' || isPhysicalProduct === 1 || isPhysicalProduct === '1' ? 1 : 0, id]
             );
 
-            // Update Slabs: DELETE and INSERT is cleaner
+            // Update Slabs: DELETE and bulk INSERT
             await connection.query("DELETE FROM sarga_product_slabs WHERE product_id = ?", [id]);
             if (slabs && slabs.length > 0) {
-                for (const slab of slabs) {
-                    await connection.query(
-                        "INSERT INTO sarga_product_slabs (product_id, min_qty, max_qty, base_value, unit_rate, offset_unit_rate, double_side_unit_rate) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                        [id, Number(slab.min_qty) || 0, (slab.max_qty === '' || slab.max_qty === null) ? null : Number(slab.max_qty), Number(slab.base_value) || 0, Number(slab.unit_rate) || 0, Number(slab.offset_unit_rate) || 0, Number(slab.double_side_unit_rate) || 0]
-                    );
-                }
+                const slabValues = slabs.map(slab => [
+                    id, Number(slab.min_qty) || 0, (slab.max_qty === '' || slab.max_qty === null) ? null : Number(slab.max_qty),
+                    Number(slab.base_value) || 0, Number(slab.unit_rate) || 0, Number(slab.offset_unit_rate) || 0, Number(slab.double_side_unit_rate) || 0
+                ]);
+                await connection.query(
+                    "INSERT INTO sarga_product_slabs (product_id, min_qty, max_qty, base_value, unit_rate, offset_unit_rate, double_side_unit_rate) VALUES ?",
+                    [slabValues]
+                );
             }
 
-            // Update Extras: DELETE and INSERT
+            // Update Extras: DELETE and bulk INSERT
             await connection.query("DELETE FROM sarga_product_extras_template WHERE product_id = ?", [id]);
             if (extras && extras.length > 0) {
-                for (const extra of extras) {
-                    await connection.query(
-                        "INSERT INTO sarga_product_extras_template (product_id, purpose, amount) VALUES (?, ?, ?)",
-                        [id, extra.purpose, extra.amount]
-                    );
-                }
+                const extraValues = extras.map(extra => [id, extra.purpose, extra.amount]);
+                await connection.query(
+                    "INSERT INTO sarga_product_extras_template (product_id, purpose, amount) VALUES ?",
+                    [extraValues]
+                );
             }
 
-            // Update Links: DELETE and INSERT
+            // Update Links: DELETE and bulk INSERT
             const links = typeof req.body.links === 'string' ? JSON.parse(req.body.links) : (req.body.links || []);
             await connection.query("DELETE FROM sarga_product_links WHERE product_id = ?", [id]);
             if (links && links.length > 0) {
-                for (const link of links) {
-                    const linkName = String(link.name || '').trim();
-                    const linkUrl = String(link.url || '').trim();
-                    if (linkName && linkUrl) {
-                        await connection.query(
-                            "INSERT INTO sarga_product_links (product_id, name, url) VALUES (?, ?, ?)",
-                            [id, linkName, linkUrl]
-                        );
-                    }
+                const linkValues = links
+                    .filter(l => String(l.name || '').trim() && String(l.url || '').trim())
+                    .map(l => [id, String(l.name).trim(), String(l.url).trim()]);
+                if (linkValues.length > 0) {
+                    await connection.query(
+                        "INSERT INTO sarga_product_links (product_id, name, url) VALUES ?",
+                        [linkValues]
+                    );
                 }
             }
 
@@ -1373,10 +1361,12 @@ module.exports = (upload, removeUploadFile) => {
                 const [pendingRows] = await pool.query(`SELECT id FROM sarga_product_update_requests WHERE product_id = ? AND status = 'pending' LIMIT 1`, [productId]);
                 if (pendingRows.length > 0) return res.status(409).json({ message: 'An update request is already pending for this product.' });
 
-                // Fetch current slabs/extras/links
-                const [slabs] = await pool.query('SELECT * FROM sarga_product_slabs WHERE product_id = ? ORDER BY min_qty ASC', [productId]);
-                const [extras] = await pool.query('SELECT * FROM sarga_product_extras_template WHERE product_id = ?', [productId]);
-                const [links] = await pool.query('SELECT id, name, url FROM sarga_product_links WHERE product_id = ? ORDER BY id ASC', [productId]);
+                // Fetch current slabs/extras/links in parallel
+                const [[slabs], [extras], [links]] = await Promise.all([
+                    pool.query('SELECT * FROM sarga_product_slabs WHERE product_id = ? ORDER BY min_qty ASC', [productId]),
+                    pool.query('SELECT * FROM sarga_product_extras_template WHERE product_id = ?', [productId]),
+                    pool.query('SELECT id, name, url FROM sarga_product_links WHERE product_id = ? ORDER BY id ASC', [productId])
+                ]);
 
                 const currentData = Object.assign({}, product, { slabs, extras, links });
 
@@ -1528,37 +1518,37 @@ module.exports = (upload, removeUploadFile) => {
                         );
                         const newProdId = prodResult.insertId;
 
-                        // 3. Insert slabs
-                        if (Array.isArray(proposed.slabs)) {
-                            for (const slab of proposed.slabs) {
-                                await connection.query(
-                                    "INSERT INTO sarga_product_slabs (product_id, min_qty, max_qty, base_value, unit_rate, offset_unit_rate, double_side_unit_rate) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                                    [newProdId, Number(slab.min_qty) || 0, (slab.max_qty === '' || slab.max_qty === null) ? null : Number(slab.max_qty), Number(slab.base_value) || 0, Number(slab.unit_rate) || 0, Number(slab.offset_unit_rate) || 0, Number(slab.double_side_unit_rate) || 0]
-                                );
-                            }
+                        // 3. Bulk insert slabs
+                        if (Array.isArray(proposed.slabs) && proposed.slabs.length > 0) {
+                            const slabValues = proposed.slabs.map(slab => [
+                                newProdId, Number(slab.min_qty) || 0, (slab.max_qty === '' || slab.max_qty === null) ? null : Number(slab.max_qty),
+                                Number(slab.base_value) || 0, Number(slab.unit_rate) || 0, Number(slab.offset_unit_rate) || 0, Number(slab.double_side_unit_rate) || 0
+                            ]);
+                            await connection.query(
+                                "INSERT INTO sarga_product_slabs (product_id, min_qty, max_qty, base_value, unit_rate, offset_unit_rate, double_side_unit_rate) VALUES ?",
+                                [slabValues]
+                            );
                         }
 
-                        // 4. Insert extras
-                        if (Array.isArray(proposed.extras)) {
-                            for (const extra of proposed.extras) {
-                                await connection.query(
-                                    "INSERT INTO sarga_product_extras_template (product_id, purpose, amount) VALUES (?, ?, ?)",
-                                    [newProdId, extra.purpose, extra.amount]
-                                );
-                            }
+                        // 4. Bulk insert extras
+                        if (Array.isArray(proposed.extras) && proposed.extras.length > 0) {
+                            const extraValues = proposed.extras.map(extra => [newProdId, extra.purpose, extra.amount]);
+                            await connection.query(
+                                "INSERT INTO sarga_product_extras_template (product_id, purpose, amount) VALUES ?",
+                                [extraValues]
+                            );
                         }
 
-                        // 5. Insert links
-                        if (Array.isArray(proposed.links)) {
-                            for (const link of proposed.links) {
-                                const linkName = String(link.name || '').trim();
-                                const linkUrl = String(link.url || '').trim();
-                                if (linkName && linkUrl) {
-                                    await connection.query(
-                                        "INSERT INTO sarga_product_links (product_id, name, url) VALUES (?, ?, ?)",
-                                        [newProdId, linkName, linkUrl]
-                                    );
-                                }
+                        // 5. Bulk insert links
+                        if (Array.isArray(proposed.links) && proposed.links.length > 0) {
+                            const linkValues = proposed.links
+                                .filter(l => String(l.name || '').trim() && String(l.url || '').trim())
+                                .map(l => [newProdId, String(l.name).trim(), String(l.url).trim()]);
+                            if (linkValues.length > 0) {
+                                await connection.query(
+                                    "INSERT INTO sarga_product_links (product_id, name, url) VALUES ?",
+                                    [linkValues]
+                                );
                             }
                         }
 
@@ -1603,53 +1593,58 @@ module.exports = (upload, removeUploadFile) => {
                             await connection.query(sql, [...updateValues, prodId]);
                         }
 
-                        // Replace slabs if provided
+                        // Replace slabs if provided — bulk insert
                         if (Array.isArray(proposed.slabs)) {
                             await connection.query('DELETE FROM sarga_product_slabs WHERE product_id = ?', [prodId]);
-                            for (const slab of proposed.slabs) {
+                            if (proposed.slabs.length > 0) {
+                                const slabValues = proposed.slabs.map(slab => [
+                                    prodId, Number(slab.min_qty) || 0, (slab.max_qty === '' || slab.max_qty === null) ? null : Number(slab.max_qty),
+                                    Number(slab.base_value) || 0, Number(slab.unit_rate) || 0, Number(slab.offset_unit_rate) || 0, Number(slab.double_side_unit_rate) || 0
+                                ]);
                                 await connection.query(
-                                    'INSERT INTO sarga_product_slabs (product_id, min_qty, max_qty, base_value, unit_rate, offset_unit_rate, double_side_unit_rate) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                                    [prodId, Number(slab.min_qty) || 0, (slab.max_qty === '' || slab.max_qty === null) ? null : Number(slab.max_qty), Number(slab.base_value) || 0, Number(slab.unit_rate) || 0, Number(slab.offset_unit_rate) || 0, Number(slab.double_side_unit_rate) || 0]
+                                    'INSERT INTO sarga_product_slabs (product_id, min_qty, max_qty, base_value, unit_rate, offset_unit_rate, double_side_unit_rate) VALUES ?',
+                                    [slabValues]
                                 );
                             }
                         }
 
-                        // Replace extras if provided
+                        // Replace extras if provided — bulk insert
                         if (Array.isArray(proposed.extras)) {
                             await connection.query('DELETE FROM sarga_product_extras_template WHERE product_id = ?', [prodId]);
-                            for (const extra of proposed.extras) {
-                                await connection.query('INSERT INTO sarga_product_extras_template (product_id, purpose, amount) VALUES (?, ?, ?)', [prodId, extra.purpose, extra.amount]);
+                            if (proposed.extras.length > 0) {
+                                const extraValues = proposed.extras.map(extra => [prodId, extra.purpose, extra.amount]);
+                                await connection.query('INSERT INTO sarga_product_extras_template (product_id, purpose, amount) VALUES ?', [extraValues]);
                             }
                         }
 
-                        // Replace links if provided
+                        // Replace links if provided — bulk insert
                         if (Array.isArray(proposed.links)) {
                             await connection.query('DELETE FROM sarga_product_links WHERE product_id = ?', [prodId]);
-                            for (const link of proposed.links) {
-                                const linkName = String(link.name || '').trim();
-                                const linkUrl = String(link.url || '').trim();
-                                if (linkName && linkUrl) {
-                                    await connection.query('INSERT INTO sarga_product_links (product_id, name, url) VALUES (?, ?, ?)', [prodId, linkName, linkUrl]);
+                            if (proposed.links.length > 0) {
+                                const linkValues = proposed.links
+                                    .filter(l => String(l.name || '').trim() && String(l.url || '').trim())
+                                    .map(l => [prodId, String(l.name).trim(), String(l.url).trim()]);
+                                if (linkValues.length > 0) {
+                                    await connection.query('INSERT INTO sarga_product_links (product_id, name, url) VALUES ?', [linkValues]);
                                 }
                             }
                         }
 
-                        // Sync inventory if product is linked
-                        const [updatedProd] = await connection.query('SELECT * FROM sarga_products WHERE id = ?', [prodId]);
-                        const upProd = updatedProd[0];
-                        if (upProd && upProd.inventory_item_id) {
+                        // Sync inventory if product is linked (use proposed data, skip re-fetch)
+                        if (proposed.inventory_item_id || current.inventory_item_id) {
+                            const effectiveProdId = prodId;
                             const slabsPayload = proposed.slabs || [];
                             const extraInvPayload = proposed.extraInv || {};
                             await syncInventoryFromProduct(
                                 connection,
-                                prodId,
-                                upProd.name,
-                                upProd.product_code,
-                                upProd.subcategory_id,
+                                effectiveProdId,
+                                proposed.name || current.name,
+                                proposed.product_code || current.product_code,
+                                proposed.subcategory_id || current.subcategory_id,
                                 slabsPayload,
-                                upProd.company_name,
-                                upProd.company_code,
-                                upProd.size,
+                                proposed.company_name || current.company_name,
+                                proposed.company_code || current.company_code,
+                                proposed.size || current.size,
                                 extraInvPayload
                             );
                         }
@@ -1806,9 +1801,11 @@ module.exports = (upload, removeUploadFile) => {
             const resolvedCompanyCode = String(product.company_code || '').trim() || fallbackCompanyCode;
             const resolvedSize = String(product.size || '').trim() || fallbackSize;
 
-            const [slabs] = await pool.query("SELECT * FROM sarga_product_slabs WHERE product_id = ? ORDER BY min_qty ASC", [product.id]);
-            const [extras] = await pool.query("SELECT * FROM sarga_product_extras_template WHERE product_id = ?", [product.id]);
-            const [links] = await pool.query("SELECT id, name, url FROM sarga_product_links WHERE product_id = ? ORDER BY id ASC", [product.id]);
+            const [[slabs], [extras], [links]] = await Promise.all([
+                pool.query("SELECT * FROM sarga_product_slabs WHERE product_id = ? ORDER BY min_qty ASC", [product.id]),
+                pool.query("SELECT * FROM sarga_product_extras_template WHERE product_id = ?", [product.id]),
+                pool.query("SELECT id, name, url FROM sarga_product_links WHERE product_id = ? ORDER BY id ASC", [product.id])
+            ]);
 
             // Backward compat: map old extra_inv.sell_price to first slab's unit_rate
             if (product.extra_inv && slabs.length > 0 && (!slabs[0].unit_rate || Number(slabs[0].unit_rate) === 0)) {
@@ -1846,6 +1843,28 @@ module.exports = (upload, removeUploadFile) => {
                  WHERE p.inventory_item_id IS NOT NULL`
             );
 
+            if (products.length === 0) return res.json({ message: 'No products to repair.', repaired: [], skipped: [] });
+
+            // Batch fetch slabs for all products in one query
+            const productIds = products.map(p => p.id);
+            const [allSlabs] = await pool.query(
+                'SELECT product_id, unit_rate, base_value FROM sarga_product_slabs WHERE product_id IN (?) ORDER BY product_id, min_qty ASC',
+                [productIds]
+            );
+            const slabMap = {};
+            for (const s of allSlabs) {
+                if (!slabMap[s.product_id]) slabMap[s.product_id] = s;
+            }
+
+            // Batch fetch inventory items for all linked products
+            const invIds = products.map(p => p.inventory_item_id).filter(Boolean);
+            const [allInv] = await pool.query(
+                'SELECT id, cost_price, sell_price FROM sarga_inventory WHERE id IN (?)',
+                [invIds]
+            );
+            const invMap = {};
+            for (const i of allInv) invMap[i.id] = i;
+
             const repaired = [];
             const skipped = [];
 
@@ -1854,28 +1873,18 @@ module.exports = (upload, removeUploadFile) => {
                     typeof prod.extra_inv === 'string' ? JSON.parse(prod.extra_inv) : prod.extra_inv
                 ) : {};
 
-                // Get slabs for this product
-                const [slabs] = await pool.query(
-                    'SELECT * FROM sarga_product_slabs WHERE product_id = ? ORDER BY min_qty ASC LIMIT 1',
-                    [prod.id]
-                );
-
-                const slabSellPrice = slabs.length > 0
-                    ? Number(slabs[0].unit_rate) || Number(slabs[0].base_value) || 0
+                const slab = slabMap[prod.id];
+                const slabSellPrice = slab
+                    ? Number(slab.unit_rate) || Number(slab.base_value) || 0
                     : 0;
 
                 const isSet = (v) => v != null && v !== '';
                 const parsedCostPrice = isSet(extraInv.cost_price) ? Number(extraInv.cost_price) : 0;
                 const parsedSellPrice = slabSellPrice;
 
-                // Get current inventory values
-                const [invRows] = await pool.query(
-                    'SELECT id, cost_price, sell_price FROM sarga_inventory WHERE id = ?',
-                    [prod.inventory_item_id]
-                );
-                if (invRows.length === 0) { skipped.push({ id: prod.id, reason: 'inventory_not_found' }); continue; }
+                const inv = invMap[prod.inventory_item_id];
+                if (!inv) { skipped.push({ id: prod.id, reason: 'inventory_not_found' }); continue; }
 
-                const inv = invRows[0];
                 const currentCost = Number(inv.cost_price) || 0;
                 const currentSell = Number(inv.sell_price) || 0;
 
