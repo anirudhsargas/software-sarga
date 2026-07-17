@@ -171,7 +171,7 @@ const Invoices = () => {
     if (e) e.stopPropagation();
     const data = buildBillData(invoice);
     const { printInvoicePDF } = await import('../utils/invoicePdf');
-    printInvoicePDF(data);
+    await printInvoicePDF(data);
     toast.success('Sent to printer');
   };
 
@@ -219,6 +219,7 @@ const Invoices = () => {
         paymentStatus,
         amountPaid: Number(invoice.advance_paid || 0),
         balanceDue: Number(invoice.balance_amount || 0),
+        paymentMethod: invoice.payment_method || 'Cash',
       };
 
       const { getWhatsAppShareLink } = await import('../utils/whatsappInvoice');

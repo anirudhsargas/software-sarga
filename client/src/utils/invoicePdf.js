@@ -297,7 +297,7 @@ export async function generateInvoicePDF(billData) {
     const qrDataUrl = await QRCode.toDataURL(upiStr, {
       width: 160,
       margin: 1,
-      color: { dark: 'var(--color-textSecondary)', light: 'var(--color-surface)' },
+      color: { dark: '#1a3a5f', light: '#ffffff' },
     });
     doc.addImage(qrDataUrl, 'PNG', margin, y, qrSize, qrSize);
 
@@ -388,9 +388,15 @@ export async function printInvoicePDF(billData) {
   const pdfBlob = doc.output('blob');
   const url = URL.createObjectURL(pdfBlob);
   const printWindow = window.open(url, '_blank');
-  if (printWindow) {
-    printWindow.addEventListener('load', () => {
-      printWindow.print();
-    });
+  if (!printWindow) {
+    doc.save(`Invoice_${billData.invoiceNumber || 'BILL'}_${(billData.customer?.name || 'Customer').replace(/\s+/g, '_')}.pdf`);
+    return;
   }
+  const onLoad = () => {
+    printWindow.removeEventListener('load', onLoad);
+    setTimeout(() => {
+      try { printWindow.print(); } catch (e) { /* ignore cross-origin errors */ }
+    }, 500);
+  };
+  printWindow.addEventListener('load', onLoad);
 }

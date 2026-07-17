@@ -272,7 +272,7 @@ const Billing = () => {
         description: b.description || b.notes || ''
       };
       const { printInvoicePDF } = await import('../utils/invoicePdf');
-      printInvoicePDF(printData);
+      await printInvoicePDF(printData);
     } catch {
       toast.error('Failed to print invoice');
     }
@@ -999,7 +999,7 @@ const Billing = () => {
   const handlePrintLast = useCallback(async () => {
     if (lastBillData) {
       const { printInvoicePDF } = await import('../utils/invoicePdf');
-      printInvoicePDF(lastBillData);
+      await printInvoicePDF(lastBillData);
     }
   }, [lastBillData]);
 
@@ -1012,6 +1012,7 @@ const Billing = () => {
                        Number(billData.payment?.account_transfer_amount || 0);
     const totalAmount = Number(billData.totals?.gross || 0);
     const balanceDue = Math.max(totalAmount - paidAmount, 0);
+    const paymentMethod = billData.payment?.method || billData.payment_method || 'Cash';
     let paymentStatus = 'PENDING';
     if (balanceDue <= 0 && paidAmount > 0) paymentStatus = 'PAID';
     else if (paidAmount > 0) paymentStatus = 'PARTIAL';
@@ -1034,6 +1035,7 @@ const Billing = () => {
       paymentStatus,
       amountPaid: paidAmount,
       balanceDue,
+      paymentMethod,
     };
   }, []);
 
@@ -2041,7 +2043,7 @@ const Billing = () => {
 
         return (
           <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="post-bill-title" onClick={() => setShowPostBillOptions(false)}>
-            <div className="modal modal--lg" onClick={e => e.stopPropagation()} style={{ overflowY: 'auto', maxHeight: '95vh', borderRadius: '16px', boxShadow: '0 20px 50px rgba(0,0,0,0.15)' }}>
+            <div className="modal modal--lg" onClick={e => e.stopPropagation()} style={{ maxHeight: '95vh', borderRadius: '16px', boxShadow: '0 20px 50px rgba(0,0,0,0.15)' }}>
               <div className="modal__header" style={{ borderBottom: 'none', padding: '24px 24px 8px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', position: 'relative' }}>
                 <div className="invoice-success-icon-container">
                   <Check size={32} strokeWidth={3} aria-hidden="true" />
@@ -2056,7 +2058,7 @@ const Billing = () => {
               </div>
               <div className="modal__body stack-sm" style={{ padding: '0 24px 24px 24px' }}>
                 {/* Print / WhatsApp / Email / New Invoice actions */}
-                <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap', flexShrink: 0 }}>
                   <button className="btn btn-primary" onClick={handlePrintLast} style={{ flex: '1 1 150px', minWidth: '150px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '600', borderRadius: '8px', boxShadow: '0 4px 12px rgba(var(--primary-rgb), 0.15)' }}>
                     <Printer size={16} className="mr-8" aria-hidden="true" /> Print Invoice
                   </button>
@@ -2092,7 +2094,7 @@ const Billing = () => {
                 </div>
 
               {showWhatsAppInput && (
-                <div style={{ border: '1px solid var(--border)', padding: '12px', borderRadius: '6px', background: 'var(--bg-light)', marginBottom: 16 }}>
+                <div style={{ border: '1px solid var(--border)', padding: '12px', borderRadius: '6px', background: 'var(--bg-light)', marginBottom: 16, flexShrink: 0 }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontSize: 13, fontWeight: 600 }}>Enter WhatsApp Number</span>
@@ -2147,7 +2149,7 @@ const Billing = () => {
               )}
 
               {showEmailInput && (
-                <div style={{ border: '1px solid var(--border)', padding: '12px', borderRadius: '6px', background: 'var(--bg-light)', marginBottom: 16 }}>
+                <div style={{ border: '1px solid var(--border)', padding: '12px', borderRadius: '6px', background: 'var(--bg-light)', marginBottom: 16, flexShrink: 0 }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontSize: 13, fontWeight: 600 }}>Enter Email Address</span>
@@ -2261,7 +2263,7 @@ const Billing = () => {
               </div>
 
               {/* Staff Assignment Panel */}
-              <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+              <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14, flexShrink: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                   <Users size={16} aria-hidden="true" style={{ color: 'var(--accent)' }} />
                   <span style={{ fontWeight: 600, fontSize: 14 }}>Assign Work to Staff</span>

@@ -15,6 +15,7 @@ export function generateWhatsAppInvoiceMessage(invoice) {
     subtotal, discount, gst, total,
     paymentStatus = 'PENDING',
     amountPaid = 0, balanceDue = 0,
+    paymentMethod = 'UPI',
   } = invoice;
 
   const numSubtotal = Number(subtotal) || 0;
@@ -54,7 +55,7 @@ export function generateWhatsAppInvoiceMessage(invoice) {
 
   switch (paymentStatus) {
     case 'PAID':
-      lines.push('✅ *PAID* via UPI');
+      lines.push(`✅ *PAID* via ${paymentMethod}`);
       lines.push('Thank you for choosing *Sarga Printing*');
       break;
     case 'PARTIAL':

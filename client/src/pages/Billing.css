@@ -1985,6 +1985,7 @@
   margin-bottom: var(--space-16);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 /* Dotted serrated line effect at the top of the card */

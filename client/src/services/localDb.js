@@ -289,6 +289,11 @@ export async function getVendors(filters = {}) {
                 }
                 await offlineDb.save('vendors', { ...v, id: sid, syncStatus: 'synced' });
             }
+            const serverNames = new Set(serverVendors.map(v => (v.name || '').toLowerCase()));
+            const stalePending = vendors.filter(v => v.syncStatus === 'pending_create' && String(v.id).startsWith('VEND') && serverNames.has((v.name || '').toLowerCase()));
+            for (const stale of stalePending) {
+                await offlineDb.delete('vendors', stale.id);
+            }
             vendors = await offlineDb.getAll('vendors');
             vendors = (vendors || []).filter(v => v.syncStatus !== 'pending_delete');
         }
@@ -334,9 +339,10 @@ async function syncPendingVendors(vendors) {
                     branch_id: v.branch_id || null,
                 };
                 const res = await api.post('vendors', payload);
-                if (res.data && res.data.id) {
+                const serverId = res.data?.data?.id || res.data?.id;
+                if (serverId) {
                     await offlineDb.delete('vendors', v.id);
-                    await offlineDb.save('vendors', { ...v, id: res.data.id, syncStatus: 'synced' });
+                    await offlineDb.save('vendors', { ...v, id: serverId, syncStatus: 'synced' });
                 }
             } catch (e) {
                 console.warn('[localDb] syncPendingVendors failed for', v.id, ':', e);
@@ -382,10 +388,11 @@ export async function saveVendor(vendor) {
             };
             if (isNew || isTempId) {
                 const res = await api.post('vendors', vendorPayload);
-                if (res.data && res.data.id) {
+                const serverId = res.data?.data?.id || res.data?.id;
+                if (serverId) {
                     await offlineDb.delete('vendors', id);
-                    await offlineDb.save('vendors', { ...record, id: res.data.id, syncStatus: 'synced' });
-                    return { id: res.data.id, isNew };
+                    await offlineDb.save('vendors', { ...record, id: serverId, syncStatus: 'synced' });
+                    return { id: serverId, isNew };
                 }
             } else {
                 await api.put(`vendors/${id}`, vendorPayload);
