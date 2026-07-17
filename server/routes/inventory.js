@@ -1007,25 +1007,7 @@ router.put('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Account
     try {
         await connection.beginTransaction();
 
-        // 0. SKU and source_code/model_name/size_code are immutable after creation
-        //    Admin can change SKU/Source/Model/Size when stock is 0
-        const [[existingItem]] = await connection.query('SELECT sku, source_code, model_name, size_code, quantity FROM sarga_inventory WHERE id = ?', [id]);
-        if (existingItem) {
-            const quantityNum = Number(existingItem.quantity) || 0;
-            const canEditSku = req.user.role === 'Admin' && quantityNum === 0;
-            if (existingItem.sku && normalizedSku && existingItem.sku !== normalizedSku && !canEditSku) {
-                return res.status(400).json({ message: 'SKU cannot be changed after creation' });
-            }
-            if (existingItem.source_code && source_code && existingItem.source_code !== source_code && !canEditSku) {
-                return res.status(400).json({ message: 'Source code cannot be changed after creation' });
-            }
-            if (existingItem.model_name && model_name && existingItem.model_name !== model_name && !canEditSku) {
-                return res.status(400).json({ message: 'Model name cannot be changed after creation' });
-            }
-            if (existingItem.size_code && size_code && existingItem.size_code !== size_code && !canEditSku) {
-                return res.status(400).json({ message: 'Size code cannot be changed after creation' });
-            }
-        }
+        // 0. SKU and source_code/model_name/size_code are fully editable
 
         // 1. If branch_stocks is passed, compute total quantity
         let finalQuantity = Number(quantity) || 0;
