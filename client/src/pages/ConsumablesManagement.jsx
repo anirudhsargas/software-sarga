@@ -676,8 +676,12 @@ const ConsumablesManagement = () => {
                                     <input className="input-field" value={formData.color} onChange={e => setFormData({ ...formData, color: e.target.value })} />
                                 </div>
                                 <div><label className="label">SKU</label>
-                                    <input className="input-field" value={formData.sku} onChange={e => setFormData({ ...formData, sku: e.target.value })} disabled={modalMode === 'edit'} />
-                                    {modalMode === 'edit' && <small style={{ color: 'var(--text-muted)', fontSize: '10px', display: 'block' }}>SKU cannot be changed after creation</small>}
+                                    <input className="input-field" value={formData.sku} onChange={e => setFormData({ ...formData, sku: e.target.value })} disabled={modalMode === 'edit' && !(user?.role === 'Admin' && (Number(formData.quantity_in_stock) || 0) === 0)} />
+                                    {modalMode === 'edit' && (user?.role === 'Admin' && (Number(formData.quantity_in_stock) || 0) === 0) ? (
+                                        <small style={{ color: 'var(--text-muted)', fontSize: '10px', display: 'block' }}>Only editable when stock is 0</small>
+                                    ) : modalMode === 'edit' ? (
+                                        <small style={{ color: 'var(--text-muted)', fontSize: '10px', display: 'block' }}>SKU cannot be changed after creation</small>
+                                    ) : null}
                                 </div>
                                 <div><label className="label">Quantity *</label>
                                     <input type="number" step="0.001" className="input-field" value={formData.quantity_in_stock} onChange={e => setFormData({ ...formData, quantity_in_stock: e.target.value })} />

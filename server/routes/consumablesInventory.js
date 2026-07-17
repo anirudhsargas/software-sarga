@@ -134,11 +134,14 @@ router.put('/inventory/consumables/:id', authenticateToken, authorizeRoles('Admi
             unit_cost, supplier_name, supplier_id, sku, branch, notes
         } = req.body;
 
-        // SKU is immutable after creation
-        const [[existingConsumable]] = await connection.query('SELECT sku FROM consumables_inventory WHERE id = ?', [id]);
+        // SKU is immutable after creation; Admin can change when stock is 0
+        const [[existingConsumable]] = await connection.query('SELECT sku, quantity_in_stock FROM consumables_inventory WHERE id = ?', [id]);
         if (existingConsumable && existingConsumable.sku && sku && existingConsumable.sku !== sku) {
-            await connection.rollback();
-            return res.status(400).json({ message: 'SKU cannot be changed after creation' });
+            const qty = Number(existingConsumable.quantity_in_stock) || 0;
+            if (!(req.user.role === 'Admin' && qty === 0)) {
+                await connection.rollback();
+                return res.status(400).json({ message: 'SKU cannot be changed after creation' });
+            }
         }
 
         await connection.query(
