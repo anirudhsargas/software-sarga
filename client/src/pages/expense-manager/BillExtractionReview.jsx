@@ -53,6 +53,30 @@ function compressImage(file) {
   });
 }
 
+function normalizeVendorName(name) {
+  if (!name) return '';
+  return name.toLowerCase().trim().replace(/\s+/g, ' ').replace(/&/g, 'and').replace(/[.,]+/g, '').trim();
+}
+
+function levenshteinDistance(a, b) {
+  const m = a.length, n = b.length;
+  const dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+  return dp[m][n];
+}
+
+function vendorNameSimilarity(a, b) {
+  if (!a || !b) return 0;
+  const normA = normalizeVendorName(a), normB = normalizeVendorName(b);
+  if (normA === normB) return 1;
+  const dist = levenshteinDistance(normA, normB);
+  return 1 - dist / Math.max(normA.length, normB.length, 1);
+}
+
 function ProductSearchCell({ match, override, isActive, onActivate, onSelect, onClear }) {
   const [search, setSearch] = React.useState('');
   const ref = React.useRef(null);
@@ -208,14 +232,26 @@ function VendorSearchCell({ vendorName, vendorMatch, selectedVendorId, onSelect,
 
   const filtered = search.trim()
     ? mergedVendors.filter(s =>
-        s.vendor_name && s.vendor_name.toLowerCase().includes(search.toLowerCase())
+        s.vendor_name && normalizeVendorName(s.vendor_name).includes(normalizeVendorName(search))
       )
     : mergedVendors;
 
   const exactMatchExists = mergedVendors.some(s =>
-    s.vendor_name && s.vendor_name.toLowerCase() === search.trim().toLowerCase()
+    s.vendor_name && normalizeVendorName(s.vendor_name) === normalizeVendorName(search.trim())
   );
   const showAddOption = search.trim().length >= 2 && !exactMatchExists;
+
+  const SIMILARITY_THRESHOLD = 0.85;
+  const fuzzyMatches = search.trim().length >= 2 && filtered.length === 0
+    ? mergedVendors
+        .map(s => ({
+          ...s,
+          _score: s.vendor_name ? vendorNameSimilarity(s.vendor_name, search.trim()) : 0
+        }))
+        .filter(s => s._score >= SIMILARITY_THRESHOLD)
+        .sort((a, b) => b._score - a._score)
+        .slice(0, 3)
+    : [];
 
   const handleSelect = (v) => {
     onSelect(v);
@@ -244,7 +280,7 @@ function VendorSearchCell({ vendorName, vendorMatch, selectedVendorId, onSelect,
             {loadingVendors && (
               <div className="pms-empty"><Loader2 className="spin" size={12} /> Loading vendors...</div>
             )}
-            {!loadingVendors && filtered.length === 0 && !showAddOption && (
+            {!loadingVendors && filtered.length === 0 && fuzzyMatches.length === 0 && !showAddOption && (
               <div className="pms-empty">Type to search vendors</div>
             )}
             {filtered.map((s, i) => (
@@ -259,11 +295,28 @@ function VendorSearchCell({ vendorName, vendorMatch, selectedVendorId, onSelect,
                 {s.source === 'ai' && <span className="pms-item-badge" style={{ fontSize: 9 }}>match</span>}
               </button>
             ))}
+            {!loadingVendors && fuzzyMatches.length > 0 && (
+              <>
+                {filtered.length > 0 && <div className="pms-divider" />}
+                <div className="pms-suggestion-header">Did you mean?</div>
+                {fuzzyMatches.map((s, i) => (
+                  <button
+                    key={`fuzzy-${i}`}
+                    type="button"
+                    className="pms-item"
+                    onClick={() => handleSelect({ id: s.vendor_id, name: s.vendor_name })}
+                  >
+                    <span className="pms-item-name">{s.vendor_name}</span>
+                    <span className="pms-item-conf">{Math.round(s._score * 100)}%</span>
+                  </button>
+                ))}
+              </>
+            )}
             {showAddOption && (
               <button
                 type="button"
                 className="pms-item"
-                style={{ borderTop: filtered.length > 0 ? '1px solid var(--border)' : 'none', color: 'var(--accent)' }}
+                style={{ borderTop: filtered.length > 0 || fuzzyMatches.length > 0 ? '1px solid var(--border)' : 'none', color: 'var(--accent)' }}
                 onClick={async () => {
                   setAdding(true);
                   try {

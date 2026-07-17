@@ -833,362 +833,426 @@ router.get('/stats/dashboard', authenticateToken, authorizeRoles('Admin', 'Accou
         const today = getTodayDate();
         const monthStartStr = today.slice(0, 8) + '01';
 
+        const endpointStart = process.hrtime.bigint();
+
+        // --- Define all independent query promises (timers start roughly in parallel) ---
+
         // 1. Job Stats + Monthly Sales & Categories (merged into one sarga_jobs scan)
-        const p1 = profile('jobStats+salesStats merged');
-        const [[mergedJobStats]] = await pool.query(`
-            SELECT 
-                COUNT(*) as total_count,
-                SUM(total_amount) as total_sales,
-                SUM(CASE WHEN DATE(created_at) = ? THEN total_amount ELSE 0 END) as total_sales_today,
-                SUM(advance_paid) as total_collected,
-                SUM(GREATEST(COALESCE(total_amount, 0) - COALESCE(advance_paid, 0), 0)) as total_balance,
-                COUNT(CASE WHEN DATE(created_at) = ? THEN 1 END) as new_today,
-                COUNT(CASE WHEN status = 'Completed' AND DATE(updated_at) = ? THEN 1 END) as completed_today,
-                COUNT(CASE WHEN priority = 'Urgent' AND DATE(delivery_date) = ? THEN 1 END) as urgent_today,
-                COUNT(CASE WHEN delivery_date < ? AND status NOT IN ('Delivered', 'Cancelled') THEN 1 END) as overdue,
-                COUNT(CASE WHEN status IN ('Pending', 'Processing', 'Designing', 'Printing', 'Cutting', 'Lamination', 'Binding', 'Production') THEN 1 END) as in_progress,
-                SUM(CASE WHEN DATE(created_at) >= ? THEN total_amount ELSE 0 END) as month_total,
-                COUNT(CASE WHEN DATE(created_at) >= ? THEN 1 END) as bill_count,
-                AVG(CASE WHEN DATE(created_at) >= ? THEN total_amount END) as avg_bill,
-                SUM(CASE WHEN job_name LIKE '%Offset%' AND DATE(created_at) = ? THEN total_amount ELSE 0 END) as offset_sales,
-                SUM(CASE WHEN (job_name LIKE '%Digital%' OR job_name LIKE '%Color%') AND DATE(created_at) = ? THEN total_amount ELSE 0 END) as digital_sales,
-                SUM(CASE WHEN job_name LIKE '%Photo%' AND DATE(created_at) = ? THEN total_amount ELSE 0 END) as photocopy_sales,
-                SUM(CASE WHEN job_name LIKE '%Memento%' AND DATE(created_at) = ? THEN total_amount ELSE 0 END) as mementos_sales,
-                SUM(CASE WHEN job_name LIKE '%Frame%' AND DATE(created_at) = ? THEN total_amount ELSE 0 END) as frames_sales,
-                SUM(CASE WHEN job_name LIKE '%ID%' AND DATE(created_at) = ? THEN total_amount ELSE 0 END) as id_cards_sales,
-                SUM(CASE WHEN (job_name LIKE '%Binding%' OR job_name LIKE '%Lamination%') AND DATE(created_at) = ? THEN total_amount ELSE 0 END) as binding_sales
-            FROM sarga_jobs 
-            ${jobWhere} ${dateWhere}
-        `, [today, today, today, today, today, monthStartStr, monthStartStr, monthStartStr, today, today, today, today, today, today, today, ...params, ...dateParams]);
-        p1.done();
+        const jobSalesPromise = (async () => {
+            const p = profile('jobStats+salesStats merged');
+            const [[result]] = await pool.query(`
+                SELECT 
+                    COUNT(*) as total_count,
+                    SUM(total_amount) as total_sales,
+                    SUM(CASE WHEN DATE(created_at) = ? THEN total_amount ELSE 0 END) as total_sales_today,
+                    SUM(advance_paid) as total_collected,
+                    SUM(GREATEST(COALESCE(total_amount, 0) - COALESCE(advance_paid, 0), 0)) as total_balance,
+                    COUNT(CASE WHEN DATE(created_at) = ? THEN 1 END) as new_today,
+                    COUNT(CASE WHEN status = 'Completed' AND DATE(updated_at) = ? THEN 1 END) as completed_today,
+                    COUNT(CASE WHEN priority = 'Urgent' AND DATE(delivery_date) = ? THEN 1 END) as urgent_today,
+                    COUNT(CASE WHEN delivery_date < ? AND status NOT IN ('Delivered', 'Cancelled') THEN 1 END) as overdue,
+                    COUNT(CASE WHEN status IN ('Pending', 'Processing', 'Designing', 'Printing', 'Cutting', 'Lamination', 'Binding', 'Production') THEN 1 END) as in_progress,
+                    SUM(CASE WHEN DATE(created_at) >= ? THEN total_amount ELSE 0 END) as month_total,
+                    COUNT(CASE WHEN DATE(created_at) >= ? THEN 1 END) as bill_count,
+                    AVG(CASE WHEN DATE(created_at) >= ? THEN total_amount END) as avg_bill,
+                    SUM(CASE WHEN job_name LIKE '%Offset%' AND DATE(created_at) = ? THEN total_amount ELSE 0 END) as offset_sales,
+                    SUM(CASE WHEN (job_name LIKE '%Digital%' OR job_name LIKE '%Color%') AND DATE(created_at) = ? THEN total_amount ELSE 0 END) as digital_sales,
+                    SUM(CASE WHEN job_name LIKE '%Photo%' AND DATE(created_at) = ? THEN total_amount ELSE 0 END) as photocopy_sales,
+                    SUM(CASE WHEN job_name LIKE '%Memento%' AND DATE(created_at) = ? THEN total_amount ELSE 0 END) as mementos_sales,
+                    SUM(CASE WHEN job_name LIKE '%Frame%' AND DATE(created_at) = ? THEN total_amount ELSE 0 END) as frames_sales,
+                    SUM(CASE WHEN job_name LIKE '%ID%' AND DATE(created_at) = ? THEN total_amount ELSE 0 END) as id_cards_sales,
+                    SUM(CASE WHEN (job_name LIKE '%Binding%' OR job_name LIKE '%Lamination%') AND DATE(created_at) = ? THEN total_amount ELSE 0 END) as binding_sales
+                FROM sarga_jobs 
+                ${jobWhere} ${dateWhere}
+            `, [today, today, today, today, today, monthStartStr, monthStartStr, monthStartStr, today, today, today, today, today, today, today, ...params, ...dateParams]);
+            p.done();
+            return result;
+        })();
 
         // 2. Customer Stats
-        const p2 = profile('customerStats');
-        const [[custStats]] = await pool.query(`
-            SELECT 
-                COUNT(CASE WHEN DATE(created_at) = ? AND type = 'Walk-in' THEN 1 END) as walk_in_today
-            FROM sarga_customers
-            ${baseWhere}
-        `, [today, ...params]);
-        p2.done();
+        const customerPromise = (async () => {
+            const p = profile('customerStats');
+            const [[result]] = await pool.query(`
+                SELECT 
+                    COUNT(CASE WHEN DATE(created_at) = ? AND type = 'Walk-in' THEN 1 END) as walk_in_today
+                FROM sarga_customers
+                ${baseWhere}
+            `, [today, ...params]);
+            p.done();
+            return result;
+        })();
 
         // 3. Payment/Collection Stats
-        let payDateWhere = "";
-        const payDateParams = [];
-        if (startDate) {
-            payDateWhere += " AND payment_date >= ?";
-            payDateParams.push(startDate);
-        }
-        if (endDate) {
-            payDateWhere += " AND payment_date <= ?";
-            payDateParams.push(endDate);
-        }
-
-        const p3 = profile('paymentStats');
-        const [[payStats]] = await pool.query(`
-            SELECT 
-                SUM(CASE WHEN DATE(payment_date) = ? AND payment_method = 'Cash' THEN advance_paid ELSE 0 END) as cash_today,
-                SUM(CASE WHEN DATE(payment_date) = ? AND payment_method = 'UPI' THEN advance_paid ELSE 0 END) as upi_today,
-                SUM(CASE WHEN DATE(payment_date) = ? AND payment_method IN ('Cheque', 'Account Transfer') THEN advance_paid ELSE 0 END) as cheque_today,
-                SUM(CASE WHEN DATE(payment_date) = ? THEN advance_paid ELSE 0 END) as total_collected_today,
-                SUM(advance_paid) as total_collected
-            FROM sarga_customer_payments
-            ${baseWhere} ${payDateWhere}
-        `, [today, today, today, today, ...params, ...payDateParams]);
-        p3.done();
+        const paymentPromise = (async () => {
+            let payDateWhere = "";
+            const payDateParams = [];
+            if (startDate) {
+                payDateWhere += " AND payment_date >= ?";
+                payDateParams.push(startDate);
+            }
+            if (endDate) {
+                payDateWhere += " AND payment_date <= ?";
+                payDateParams.push(endDate);
+            }
+            const p = profile('paymentStats');
+            const [[result]] = await pool.query(`
+                SELECT 
+                    SUM(CASE WHEN DATE(payment_date) = ? AND payment_method = 'Cash' THEN advance_paid ELSE 0 END) as cash_today,
+                    SUM(CASE WHEN DATE(payment_date) = ? AND payment_method = 'UPI' THEN advance_paid ELSE 0 END) as upi_today,
+                    SUM(CASE WHEN DATE(payment_date) = ? AND payment_method IN ('Cheque', 'Account Transfer') THEN advance_paid ELSE 0 END) as cheque_today,
+                    SUM(CASE WHEN DATE(payment_date) = ? THEN advance_paid ELSE 0 END) as total_collected_today,
+                    SUM(advance_paid) as total_collected
+                FROM sarga_customer_payments
+                ${baseWhere} ${payDateWhere}
+            `, [today, today, today, today, ...params, ...payDateParams]);
+            p.done();
+            return result;
+        })();
 
         // 5. Machine Stats
-        const p5 = profile('machineReadings');
-        const [machineReadings] = await pool.query(`
-            SELECT m.id, m.machine_name, (COALESCE(mr.closing_count, 0) - mr.opening_count) as total_copies, mr.reading_date
-            FROM sarga_machine_readings mr
-            JOIN sarga_machines m ON mr.machine_id = m.id
-            WHERE DATE(mr.reading_date) = ? ${branchIds ? " AND m.branch_id IN (?)" : ""}
-        `, [today, ...(branchIds ? [branchIds] : [])]);
-
-        p5.done();
-        const machines = machineReadings.map(r => ({
-            id: r.id,
-            name: r.machine_name,
-            pages: r.total_copies
-        }));
+        const machinePromise = (async () => {
+            const p = profile('machineReadings');
+            const [result] = await pool.query(`
+                SELECT m.id, m.machine_name, (COALESCE(mr.closing_count, 0) - mr.opening_count) as total_copies, mr.reading_date
+                FROM sarga_machine_readings mr
+                JOIN sarga_machines m ON mr.machine_id = m.id
+                WHERE DATE(mr.reading_date) = ? ${branchIds ? " AND m.branch_id IN (?)" : ""}
+            `, [today, ...(branchIds ? [branchIds] : [])]);
+            p.done();
+            return result.map(r => ({
+                id: r.id,
+                name: r.machine_name,
+                pages: r.total_copies
+            }));
+        })();
 
         // 6. Recent Jobs
-        const p6 = profile('recentJobs');
-        const [recentJobs] = await pool.query(`
-            SELECT j.id, j.job_number, j.job_name, j.total_amount, j.status, j.payment_status, j.created_at,
-                   COALESCE(c.name, 'Walk-in') as customer_name
-            FROM sarga_jobs j
-            LEFT JOIN sarga_customers c ON j.customer_id = c.id
-            WHERE 1=1 ${branchIds ? " AND j.branch_id IN (?)" : ""} AND j.status != 'Cancelled'
-            ORDER BY j.created_at DESC
-            LIMIT 5
-        `, branchIds ? [branchIds] : []);
-        p6.done();
+        const recentJobsPromise = (async () => {
+            const p = profile('recentJobs');
+            const [result] = await pool.query(`
+                SELECT j.id, j.job_number, j.job_name, j.total_amount, j.status, j.payment_status, j.created_at,
+                       COALESCE(c.name, 'Walk-in') as customer_name
+                FROM sarga_jobs j
+                LEFT JOIN sarga_customers c ON j.customer_id = c.id
+                WHERE 1=1 ${branchIds ? " AND j.branch_id IN (?)" : ""} AND j.status != 'Cancelled'
+                ORDER BY j.created_at DESC
+                LIMIT 5
+            `, branchIds ? [branchIds] : []);
+            p.done();
+            return result;
+        })();
 
         // 7a. Outstanding Jobs Breakdown
-        const p6b = profile('outstandingJobs');
-        const [outstandingJobs] = await pool.query(`
-            SELECT j.id, j.job_number, j.job_name, j.total_amount, j.advance_paid,
-                   ROUND(GREATEST(COALESCE(j.total_amount,0) - COALESCE(j.advance_paid,0), 0), 2) as balance,
-                   j.status, j.payment_status, j.created_at,
-                   COALESCE(c.name, 'Walk-in') as customer_name
-            FROM sarga_jobs j
-            LEFT JOIN sarga_customers c ON j.customer_id = c.id
-            WHERE 1=1 ${branchIds ? " AND j.branch_id IN (?)" : ""}
-              AND j.status != 'Cancelled'
-              AND GREATEST(COALESCE(j.total_amount,0) - COALESCE(j.advance_paid,0), 0) > 0
-            ORDER BY balance DESC
-            LIMIT 20
-        `, branchIds ? [branchIds] : []);
-        p6b.done();
+        const outstandingPromise = (async () => {
+            const p = profile('outstandingJobs');
+            const [result] = await pool.query(`
+                SELECT j.id, j.job_number, j.job_name, j.total_amount, j.advance_paid,
+                       ROUND(GREATEST(COALESCE(j.total_amount,0) - COALESCE(j.advance_paid,0), 0), 2) as balance,
+                       j.status, j.payment_status, j.created_at,
+                       COALESCE(c.name, 'Walk-in') as customer_name
+                FROM sarga_jobs j
+                LEFT JOIN sarga_customers c ON j.customer_id = c.id
+                WHERE 1=1 ${branchIds ? " AND j.branch_id IN (?)" : ""}
+                  AND j.status != 'Cancelled'
+                  AND GREATEST(COALESCE(j.total_amount,0) - COALESCE(j.advance_paid,0), 0) > 0
+                ORDER BY balance DESC
+                LIMIT 20
+            `, branchIds ? [branchIds] : []);
+            p.done();
+            return result;
+        })();
 
         // 7. Status Counts
-        const p7 = profile('statusCounts');
-        const [statusCounts] = await pool.query(`
-            SELECT status, COUNT(*) as count 
-            FROM sarga_jobs 
-            ${jobWhere} 
-            GROUP BY status
-        `, params);
-        p7.done();
-
-        const statusMap = {};
-        statusCounts.forEach(r => statusMap[r.status] = r.count);
+        const statusCountsPromise = (async () => {
+            const p = profile('statusCounts');
+            const [result] = await pool.query(`
+                SELECT status, COUNT(*) as count 
+                FROM sarga_jobs 
+                ${jobWhere} 
+                GROUP BY status
+            `, params);
+            p.done();
+            const map = {};
+            result.forEach(r => map[r.status] = r.count);
+            return map;
+        })();
 
         // 8. Low Stock Alerts
-        const p8 = profile('lowStock');
-        let lowStockItems = [];
-        try {
-            let lowStockQuery, lowStockParams;
-            if (branchIds) {
-                lowStockQuery = `
-                    SELECT i.id, i.name, i.sku, i.category, bs.quantity, i.reorder_level
-                    FROM sarga_inventory i
-                    JOIN sarga_branch_stock bs ON i.id = bs.inventory_item_id
-                    WHERE bs.branch_id IN (?) AND bs.quantity <= GREATEST(i.reorder_level, 1)
-                    ORDER BY bs.quantity ASC LIMIT 15
-                `;
-                lowStockParams = [branchIds];
-            } else {
-                lowStockQuery = `
-                    SELECT id, name, sku, category, quantity, reorder_level
-                    FROM sarga_inventory
-                    WHERE quantity <= GREATEST(reorder_level, 1)
-                    ORDER BY quantity ASC LIMIT 15
-                `;
-                lowStockParams = [];
+        const lowStockPromise = (async () => {
+            const p = profile('lowStock');
+            try {
+                let lowStockQuery, lowStockParams;
+                if (branchIds) {
+                    lowStockQuery = `
+                        SELECT i.id, i.name, i.sku, i.category, bs.quantity, i.reorder_level
+                        FROM sarga_inventory i
+                        JOIN sarga_branch_stock bs ON i.id = bs.inventory_item_id
+                        WHERE bs.branch_id IN (?) AND bs.quantity <= GREATEST(i.reorder_level, 1)
+                        ORDER BY bs.quantity ASC LIMIT 15
+                    `;
+                    lowStockParams = [branchIds];
+                } else {
+                    lowStockQuery = `
+                        SELECT id, name, sku, category, quantity, reorder_level
+                        FROM sarga_inventory
+                        WHERE quantity <= GREATEST(reorder_level, 1)
+                        ORDER BY quantity ASC LIMIT 15
+                    `;
+                    lowStockParams = [];
+                }
+                const [result] = await pool.query(lowStockQuery, lowStockParams);
+                p.done();
+                return result;
+            } catch {
+                p.done();
+                return [];
             }
-            const [lowStock] = await pool.query(lowStockQuery, lowStockParams);
-            lowStockItems = lowStock;
-        } catch { /* ignore if table missing */ }
-        p8.done();
+        })();
 
         // 9. Inventory Summary
-        const p9 = profile('inventorySummary');
-        let inventorySummary = {};
-        try {
-            let invQuery, invParams;
-            if (branchIds) {
-                invQuery = `
-                    SELECT 
-                        COUNT(*) as total_items,
-                        SUM(bs.quantity) as total_quantity,
-                        SUM(bs.quantity * i.cost_price) as total_value,
-                        SUM(CASE WHEN bs.quantity <= GREATEST(i.reorder_level, 1) THEN 1 ELSE 0 END) as low_stock_count
-                    FROM sarga_inventory i
-                    JOIN sarga_branch_stock bs ON i.id = bs.inventory_item_id
-                    WHERE bs.branch_id IN (?)
-                `;
-                invParams = [branchIds];
-            } else {
-                invQuery = `
-                    SELECT 
-                        COUNT(*) as total_items,
-                        SUM(quantity) as total_quantity,
-                        SUM(quantity * cost_price) as total_value,
-                        SUM(CASE WHEN quantity <= GREATEST(reorder_level, 1) THEN 1 ELSE 0 END) as low_stock_count
-                    FROM sarga_inventory
-                `;
-                invParams = [];
+        const inventoryPromise = (async () => {
+            const p = profile('inventorySummary');
+            try {
+                let invQuery, invParams;
+                if (branchIds) {
+                    invQuery = `
+                        SELECT 
+                            COUNT(*) as total_items,
+                            SUM(bs.quantity) as total_quantity,
+                            SUM(bs.quantity * i.cost_price) as total_value,
+                            SUM(CASE WHEN bs.quantity <= GREATEST(i.reorder_level, 1) THEN 1 ELSE 0 END) as low_stock_count
+                        FROM sarga_inventory i
+                        JOIN sarga_branch_stock bs ON i.id = bs.inventory_item_id
+                        WHERE bs.branch_id IN (?)
+                    `;
+                    invParams = [branchIds];
+                } else {
+                    invQuery = `
+                        SELECT 
+                            COUNT(*) as total_items,
+                            SUM(quantity) as total_quantity,
+                            SUM(quantity * cost_price) as total_value,
+                            SUM(CASE WHEN quantity <= GREATEST(i.reorder_level, 1) THEN 1 ELSE 0 END) as low_stock_count
+                        FROM sarga_inventory
+                    `;
+                    invParams = [];
+                }
+                const [[result]] = await pool.query(invQuery, invParams);
+                p.done();
+                return result;
+            } catch {
+                p.done();
+                return {};
             }
-            const [[invStats]] = await pool.query(invQuery, invParams);
-            inventorySummary = invStats;
-        } catch { /* ignore */ }
-        p9.done();
+        })();
 
         // 10. Top Customers This Month
-        const p10 = profile('topCustomers');
-        let topCustomers = [];
-        try {
-            const [topCust] = await pool.query(`
-                SELECT c.name, c.mobile, COUNT(j.id) as job_count, SUM(j.total_amount) as total_spent
-                FROM sarga_jobs j
-                JOIN sarga_customers c ON j.customer_id = c.id
-                WHERE DATE(j.created_at) >= ? AND j.status != 'Cancelled'
-                ${branchIds ? " AND j.branch_id IN (?)" : ""}
-                GROUP BY c.id ORDER BY total_spent DESC LIMIT 5
-            `, [monthStartStr, ...(branchIds ? [branchIds] : [])]);
-            topCustomers = topCust;
-        } catch { /* ignore */ }
-        p10.done();
+        const topCustomersPromise = (async () => {
+            const p = profile('topCustomers');
+            try {
+                const [result] = await pool.query(`
+                    SELECT c.name, c.mobile, COUNT(j.id) as job_count, SUM(j.total_amount) as total_spent
+                    FROM sarga_jobs j
+                    JOIN sarga_customers c ON j.customer_id = c.id
+                    WHERE DATE(j.created_at) >= ? AND j.status != 'Cancelled'
+                    ${branchIds ? " AND j.branch_id IN (?)" : ""}
+                    GROUP BY c.id ORDER BY total_spent DESC LIMIT 5
+                `, [monthStartStr, ...(branchIds ? [branchIds] : [])]);
+                p.done();
+                return result;
+            } catch {
+                p.done();
+                return [];
+            }
+        })();
 
         // 11. Staff Productivity (jobs assigned per staff)
-        const p11 = profile('staffProductivity');
-        let staffProductivity = [];
-        try {
-            const [staffStats] = await pool.query(`
-                SELECT s.name, s.role, COUNT(ja.id) as jobs_handled
-                FROM sarga_job_assignments ja
-                JOIN sarga_staff s ON ja.staff_id = s.id
-                WHERE DATE(ja.created_at) >= ?
-                ${branchIds ? 'AND s.branch_id IN (?)' : ''}
-                GROUP BY ja.staff_id ORDER BY jobs_handled DESC LIMIT 5
-            `, branchIds ? [monthStartStr, branchIds] : [monthStartStr]);
-            staffProductivity = staffStats;
-        } catch { /* ignore */ }
-        p11.done();
+        const staffPromise = (async () => {
+            const p = profile('staffProductivity');
+            try {
+                const [result] = await pool.query(`
+                    SELECT s.name, s.role, COUNT(ja.id) as jobs_handled
+                    FROM sarga_job_assignments ja
+                    JOIN sarga_staff s ON ja.staff_id = s.id
+                    WHERE DATE(ja.created_at) >= ?
+                    ${branchIds ? 'AND s.branch_id IN (?)' : ''}
+                    GROUP BY ja.staff_id ORDER BY jobs_handled DESC LIMIT 5
+                `, branchIds ? [monthStartStr, branchIds] : [monthStartStr]);
+                p.done();
+                return result;
+            } catch {
+                p.done();
+                return [];
+            }
+        })();
 
         // 12. Expense Summary
-        const p12 = profile('expenseSummary');
-        let expenseSummary = {};
-        try {
-            const [[expStats]] = await pool.query(`
-                SELECT 
-                    SUM(CASE WHEN DATE(payment_date) = ? THEN amount ELSE 0 END) as expenses_today,
-                    SUM(CASE WHEN DATE(payment_date) >= ? THEN amount ELSE 0 END) as expenses_month
-                FROM sarga_payments
-                WHERE 1=1 ${branchIds ? " AND branch_id IN (?)" : ""}
-            `, [today, monthStartStr, ...(branchIds ? [branchIds] : [])]);
-            expenseSummary = expStats || {};
-        } catch { /* ignore */ }
-        p12.done();
+        const expensePromise = (async () => {
+            const p = profile('expenseSummary');
+            try {
+                const [[result]] = await pool.query(`
+                    SELECT 
+                        SUM(CASE WHEN DATE(payment_date) = ? THEN amount ELSE 0 END) as expenses_today,
+                        SUM(CASE WHEN DATE(payment_date) >= ? THEN amount ELSE 0 END) as expenses_month
+                    FROM sarga_payments
+                    WHERE 1=1 ${branchIds ? " AND branch_id IN (?)" : ""}
+                `, [today, monthStartStr, ...(branchIds ? [branchIds] : [])]);
+                p.done();
+                return result || {};
+            } catch {
+                p.done();
+                return {};
+            }
+        })();
 
         // 13. AI Growth & Peak Day Analysis
-        let ai_insights = {
-            revenue_growth: 0,
-            peak_day: 'N/A',
-            predicted_revenue_next_month: 0
-        };
-        try {
-            const p13a = profile('AI_growth');
-            // Use sargable date range conditions instead of MONTH/YEAR wrappers
-            const monthStart = today.slice(0, 8) + '01';
-            const prevMonthStart = new Date(new Date(monthStart).setMonth(new Date(monthStart).getMonth() - 1));
-            const prevMonthStartStr = prevMonthStart.toISOString().slice(0, 10);
-            const nextMonthStart = new Date(new Date(monthStart).setMonth(new Date(monthStart).getMonth() + 1));
-            const nextMonthStartStr = nextMonthStart.toISOString().slice(0, 10);
-            const curMonthEnd = nextMonthStartStr;
-            const prevMonthEnd = monthStart;
+        const aiPromise = (async () => {
+            const result = {
+                revenue_growth: 0,
+                peak_day: 'N/A',
+                predicted_revenue_next_month: 0
+            };
+            try {
+                const monthStart = today.slice(0, 8) + '01';
+                const prevMonthStart = new Date(new Date(monthStart).setMonth(new Date(monthStart).getMonth() - 1));
+                const prevMonthStartStr = prevMonthStart.toISOString().slice(0, 10);
+                const nextMonthStart = new Date(new Date(monthStart).setMonth(new Date(monthStart).getMonth() + 1));
+                const nextMonthStartStr = nextMonthStart.toISOString().slice(0, 10);
+                const curMonthEnd = nextMonthStartStr;
+                const prevMonthEnd = monthStart;
 
-            const [[growthStats]] = await pool.query(`
-                SELECT 
-                    SUM(CASE WHEN created_at >= ? AND created_at < ? THEN total_amount ELSE 0 END) as cur_month_rev,
-                    SUM(CASE WHEN created_at >= ? AND created_at < ? THEN total_amount ELSE 0 END) as prev_month_rev
-                FROM sarga_jobs WHERE status != 'Cancelled'
-                ${branchIds ? " AND branch_id IN (?)" : ""}
-            `, [monthStart, curMonthEnd, prevMonthStartStr, prevMonthEnd, ...(branchIds ? [branchIds] : [])]);
-            p13a.done();
+                const p13a = profile('AI_growth');
+                const [[growthStats]] = await pool.query(`
+                    SELECT 
+                        SUM(CASE WHEN created_at >= ? AND created_at < ? THEN total_amount ELSE 0 END) as cur_month_rev,
+                        SUM(CASE WHEN created_at >= ? AND created_at < ? THEN total_amount ELSE 0 END) as prev_month_rev
+                    FROM sarga_jobs WHERE status != 'Cancelled'
+                    ${branchIds ? " AND branch_id IN (?)" : ""}
+                `, [monthStart, curMonthEnd, prevMonthStartStr, prevMonthEnd, ...(branchIds ? [branchIds] : [])]);
+                p13a.done();
 
-            const curMonthRev = Number(growthStats.cur_month_rev) || 0;
-            const prevMonthRev = Number(growthStats.prev_month_rev) || 0;
-            if (prevMonthRev > 0) {
-                ai_insights.revenue_growth = Math.round(((curMonthRev - prevMonthRev) / prevMonthRev) * 100);
-            } else if (curMonthRev > 0) {
-                ai_insights.revenue_growth = 100;
-            }
-
-            const p13b = profile('AI_peakDay');
-            const twoMonthsAgo = new Date();
-            twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
-            const twoMonthsAgoStr = twoMonthsAgo.toISOString().slice(0, 10);
-
-            const [dowPattern] = await pool.query(`
-                SELECT DAYOFWEEK(created_at) AS dow, COUNT(*) AS orders
-                FROM sarga_jobs
-                WHERE created_at >= ? AND status != 'Cancelled'
-                ${branchIds ? " AND branch_id IN (?)" : ""}
-                GROUP BY dow ORDER BY orders DESC LIMIT 1
-            `, [twoMonthsAgoStr, ...(branchIds ? [branchIds] : [])]);
-            p13b.done();
-
-            if (dowPattern.length > 0) {
-                const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-                ai_insights.peak_day = dayNames[dowPattern[0].dow - 1];
-            }
-
-            // Simple linear forecast based on last 6 months
-            const p13c = profile('AI_forecast');
-            const sixMonthsAgo = new Date();
-            sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-            const sixMonthsAgoStr = sixMonthsAgo.toISOString().slice(0, 10);
-
-            const [monthlyTrend] = await pool.query(`
-                SELECT DATE_FORMAT(created_at, '%Y-%m') as ym, SUM(total_amount) as revenue
-                FROM sarga_jobs
-                WHERE created_at >= ? AND status != 'Cancelled'
-                ${branchIds ? " AND branch_id IN (?)" : ""}
-                GROUP BY DATE_FORMAT(created_at, '%Y-%m')
-                ORDER BY ym ASC
-            `, [sixMonthsAgoStr, ...(branchIds ? [branchIds] : [])]);
-            p13c.done();
-
-            if (monthlyTrend.length >= 2) {
-                const points = monthlyTrend.map((r, i) => ({ x: i, y: Number(r.revenue) }));
-                const n = points.length;
-                let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
-                for (const { x, y } of points) {
-                    sumX += x; sumY += y; sumXY += x * y; sumX2 += x * x;
+                const curMonthRev = Number(growthStats.cur_month_rev) || 0;
+                const prevMonthRev = Number(growthStats.prev_month_rev) || 0;
+                if (prevMonthRev > 0) {
+                    result.revenue_growth = Math.round(((curMonthRev - prevMonthRev) / prevMonthRev) * 100);
+                } else if (curMonthRev > 0) {
+                    result.revenue_growth = 100;
                 }
-                const denom = n * sumX2 - sumX * sumX;
-                const slope = denom === 0 ? 0 : (n * sumXY - sumX * sumY) / denom;
-                const intercept = (sumY - slope * sumX) / n;
-                ai_insights.predicted_revenue_next_month = Math.round(slope * n + intercept);
-            } else {
-                ai_insights.predicted_revenue_next_month = curMonthRev;
-            }
-        } catch (err) { console.error('AI Insight calculation failed:', err.message); }
+
+                const p13b = profile('AI_peakDay');
+                const twoMonthsAgo = new Date();
+                twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+                const twoMonthsAgoStr = twoMonthsAgo.toISOString().slice(0, 10);
+
+                const [dowPattern] = await pool.query(`
+                    SELECT DAYOFWEEK(created_at) AS dow, COUNT(*) AS orders
+                    FROM sarga_jobs
+                    WHERE created_at >= ? AND status != 'Cancelled'
+                    ${branchIds ? " AND branch_id IN (?)" : ""}
+                    GROUP BY dow ORDER BY orders DESC LIMIT 1
+                `, [twoMonthsAgoStr, ...(branchIds ? [branchIds] : [])]);
+                p13b.done();
+
+                if (dowPattern.length > 0) {
+                    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                    result.peak_day = dayNames[dowPattern[0].dow - 1];
+                }
+
+                const p13c = profile('AI_forecast');
+                const sixMonthsAgo = new Date();
+                sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+                const sixMonthsAgoStr = sixMonthsAgo.toISOString().slice(0, 10);
+
+                const [monthlyTrend] = await pool.query(`
+                    SELECT DATE_FORMAT(created_at, '%Y-%m') as ym, SUM(total_amount) as revenue
+                    FROM sarga_jobs
+                    WHERE created_at >= ? AND status != 'Cancelled'
+                    ${branchIds ? " AND branch_id IN (?)" : ""}
+                    GROUP BY DATE_FORMAT(created_at, '%Y-%m')
+                    ORDER BY ym ASC
+                `, [sixMonthsAgoStr, ...(branchIds ? [branchIds] : [])]);
+                p13c.done();
+
+                if (monthlyTrend.length >= 2) {
+                    const points = monthlyTrend.map((r, i) => ({ x: i, y: Number(r.revenue) }));
+                    const n = points.length;
+                    let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+                    for (const { x, y } of points) {
+                        sumX += x; sumY += y; sumXY += x * y; sumX2 += x * x;
+                    }
+                    const denom = n * sumX2 - sumX * sumX;
+                    const slope = denom === 0 ? 0 : (n * sumXY - sumX * sumY) / denom;
+                    const intercept = (sumY - slope * sumX) / n;
+                    result.predicted_revenue_next_month = Math.round(slope * n + intercept);
+                } else {
+                    result.predicted_revenue_next_month = curMonthRev;
+                }
+            } catch (err) { console.error('AI Insight calculation failed:', err.message); }
+            return result;
+        })();
 
         // 14. Financial Roadmap (EMI/Kuri Commitments)
-        const p14 = profile('financialRoadmap');
-        let financial_roadmap = {
-            total_monthly_commitment: 0,
-            emi_total: 0,
-            kuri_total: 0
-        };
-        try {
-            const [[emiStats]] = await pool.query(
-                `SELECT SUM(monthly_emi) as total FROM sarga_emi_master WHERE is_active = 1 ${branchIds ? 'AND branch_id IN (?)' : ''}`,
-                branchIds ? [branchIds] : []
-            );
-            const [[kuriStats]] = await pool.query(
-                `SELECT SUM(monthly_installment) as total FROM sarga_kuri_master WHERE is_active = 1 ${branchIds ? 'AND branch_id IN (?)' : ''}`,
-                branchIds ? [branchIds] : []
-            );
-            financial_roadmap.emi_total = Number(emiStats.total) || 0;
-            financial_roadmap.kuri_total = Number(kuriStats.total) || 0;
-            financial_roadmap.total_monthly_commitment = financial_roadmap.emi_total + financial_roadmap.kuri_total;
-        } catch (_err) { /* ignore if tables missing */ }
-        p14.done();
+        const financialPromise = (async () => {
+            const p = profile('financialRoadmap');
+            const result = {
+                total_monthly_commitment: 0,
+                emi_total: 0,
+                kuri_total: 0
+            };
+            try {
+                const [[emiStats]] = await pool.query(
+                    `SELECT SUM(monthly_emi) as total FROM sarga_emi_master WHERE is_active = 1 ${branchIds ? 'AND branch_id IN (?)' : ''}`,
+                    branchIds ? [branchIds] : []
+                );
+                const [[kuriStats]] = await pool.query(
+                    `SELECT SUM(monthly_installment) as total FROM sarga_kuri_master WHERE is_active = 1 ${branchIds ? 'AND branch_id IN (?)' : ''}`,
+                    branchIds ? [branchIds] : []
+                );
+                result.emi_total = Number(emiStats.total) || 0;
+                result.kuri_total = Number(kuriStats.total) || 0;
+                result.total_monthly_commitment = result.emi_total + result.kuri_total;
+            } catch (_err) { /* ignore if tables missing */ }
+            p.done();
+            return result;
+        })();
 
         // 15. Monitoring Stats (Fraud Alerts)
-        const p15 = profile('monitoringStats');
-        let monitoring_stats = { active_alerts: 0 };
-        try {
-            const [[alertStats]] = await pool.query(`
-                SELECT COUNT(*) as count 
-                FROM sarga_fraud_alerts fa
-                ${branchIds ? 'JOIN sarga_staff s ON fa.staff_id = s.id' : ''}
-                WHERE fa.status = 'ACTIVE'
-                ${branchIds ? 'AND s.branch_id IN (?)' : ''}
-            `, branchIds ? [branchIds] : []);
-            monitoring_stats.active_alerts = alertStats.count || 0;
-        } catch (_err) { /* ignore */ }
-        p15.done();
+        const monitoringPromise = (async () => {
+            const p = profile('monitoringStats');
+            const result = { active_alerts: 0 };
+            try {
+                const [[alertStats]] = await pool.query(`
+                    SELECT COUNT(*) as count 
+                    FROM sarga_fraud_alerts fa
+                    ${branchIds ? 'JOIN sarga_staff s ON fa.staff_id = s.id' : ''}
+                    WHERE fa.status = 'ACTIVE'
+                    ${branchIds ? 'AND s.branch_id IN (?)' : ''}
+                `, branchIds ? [branchIds] : []);
+                result.active_alerts = alertStats.count || 0;
+            } catch (_err) { /* ignore */ }
+            p.done();
+            return result;
+        })();
+
+        // --- Run all independent queries concurrently ---
+        const [
+            mergedJobStats, custStats, payStats, machines,
+            recentJobs, outstandingJobs, statusMap,
+            lowStockItems, inventorySummary, topCustomers,
+            staffProductivity, expenseSummary,
+            ai_insights, financial_roadmap, monitoring_stats
+        ] = await Promise.all([
+            jobSalesPromise, customerPromise, paymentPromise, machinePromise,
+            recentJobsPromise, outstandingPromise, statusCountsPromise,
+            lowStockPromise, inventoryPromise, topCustomersPromise,
+            staffPromise, expensePromise,
+            aiPromise, financialPromise, monitoringPromise
+        ]);
 
         // Log query timing profile for performance monitoring
         const totalMs = profileLog.reduce((s, e) => s + e.ms, 0);
-        console.log(`[Dashboard] Total ${totalMs.toFixed(0)}ms — ${profileLog.map(e => `${e.label}:${e.ms.toFixed(0)}`).join(', ')}`);
+        const endpointMs = Number(process.hrtime.bigint() - endpointStart) / 1e6;
+        console.log(`[Dashboard] Queries: ${totalMs.toFixed(0)}ms | Wall-clock: ${endpointMs.toFixed(0)}ms — ${profileLog.map(e => `${e.label}:${e.ms.toFixed(0)}`).join(', ')}`);
 
         res.json({
             jobs: {

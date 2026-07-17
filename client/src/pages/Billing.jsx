@@ -2031,8 +2031,8 @@ const Billing = () => {
         </Suspense>
       </ScannerErrorBoundary>
 
-      {/* Post-bill options with Staff Assignment */}
       {showPostBillOptions && lastBillData && (() => {
+        console.log('[DEBUG] lastBillData inside modal:', lastBillData);
         const paidAmount = Number(lastBillData.payment?.cash_amount || 0) + 
                            Number(lastBillData.payment?.upi_amount || 0) + 
                            Number(lastBillData.payment?.cheque_amount || 0) + 
@@ -2044,6 +2044,9 @@ const Billing = () => {
         return (
           <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="post-bill-title" onClick={() => setShowPostBillOptions(false)}>
             <div className="modal modal--lg" onClick={e => e.stopPropagation()} style={{ maxHeight: '95vh', borderRadius: '16px', boxShadow: '0 20px 50px rgba(0,0,0,0.15)' }}>
+              <div style={{ padding: '8px', background: '#fee2e2', border: '1px solid #ef4444', color: '#b91c1c', fontSize: '11px', whiteSpace: 'pre-wrap', wordBreak: 'break-all', maxHeight: '100px', overflowY: 'auto' }}>
+                [DEBUG] lastBillData keys: {Object.keys(lastBillData).join(', ')} | lastBillData: {JSON.stringify(lastBillData)}
+              </div>
               <div className="modal__header" style={{ borderBottom: 'none', padding: '24px 24px 8px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', position: 'relative' }}>
                 <div className="invoice-success-icon-container">
                   <Check size={32} strokeWidth={3} aria-hidden="true" />

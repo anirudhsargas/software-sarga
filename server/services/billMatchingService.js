@@ -3,7 +3,7 @@ const logger = require('../helpers/logger');
 
 function normalize(str) {
   if (!str) return '';
-  return String(str).toLowerCase().trim().replace(/\s+/g, ' ');
+  return String(str).toLowerCase().trim().replace(/\s+/g, ' ').replace(/&/g, 'and');
 }
 
 function normalizeCode(str) {

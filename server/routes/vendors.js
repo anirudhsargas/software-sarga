@@ -690,88 +690,97 @@ router.get('/vendors/dashboard/stats', authenticateToken, async (req, res) => {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
 
-    // Basic stats
-    logger.info('Running dashboard stats query (basic stats)');
-    let stats = [{ total_vendors: 0, this_month_spend: 0, pending_amount: 0, overdue_amount: 0 }];
-    try {
-      const [s] = await pool.query(`
-        SELECT
-          COUNT(DISTINCT v.id) as total_vendors,
-          COALESCE(SUM(CASE WHEN vi.invoice_date BETWEEN ? AND ? THEN vi.amount ELSE 0 END), 0) as this_month_spend,
-          COALESCE(SUM(vi.amount - vi.paid_amount), 0) as pending_amount,
-          COALESCE(SUM(CASE WHEN vi.status = 'overdue' THEN vi.amount - vi.paid_amount ELSE 0 END), 0) as overdue_amount
-        FROM vendors v
-        LEFT JOIN vendor_invoices vi ON v.id = vi.vendor_id AND vi.status != 'paid'
-        WHERE v.is_active = TRUE
-      `, [startOfMonth, endOfMonth]);
-      stats = s;
-    } catch (err) {
-      logger.error('Basic stats query failed:', err && (err.stack || err));
-    }
+    // Run all independent dashboard queries concurrently
+    const [statsArr, topVendorsArr, pendingInvoicesArr, trendRowsArr] = await Promise.all([
+      (async () => {
+        logger.info('Running dashboard stats query (basic stats)');
+        try {
+          const [s] = await pool.query(`
+            SELECT
+              COUNT(DISTINCT v.id) as total_vendors,
+              COALESCE(SUM(CASE WHEN vi.invoice_date BETWEEN ? AND ? THEN vi.amount ELSE 0 END), 0) as this_month_spend,
+              COALESCE(SUM(vi.amount - vi.paid_amount), 0) as pending_amount,
+              COALESCE(SUM(CASE WHEN vi.status = 'overdue' THEN vi.amount - vi.paid_amount ELSE 0 END), 0) as overdue_amount
+            FROM vendors v
+            LEFT JOIN vendor_invoices vi ON v.id = vi.vendor_id AND vi.status != 'paid'
+            WHERE v.is_active = TRUE
+          `, [startOfMonth, endOfMonth]);
+          return s;
+        } catch (err) {
+          logger.error('Basic stats query failed:', err && (err.stack || err));
+          return [{ total_vendors: 0, this_month_spend: 0, pending_amount: 0, overdue_amount: 0 }];
+        }
+      })(),
+      (async () => {
+        logger.info('Running dashboard stats query (top vendors)');
+        try {
+          const [tv] = await pool.query(`
+            SELECT
+              v.id as vendor_id, v.name,
+              COALESCE(SUM(vi.amount), 0) as spend
+            FROM vendors v
+            LEFT JOIN vendor_invoices vi ON v.id = vi.vendor_id AND vi.invoice_date BETWEEN ? AND ?
+            WHERE v.is_active = TRUE
+            GROUP BY v.id, v.name
+            HAVING spend > 0
+            ORDER BY spend DESC
+            LIMIT 5
+          `, [startOfMonth, endOfMonth]);
+          return tv;
+        } catch (err) {
+          logger.error('Top vendors query failed:', err && (err.stack || err));
+          return [];
+        }
+      })(),
+      (async () => {
+        logger.info('Running dashboard stats query (pending invoices)');
+        try {
+          const [pi] = await pool.query(`
+            SELECT
+              vi.id, vi.invoice_number, vi.invoice_date, vi.due_date, vi.amount, vi.paid_amount,
+              v.name as vendor_name, vi.branch, vi.status
+            FROM vendor_invoices vi
+            JOIN vendors v ON vi.vendor_id = v.id
+            WHERE vi.status IN ('pending', 'partial', 'overdue') AND v.is_active = TRUE
+            ORDER BY vi.due_date ASC
+            LIMIT 10
+          `);
+          return pi;
+        } catch (err) {
+          logger.error('Pending invoices query failed:', err && (err.stack || err));
+          return [];
+        }
+      })(),
+      (async () => {
+        logger.info('Running dashboard stats query (monthly trend)');
+        const startOfSixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1).toISOString().split('T')[0];
+        const endOfCurrentMonth = endOfMonth;
+        try {
+          const [tr] = await pool.query(`
+            SELECT
+              DATE_FORMAT(vi.invoice_date, '%b %Y') as month,
+              YEAR(vi.invoice_date) as yr,
+              MONTH(vi.invoice_date) as mth,
+              vi.branch,
+              COALESCE(SUM(vi.amount), 0) as total_spend
+            FROM vendor_invoices vi
+            JOIN vendors v ON vi.vendor_id = v.id
+            WHERE vi.invoice_date BETWEEN ? AND ? AND v.is_active = TRUE
+            GROUP BY DATE_FORMAT(vi.invoice_date, '%b %Y'), YEAR(vi.invoice_date), MONTH(vi.invoice_date), vi.branch
+            ORDER BY YEAR(vi.invoice_date), MONTH(vi.invoice_date)
+          `, [startOfSixMonthsAgo, endOfCurrentMonth]);
+          return tr;
+        } catch (err) {
+          logger.error('Monthly trend query failed:', err && (err.stack || err));
+          return [];
+        }
+      })(),
+    ]);
 
-    // Top vendors by this month spend
-    logger.info('Running dashboard stats query (top vendors)');
-    let topVendors = [];
-    try {
-      const [tv] = await pool.query(`
-        SELECT
-          v.id as vendor_id, v.name,
-          COALESCE(SUM(vi.amount), 0) as spend
-        FROM vendors v
-        LEFT JOIN vendor_invoices vi ON v.id = vi.vendor_id AND vi.invoice_date BETWEEN ? AND ?
-        WHERE v.is_active = TRUE
-        GROUP BY v.id, v.name
-        HAVING spend > 0
-        ORDER BY spend DESC
-        LIMIT 5
-      `, [startOfMonth, endOfMonth]);
-      topVendors = tv;
-    } catch (err) {
-      logger.error('Top vendors query failed:', err && (err.stack || err));
-    }
-
-    // Pending invoices
-    logger.info('Running dashboard stats query (pending invoices)');
-    let pendingInvoices = [];
-    try {
-      const [pi] = await pool.query(`
-        SELECT
-          vi.id, vi.invoice_number, vi.invoice_date, vi.due_date, vi.amount, vi.paid_amount,
-          v.name as vendor_name, vi.branch, vi.status
-        FROM vendor_invoices vi
-        JOIN vendors v ON vi.vendor_id = v.id
-        WHERE vi.status IN ('pending', 'partial', 'overdue') AND v.is_active = TRUE
-        ORDER BY vi.due_date ASC
-        LIMIT 10
-      `);
-      pendingInvoices = pi;
-    } catch (err) {
-      logger.error('Pending invoices query failed:', err && (err.stack || err));
-    }
-
-    // Monthly trend for last 6 months (single grouped query)
-    logger.info('Running dashboard stats query (monthly trend)');
-    const startOfSixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1).toISOString().split('T')[0];
-    const endOfCurrentMonth = endOfMonth;
-    let trendRows = [];
-    try {
-      const [tr] = await pool.query(`
-        SELECT
-          DATE_FORMAT(vi.invoice_date, '%b %Y') as month,
-          YEAR(vi.invoice_date) as yr,
-          MONTH(vi.invoice_date) as mth,
-          vi.branch,
-          COALESCE(SUM(vi.amount), 0) as total_spend
-        FROM vendor_invoices vi
-        JOIN vendors v ON vi.vendor_id = v.id
-        WHERE vi.invoice_date BETWEEN ? AND ? AND v.is_active = TRUE
-        GROUP BY DATE_FORMAT(vi.invoice_date, '%b %Y'), YEAR(vi.invoice_date), MONTH(vi.invoice_date), vi.branch
-        ORDER BY YEAR(vi.invoice_date), MONTH(vi.invoice_date)
-      `, [startOfSixMonthsAgo, endOfCurrentMonth]);
-      trendRows = tr;
-    } catch (err) {
-      logger.error('Monthly trend query failed:', err && (err.stack || err));
-    }
+    let stats = statsArr;
+    let topVendors = topVendorsArr;
+    let pendingInvoices = pendingInvoicesArr;
+    let trendRows = trendRowsArr;
 
     // Build a map for quick lookup: map[month][branch] = total_spend
     const map = {};
