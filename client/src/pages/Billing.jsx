@@ -17,7 +17,7 @@ import { CUSTOMER_TYPES } from '../constants';
 import { useConfirm } from '../contexts/ConfirmContext';
 import { calculateProductPrice } from '../utils/pricing';
 import './Billing.css';
-import { whatsappUrl } from '../utils/whatsapp';
+import { getWhatsAppShareLink } from '../utils/whatsappInvoice';
 import PageContainer from '../components/ui/PageContainer';
 import ScannerErrorBoundary from '../components/ScannerErrorBoundary';
 
@@ -901,7 +901,7 @@ const Billing = () => {
         paymentId: result?.payment?.id || result?.id || null,
         invoiceNumber: result?.bill?.invoice_number || result?.invoice_number || `INV-${result?.bill?.id || result?.id || Date.now()}`,
         invoiceDate: result?.bill?.created_at || result?.created_at || new Date().toISOString(),
-        customer: { name: form.name, mobile: form.mobile, address: form.address, gst: form.gst, type: form.type },
+        customer: { name: form.name, mobile: form.mobile, email: form.email, address: form.address, gst: form.gst, type: form.type },
         orderLines, totals, payment: { method: payMethodLabel, cash_amount: cashAmt, upi_amount: upiAmt, cheque_amount: chequeAmt, account_transfer_amount: transferAmt },
         jobs: result.jobs || [], upiId: branchUpiId,
         description: payment.description || ''
@@ -1004,47 +1004,52 @@ const Billing = () => {
   }, [lastBillData]);
 
   // ── WhatsApp Actions ──
-  const buildWhatsAppMessage = useCallback((billData) => {
-    if (!billData) return '';
-    const customerName = billData.customer?.name || 'Customer';
-    const linesText = billData.orderLines?.map(l => `- ${l.product_name || l.name} (x${l.quantity}): ₹${Number(l.total_amount || 0).toFixed(2)}`).join('\n') || '';
-    const paidAmount = Number(billData.payment?.cash_amount || 0) + 
-                       Number(billData.payment?.upi_amount || 0) + 
-                       Number(billData.payment?.cheque_amount || 0) + 
+  const billToInvoice = useCallback((billData) => {
+    if (!billData) return null;
+    const paidAmount = Number(billData.payment?.cash_amount || 0) +
+                       Number(billData.payment?.upi_amount || 0) +
+                       Number(billData.payment?.cheque_amount || 0) +
                        Number(billData.payment?.account_transfer_amount || 0);
     const totalAmount = Number(billData.totals?.gross || 0);
     const balanceDue = Math.max(totalAmount - paidAmount, 0);
-    const invNum = billData.invoiceNumber || `INV-${Date.now()}`;
-    
-    return [
-      `Dear ${customerName},`,
-      '',
-      `Here are your bill details from Sarga:`,
-      `Invoice: ${invNum}`,
-      `Total Amount: ₹${totalAmount.toFixed(2)}`,
-      `Paid Amount: ₹${paidAmount.toFixed(2)}`,
-      `Balance Due: ₹${balanceDue.toFixed(2)}`,
-      '',
-      `Items:`,
-      linesText,
-      '',
-      `Thank you for your business! 🙏`
-    ].join('\n');
+    let paymentStatus = 'PENDING';
+    if (balanceDue <= 0 && paidAmount > 0) paymentStatus = 'PAID';
+    else if (paidAmount > 0) paymentStatus = 'PARTIAL';
+    return {
+      invoiceNo: billData.invoiceNumber,
+      date: billData.invoiceDate,
+      customerName: billData.customer?.name,
+      customerMobile: billData.customer?.mobile,
+      items: (billData.orderLines || []).map(l => ({
+        name: l.product_name || l.name,
+        qty: Number(l.quantity) || 1,
+        unit: '',
+        rate: Number(l.unit_price) || 0,
+        amount: Number(l.total_amount) || 0,
+      })),
+      subtotal: Number(billData.totals?.subtotal || 0),
+      discount: Number(billData.totals?.discountAmount || 0),
+      gst: Number(billData.totals?.sgst || 0) + Number(billData.totals?.cgst || 0),
+      total: totalAmount,
+      paymentStatus,
+      amountPaid: paidAmount,
+      balanceDue,
+    };
   }, []);
 
   const directWhatsAppUrl = useMemo(() => {
-    const mobile = lastBillData?.customer?.mobile || '';
-    if (!mobile || mobile.trim().length !== 10) return '';
-    const msg = buildWhatsAppMessage(lastBillData);
-    return whatsappUrl(mobile.trim(), msg);
-  }, [lastBillData, buildWhatsAppMessage]);
+    if (!lastBillData) return '';
+    const inv = billToInvoice(lastBillData);
+    if (!inv) return '';
+    return getWhatsAppShareLink(inv);
+  }, [lastBillData, billToInvoice]);
 
   const dynamicWhatsAppUrl = useMemo(() => {
     const mobile = whatsAppMobile.trim();
-    if (mobile.length !== 10) return '';
-    const msg = buildWhatsAppMessage(lastBillData);
-    return whatsappUrl(mobile, msg);
-  }, [whatsAppMobile, lastBillData, buildWhatsAppMessage]);
+    if (mobile.length !== 10 || !lastBillData) return '';
+    const inv = { ...billToInvoice(lastBillData), customerMobile: mobile };
+    return getWhatsAppShareLink(inv);
+  }, [whatsAppMobile, lastBillData, billToInvoice]);
 
   const handleWhatsAppClick = useCallback(() => {
     setShowWhatsAppInput(true);
@@ -2052,7 +2057,7 @@ const Billing = () => {
               <div className="modal__body stack-sm" style={{ padding: '0 24px 24px 24px' }}>
                 {/* Print / WhatsApp / Email / New Invoice actions */}
                 <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-                  <button className="btn btn-primary flex-1" onClick={() => { handlePrintLast(); setShowPostBillOptions(false); }} style={{ height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '600', borderRadius: '8px', boxShadow: '0 4px 12px rgba(var(--primary-rgb), 0.15)' }}>
+                  <button className="btn btn-primary" onClick={handlePrintLast} style={{ flex: '1 1 150px', minWidth: '150px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '600', borderRadius: '8px', boxShadow: '0 4px 12px rgba(var(--primary-rgb), 0.15)' }}>
                     <Printer size={16} className="mr-8" aria-hidden="true" /> Print Invoice
                   </button>
                   {lastBillData?.customer?.mobile && lastBillData.customer.mobile.trim().length === 10 ? (
@@ -2060,28 +2065,28 @@ const Billing = () => {
                       href={directWhatsAppUrl || '#'}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="btn btn-success flex-1"
-                      style={{ height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', fontWeight: '600', borderRadius: '8px', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.15)' }}
+                      className="btn btn-success"
+                      style={{ flex: '1 1 150px', minWidth: '150px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', fontWeight: '600', borderRadius: '8px', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.15)' }}
                     >
                       <WhatsAppIcon className="mr-8" aria-hidden="true" /> Send WhatsApp
                     </a>
                   ) : (
                     <button
-                      className="btn btn-success flex-1"
+                      className="btn btn-success"
                       onClick={handleWhatsAppClick}
-                      style={{ height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '600', borderRadius: '8px', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.15)' }}
+                      style={{ flex: '1 1 150px', minWidth: '150px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '600', borderRadius: '8px', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.15)' }}
                     >
                       <WhatsAppIcon className="mr-8" aria-hidden="true" /> Send WhatsApp
                     </button>
                   )}
                   <button
-                    className="btn btn-info flex-1"
+                    className="btn btn-info"
                     onClick={handleSendEmailClick}
-                    style={{ height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '600', borderRadius: '8px', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.15)' }}
+                    style={{ flex: '1 1 150px', minWidth: '150px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '600', borderRadius: '8px', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.15)' }}
                   >
                     <Mail size={16} className="mr-8" aria-hidden="true" /> Send Email
                   </button>
-                  <button className="btn btn-ghost flex-1" onClick={() => { setShowPostBillOptions(false); }} style={{ height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', fontWeight: '600', borderRadius: '8px' }}>
+                  <button className="btn btn-ghost" onClick={() => { setShowPostBillOptions(false); }} style={{ flex: '1 1 150px', minWidth: '150px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', fontWeight: '600', borderRadius: '8px' }}>
                     <Plus size={16} className="mr-8" aria-hidden="true" /> New Invoice
                   </button>
                 </div>

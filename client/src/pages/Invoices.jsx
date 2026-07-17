@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Receipt, Plus, Search, Calendar, Printer, Download,
   CreditCard, Loader2, ArrowLeft, X, AlertTriangle, Eye,
-  RefreshCw, Keyboard, Clock, UserPlus, FilterX
+  RefreshCw, Keyboard, Clock, UserPlus, FilterX, MessageCircle
 } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
@@ -181,6 +181,52 @@ const Invoices = () => {
     const { downloadInvoicePDF } = await import('../utils/invoicePdf');
     downloadInvoicePDF(data);
     toast.success('Invoice PDF downloaded');
+  };
+
+  const handleWhatsApp = async (invoice, e) => {
+    if (e) e.stopPropagation();
+    try {
+      const orderLines = (typeof invoice.order_lines === 'string'
+        ? JSON.parse(invoice.order_lines)
+        : invoice.order_lines) || [];
+
+      const subtotal = Number(invoice.bill_amount || invoice.total_amount || 0);
+      const total = Number(invoice.total_amount || 0);
+      const discount = Number(invoice.discount_amount || 0);
+      const sgst = Number(invoice.sgst_amount || 0);
+      const cgst = Number(invoice.cgst_amount || 0);
+
+      let paymentStatus = 'PENDING';
+      if (invoice.invoice_status === 'paid') paymentStatus = 'PAID';
+      else if (invoice.invoice_status === 'partially_paid') paymentStatus = 'PARTIAL';
+
+      const inv = {
+        invoiceNo: invoice.invoice_number || `INV-${invoice.id}`,
+        date: invoice.payment_date || invoice.created_at,
+        customerName: invoice.customer_name,
+        customerMobile: invoice.customer_mobile,
+        items: orderLines.map((line) => ({
+          name: line.product_name,
+          qty: Number(line.quantity) || 1,
+          unit: line.unit || '',
+          rate: Number(line.unit_price) || 0,
+          amount: Number(line.total_amount) || 0,
+        })),
+        subtotal,
+        discount,
+        gst: sgst + cgst,
+        total,
+        paymentStatus,
+        amountPaid: Number(invoice.advance_paid || 0),
+        balanceDue: Number(invoice.balance_amount || 0),
+      };
+
+      const { getWhatsAppShareLink } = await import('../utils/whatsappInvoice');
+      const link = getWhatsAppShareLink(inv);
+      if (link) window.open(link, '_blank');
+    } catch (err) {
+      console.error('WhatsApp link generation failed:', err);
+    }
   };
 
   const openInvoiceDetails = (invoice) => {
@@ -678,6 +724,9 @@ const Invoices = () => {
                 </button>
                 <button className="btn btn-secondary btn-with-icon" onClick={() => handleDownload(selectedInvoice)}>
                   <Download size={16} /> Download PDF
+                </button>
+                <button className="btn btn-success btn-with-icon" onClick={(e) => handleWhatsApp(selectedInvoice, e)}>
+                  <MessageCircle size={16} /> Send via WhatsApp
                 </button>
               </div>
               <div className="inv-modal__footer-right">
