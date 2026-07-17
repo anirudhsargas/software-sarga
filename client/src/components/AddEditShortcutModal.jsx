@@ -30,7 +30,6 @@ const ICONS = [
 const CUSTOMER_TYPES = [
   { value: 'walk_in', label: 'Walk-in' },
   { value: 'regular', label: 'Regular' },
-  { value: 'credit', label: 'Credit' },
 ];
 
 const PAYMENT_MODES = [

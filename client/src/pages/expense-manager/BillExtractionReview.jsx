@@ -148,6 +148,8 @@ function VendorSearchCell({ vendorName, vendorMatch, selectedVendorId, onSelect,
   const [search, setSearch] = React.useState(vendorName || '');
   const [open, setOpen] = React.useState(false);
   const [adding, setAdding] = React.useState(false);
+  const [allVendors, setAllVendors] = React.useState([]);
+  const [loadingVendors, setLoadingVendors] = React.useState(false);
   const ref = React.useRef(null);
 
   React.useEffect(() => {
@@ -164,18 +166,56 @@ function VendorSearchCell({ vendorName, vendorMatch, selectedVendorId, onSelect,
     setSearch(vendorName || '');
   }, [vendorName]);
 
+  React.useEffect(() => {
+    if (open && allVendors.length === 0 && !loadingVendors) {
+      setLoadingVendors(true);
+      api.get('/vendors', { params: { limit: 1000 } })
+        .then(res => {
+          const list = res.data?.data || res.data?.vendors || [];
+          setAllVendors(list);
+        })
+        .catch(() => {})
+        .finally(() => setLoadingVendors(false));
+    }
+  }, [open, allVendors.length, loadingVendors]);
+
   const suggestions = vendorMatch?.suggestions || [];
   const isMatched = vendorMatch?.matched && selectedVendorId;
 
+  const mergedVendors = React.useMemo(() => {
+    const map = new Map();
+    for (const s of suggestions) {
+      if (s.vendor_id) map.set(String(s.vendor_id), { vendor_id: s.vendor_id, vendor_name: s.vendor_name, confidence: s.confidence || 0, source: 'ai' });
+    }
+    for (const v of allVendors) {
+      const id = v.id || v.vendor_id;
+      if (id) {
+        if (map.has(String(id))) {
+          const existing = map.get(String(id));
+          if (!existing.source) existing.source = 'all';
+        } else {
+          map.set(String(id), { vendor_id: id, vendor_name: v.name || v.vendor_name, confidence: 0, source: 'all' });
+        }
+      } else if (v.name || v.vendor_name) {
+        const key = `name_${(v.name || v.vendor_name).toLowerCase()}`;
+        if (!map.has(key)) {
+          map.set(key, { vendor_id: null, vendor_name: v.name || v.vendor_name, confidence: 0, source: 'all' });
+        }
+      }
+    }
+    return Array.from(map.values());
+  }, [suggestions, allVendors]);
+
   const filtered = search.trim()
-    ? suggestions.filter(s =>
+    ? mergedVendors.filter(s =>
         s.vendor_name && s.vendor_name.toLowerCase().includes(search.toLowerCase())
       )
-    : suggestions;
+    : mergedVendors;
 
-  const showAddOption = search.trim().length >= 2 && !suggestions.some(s =>
+  const exactMatchExists = mergedVendors.some(s =>
     s.vendor_name && s.vendor_name.toLowerCase() === search.trim().toLowerCase()
   );
+  const showAddOption = search.trim().length >= 2 && !exactMatchExists;
 
   const handleSelect = (v) => {
     onSelect(v);
@@ -201,7 +241,10 @@ function VendorSearchCell({ vendorName, vendorMatch, selectedVendorId, onSelect,
       {open && (
         <div className="pms-dropdown">
           <div className="pms-list">
-            {filtered.length === 0 && !showAddOption && (
+            {loadingVendors && (
+              <div className="pms-empty"><Loader2 className="spin" size={12} /> Loading vendors...</div>
+            )}
+            {!loadingVendors && filtered.length === 0 && !showAddOption && (
               <div className="pms-empty">Type to search vendors</div>
             )}
             {filtered.map((s, i) => (
@@ -212,7 +255,8 @@ function VendorSearchCell({ vendorName, vendorMatch, selectedVendorId, onSelect,
                 onClick={() => handleSelect({ id: s.vendor_id, name: s.vendor_name })}
               >
                 <span className="pms-item-name">{s.vendor_name}</span>
-                <span className="pms-item-conf">{Math.round(s.confidence * 100)}%</span>
+                {s.confidence > 0 && <span className="pms-item-conf">{Math.round(s.confidence * 100)}%</span>}
+                {s.source === 'ai' && <span className="pms-item-badge" style={{ fontSize: 9 }}>match</span>}
               </button>
             ))}
             {showAddOption && (

@@ -6,7 +6,6 @@ export const GST_RATE = 0.18;
 export const CUSTOMER_TYPES = [
   { value: 'Regular', label: 'Regular' },
   { value: 'Walk-in', label: 'Walk-in' },
-  { value: 'Credit', label: 'Credit' },
 ];
 
 export const PAYMENT_METHODS = [

@@ -40,7 +40,6 @@ const ProductsPage = lazy(() => import('./pages/public/ProductsPage'));
 const DesignPage = lazy(() => import('./pages/public/DesignPage'));
 const TrackPage = lazy(() => import('./pages/public/TrackPage'));
 const ContactPage = lazy(() => import('./pages/public/ContactPage'));
-const SignInPage = lazy(() => import('./pages/public/SignInPage'));
 const PrivacyPage = lazy(() => import('./pages/public/PrivacyPage'));
 const TermsPage = lazy(() => import('./pages/public/TermsPage'));
 
@@ -268,7 +267,7 @@ function App() {
                 <Route path="/design" element={<DesignPage />} />
                 <Route path="/track" element={<TrackPage />} />
                 <Route path="/contact" element={<ContactPage />} />
-                <Route path="/signin" element={<SignInPage />} />
+                <Route path="/signin" element={<Navigate to="/login" replace />} />
                 <Route path="/privacy" element={<PrivacyPage />} />
                 <Route path="/terms" element={<TermsPage />} />
               </Route>

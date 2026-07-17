@@ -855,13 +855,6 @@
   gap: var(--space-8);
 }
 
-.billing-invoice-options {
-  display: flex;
-  gap: var(--space-16);
-  flex-wrap: wrap;
-  padding: var(--space-4) 0;
-}
-
 .checkbox-row {
   display: flex;
   align-items: center;

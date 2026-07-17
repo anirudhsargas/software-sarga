@@ -80,7 +80,6 @@ const BILLING_CUSTOMER_TYPES = [
   { value: 'Retail', label: 'Retail', description: 'Regular walk-in retail customer' },
   { value: 'Walk-in', label: 'Walk-in', description: 'One-time walk-in with full payment' },
   { value: 'Offset', label: 'Offset', description: 'Offset printing customer' },
-  { value: 'Credit', label: 'Credit', description: 'Business / credit account customer' },
 ];
 
 // Billing tabs definition
@@ -179,19 +178,20 @@ const Billing = () => {
   const [selectedSuggestionIdx, setSelectedSuggestionIdx] = useState(-1);
   const [_fieldErrors, _setFieldErrors] = useState({});
   const [branchUpiId, setBranchUpiId] = useState('');
-  const [printAfterSave, setPrintAfterSave] = useState(true);
-  const [sendWhatsApp, setSendWhatsApp] = useState(false);
   const [showWhatsAppInput, setShowWhatsAppInput] = useState(false);
   const [whatsAppMobile, setWhatsAppMobile] = useState('');
+  const [showEmailInput, setShowEmailInput] = useState(false);
+  const [emailAddress, setEmailAddress] = useState('');
 
   useEffect(() => {
     if (showPostBillOptions) {
       setWhatsAppMobile(lastBillData?.customer?.mobile || '');
       setShowWhatsAppInput(false);
+      setEmailAddress(lastBillData?.customer?.email || '');
+      setShowEmailInput(false);
     }
   }, [showPostBillOptions, lastBillData]);
 
-  const [sendEmail, setSendEmail] = useState(false);
   const [recentProducts, setRecentProducts] = useState(
     () => {
       try {
@@ -898,6 +898,7 @@ const Billing = () => {
       }
       const lastBill = {
         customerId,
+        paymentId: result?.payment?.id || result?.id || null,
         invoiceNumber: result?.bill?.invoice_number || result?.invoice_number || `INV-${result?.bill?.id || result?.id || Date.now()}`,
         invoiceDate: result?.bill?.created_at || result?.created_at || new Date().toISOString(),
         customer: { name: form.name, mobile: form.mobile, address: form.address, gst: form.gst, type: form.type },
@@ -908,31 +909,6 @@ const Billing = () => {
       setLastBillData(lastBill);
       setLastOrderCustomerType(form.type);
       setLastOrderAutoDelivered(isWalkIn);
-
-      if (sendWhatsApp && form.mobile) {
-        const linesText = orderLines.map(l => `- ${l.product_name} (x${l.quantity}): ₹${Number(l.total_amount || 0).toFixed(2)}`).join('\n');
-        const balanceDue = Math.max(totals.gross - advancePaid, 0);
-        const invNum = result?.bill?.invoice_number || result?.invoice_number || `INV-${result?.bill?.id || result?.id || Date.now()}`;
-        const msg = [
-          `Dear ${form.name || 'Customer'},`,
-          '',
-          `Here are your bill details from Sarga:`,
-          `Invoice: ${invNum}`,
-          `Total Amount: ₹${totals.gross.toFixed(2)}`,
-          `Paid Amount: ₹${advancePaid.toFixed(2)}`,
-          `Balance Due: ₹${balanceDue.toFixed(2)}`,
-          '',
-          `Items:`,
-          linesText,
-          '',
-          `Thank you for your business! 🙏`
-        ].join('\n');
-        
-        const url = whatsappUrl(form.mobile, msg);
-        if (url) {
-          window.open(url, '_blank');
-        }
-      }
 
       // Prepare assign jobs from result
       if (result.jobs && result.jobs.length > 0) {
@@ -964,7 +940,7 @@ const Billing = () => {
       setError(err?.response?.data?.message || err.message || 'Failed to create invoice.');
       toast.error('Invoice creation failed.');
     } finally { setSaving(false); }
-  }, [canProceed, orderLines, advancePaid, totals, isWalkIn, existingCustomer, form, payment, discountPercent, totals.discountAmount, totals.gross, selectedBranchId, jobType, branchUpiId, discountError, sendWhatsApp, confirm]);
+  }, [canProceed, orderLines, advancePaid, totals, isWalkIn, existingCustomer, form, payment, discountPercent, totals.discountAmount, totals.gross, selectedBranchId, jobType, branchUpiId, discountError, confirm]);
 
   // ── Staff assignment submit ──
   const handleAssignStaff = useCallback(async () => {
@@ -1101,6 +1077,36 @@ const Billing = () => {
       }).catch(err => {
         console.error('Failed to update customer phone number in database:', err);
       });
+    }
+  }, [lastBillData]);
+
+  // ── Email Actions ──
+  const handleSendEmailClick = useCallback(() => {
+    const customerEmail = lastBillData?.customer?.email || '';
+    if (customerEmail) {
+      handleSendEmail(customerEmail);
+    } else {
+      setShowEmailInput(true);
+    }
+  }, [lastBillData]);
+
+  const handleSendEmail = useCallback(async (email) => {
+    const paymentId = lastBillData?.paymentId;
+    if (!paymentId || !email) {
+      toast.error('Cannot send email: missing invoice ID or email address');
+      return;
+    }
+    try {
+      await api.post(`/invoices/${paymentId}/send-email`, {
+        email,
+        subject: `Invoice #${lastBillData.invoiceNumber} from Sarga Digital Press`,
+        message: `Dear ${lastBillData.customer?.name || 'Customer'},\n\nPlease find your invoice #${lastBillData.invoiceNumber} below.\n\nThank you for your business!`
+      });
+      toast.success('Invoice sent via email successfully!');
+      setShowEmailInput(false);
+    } catch (err) {
+      console.error('Send email error:', err);
+      toast.error(err?.response?.data?.message || 'Failed to send email');
     }
   }, [lastBillData]);
 
@@ -1285,7 +1291,10 @@ const Billing = () => {
                   role="radio"
                   aria-checked={isSelected}
                   className={`customer-type-chip ${isSelected ? 'customer-type-chip--active' : ''}`}
-                  onClick={() => setForm(p => ({ ...p, type: ct.value }))}
+                  onClick={() => {
+                    setForm(p => ({ ...p, type: ct.value }));
+                    if (ct.value === 'Walk-in') setActiveTab('products');
+                  }}
                   title={ct.description}
                 >
                   {isSelected && <Check size={12} aria-hidden="true" className="customer-type-chip__check" />}
@@ -1296,151 +1305,144 @@ const Billing = () => {
           </div>
         </div>
 
-        {/* Search existing customer */}
-        <div className="autocomplete-wrapper" style={{ position: 'relative' }}>
-          <div className="billing-field">
-            <Search size={14} className="billing-field__icon" aria-hidden="true" />
-            <label htmlFor="billing-customer-search" className="sr-only">Search customer by name or mobile</label>
-            <input
-              id="billing-customer-search"
-              name="billingCustomerSearch"
-              ref={customerSearchRef}
-              type="text"
-              placeholder="Search customer by name or mobile..."
-              value={customerSearchQuery}
-              onChange={e => { setCustomerSearchQuery(e.target.value); setExistingCustomer(null); setHighlightedCustomerIdx(-1); }}
-              onKeyDown={handleCustomerKeyDown}
-              onBlur={() => setTimeout(() => { setCustomerMatches([]); setCustomerNoResults(false); }, 200)}
-              className="billing-field__input"
-              autoComplete="off"
-            />
-            {customerSearching && <Loader2 size={14} className="animate-spin" style={{ color: 'var(--muted)', flexShrink: 0 }} aria-hidden="true" />}
-          </div>
+        {/* Customer details - hidden for Walk-in (auto-navigates to products) */}
+        {form.type !== 'Walk-in' && (
+          <>
+            {/* Search existing customer */}
+            <div className="autocomplete-wrapper" style={{ position: 'relative' }}>
+              <div className="billing-field">
+                <Search size={14} className="billing-field__icon" aria-hidden="true" />
+                <label htmlFor="billing-customer-search" className="sr-only">Search customer by name or mobile</label>
+                <input
+                  id="billing-customer-search"
+                  name="billingCustomerSearch"
+                  ref={customerSearchRef}
+                  type="text"
+                  placeholder="Search customer by name or mobile..."
+                  value={customerSearchQuery}
+                  onChange={e => { setCustomerSearchQuery(e.target.value); setExistingCustomer(null); setHighlightedCustomerIdx(-1); }}
+                  onKeyDown={handleCustomerKeyDown}
+                  onBlur={() => setTimeout(() => { setCustomerMatches([]); setCustomerNoResults(false); }, 200)}
+                  className="billing-field__input"
+                  autoComplete="off"
+                />
+                {customerSearching && <Loader2 size={14} className="animate-spin" style={{ color: 'var(--muted)', flexShrink: 0 }} aria-hidden="true" />}
+              </div>
 
-          {(customerMatches.length > 0 || (customerNoResults && customerSearchQuery.trim())) && (
-            <div className="billing-dropdown" ref={customerDropdownRef} style={{
-              position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
-              marginTop: 4, boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
-              overflowY: 'auto', maxHeight: 280
-            }}>
-              {customerMatches.length > 0 ? (
-                customerMatches.map((c, i) => (
-                  <div
-                    key={c.id}
-                    className={`billing-dropdown__item ${i === highlightedCustomerIdx ? 'billing-dropdown__item--highlighted' : ''}`}
-                    onClick={() => handleSelectCustomer(c)}
-                    onMouseEnter={() => setHighlightedCustomerIdx(i)}
-                    role="option"
-                    aria-selected={i === highlightedCustomerIdx}
-                  >
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                      <span className="font-medium" style={{ fontSize: 13 }}>{c.name}</span>
-                      <span className="text-muted" style={{ fontSize: 11, fontFamily: 'monospace' }}>{c.mobile || c.phone || '—'}</span>
+              {(customerMatches.length > 0 || (customerNoResults && customerSearchQuery.trim())) && (
+                <div className="billing-dropdown" ref={customerDropdownRef} style={{
+                  position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
+                  marginTop: 4, boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                  overflowY: 'auto', maxHeight: 280
+                }}>
+                  {customerMatches.length > 0 ? (
+                    customerMatches.map((c, i) => (
+                      <div
+                        key={c.id}
+                        className={`billing-dropdown__item ${i === highlightedCustomerIdx ? 'billing-dropdown__item--highlighted' : ''}`}
+                        onClick={() => handleSelectCustomer(c)}
+                        onMouseEnter={() => setHighlightedCustomerIdx(i)}
+                        role="option"
+                        aria-selected={i === highlightedCustomerIdx}
+                      >
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <span className="font-medium" style={{ fontSize: 13 }}>{c.name}</span>
+                          <span className="text-muted" style={{ fontSize: 11, fontFamily: 'monospace' }}>{c.mobile || c.phone || '—'}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          {c.type && <span className="badge badge--sm">{c.type}</span>}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="billing-dropdown__item" style={{ justifyContent: 'center', color: 'var(--muted)', fontSize: 12 }}>
+                      No customers found
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      {c.type && <span className="badge badge--sm">{c.type}</span>}
+                  )}
+                  {customerSearchQuery.trim().length > 0 && (
+                    <div className="billing-dropdown__item billing-dropdown__add" onClick={() => { setCustomerMatches([]); setCustomerSearchQuery(''); customerNameRef.current?.focus(); }}>
+                      <Plus size={14} /> <span>Add New Customer</span>
                     </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Existing customer card */}
+            {existingCustomer ? (
+              <div className="billing-customer-card">
+                <div className="billing-customer-card__header">
+                  <div className="user-avatar user-avatar--sm">{form.name?.[0] || '?'}</div>
+                  <div>
+                    <div className="font-semibold">{form.name}</div>
+                    <div className="text-xs muted">{form.mobile}</div>
                   </div>
-                ))
-              ) : (
-                <div className="billing-dropdown__item" style={{ justifyContent: 'center', color: 'var(--muted)', fontSize: 12 }}>
-                  No customers found
+                  <button className="btn btn-ghost btn-xs" onClick={handleChangeCustomer} style={{ marginLeft: 'auto' }} aria-label="Clear customer selection"><X size={14} aria-hidden="true" /></button>
                 </div>
-              )}
-              {customerSearchQuery.trim().length > 0 && (
-                <div className="billing-dropdown__item billing-dropdown__add" onClick={() => { setCustomerMatches([]); setCustomerSearchQuery(''); customerNameRef.current?.focus(); }}>
-                  <Plus size={14} /> <span>Add New Customer</span>
+                <div className="billing-customer-card__details">
+                  <span><Phone size={12} aria-hidden="true" /> {form.mobile}</span>
+                  {form.gst && <span><FileText size={12} aria-hidden="true" /> {form.gst}</span>}
+                  {form.address && <span><MapPin size={12} aria-hidden="true" /> {form.address}</span>}
                 </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Existing customer card */}
-        {existingCustomer ? (
-          <div className="billing-customer-card">
-            <div className="billing-customer-card__header">
-              <div className="user-avatar user-avatar--sm">{form.name?.[0] || '?'}</div>
-              <div>
-                <div className="font-semibold">{form.name}</div>
-                <div className="text-xs muted">{form.mobile}</div>
               </div>
-              <button className="btn btn-ghost btn-xs" onClick={handleChangeCustomer} style={{ marginLeft: 'auto' }} aria-label="Clear customer selection"><X size={14} aria-hidden="true" /></button>
-            </div>
-            <div className="billing-customer-card__details">
-              <span><Phone size={12} aria-hidden="true" /> {form.mobile}</span>
-              {form.gst && <span><FileText size={12} aria-hidden="true" /> {form.gst}</span>}
-              {form.address && <span><MapPin size={12} aria-hidden="true" /> {form.address}</span>}
-            </div>
-          </div>
-        ) : (
-          /* New customer form */
-          <div className="billing-customer-form">
-            <div className="billing-customer-form__grid">
-              <div className="billing-field">
-                <User size={14} className="billing-field__icon" aria-hidden="true" />
-                <label htmlFor="billing-name" className="sr-only">Customer Name</label>
-                <input id="billing-name" name="billingName" ref={customerNameRef} type="text"
-                  placeholder={isWalkIn || form.type === 'Retail' ? 'Full Name' : 'Full Name *'}
-                  value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
-                  onKeyDown={e => { if (e.key === 'Enter') { const next = needsGst ? customerGstRef : customerEmailRef; next.current?.focus(); } }}
-                  className="billing-field__input" autoComplete="name" />
-              </div>
-              <div className="billing-field billing-field--mobile">
-                <Phone size={14} className="billing-field__icon" aria-hidden="true" />
-                <label htmlFor="billing-mobile" className="sr-only">Mobile Number</label>
-                <input id="billing-mobile" name="billingMobile" type="tel"
-                  placeholder={isWalkIn || form.type === 'Retail' ? 'Mobile' : 'Mobile *'}
-                  value={form.mobile} onChange={e => setForm(p => ({ ...p, mobile: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
-                  onKeyDown={e => { if (e.key === 'Enter') { customerNameRef.current?.focus(); } }}
-                  className="billing-field__input" autoComplete="tel" />
-                {form.mobile.length > 0 && (mobileValid ? <CheckCircle2 size={16} className="billing-field__valid" aria-hidden="true" /> : <span className="billing-field__invalid" />)}
-              </div>
-              {needsGst && (
+            ) : (
+              /* New customer form */
+              <div className="billing-customer-form">
+                <div className="billing-customer-form__grid">
+                  <div className="billing-field">
+                    <User size={14} className="billing-field__icon" aria-hidden="true" />
+                    <label htmlFor="billing-name" className="sr-only">Customer Name</label>
+                    <input id="billing-name" name="billingName" ref={customerNameRef} type="text"
+                      placeholder={form.type === 'Retail' ? 'Full Name' : 'Full Name *'}
+                      value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
+                      onKeyDown={e => { if (e.key === 'Enter') { const next = needsGst ? customerGstRef : customerEmailRef; next.current?.focus(); } }}
+                      className="billing-field__input" autoComplete="name" />
+                  </div>
+                  <div className="billing-field billing-field--mobile">
+                    <Phone size={14} className="billing-field__icon" aria-hidden="true" />
+                    <label htmlFor="billing-mobile" className="sr-only">Mobile Number</label>
+                    <input id="billing-mobile" name="billingMobile" type="tel"
+                      placeholder={form.type === 'Retail' ? 'Mobile' : 'Mobile *'}
+                      value={form.mobile} onChange={e => setForm(p => ({ ...p, mobile: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
+                      onKeyDown={e => { if (e.key === 'Enter') { customerNameRef.current?.focus(); } }}
+                      className="billing-field__input" autoComplete="tel" />
+                    {form.mobile.length > 0 && (mobileValid ? <CheckCircle2 size={16} className="billing-field__valid" aria-hidden="true" /> : <span className="billing-field__invalid" />)}
+                  </div>
+                  {needsGst && (
+                    <div className="billing-field">
+                      <FileText size={14} className="billing-field__icon" aria-hidden="true" />
+                      <label htmlFor="billing-gst" className="sr-only">GST Number</label>
+                      <input id="billing-gst" name="billingGst" ref={customerGstRef} type="text"
+                        placeholder={'GST Number'}
+                        value={form.gst} onChange={e => setForm(p => ({ ...p, gst: e.target.value }))}
+                        onKeyDown={e => { if (e.key === 'Enter') { customerEmailRef.current?.focus(); } }}
+                        className="billing-field__input" autoComplete="off" />
+                      {form.gst.length > 0 && (gstValid ? <CheckCircle2 size={16} className="billing-field__valid" aria-hidden="true" /> : <span className="billing-field__invalid" />)}
+                    </div>
+                  )}
+                  <div className="billing-field">
+                    <Mail size={14} className="billing-field__icon" aria-hidden="true" />
+                    <label htmlFor="billing-email" className="sr-only">Email</label>
+                    <input id="billing-email" name="billingEmail" ref={customerEmailRef} type="email"
+                      placeholder="Email"
+                      value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
+                      onKeyDown={e => { if (e.key === 'Enter') { customerAddressRef.current?.focus(); } }}
+                      className="billing-field__input" autoComplete="email" />
+                    {form.email.length > 0 && (emailValid ? <CheckCircle2 size={16} className="billing-field__valid" aria-hidden="true" /> : <span className="billing-field__invalid" />)}
+                  </div>
+                </div>
                 <div className="billing-field">
-                  <FileText size={14} className="billing-field__icon" aria-hidden="true" />
-                  <label htmlFor="billing-gst" className="sr-only">GST Number</label>
-                  <input id="billing-gst" name="billingGst" ref={customerGstRef} type="text"
-                    placeholder={'GST Number'}
-                    value={form.gst} onChange={e => setForm(p => ({ ...p, gst: e.target.value }))}
-                    onKeyDown={e => { if (e.key === 'Enter') { customerEmailRef.current?.focus(); } }}
-                    className="billing-field__input" autoComplete="off" />
-                  {form.gst.length > 0 && (gstValid ? <CheckCircle2 size={16} className="billing-field__valid" aria-hidden="true" /> : <span className="billing-field__invalid" />)}
+                  <MapPin size={14} className="billing-field__icon" aria-hidden="true" />
+                  <label htmlFor="billing-address" className="sr-only">Address</label>
+                  <input id="billing-address" name="billingAddress" ref={customerAddressRef} type="text"
+                    placeholder="Address"
+                    value={form.address} onChange={e => setForm(p => ({ ...p, address: e.target.value }))}
+                    className="billing-field__input" autoComplete="street-address" />
                 </div>
-              )}
-              <div className="billing-field">
-                <Mail size={14} className="billing-field__icon" aria-hidden="true" />
-                <label htmlFor="billing-email" className="sr-only">Email</label>
-                <input id="billing-email" name="billingEmail" ref={customerEmailRef} type="email"
-                  placeholder="Email"
-                  value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
-                  onKeyDown={e => { if (e.key === 'Enter') { customerAddressRef.current?.focus(); } }}
-                  className="billing-field__input" autoComplete="email" />
-                {form.email.length > 0 && (emailValid ? <CheckCircle2 size={16} className="billing-field__valid" aria-hidden="true" /> : <span className="billing-field__invalid" />)}
               </div>
-            </div>
-            <div className="billing-field">
-              <MapPin size={14} className="billing-field__icon" aria-hidden="true" />
-              <label htmlFor="billing-address" className="sr-only">Address</label>
-              <input id="billing-address" name="billingAddress" ref={customerAddressRef} type="text"
-                placeholder="Address"
-                value={form.address} onChange={e => setForm(p => ({ ...p, address: e.target.value }))}
-                className="billing-field__input" autoComplete="street-address" />
-            </div>
-          </div>
+            )}
+          </>
         )}
-        <div className="billing-step-footer">
-          <div className="billing-step-actions">
-            <button type="button" className="btn btn-primary btn-sm" disabled={!stepValid[0]} onClick={() => setActiveTab('products')}>
-              Next: Add Products →
-            </button>
-          </div>
-          {!stepValid[0] && (
-            <div className="billing-step-warning">
-              {!form.type ? 'Please select a customer type' : 'Please enter customer name and 10-digit mobile number'}
-            </div>
-          )}
-        </div>
       </div>
 
       {/* PRODUCTS SECTION */}
@@ -1871,21 +1873,7 @@ const Billing = () => {
           </div>
         </div>
 
-        {/* Invoice options */}
-        <div className="billing-invoice-options">
-          <label className="checkbox-row text-xs">
-            <input type="checkbox" checked={printAfterSave} onChange={e => setPrintAfterSave(e.target.checked)} />
-            <span>Print after save</span>
-          </label>
-          <label className="checkbox-row text-xs">
-            <input type="checkbox" checked={sendWhatsApp} onChange={e => setSendWhatsApp(e.target.checked)} />
-            <span>Send WhatsApp</span>
-          </label>
-          <label className="checkbox-row text-xs">
-            <input type="checkbox" checked={sendEmail} onChange={e => setSendEmail(e.target.checked)} />
-            <span>Send Email</span>
-          </label>
-        </div>
+
         <div className="billing-step-footer">
           <div className="billing-step-actions">
             <button type="button" className="btn btn-secondary btn-sm" onClick={() => setActiveTab('products')}>
@@ -2062,8 +2050,8 @@ const Billing = () => {
                 <button className="modal-close" aria-label="Close" onClick={() => setShowPostBillOptions(false)} style={{ position: 'absolute', top: '20px', right: '20px' }}><X size={18} aria-hidden="true" /></button>
               </div>
               <div className="modal__body stack-sm" style={{ padding: '0 24px 24px 24px' }}>
-                {/* Print / WhatsApp / New Invoice actions */}
-                <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+                {/* Print / WhatsApp / Email / New Invoice actions */}
+                <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
                   <button className="btn btn-primary flex-1" onClick={() => { handlePrintLast(); setShowPostBillOptions(false); }} style={{ height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '600', borderRadius: '8px', boxShadow: '0 4px 12px rgba(var(--primary-rgb), 0.15)' }}>
                     <Printer size={16} className="mr-8" aria-hidden="true" /> Print Invoice
                   </button>
@@ -2086,6 +2074,13 @@ const Billing = () => {
                       <WhatsAppIcon className="mr-8" aria-hidden="true" /> Send WhatsApp
                     </button>
                   )}
+                  <button
+                    className="btn btn-info flex-1"
+                    onClick={handleSendEmailClick}
+                    style={{ height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '600', borderRadius: '8px', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.15)' }}
+                  >
+                    <Mail size={16} className="mr-8" aria-hidden="true" /> Send Email
+                  </button>
                   <button className="btn btn-ghost flex-1" onClick={() => { setShowPostBillOptions(false); }} style={{ height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', fontWeight: '600', borderRadius: '8px' }}>
                     <Plus size={16} className="mr-8" aria-hidden="true" /> New Invoice
                   </button>
@@ -2138,6 +2133,53 @@ const Billing = () => {
                       <button
                         className="btn btn-ghost btn-sm"
                         onClick={() => setShowWhatsAppInput(false)}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {showEmailInput && (
+                <div style={{ border: '1px solid var(--border)', padding: '12px', borderRadius: '6px', background: 'var(--bg-light)', marginBottom: 16 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 13, fontWeight: 600 }}>Enter Email Address</span>
+                      {!lastBillData?.customer?.email && (
+                        <span style={{ fontSize: 11, color: 'var(--error)' }}>(No email available for this customer)</span>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <div className="billing-field" style={{ flex: 1, margin: 0 }}>
+                        <Mail size={14} className="billing-field__icon" aria-hidden="true" />
+                        <input
+                          type="email"
+                          placeholder="customer@example.com"
+                          value={emailAddress}
+                          onChange={e => setEmailAddress(e.target.value)}
+                          className="billing-field__input"
+                        />
+                      </div>
+                      <button
+                        className={`btn btn-info btn-sm ${!emailAddress.trim() ? 'disabled' : ''}`}
+                        onClick={() => {
+                          if (!emailAddress.trim()) return;
+                          handleSendEmail(emailAddress.trim());
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          pointerEvents: !emailAddress.trim() ? 'none' : 'auto',
+                          opacity: !emailAddress.trim() ? 0.6 : 1
+                        }}
+                      >
+                        Send
+                      </button>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => setShowEmailInput(false)}
                       >
                         Cancel
                       </button>

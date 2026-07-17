@@ -2066,55 +2066,192 @@ const Inventory = () => {
                                                                     min="0"
                                                                     style={{ marginTop: 'var(--space-6)' }}
                                                                 />
+                                                                <div style={{ display: 'flex', gap: '4px', marginTop: '6px', flexWrap: 'wrap' }}>
+                                                                    {[0, 5, 10, 15, 20, 25].map(val => (
+                                                                        <button
+                                                                            key={val}
+                                                                            type="button"
+                                                                            className="btn btn-xs"
+                                                                            onClick={() => setNewItem({ ...newItem, discount: String(val) })}
+                                                                            style={{
+                                                                                padding: '2px 8px',
+                                                                                fontSize: '11px',
+                                                                                borderRadius: '4px',
+                                                                                border: '1px solid var(--border)',
+                                                                                background: Number(newItem.discount || 0) === val ? 'var(--accent)' : 'var(--surface-alt)',
+                                                                                color: Number(newItem.discount || 0) === val ? 'var(--on-accent)' : 'var(--text)',
+                                                                                cursor: 'pointer',
+                                                                                transition: 'all 0.15s ease'
+                                                                            }}
+                                                                        >
+                                                                            {val}%
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
                                                             </div>
                                                         </>
                                                     )}
                                                 </div>
                                                 {newItem.item_type === 'Retail' && (
-                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-12)' }}>
-                                                        <div>
-                                                            <label className="label">Sell Price (MRP)</label>
-                                                            <div style={{ position: 'relative', marginTop: 'var(--space-6)' }}>
-                                                                <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 'var(--text-sm)', color: 'var(--text-muted)', pointerEvents: 'none' }}>₹</span>
-                                                                <input
-                                                                    name="addItemSellPrice"
-                                                                    type="number"
-                                                                    step="0.01"
-                                                                    className="input-field"
-                                                                    style={{ paddingLeft: 24 }}
-                                                                    placeholder="0.00"
-                                                                    value={newItem.sell_price}
-                                                                    onChange={(e) => setNewItem({ ...newItem, sell_price: e.target.value })}
-                                                                    min="0"
-                                                                />
+                                                    <>
+                                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-12)' }}>
+                                                            <div>
+                                                                <label className="label">Sell Price (MRP)</label>
+                                                                <div style={{ position: 'relative', marginTop: 'var(--space-6)' }}>
+                                                                    <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 'var(--text-sm)', color: 'var(--text-muted)', pointerEvents: 'none' }}>₹</span>
+                                                                    <input
+                                                                        name="addItemSellPrice"
+                                                                        type="number"
+                                                                        step="0.01"
+                                                                        className="input-field"
+                                                                        style={{ paddingLeft: 24 }}
+                                                                        placeholder="0.00"
+                                                                        value={newItem.sell_price}
+                                                                        onChange={(e) => setNewItem({ ...newItem, sell_price: e.target.value })}
+                                                                        min="0"
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                            <div>
+                                                                <label className="label">Profit Margin</label>
+                                                                <div style={{ 
+                                                                    marginTop: 'var(--space-6)', 
+                                                                    height: '38px', 
+                                                                    display: 'flex', 
+                                                                    alignItems: 'center', 
+                                                                    padding: '0 var(--space-12)', 
+                                                                    borderRadius: 'var(--radius-sm)', 
+                                                                    background: 'var(--surface-alt)', 
+                                                                    border: '1px solid var(--border)',
+                                                                    fontWeight: 600,
+                                                                    fontSize: 'var(--text-sm)'
+                                                                }}>
+                                                                    {(() => {
+                                                                        const m = calculateMargin(newItem.cost_price, newItem.sell_price, newItem.gst_rate);
+                                                                        const isPositive = m > 0;
+                                                                        return (
+                                                                            <span style={{ color: isPositive ? 'var(--text-success, #22c55e)' : m < 0 ? 'var(--text-danger, #ef4444)' : 'var(--text-muted)' }}>
+                                                                                {m.toFixed(1)}%
+                                                                            </span>
+                                                                        );
+                                                                    })()}
+                                                                </div>
                                                             </div>
                                                         </div>
-                                                        <div>
-                                                            <label className="label">Profit Margin</label>
-                                                            <div style={{ 
-                                                                marginTop: 'var(--space-6)', 
-                                                                height: '38px', 
-                                                                display: 'flex', 
-                                                                alignItems: 'center', 
-                                                                padding: '0 var(--space-12)', 
-                                                                borderRadius: 'var(--radius-sm)', 
-                                                                background: 'var(--surface-alt)', 
-                                                                border: '1px solid var(--border)',
-                                                                fontWeight: 600,
-                                                                fontSize: 'var(--text-sm)'
+                                                        {Number(newItem.sell_price) > 0 && (
+                                                            <div style={{
+                                                                marginTop: 'var(--space-12)',
+                                                                padding: 'var(--space-12)',
+                                                                borderRadius: 'var(--radius-md)',
+                                                                background: 'var(--surface-2, #1e1e2e)',
+                                                                border: '1px dashed var(--border)',
+                                                                fontSize: 'var(--text-xs)',
+                                                                display: 'flex',
+                                                                flexDirection: 'column',
+                                                                gap: 'var(--space-8)'
                                                             }}>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                    <span style={{ fontWeight: 600, color: 'var(--text-muted)' }}>Pricing Summary</span>
+                                                                    {(() => {
+                                                                        const cp = Number(newItem.cost_price) || 0;
+                                                                        const gst = Number(newItem.gst_rate) || 0;
+                                                                        const mrp = Number(newItem.sell_price) || 0;
+                                                                        const discPct = Number(newItem.discount) || 0;
+                                                                        const discAmount = mrp * (discPct / 100);
+                                                                        const effectiveSellPrice = Math.max(0, mrp - discAmount);
+                                                                        const effectiveMargin = calculateMargin(cp, effectiveSellPrice, gst);
+
+                                                                        if (effectiveMargin < 0) {
+                                                                            return (
+                                                                                <span style={{
+                                                                                    background: 'rgba(239, 68, 68, 0.15)',
+                                                                                    color: '#ef4444',
+                                                                                    padding: '2px 8px',
+                                                                                    borderRadius: '12px',
+                                                                                    fontWeight: 700,
+                                                                                    fontSize: '10px'
+                                                                                }}>
+                                                                                    ⚠️ Selling at a loss
+                                                                                </span>
+                                                                            );
+                                                                        } else if (effectiveMargin < 15) {
+                                                                            return (
+                                                                                <span style={{
+                                                                                    background: 'rgba(245, 158, 11, 0.15)',
+                                                                                    color: '#f59e0b',
+                                                                                    padding: '2px 8px',
+                                                                                    borderRadius: '12px',
+                                                                                    fontWeight: 700,
+                                                                                    fontSize: '10px'
+                                                                                }}>
+                                                                                    ⚠️ Thin margin
+                                                                                </span>
+                                                                            );
+                                                                        } else {
+                                                                            return (
+                                                                                <span style={{
+                                                                                    background: 'rgba(34, 197, 94, 0.15)',
+                                                                                    color: '#22c55e',
+                                                                                    padding: '2px 8px',
+                                                                                    borderRadius: '12px',
+                                                                                    fontWeight: 700,
+                                                                                    fontSize: '10px'
+                                                                                }}>
+                                                                                    ✓ Healthy margin
+                                                                                </span>
+                                                                            );
+                                                                        }
+                                                                    })()}
+                                                                </div>
+
                                                                 {(() => {
-                                                                    const m = calculateMargin(newItem.cost_price, newItem.sell_price, newItem.gst_rate);
-                                                                    const isPositive = m > 0;
+                                                                    const cp = Number(newItem.cost_price) || 0;
+                                                                    const gst = Number(newItem.gst_rate) || 0;
+                                                                    const mrp = Number(newItem.sell_price) || 0;
+                                                                    const discPct = Number(newItem.discount) || 0;
+                                                                    const discAmount = mrp * (discPct / 100);
+                                                                    const effectiveSellPrice = Math.max(0, mrp - discAmount);
+                                                                    const effectiveMargin = calculateMargin(cp, effectiveSellPrice, gst);
+
                                                                     return (
-                                                                        <span style={{ color: isPositive ? 'var(--text-success, #22c55e)' : m < 0 ? 'var(--text-danger, #ef4444)' : 'var(--text-muted)' }}>
-                                                                            {m.toFixed(1)}%
-                                                                        </span>
+                                                                        <>
+                                                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-8)', borderTop: '1px solid var(--border)', paddingTop: 'var(--space-8)' }}>
+                                                                                <div>
+                                                                                    <div style={{ color: 'var(--text-muted)', marginBottom: 2 }}>Base MRP:</div>
+                                                                                    <div style={{ fontSize: 'var(--text-sm)', fontWeight: 600 }}>₹{mrp.toFixed(2)}</div>
+                                                                                </div>
+                                                                                <div>
+                                                                                    <div style={{ color: 'var(--text-muted)', marginBottom: 2 }}>Discount ({discPct}%):</div>
+                                                                                    <div style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: discAmount > 0 ? '#ef4444' : 'inherit' }}>
+                                                                                        -₹{discAmount.toFixed(2)}
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+
+                                                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-8)', borderTop: '1px solid var(--border)', paddingTop: 'var(--space-8)' }}>
+                                                                                <div>
+                                                                                    <div style={{ color: 'var(--text-muted)', marginBottom: 2 }}>Effective Price:</div>
+                                                                                    <div style={{ fontSize: 'var(--text-md)', fontWeight: 700, color: 'var(--text-success, #22c55e)' }}>
+                                                                                        ₹{effectiveSellPrice.toFixed(2)}
+                                                                                    </div>
+                                                                                </div>
+                                                                                <div>
+                                                                                    <div style={{ color: 'var(--text-muted)', marginBottom: 2 }}>Effective Margin:</div>
+                                                                                    <div style={{
+                                                                                        fontSize: 'var(--text-md)',
+                                                                                        fontWeight: 700,
+                                                                                        color: effectiveMargin > 15 ? '#22c55e' : effectiveMargin < 0 ? '#ef4444' : '#f59e0b'
+                                                                                    }}>
+                                                                                        {effectiveMargin.toFixed(1)}%
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        </>
                                                                     );
                                                                 })()}
                                                             </div>
-                                                        </div>
-                                                    </div>
+                                                        )}
+                                                    </>
                                                 )}
                                             </div>
                                         </div>
@@ -2429,6 +2566,28 @@ const Inventory = () => {
                                                     onChange={(e) => setSelectedItem({ ...selectedItem, discount: e.target.value })}
                                                     min="0"
                                                 />
+                                                <div style={{ display: 'flex', gap: '4px', marginTop: '6px', flexWrap: 'wrap' }}>
+                                                    {[0, 5, 10, 15, 20, 25].map(val => (
+                                                        <button
+                                                            key={val}
+                                                            type="button"
+                                                            className="btn btn-xs"
+                                                            onClick={() => setSelectedItem({ ...selectedItem, discount: String(val) })}
+                                                            style={{
+                                                                padding: '2px 8px',
+                                                                fontSize: '11px',
+                                                                borderRadius: '4px',
+                                                                border: '1px solid var(--border)',
+                                                                background: Number(selectedItem.discount || 0) === val ? 'var(--accent)' : 'var(--surface-alt)',
+                                                                color: Number(selectedItem.discount || 0) === val ? 'var(--on-accent)' : 'var(--text)',
+                                                                cursor: 'pointer',
+                                                                transition: 'all 0.15s ease'
+                                                            }}
+                                                        >
+                                                            {val}%
+                                                        </button>
+                                                    ))}
+                                                </div>
                                             </div>
                                         </div>
                                         <div className="row gap-sm">
@@ -2466,6 +2625,119 @@ const Inventory = () => {
                                                 </div>
                                             </div>
                                         </div>
+                                        {Number(selectedItem.sell_price) > 0 && (
+                                            <div style={{
+                                                marginTop: 'var(--space-12)',
+                                                padding: 'var(--space-12)',
+                                                borderRadius: 'var(--radius-md)',
+                                                background: 'var(--surface-2, #1e1e2e)',
+                                                border: '1px dashed var(--border)',
+                                                fontSize: 'var(--text-xs)',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                gap: 'var(--space-8)'
+                                            }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <span style={{ fontWeight: 600, color: 'var(--text-muted)' }}>Pricing Summary</span>
+                                                    {(() => {
+                                                        const cp = Number(selectedItem.cost_price) || 0;
+                                                        const gst = Number(selectedItem.gst_rate) || 0;
+                                                        const mrp = Number(selectedItem.sell_price) || 0;
+                                                        const discPct = Number(selectedItem.discount) || 0;
+                                                        const discAmount = mrp * (discPct / 100);
+                                                        const effectiveSellPrice = Math.max(0, mrp - discAmount);
+                                                        const effectiveMargin = calculateMargin(cp, effectiveSellPrice, gst);
+
+                                                        if (effectiveMargin < 0) {
+                                                            return (
+                                                                <span style={{
+                                                                    background: 'rgba(239, 68, 68, 0.15)',
+                                                                    color: '#ef4444',
+                                                                    padding: '2px 8px',
+                                                                    borderRadius: '12px',
+                                                                    fontWeight: 700,
+                                                                    fontSize: '10px'
+                                                                }}>
+                                                                    ⚠️ Selling at a loss
+                                                                </span>
+                                                            );
+                                                        } else if (effectiveMargin < 15) {
+                                                            return (
+                                                                <span style={{
+                                                                    background: 'rgba(245, 158, 11, 0.15)',
+                                                                    color: '#f59e0b',
+                                                                    padding: '2px 8px',
+                                                                    borderRadius: '12px',
+                                                                    fontWeight: 700,
+                                                                    fontSize: '10px'
+                                                                }}>
+                                                                    ⚠️ Thin margin
+                                                                </span>
+                                                            );
+                                                        } else {
+                                                            return (
+                                                                <span style={{
+                                                                    background: 'rgba(34, 197, 94, 0.15)',
+                                                                    color: '#22c55e',
+                                                                    padding: '2px 8px',
+                                                                    borderRadius: '12px',
+                                                                    fontWeight: 700,
+                                                                    fontSize: '10px'
+                                                                }}>
+                                                                    ✓ Healthy margin
+                                                                </span>
+                                                            );
+                                                        }
+                                                    })()}
+                                                </div>
+
+                                                {(() => {
+                                                    const cp = Number(selectedItem.cost_price) || 0;
+                                                    const gst = Number(selectedItem.gst_rate) || 0;
+                                                    const mrp = Number(selectedItem.sell_price) || 0;
+                                                    const discPct = Number(selectedItem.discount) || 0;
+                                                    const discAmount = mrp * (discPct / 100);
+                                                    const effectiveSellPrice = Math.max(0, mrp - discAmount);
+                                                    const effectiveMargin = calculateMargin(cp, effectiveSellPrice, gst);
+
+                                                    return (
+                                                        <>
+                                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-8)', borderTop: '1px solid var(--border)', paddingTop: 'var(--space-8)' }}>
+                                                                <div>
+                                                                    <div style={{ color: 'var(--text-muted)', marginBottom: 2 }}>Base MRP:</div>
+                                                                    <div style={{ fontSize: 'var(--text-sm)', fontWeight: 600 }}>₹{mrp.toFixed(2)}</div>
+                                                                </div>
+                                                                <div>
+                                                                    <div style={{ color: 'var(--text-muted)', marginBottom: 2 }}>Discount ({discPct}%):</div>
+                                                                    <div style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: discAmount > 0 ? '#ef4444' : 'inherit' }}>
+                                                                        -₹{discAmount.toFixed(2)}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-8)', borderTop: '1px solid var(--border)', paddingTop: 'var(--space-8)' }}>
+                                                                <div>
+                                                                    <div style={{ color: 'var(--text-muted)', marginBottom: 2 }}>Effective Price:</div>
+                                                                    <div style={{ fontSize: 'var(--text-md)', fontWeight: 700, color: 'var(--text-success, #22c55e)' }}>
+                                                                        ₹{effectiveSellPrice.toFixed(2)}
+                                                                    </div>
+                                                                </div>
+                                                                <div>
+                                                                    <div style={{ color: 'var(--text-muted)', marginBottom: 2 }}>Effective Margin:</div>
+                                                                    <div style={{
+                                                                        fontSize: 'var(--text-md)',
+                                                                        fontWeight: 700,
+                                                                        color: effectiveMargin > 15 ? '#22c55e' : effectiveMargin < 0 ? '#ef4444' : '#f59e0b'
+                                                                    }}>
+                                                                        {effectiveMargin.toFixed(1)}%
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </>
+                                                    );
+                                                })()}
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Section: Stock & Supply */}
