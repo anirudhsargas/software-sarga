@@ -676,7 +676,8 @@ const ConsumablesManagement = () => {
                                     <input className="input-field" value={formData.color} onChange={e => setFormData({ ...formData, color: e.target.value })} />
                                 </div>
                                 <div><label className="label">SKU</label>
-                                    <input className="input-field" value={formData.sku} onChange={e => setFormData({ ...formData, sku: e.target.value })} />
+                                    <input className="input-field" value={formData.sku} onChange={e => setFormData({ ...formData, sku: e.target.value })} disabled={modalMode === 'edit'} />
+                                    {modalMode === 'edit' && <small style={{ color: 'var(--text-muted)', fontSize: '10px', display: 'block' }}>SKU cannot be changed after creation</small>}
                                 </div>
                                 <div><label className="label">Quantity *</label>
                                     <input type="number" step="0.001" className="input-field" value={formData.quantity_in_stock} onChange={e => setFormData({ ...formData, quantity_in_stock: e.target.value })} />

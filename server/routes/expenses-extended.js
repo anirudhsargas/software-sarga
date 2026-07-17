@@ -569,10 +569,10 @@ async function ensureProductLibraryFromInventoryItem({ inventoryId, name, catego
   if (alreadyLinked.length > 0) {
     const existingProductId = alreadyLinked[0].id;
 
-    // Always update SKU/company metadata on the product record
+    // Preserve existing product_code/company_code (immutable after creation)
     await pool.query(
       `UPDATE sarga_products
-       SET product_code = COALESCE(?, product_code),
+       SET product_code = COALESCE(NULLIF(?, ''), product_code),
            company_name = COALESCE(NULLIF(?, ''), company_name),
            company_code = COALESCE(NULLIF(?, ''), company_code),
            size = COALESCE(NULLIF(?, ''), size)

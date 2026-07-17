@@ -277,13 +277,13 @@ const Vendors = ({
                       <div className="vendor-card__stat">
                         <span className="stat-mini__label">Outstanding</span>
                         <span className={`stat-mini__value ${
-                          !vendor.current_balance || vendor.current_balance <= 0
+                          !vendor.pending_amount || vendor.pending_amount <= 0
                             ? 'stat-mini__value--success'
-                            : vendor.credit_limit > 0 && vendor.current_balance >= vendor.credit_limit
+                            : vendor.credit_limit > 0 && vendor.pending_amount >= vendor.credit_limit
                               ? 'stat-mini__value--danger'
                               : 'stat-mini__value--warning'
                         }`}>
-                          {formatCurrency(vendor.current_balance || vendor.pending_amount || 0)}
+                          {formatCurrency(vendor.pending_amount || 0)}
                         </span>
                         {vendor.credit_limit > 0 && (
                           <span className="stat-mini__label" style={{ fontSize: 9 }}>

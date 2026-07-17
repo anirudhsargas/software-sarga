@@ -310,11 +310,14 @@ const VendorModal = ({ vendor, onClose, onSave }) => {
                       onChange={handleInputChange} 
                       placeholder="e.g. SPS"
                       maxLength={3}
+                      disabled={!!vendor}
                       className={`vendor-input ${errors.vendor_code ? 'field-error' : ''}`}
                     />
                   </div>
                   {errors.vendor_code ? (
                     <span className="vendor-error-lbl">{errors.vendor_code}</span>
+                  ) : vendor ? (
+                    <span className="vendor-help-lbl">Vendor code cannot be changed after creation</span>
                   ) : (
                     <span className="vendor-help-lbl">Unique ID for product sourcing</span>
                   )}

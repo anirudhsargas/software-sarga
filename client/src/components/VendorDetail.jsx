@@ -311,19 +311,19 @@ const VendorDetail = ({
             <div className="metric-icon-detail" style={{ color: 'var(--warning)' }}><AlertCircle size={18} /></div>
           </div>
           <p className="metric-value-detail" style={{
-            color: !details.current_balance || details.current_balance <= 0
+            color: !details.pending_amount || details.pending_amount <= 0
               ? 'var(--success)'
-              : details.credit_limit > 0 && details.current_balance >= details.credit_limit
+              : details.credit_limit > 0 && details.pending_amount >= details.credit_limit
                 ? 'var(--error)'
                 : 'var(--warning)'
           }}>
-            {formatCurrency(details.current_balance || details.pending_amount || 0)}
+            {formatCurrency(details.pending_amount || 0)}
           </p>
           <p className="metric-sub-detail">
-            {!details.current_balance || details.current_balance <= 0
+            {!details.pending_amount || details.pending_amount <= 0
               ? 'Account in good standing'
               : details.credit_limit > 0
-                ? `${((details.current_balance / details.credit_limit) * 100).toFixed(0)}% of ₹${Number(details.credit_limit).toLocaleString()} credit limit used`
+                ? `${((details.pending_amount / details.credit_limit) * 100).toFixed(0)}% of ₹${Number(details.credit_limit).toLocaleString()} credit limit used`
                 : 'Outstanding accounts payable'}
           </p>
         </div>

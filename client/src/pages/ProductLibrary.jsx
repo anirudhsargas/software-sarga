@@ -2307,8 +2307,12 @@ const ProductLibrary = () => {
                                             value={newProduct.name}
                                             onChange={e => {
                                                 const val = e.target.value;
-                                                const autoCode = buildAutoSku(newProduct.company_code, val, newProduct.size);
-                                                setNewProduct({ ...newProduct, name: val, product_code: autoCode });
+                                                if (!isEditing) {
+                                                    const autoCode = buildAutoSku(newProduct.company_code, val, newProduct.size);
+                                                    setNewProduct({ ...newProduct, name: val, product_code: autoCode });
+                                                } else {
+                                                    setNewProduct({ ...newProduct, name: val });
+                                                }
                                             }}
                                             placeholder="e.g. Glossy Business Card"
                                             required
@@ -2355,15 +2359,22 @@ const ProductLibrary = () => {
                                                 onBlur={() => setTimeout(() => setCompanyDropdownOpen(false), 200)}
                                                 onChange={e => {
                                                     const val = e.target.value.toUpperCase();
-                                                    // Quick guess at code if none exists
-                                                    const quickCode = val.replace(/[^A-Z0-9]/g, '').substring(0, 3);
-                                                    setNewProduct(prev => ({
-                                                        ...prev,
-                                                        company_name: val,
-                                                        company_code: prev.isManualCompanyCode ? prev.company_code : (prev.company_code || quickCode),
-                                                        product_code: buildAutoSku(prev.isManualCompanyCode ? prev.company_code : (prev.company_code || quickCode), prev.name, prev.size),
-                                                        extraInv: { ...prev.extraInv, vendor_name: val }
-                                                    }));
+                                                    if (!isEditing) {
+                                                        const quickCode = val.replace(/[^A-Z0-9]/g, '').substring(0, 3);
+                                                        setNewProduct(prev => ({
+                                                            ...prev,
+                                                            company_name: val,
+                                                            company_code: prev.isManualCompanyCode ? prev.company_code : (prev.company_code || quickCode),
+                                                            product_code: buildAutoSku(prev.isManualCompanyCode ? prev.company_code : (prev.company_code || quickCode), prev.name, prev.size),
+                                                            extraInv: { ...prev.extraInv, vendor_name: val }
+                                                        }));
+                                                    } else {
+                                                        setNewProduct(prev => ({
+                                                            ...prev,
+                                                            company_name: val,
+                                                            extraInv: { ...prev.extraInv, vendor_name: val }
+                                                        }));
+                                                    }
                                                     fetchUniqueCode(val, newProduct);
                                                     setCompanyDropdownOpen(true);
                                                 }}
@@ -2400,12 +2411,11 @@ const ProductLibrary = () => {
                                                             onMouseDown={e => {
                                                                 e.preventDefault();
                                                                 if (codeTimerRef.current) clearTimeout(codeTimerRef.current);
-                                                                const autoSku = buildAutoSku(c.code, newProduct.name, newProduct.size);
                                                                 setNewProduct(prev => ({
                                                                     ...prev,
                                                                     company_name: c.name,
                                                                     company_code: c.code,
-                                                                    product_code: autoSku,
+                                                                    product_code: isEditing ? prev.product_code : buildAutoSku(c.code, prev.name, prev.size),
                                                                     isManualCompanyCode: true,
                                                                     extraInv: { ...prev.extraInv, vendor_name: c.name }
                                                                 }));
@@ -2499,11 +2509,16 @@ const ProductLibrary = () => {
                                             value={newProduct.company_code}
                                             onChange={e => {
                                                 const val = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 5);
-                                                const autoSku = buildAutoSku(val, newProduct.name, newProduct.size);
-                                                setNewProduct({ ...newProduct, company_code: val, product_code: autoSku, isManualCompanyCode: true });
+                                                if (!isEditing) {
+                                                    const autoSku = buildAutoSku(val, newProduct.name, newProduct.size);
+                                                    setNewProduct({ ...newProduct, company_code: val, product_code: autoSku, isManualCompanyCode: true });
+                                                } else {
+                                                    setNewProduct({ ...newProduct, company_code: val, isManualCompanyCode: true });
+                                                }
                                             }}
                                             placeholder="e.g. PMI"
                                             maxLength={5}
+                                            disabled={isEditing && !!newProduct.company_code}
                                         />
                                     </div>
 
@@ -2515,10 +2530,15 @@ const ProductLibrary = () => {
                                             value={newProduct.size}
                                             onChange={e => {
                                                 const val = e.target.value.toUpperCase();
-                                                const autoSku = buildAutoSku(newProduct.company_code, newProduct.name, val);
-                                                setNewProduct({ ...newProduct, size: val, product_code: autoSku });
+                                                if (!isEditing) {
+                                                    const autoSku = buildAutoSku(newProduct.company_code, newProduct.name, val);
+                                                    setNewProduct({ ...newProduct, size: val, product_code: autoSku });
+                                                } else {
+                                                    setNewProduct({ ...newProduct, size: val });
+                                                }
                                             }}
                                             placeholder="e.g. 12X18"
+                                            disabled={isEditing && !!newProduct.product_code}
                                         />
                                     </div>
                                 </div>

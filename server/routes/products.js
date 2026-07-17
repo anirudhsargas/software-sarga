@@ -138,9 +138,10 @@ module.exports = (upload, removeUploadFile) => {
         const parsedSellPrice = slabSellPrice;
 
         // Use product_code as SKU with unique suffix, or auto-generate
-        // Use product_code as SKU if unique, otherwise append productId
-        let sku = productCode || null;
-        if (sku) {
+        // But never overwrite existing SKU (immutable after creation)
+        const [[existingInv]] = await connection.query('SELECT sku FROM sarga_inventory WHERE id = ?', [inventoryId]);
+        let sku = existingInv?.sku || productCode || null;
+        if (!existingInv?.sku && sku) {
             const [dup] = await connection.query('SELECT id FROM sarga_inventory WHERE sku = ? AND id != ?', [sku, inventoryId]);
             if (dup.length > 0) sku = `${sku}-${productId}`;
         }
@@ -809,6 +810,14 @@ module.exports = (upload, removeUploadFile) => {
                 const [currExtras] = await pool.query('SELECT * FROM sarga_product_extras_template WHERE product_id = ?', [id]);
                 const [currLinks] = await pool.query('SELECT id, name, url FROM sarga_product_links WHERE product_id = ? ORDER BY id ASC', [id]);
 
+                // product_code and company_code are immutable after creation
+                if (product.product_code && product_code !== undefined && product.product_code !== product_code) {
+                    return res.status(400).json({ message: 'Product code cannot be changed after creation' });
+                }
+                if (product.company_code && company_code !== undefined && product.company_code !== company_code) {
+                    return res.status(400).json({ message: 'Company code cannot be changed after creation' });
+                }
+
                 const currentData = Object.assign({}, product, { slabs: currSlabs, extras: currExtras, links: currLinks });
 
                 const proposedData = {
@@ -849,6 +858,19 @@ module.exports = (upload, removeUploadFile) => {
 
         try {
             await connection.beginTransaction();
+
+            // product_code and company_code are immutable after creation
+            const [[existingProduct]] = await connection.query('SELECT product_code, company_code FROM sarga_products WHERE id = ?', [id]);
+            if (existingProduct) {
+                if (existingProduct.product_code && product_code && existingProduct.product_code !== product_code) {
+                    await connection.rollback();
+                    return res.status(400).json({ message: 'Product code cannot be changed after creation' });
+                }
+                if (existingProduct.company_code && company_code && existingProduct.company_code !== company_code) {
+                    await connection.rollback();
+                    return res.status(400).json({ message: 'Company code cannot be changed after creation' });
+                }
+            }
 
             await connection.query(
                 "UPDATE sarga_products SET subcategory_id = ?, name = ?, product_code = ?, company_name = ?, company_code = ?, size = ?, calculation_type = ?, description = ?, image_url = ?, has_paper_rate = ?, paper_rate = ?, has_double_side_rate = ?, inventory_item_id = ?, is_physical_product = ? WHERE id = ?",

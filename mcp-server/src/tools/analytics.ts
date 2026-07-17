@@ -1,8 +1,9 @@
 /**
- * MCP Tools — Analytics & Reports (4 tools)
+ * MCP Tools — Analytics & Reports (5 tools)
  *
  * Tools: get_sales_analytics, get_inventory_valuation,
- *        generate_profit_loss_report, get_business_dashboard
+ *        generate_profit_loss_report, get_business_dashboard,
+ *        get_product_sales_velocity
  */
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
@@ -264,6 +265,183 @@ export function registerAnalyticsTools(server: McpServer): void {
               total_receivables: formatCurrency(Number((receivables as any)?.total || 0)),
               total_payables: formatCurrency(Number((payables as any)?.total || 0)),
             },
+          }),
+        }],
+      };
+    },
+  );
+
+  // ─── 5. get_product_sales_velocity ───────────────────────
+  server.tool(
+    'get_product_sales_velocity',
+    'Analyze product sales frequency — top sellers and dormant products — from order line items',
+    {
+      product_id: z.number().optional().describe('Get sales detail for a specific product'),
+      category: z.string().optional().describe('Filter by product category (from order_lines)'),
+      branch_id: z.number().optional().describe('Filter payments by branch'),
+      dormant_days_threshold: z.number().optional().default(60).describe('Flag products with no sale in this many days'),
+      from_date: z.string().optional().describe('Start date (YYYY-MM-DD), defaults to 90 days ago'),
+      to_date: z.string().optional().describe('End date (YYYY-MM-DD), defaults to today'),
+      limit: z.number().optional().default(20).describe('Max results (max 50)'),
+    },
+    async ({ product_id, category, branch_id, dormant_days_threshold, from_date, to_date, limit }) => {
+      const start = from_date || daysAgo(90);
+      const end = to_date || new Date().toISOString().split('T')[0];
+      const maxLimit = Math.min(limit || 20, 50);
+
+      const conditions: string[] = [];
+      const params: unknown[] = [];
+
+      conditions.push('cp.order_lines IS NOT NULL');
+      conditions.push("cp.order_lines != '[]'");
+      conditions.push('cp.payment_date BETWEEN ? AND ?');
+      params.push(start, end);
+
+      if (branch_id) {
+        conditions.push('cp.branch_id = ?');
+        params.push(branch_id);
+      }
+
+      const payments = await selectAll(
+        `SELECT cp.id, cp.payment_date, cp.order_lines
+         FROM sarga_customer_payments cp
+         WHERE ${conditions.join(' AND ')}
+         ORDER BY cp.payment_date DESC`,
+        params,
+      );
+
+      const productMap = new Map<string, {
+        product_id: number | null;
+        product_name: string;
+        sales_count: number;
+        revenue: number;
+        last_sold_date: string;
+        category: string | null;
+      }>();
+
+      for (const payment of payments as any[]) {
+        let lines: Array<Record<string, unknown>>;
+        try {
+          lines = typeof payment.order_lines === 'string'
+            ? JSON.parse(payment.order_lines)
+            : (payment.order_lines || []);
+        } catch {
+          continue;
+        }
+        if (!Array.isArray(lines)) continue;
+
+        for (const line of lines) {
+          if (!line) continue;
+          if (product_id && line.product_id !== product_id) continue;
+          if (category && line.category && String(line.category).toLowerCase() !== category.toLowerCase()) continue;
+
+          const pid = line.product_id != null ? Number(line.product_id) : null;
+          const pname = String(line.product_name || line.job_name || 'Unknown Product');
+          const key = pid !== null ? `id:${pid}` : `name:${pname}`;
+          const qty = Math.max(Number(line.quantity) || 0, 1);
+          const amt = Number(line.total_amount) || 0;
+
+          const existing = productMap.get(key);
+          if (existing) {
+            existing.sales_count += qty;
+            existing.revenue += amt;
+            if (payment.payment_date > existing.last_sold_date) {
+              existing.last_sold_date = payment.payment_date;
+            }
+          } else {
+            productMap.set(key, {
+              product_id: pid,
+              product_name: pname,
+              sales_count: qty,
+              revenue: amt,
+              last_sold_date: payment.payment_date,
+              category: line.category ? String(line.category) : null,
+            });
+          }
+        }
+      }
+
+      if (productMap.size === 0) {
+        return {
+          content: [{
+            type: 'text' as const,
+            text: formatToolResult({
+              top_sellers: [],
+              dormant_products: [],
+              period: { from: start, to: end },
+            }),
+          }],
+        };
+      }
+
+      // Enrich with product catalog + inventory info
+      const productIds = new Set<number>();
+      for (const agg of productMap.values()) {
+        if (agg.product_id !== null) productIds.add(agg.product_id);
+      }
+
+      const productLookup = new Map<number, Record<string, unknown>>();
+      if (productIds.size > 0) {
+        const idList = [...productIds];
+        const products = await selectAll(
+          `SELECT p.id, p.name, p.product_code, p.subcategory_id, p.is_physical_product,
+                  p.inventory_item_id, sc.name as category_name, ss.name as subcategory_name,
+                  i.name as inventory_name, i.sku, i.quantity as stock_quantity,
+                  i.reorder_level, i.sell_price
+           FROM sarga_products p
+           LEFT JOIN sarga_product_subcategories ss ON p.subcategory_id = ss.id
+           LEFT JOIN sarga_product_categories sc ON ss.category_id = sc.id
+           LEFT JOIN sarga_inventory i ON p.inventory_item_id = i.id
+           WHERE p.id IN (${idList.map(() => '?').join(',')})`,
+          idList,
+        );
+        for (const prod of products as any[]) {
+          productLookup.set(prod.id, prod);
+        }
+      }
+
+      const today = new Date().toISOString().split('T')[0];
+      const allProducts: Array<Record<string, unknown>> = [];
+
+      for (const agg of productMap.values()) {
+        const cat = agg.product_id !== null ? productLookup.get(agg.product_id) : null;
+        const daysSince = Math.floor(
+          (new Date(today).getTime() - new Date(agg.last_sold_date).getTime()) / (1000 * 60 * 60 * 24),
+        );
+
+        allProducts.push({
+          product_id: agg.product_id,
+          product_name: agg.product_name,
+          category: cat?.category_name || agg.category,
+          subcategory: cat?.subcategory_name || null,
+          sales_count: agg.sales_count,
+          revenue: Math.round(agg.revenue * 100) / 100,
+          last_sold_date: agg.last_sold_date,
+          days_since_last_sale: daysSince,
+          is_physical_product: cat?.is_physical_product === 1 || cat?.is_physical_product === '1',
+          sku: cat?.sku || null,
+          current_stock: cat?.stock_quantity != null ? Number(cat.stock_quantity) : null,
+          reorder_level: cat?.reorder_level != null ? Number(cat.reorder_level) : null,
+        });
+      }
+
+      const dormantThreshold = dormant_days_threshold ?? 60;
+      const topSellers = [...allProducts]
+        .sort((a, b) => (b.sales_count as number) - (a.sales_count as number))
+        .slice(0, maxLimit);
+
+      const dormantProducts = [...allProducts]
+        .filter(p => (p.days_since_last_sale as number) >= dormantThreshold)
+        .sort((a, b) => (b.days_since_last_sale as number) - (a.days_since_last_sale as number))
+        .slice(0, maxLimit);
+
+      return {
+        content: [{
+          type: 'text' as const,
+          text: formatToolResult({
+            top_sellers: topSellers,
+            dormant_products: dormantProducts,
+            period: { from: start, to: end },
           }),
         }],
       };

@@ -21,6 +21,7 @@ import './Customers.css';
 import PageContainer from '../components/ui/PageContainer';
 
 const CUSTOMER_TYPES = ['Retail', 'Offset', 'Walk-in'];
+const ADD_CUSTOMER_TYPES = ['Retail', 'Offset'];
 const ADMIN_ROLES = ['admin', 'super_admin'];
 
 const Customers = () => {
@@ -1142,7 +1143,7 @@ const Customers = () => {
                                     value={newCustomer.type}
                                     onChange={(e) => updateNewCustomer({ type: e.target.value })}
                                 >
-                                    {CUSTOMER_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                                    {ADD_CUSTOMER_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                                 </select>
                             </div>
                             <div style={{ marginBottom: 16 }}>

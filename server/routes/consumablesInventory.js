@@ -134,6 +134,13 @@ router.put('/inventory/consumables/:id', authenticateToken, authorizeRoles('Admi
             unit_cost, supplier_name, supplier_id, sku, branch, notes
         } = req.body;
 
+        // SKU is immutable after creation
+        const [[existingConsumable]] = await connection.query('SELECT sku FROM consumables_inventory WHERE id = ?', [id]);
+        if (existingConsumable && existingConsumable.sku && sku && existingConsumable.sku !== sku) {
+            await connection.rollback();
+            return res.status(400).json({ message: 'SKU cannot be changed after creation' });
+        }
+
         await connection.query(
             `UPDATE consumables_inventory SET
              name = ?, category = ?, unit = ?, gsm = ?, size_name = ?, brand = ?, finish = ?, color = ?,

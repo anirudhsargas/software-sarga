@@ -819,12 +819,11 @@ router.post('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant
             const newQuantity = oldQty + qtyToAdd;
             await connection.query(
                 `UPDATE sarga_inventory 
-                 SET quantity = ?, sku = COALESCE(?, sku), category = ?, unit = ?, reorder_level = ?, cost_price = ?, sell_price = ?, hsn = ?, discount = ?, gst_rate = ?,
+                 SET quantity = ?, category = ?, unit = ?, reorder_level = ?, cost_price = ?, sell_price = ?, hsn = ?, discount = ?, gst_rate = ?,
                      source_code = ?, model_name = ?, size_code = ?, item_type = ?, vendor_name = ?, vendor_contact = ?, purchase_link = ?
                  WHERE id = ?`,
                 [
                     newQuantity,
-                    normalizedSku,
                     category || null,
                     unit || 'pcs',
                     Number(reorder_level) || 0,
@@ -1007,6 +1006,23 @@ router.put('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Account
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
+
+        // 0. SKU and source_code/model_name/size_code are immutable after creation
+        const [[existingItem]] = await connection.query('SELECT sku, source_code, model_name, size_code FROM sarga_inventory WHERE id = ?', [id]);
+        if (existingItem) {
+            if (existingItem.sku && normalizedSku && existingItem.sku !== normalizedSku) {
+                return res.status(400).json({ message: 'SKU cannot be changed after creation' });
+            }
+            if (existingItem.source_code && source_code && existingItem.source_code !== source_code) {
+                return res.status(400).json({ message: 'Source code cannot be changed after creation' });
+            }
+            if (existingItem.model_name && model_name && existingItem.model_name !== model_name) {
+                return res.status(400).json({ message: 'Model name cannot be changed after creation' });
+            }
+            if (existingItem.size_code && size_code && existingItem.size_code !== size_code) {
+                return res.status(400).json({ message: 'Size code cannot be changed after creation' });
+            }
+        }
 
         // 1. If branch_stocks is passed, compute total quantity
         let finalQuantity = Number(quantity) || 0;

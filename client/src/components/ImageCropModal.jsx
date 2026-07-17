@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Cropper from 'react-easy-crop';
 import { getCroppedBlob } from '../utils/imageCrop';
 import toast from 'react-hot-toast';
+import './ImageCropModal.css';
 
 const SUPPORTED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
@@ -72,7 +73,7 @@ const ImageCropModal = ({ file, title = 'Crop Image', outputSize = 512, onCancel
   return (
     <div className="modal-backdrop">
       <div className="modal cropper-modal">
-        <h2 className="section-title mb-16">{title}</h2>
+        <h2 className="cropper-title">{title}</h2>
         <div className="cropper-wrapper">
           <Cropper
             image={imageUrl}
@@ -85,7 +86,10 @@ const ImageCropModal = ({ file, title = 'Crop Image', outputSize = 512, onCancel
           />
         </div>
         <div className="cropper-controls">
-          <label className="label" style={{ marginBottom: 0 }}>Zoom</label>
+          <div className="cropper-controls__label">
+            <span className="cropper-controls__title">Zoom</span>
+            <span className="cropper-controls__value">{zoom.toFixed(2)}x</span>
+          </div>
           <input
             className="cropper-slider"
             type="range"
@@ -97,10 +101,10 @@ const ImageCropModal = ({ file, title = 'Crop Image', outputSize = 512, onCancel
           />
         </div>
         <div className="cropper-actions">
-          <button type="button" className="btn btn-ghost flex-1" onClick={onCancel} disabled={saving}>
+          <button type="button" className="btn btn-ghost" onClick={onCancel} disabled={saving}>
             Cancel
           </button>
-          <button type="button" className="btn btn-primary flex-1" onClick={handleSave} disabled={saving}>
+          <button type="button" className="btn btn-primary" onClick={handleSave} disabled={saving}>
             {saving ? 'Saving...' : 'Use Photo'}
           </button>
         </div>

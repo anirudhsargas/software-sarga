@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import api from '../services/api';
 import { serverToday } from '../services/serverTime';
 import CashOpeningSection from './CashOpeningSection';
+import './OpeningSetupModal.css';
 
 const BOOK_TABS = [
     { key: 'Offset', label: 'Offset', color: 'var(--info)' },
@@ -221,7 +222,7 @@ const OpeningSetupModal = ({ balances, machines, prevClosing, branchName, onSave
                                         <div key={m.id} className={`os-machine-row ${m.error ? 'os-machine-row--error' : ''} ${isInvalid ? 'os-machine-row--invalid' : ''}`}>
                                             <span className="os-machine-row__name">{m.machine_name}</span>
                                             <span className="os-machine-row__prev">
-                                                {prev > 0 ? prev.toLocaleString('en-IN') : '—'}
+                                                {prev > 0 ? `Prev: ${prev.toLocaleString('en-IN')}` : 'Prev: —'}
                                             </span>
                                             <input
                                                 type="text"

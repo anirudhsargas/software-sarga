@@ -146,8 +146,14 @@ async function updateOverdueStatuses() {
       UPDATE vendor_invoices
       SET status = 'overdue'
       WHERE due_date < CURDATE()
-        AND paid_amount < amount
+        AND COALESCE(paid_amount, 0) < total_amount
         AND status != 'paid'
+    `);
+    await pool.query(`
+      UPDATE vendor_invoices
+      SET status = 'paid', payment_status = 'paid'
+      WHERE COALESCE(paid_amount, 0) >= total_amount
+        AND status IN ('overdue', 'partial', 'pending')
     `);
   } catch (error) {
     logger.error('Error updating overdue statuses:', error);
@@ -187,10 +193,10 @@ router.get('/vendors', authenticateToken, async (req, res) => {
     const [vendors] = await pool.query(`
       SELECT
         v.*,
-        COALESCE(SUM(CASE WHEN vi.invoice_date BETWEEN ? AND ? THEN vi.amount ELSE 0 END), 0) as this_month_spend,
-        COALESCE(SUM(vi.amount - vi.paid_amount), 0) as pending_amount,
+        COALESCE(SUM(CASE WHEN vi.invoice_date BETWEEN ? AND ? THEN vi.total_amount ELSE 0 END), 0) as this_month_spend,
+        COALESCE(SUM(vi.total_amount - COALESCE(vi.paid_amount, 0)), 0) as pending_amount,
         COUNT(vi.id) as total_invoices,
-        COUNT(CASE WHEN vi.status = 'overdue' AND (vi.amount - vi.paid_amount) > 0 THEN 1 END) as overdue_invoices
+        COUNT(CASE WHEN COALESCE(vi.paid_amount, 0) < vi.total_amount AND vi.due_date < CURDATE() THEN 1 END) as overdue_invoices
       FROM vendors v
       LEFT JOIN vendor_invoices vi ON v.id = vi.vendor_id
       ${whereClause}
@@ -218,9 +224,9 @@ router.get('/vendors/summary', authenticateToken, async (req, res) => {
     `);
 
     const [overdue] = await pool.query(`
-      SELECT COALESCE(SUM(amount - paid_amount), 0) as total_overdue
+      SELECT COALESCE(SUM(total_amount - COALESCE(paid_amount, 0)), 0) as total_overdue
       FROM vendor_invoices
-      WHERE status = 'overdue' AND (amount - paid_amount) > 0
+      WHERE due_date < CURDATE() AND COALESCE(paid_amount, 0) < total_amount
     `);
 
     res.json({
@@ -250,24 +256,24 @@ router.get('/vendors/payables/summary', authenticateToken, async (req, res) => {
         v.current_balance,
         v.phone,
         COALESCE(SUM(CASE
-          WHEN vi.payment_status IN ('unpaid','partial')
+          WHEN COALESCE(vi.paid_amount, 0) < vi.total_amount
                AND vi.due_date >= CURDATE()
           THEN vi.total_amount - COALESCE(vi.paid_amount, 0)
           ELSE 0 END), 0) as current_due,
         COALESCE(SUM(CASE
-          WHEN vi.payment_status IN ('unpaid','partial')
+          WHEN COALESCE(vi.paid_amount, 0) < vi.total_amount
                AND vi.due_date < CURDATE()
                AND vi.due_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
           THEN vi.total_amount - COALESCE(vi.paid_amount, 0)
           ELSE 0 END), 0) as overdue_0_30,
         COALESCE(SUM(CASE
-          WHEN vi.payment_status IN ('unpaid','partial')
+          WHEN COALESCE(vi.paid_amount, 0) < vi.total_amount
                AND vi.due_date < DATE_SUB(CURDATE(), INTERVAL 30 DAY)
                AND vi.due_date >= DATE_SUB(CURDATE(), INTERVAL 60 DAY)
           THEN vi.total_amount - COALESCE(vi.paid_amount, 0)
           ELSE 0 END), 0) as overdue_31_60,
         COALESCE(SUM(CASE
-          WHEN vi.payment_status IN ('unpaid','partial')
+          WHEN COALESCE(vi.paid_amount, 0) < vi.total_amount
                AND vi.due_date < DATE_SUB(CURDATE(), INTERVAL 60 DAY)
           THEN vi.total_amount - COALESCE(vi.paid_amount, 0)
           ELSE 0 END), 0) as overdue_60_plus
@@ -357,7 +363,7 @@ router.get('/vendors/:id/credit-status', authenticateToken, async (req, res) => 
              DATEDIFF(CURDATE(), due_date) as days_overdue,
              total_amount - COALESCE(paid_amount, 0) as amount
       FROM vendor_invoices
-      WHERE vendor_id = ? AND payment_status IN ('unpaid', 'partial') AND due_date < CURDATE()
+      WHERE vendor_id = ? AND COALESCE(paid_amount, 0) < total_amount AND due_date < CURDATE()
       ORDER BY due_date ASC
     `, [id]);
 
@@ -432,9 +438,10 @@ router.get('/vendors/:id', authenticateToken, async (req, res) => {
     // Get vendor details
     const [vendors] = await pool.query(`
       SELECT v.*,
-             COALESCE(SUM(vi.amount), 0) as total_spend,
-             COALESCE(SUM(vi.amount - vi.paid_amount), 0) as pending_amount,
-             COUNT(vi.id) as total_invoices
+             COALESCE(SUM(vi.total_amount), 0) as total_spend,
+             COALESCE(SUM(vi.total_amount - COALESCE(vi.paid_amount, 0)), 0) as pending_amount,
+             COUNT(vi.id) as total_invoices,
+             COUNT(CASE WHEN COALESCE(vi.paid_amount, 0) < vi.total_amount AND vi.due_date < CURDATE() THEN 1 END) as overdue_invoices
       FROM vendors v
       LEFT JOIN vendor_invoices vi ON v.id = vi.vendor_id
       WHERE v.id = ? AND v.is_active = TRUE
@@ -572,9 +579,14 @@ router.put('/vendors/:id', authenticateToken, authorizeRoles('Admin', 'Accountan
     const vendorData = req.body;
 
     // Check if vendor exists
-    const [existing] = await pool.query('SELECT id FROM vendors WHERE id = ? AND is_active = TRUE', [id]);
+    const [existing] = await pool.query('SELECT id, vendor_code FROM vendors WHERE id = ? AND is_active = TRUE', [id]);
     if (existing.length === 0) {
       return res.status(404).json({ success: false, message: 'Vendor not found' });
+    }
+
+    // Vendor code is immutable after creation
+    if (existing[0].vendor_code && vendorData.vendor_code && existing[0].vendor_code !== vendorData.vendor_code) {
+      return res.status(400).json({ success: false, message: 'Vendor code cannot be changed after creation' });
     }
 
     // Check for duplicate name
@@ -644,7 +656,7 @@ router.delete('/vendors/:id', authenticateToken, authorizeRoles('Admin'), async 
     // Check if vendor has unpaid invoices (try both table schemas for compatibility)
     let unpaidCount = 0;
     try {
-      const [invoices] = await pool.query('SELECT COUNT(*) as count FROM vendor_invoices WHERE vendor_id = ? AND paid_amount < amount', [id]);
+      const [invoices] = await pool.query('SELECT COUNT(*) as count FROM vendor_invoices WHERE vendor_id = ? AND COALESCE(paid_amount, 0) < total_amount', [id]);
       unpaidCount = invoices[0].count;
     } catch (_err) {
       // If vendor_invoices doesn't exist or fails, try sarga_vendor_bills
@@ -698,11 +710,11 @@ router.get('/vendors/dashboard/stats', authenticateToken, async (req, res) => {
           const [s] = await pool.query(`
             SELECT
               COUNT(DISTINCT v.id) as total_vendors,
-              COALESCE(SUM(CASE WHEN vi.invoice_date BETWEEN ? AND ? THEN vi.amount ELSE 0 END), 0) as this_month_spend,
-              COALESCE(SUM(vi.amount - vi.paid_amount), 0) as pending_amount,
-              COALESCE(SUM(CASE WHEN vi.status = 'overdue' THEN vi.amount - vi.paid_amount ELSE 0 END), 0) as overdue_amount
+              COALESCE(SUM(CASE WHEN vi.invoice_date BETWEEN ? AND ? THEN vi.total_amount ELSE 0 END), 0) as this_month_spend,
+              COALESCE(SUM(vi.total_amount - COALESCE(vi.paid_amount, 0)), 0) as pending_amount,
+              COALESCE(SUM(CASE WHEN COALESCE(vi.paid_amount, 0) < vi.total_amount AND vi.due_date < CURDATE() THEN vi.total_amount - COALESCE(vi.paid_amount, 0) ELSE 0 END), 0) as overdue_amount
             FROM vendors v
-            LEFT JOIN vendor_invoices vi ON v.id = vi.vendor_id AND vi.status != 'paid'
+            LEFT JOIN vendor_invoices vi ON v.id = vi.vendor_id
             WHERE v.is_active = TRUE
           `, [startOfMonth, endOfMonth]);
           return s;
@@ -1683,7 +1695,7 @@ async function recordVendorPayment(req, res) {
     const newPaidAmount = Number(inv.paid_amount || 0) + Number(amount);
     let newStatus = 'partial';
     let newPaymentStatus = 'partial';
-    if (newPaidAmount >= Number(inv.amount)) {
+    if (newPaidAmount >= Number(inv.total_amount)) {
       newStatus = 'paid';
       newPaymentStatus = 'paid';
     } else if (newPaidAmount <= 0) {
@@ -1822,7 +1834,7 @@ router.get('/vendors/:id/ledger', authenticateToken, async (req, res) => {
       const [overdueRows] = await pool.query(
         `SELECT COALESCE(SUM(total_amount - COALESCE(paid_amount, 0)), 0) as overdue
          FROM vendor_invoices
-         WHERE vendor_id = ? AND payment_status IN ('unpaid', 'partial') AND due_date < CURDATE()`,
+         WHERE vendor_id = ? AND COALESCE(paid_amount, 0) < total_amount AND due_date < CURDATE()`,
         [id]
       );
       overdueAmount = Number(overdueRows[0].overdue) || 0;
