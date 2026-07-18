@@ -64,6 +64,7 @@ const ImageCropModal = ({ file, title = 'Crop Image', outputSize = 512, onCancel
     } catch (error) {
       console.error('Image crop failed', error);
       toast.error('Unable to crop image. Please try another file.');
+    } finally {
       setSaving(false);
     }
   };
