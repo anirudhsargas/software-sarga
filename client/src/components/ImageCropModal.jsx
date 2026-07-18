@@ -44,6 +44,7 @@ const ImageCropModal = ({ file, title = 'Crop Image', outputSize = 512, onCancel
     setCrop({ x: 0, y: 0 });
     setZoom(1);
     setCroppedAreaPixels(null);
+    setSaving(false);
   }, [file]);
 
   const handleCropComplete = (_, croppedPixels) => {
