@@ -568,7 +568,8 @@ router.post('/vendors', authenticateToken, authorizeRoles('Admin', 'Accountant',
     res.json({ success: true, data: { id: result.insertId, vendor_code: vendorCode, current_balance: curBal, message: 'Vendor added successfully' } });
   } catch (error) {
     console.error('Error creating vendor:', error);
-    res.status(500).json({ success: false, message: 'Database error' });
+    const msg = process.env.NODE_ENV === 'production' ? 'Database error' : error.message;
+    res.status(500).json({ success: false, message: msg, detail: error?.sqlMessage || error?.message || null });
   }
 });
 
