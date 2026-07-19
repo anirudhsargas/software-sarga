@@ -78,7 +78,7 @@ async function generateVendorCode(vendorName) {
 
   // Check if code exists, if so try next combinations
   const usedCodes = new Set();
-  const [existing] = await pool.query('SELECT vendor_code FROM vendors WHERE vendor_code IS NOT NULL AND vendor_code != ""');
+  const [existing] = await pool.query(`SELECT vendor_code FROM vendors WHERE vendor_code IS NOT NULL AND vendor_code != ''`);
   existing.forEach(row => usedCodes.add(row.vendor_code));
 
   // If original code is free, use it

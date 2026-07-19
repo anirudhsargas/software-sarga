@@ -258,7 +258,7 @@ module.exports = (upload, removeUploadFile) => {
         if (!name) return res.json({ code: '' });
 
         try {
-            const [rows] = await pool.query('SELECT DISTINCT source_code FROM sarga_inventory WHERE source_code IS NOT NULL AND source_code != ""');
+            const [rows] = await pool.query(`SELECT DISTINCT source_code FROM sarga_inventory WHERE source_code IS NOT NULL AND source_code != ''`);
             const usedCodes = new Set(rows.map(r => r.source_code.toUpperCase()));
 
             // Strategy 1: first 3 letters

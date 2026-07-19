@@ -425,7 +425,7 @@ async function syncLineItemsToInventory({ lineItems, vendorName }) {
     });
 
     await pool.query(
-      'UPDATE sarga_inventory SET category = ? WHERE id = ? AND (category IS NULL OR category = "")',
+      `UPDATE sarga_inventory SET category = ? WHERE id = ? AND (category IS NULL OR category = '')`,
 
       [inferredCategory, inventoryId]
     );
@@ -436,7 +436,7 @@ async function syncLineItemsToInventory({ lineItems, vendorName }) {
       const nextSku = await ensureUniqueSku(baseSku, inventoryId);
       if (nextSku) {
         await pool.query(
-          'UPDATE sarga_inventory SET sku = ? WHERE id = ? AND (sku IS NULL OR sku = "")',
+          `UPDATE sarga_inventory SET sku = ? WHERE id = ? AND (sku IS NULL OR sku = '')`,
           [nextSku, inventoryId]
         );
       }
