@@ -27,16 +27,6 @@ _LAST_JOB_COUNT = 0
 
 # ── DB helper ─────────────────────────────────────────────────────────────────
 
-def _get_db_config():
-    return {
-        "host": os.environ.get("DB_HOST", "localhost"),
-        "port": int(os.environ.get("DB_PORT", 3306)),
-        "user": os.environ.get("DB_USER", "root"),
-        "password": os.environ.get("DB_PASSWORD", ""),
-        "database": os.environ.get("DB_NAME", "sarga_db"),
-    }
-
-
 def _load_baskets():
     """
     Load completed jobs and group categories per customer-order basket.
@@ -44,12 +34,11 @@ def _load_baskets():
     We group by (customer_id, DATE(created_at)) to form baskets — all jobs
     a customer placed on the same day form one transaction.
     """
-    import mysql.connector
+    from db import get_connection, dict_cursor
 
-    cfg = _get_db_config()
-    conn = mysql.connector.connect(**cfg)
+    conn = get_connection()
     try:
-        cursor = conn.cursor(dictionary=True)
+        cursor = dict_cursor(conn)
 
         # Total completed-job count (for cache invalidation)
         cursor.execute(
@@ -149,9 +138,8 @@ def _get_rules():
             cached_count = data.get("job_count", 0)
 
             # Quick check current count
-            import mysql.connector
-            cfg = _get_db_config()
-            conn = mysql.connector.connect(**cfg)
+            from db import get_connection
+            conn = get_connection()
             try:
                 cur = conn.cursor()
                 cur.execute(

@@ -26,24 +26,13 @@ MODELS_DIR.mkdir(exist_ok=True)
 
 # ── DB helper ─────────────────────────────────────────────────────────────────
 
-def _get_db_config():
-    return {
-        "host": os.environ.get("DB_HOST", "localhost"),
-        "port": int(os.environ.get("DB_PORT", 3306)),
-        "user": os.environ.get("DB_USER", "root"),
-        "password": os.environ.get("DB_PASSWORD", ""),
-        "database": os.environ.get("DB_NAME", "sarga_db"),
-    }
-
-
 def _load_daily_jobs():
     """Load daily job counts per branch for the last 6 months."""
-    import mysql.connector
+    from db import get_connection, dict_cursor
 
-    cfg = _get_db_config()
-    conn = mysql.connector.connect(**cfg)
+    conn = get_connection()
     try:
-        cursor = conn.cursor(dictionary=True)
+        cursor = dict_cursor(conn)
         cursor.execute("""
             SELECT DATE(created_at) AS date,
                    branch_id,

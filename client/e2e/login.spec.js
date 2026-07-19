@@ -15,6 +15,7 @@ test.describe('Login Flow', () => {
 
   test('dashboard redirects to login when unauthenticated', async ({ page }) => {
     await page.goto('/dashboard');
-    await page.waitForURL(/\/login/, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/login/, { timeout: 10000 });
+    await expect(page.locator('input[type="text"], input[name="user_id"], input[placeholder*="User"]').first()).toBeVisible({ timeout: 5000 });
   });
 });

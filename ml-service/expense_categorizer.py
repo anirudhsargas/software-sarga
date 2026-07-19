@@ -18,6 +18,8 @@ import joblib
 import numpy as np
 import mysql.connector
 from flask import Blueprint, request, jsonify
+
+from db import get_config, get_connection, dict_cursor
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.linear_model import LogisticRegression
@@ -39,17 +41,6 @@ MODEL_PATH = os.path.join(os.path.dirname(__file__), "models", "expense_categori
 RETRAIN_THRESHOLD = 50
 
 
-# ── DB helper ────────────────────────────────────────────────────────────────
-def _get_db_config():
-    return {
-        "host": os.environ.get("DB_HOST", "localhost"),
-        "port": int(os.environ.get("DB_PORT", 3306)),
-        "user": os.environ.get("DB_USER", "root"),
-        "password": os.environ.get("DB_PASSWORD", ""),
-        "database": os.environ.get("DB_NAME", "sarga_db"),
-    }
-
-
 def _fetch_training_data():
     """
     Collect labelled text→category pairs from:
@@ -59,9 +50,8 @@ def _fetch_training_data():
       4. sarga_transport_expenses(description + transport_type)
       5. sarga_petty_cash        (description + category)
     """
-    cfg = _get_db_config()
-    conn = mysql.connector.connect(**cfg)
-    cursor = conn.cursor(dictionary=True)
+    conn = get_connection()
+    cursor = dict_cursor(conn)
     texts, labels = [], []
 
     try:
@@ -126,8 +116,7 @@ def _fetch_training_data():
 
 def _get_training_count():
     """Fast count of total available training rows."""
-    cfg = _get_db_config()
-    conn = mysql.connector.connect(**cfg)
+    conn = get_connection()
     cursor = conn.cursor()
     total = 0
     try:

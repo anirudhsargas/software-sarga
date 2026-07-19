@@ -20,25 +20,13 @@ bp = Blueprint("seasonal", __name__)
 
 logger = logging.getLogger(__name__)
 
-# MySQL connection helper (same pattern as sales_model.py)
-def _get_db_config():
-    return {
-        "host": os.environ.get("DB_HOST", "localhost"),
-        "port": int(os.environ.get("DB_PORT", 3306)),
-        "user": os.environ.get("DB_USER", "root"),
-        "password": os.environ.get("DB_PASSWORD", ""),
-        "database": os.environ.get("DB_NAME", "sarga_db"),
-    }
-
-
 def _load_daily_revenue():
     """Load 12+ months of daily revenue per branch from MySQL."""
-    import mysql.connector
+    from db import get_connection, dict_cursor
 
-    cfg = _get_db_config()
-    conn = mysql.connector.connect(**cfg)
+    conn = get_connection()
     try:
-        cursor = conn.cursor(dictionary=True)
+        cursor = dict_cursor(conn)
         cursor.execute("""
             SELECT DATE(created_at) AS day,
                    branch_id,

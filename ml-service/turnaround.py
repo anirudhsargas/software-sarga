@@ -20,24 +20,13 @@ bp = Blueprint("turnaround", __name__)
 logger = logging.getLogger(__name__)
 
 
-def _get_db_config():
-    return {
-        "host": os.environ.get("DB_HOST", "localhost"),
-        "port": int(os.environ.get("DB_PORT", 3306)),
-        "user": os.environ.get("DB_USER", "root"),
-        "password": os.environ.get("DB_PASSWORD", ""),
-        "database": os.environ.get("DB_NAME", "sarga_db"),
-    }
-
-
 def _load_completed_jobs():
     """Load past completed jobs with turnaround data."""
-    import mysql.connector
+    from db import get_connection, dict_cursor
 
-    cfg = _get_db_config()
-    conn = mysql.connector.connect(**cfg)
+    conn = get_connection()
     try:
-        cursor = conn.cursor(dictionary=True)
+        cursor = dict_cursor(conn)
         cursor.execute("""
             SELECT service_type, quantity, branch_id, created_at, completed_at,
                    TIMESTAMPDIFF(HOUR, created_at, completed_at) AS turnaround_hours
@@ -53,12 +42,11 @@ def _load_completed_jobs():
 
 def _get_queue_count(branch_id, service_type):
     """Get current pending/in-progress job count for the branch+service."""
-    import mysql.connector
+    from db import get_connection, dict_cursor
 
-    cfg = _get_db_config()
-    conn = mysql.connector.connect(**cfg)
+    conn = get_connection()
     try:
-        cursor = conn.cursor(dictionary=True)
+        cursor = dict_cursor(conn)
         cursor.execute("""
             SELECT COUNT(*) AS cnt
             FROM jobs

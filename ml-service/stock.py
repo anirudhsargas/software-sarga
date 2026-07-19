@@ -20,24 +20,13 @@ bp = Blueprint("stock", __name__)
 logger = logging.getLogger(__name__)
 
 
-def _get_db_config():
-    return {
-        "host": os.environ.get("DB_HOST", "localhost"),
-        "port": int(os.environ.get("DB_PORT", 3306)),
-        "user": os.environ.get("DB_USER", "root"),
-        "password": os.environ.get("DB_PASSWORD", ""),
-        "database": os.environ.get("DB_NAME", "sarga_db"),
-    }
-
-
 def _load_inventory_and_usage():
     """Load all inventory items and their consumption over the last 90 days."""
-    import mysql.connector
+    from db import get_connection, dict_cursor
 
-    cfg = _get_db_config()
-    conn = mysql.connector.connect(**cfg)
+    conn = get_connection()
     try:
-        cursor = conn.cursor(dictionary=True)
+        cursor = dict_cursor(conn)
 
         # All inventory items
         cursor.execute("""
