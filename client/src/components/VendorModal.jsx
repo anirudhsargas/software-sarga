@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import * as localDb from '../services/localDb';
 import { toast } from 'react-hot-toast';
 import { 
@@ -26,6 +26,7 @@ const VendorModal = ({ vendor, onClose, onSave }) => {
     notes: ''
   });
   const [loading, setLoading] = useState(false);
+  const submitting = useRef(false);
   const { errors, validate, focusFirstError, formRef } = useFormValidation();
 
   useEffect(() => {
@@ -74,10 +75,12 @@ const VendorModal = ({ vendor, onClose, onSave }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (submitting.current) return;
     if (!validateForm().valid) {
       focusFirstError();
       return;
     }
+    submitting.current = true;
     setLoading(true);
     try {
       // Save vendor (handles local IndexedDB caching and server sync)
@@ -98,6 +101,7 @@ const VendorModal = ({ vendor, onClose, onSave }) => {
       toast.error(error.response?.data?.message || error.message || 'Failed to sync partner data');
     } finally {
       setLoading(false);
+      submitting.current = false;
     }
   };
 

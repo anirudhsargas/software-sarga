@@ -120,6 +120,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
   const [editingVendor, setEditingVendor] = useState(null);
   const [vendorForm, setVendorForm] = useState(emptyVendorForm);
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
   const [formError, setFormError] = useState('');
 
   // Front office request state
@@ -311,7 +312,9 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
 
   const handleSaveVendor = async (e) => {
     e.preventDefault();
+    if (savingRef.current) return;
     if (!vendorForm.name.trim()) { setFormError('Name is required'); return; }
+    savingRef.current = true;
     setSaving(true); setFormError('');
     try {
       await localDb.saveVendor({ ...vendorForm, id: editingVendor?.id });
@@ -320,7 +323,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
       if (onRefreshVendors) onRefreshVendors();
     } catch {
       setFormError('Failed to save vendor locally');
-    } finally { setSaving(false); }
+    } finally { setSaving(false); savingRef.current = false; }
   };
 
   const handleDeleteVendor = async (v) => {

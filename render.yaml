@@ -53,6 +53,18 @@ services:
         fromSecret: VITE_API_URL
       - key: CORS_ORIGIN
         fromSecret: CORS_ORIGIN
+      - key: DB_HOST
+        fromSecret: DB_HOST
+      - key: DB_PORT
+        value: "14194"
+      - key: DB_USER
+        fromSecret: DB_USER
+      - key: DB_PASSWORD
+        fromSecret: DB_PASSWORD
+      - key: DB_NAME
+        fromSecret: DB_NAME
+      - key: DB_SSL
+        value: "true"
       - key: ML_SERVICE_URL
         fromSecret: ML_SERVICE_URL
       - key: JWT_SECRET

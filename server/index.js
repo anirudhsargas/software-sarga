@@ -744,7 +744,9 @@ if (process.env.NODE_ENV !== 'test') {
 
         }).catch(err => {
             logger.error("Background migration failed:", err);
-            // Do not exit the process, keep the server running
+            // Allow requests through despite migration failure
+            // (routes will get DB errors individually rather than a blanket 503)
+            global.migrationsComplete = true;
         });
     });
 
