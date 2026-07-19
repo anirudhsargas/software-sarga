@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
-const CURRENT_SCHEMA_VERSION = '042_paper_rate_fix.sql';
+const CURRENT_SCHEMA_VERSION = '043_performance_indexes_phase2.sql';
 const BOOTSTRAP_SCHEMA_NAME = 'server_bootstrap';
 
 let poolInstance = null;
@@ -21,11 +21,13 @@ function createPoolInstance() {
         password: process.env.DB_PASSWORD,
         database: process.env.DB_NAME,
         waitForConnections: true,
-        connectionLimit: 10,
+        connectionLimit: 25,
         queueLimit: 0,
         enableKeepAlive: true,
         keepAliveInitialDelay: 0,
         connectTimeout: 10000,
+        maxIdle: 10,
+        idleTimeout: 30000,
       };
 
       if (process.env.DB_SSL === 'true' || process.env.DB_SSL_MODE === 'REQUIRED' || process.env.PGSSLMODE === 'require') {

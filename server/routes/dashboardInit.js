@@ -13,24 +13,13 @@ router.get('/dashboard-init', authenticateToken, dashboardCache(), async (req, r
         // 1. Fetch pending requests count (if Admin or Accountant)
         let pendingCount = 0;
         if (isAdmin || isAccountant) {
-            if (!isAdmin) {
-                const [discountRows] = await pool.query("SELECT COUNT(*) as count FROM sarga_discount_requests WHERE status = 'PENDING' AND approval_level = 'accountant_or_admin'");
-                pendingCount = discountRows[0]?.count || 0;
-            } else {
-                const [idRows] = await pool.query("SELECT COUNT(*) as count FROM sarga_id_requests WHERE status = 'PENDING'");
-                const [customerRows] = await pool.query("SELECT COUNT(*) as count FROM sarga_customer_requests WHERE status = 'PENDING'");
-                const [vendorRows] = await pool.query("SELECT COUNT(*) as count FROM sarga_vendor_requests WHERE status = 'Pending'");
-                const [openingRows] = await pool.query("SELECT COUNT(*) as count FROM sarga_opening_change_requests WHERE status = 'Pending'");
-                const [attendanceRows] = await pool.query("SELECT COUNT(*) as count FROM sarga_attendance_requests WHERE status = 'Pending'");
-                const [discountRows] = await pool.query("SELECT COUNT(*) as count FROM sarga_discount_requests WHERE status = 'PENDING'");
-
-                pendingCount = (idRows[0]?.count || 0) + 
-                               (customerRows[0]?.count || 0) + 
-                               (vendorRows[0]?.count || 0) + 
-                               (openingRows[0]?.count || 0) + 
-                               (attendanceRows[0]?.count || 0) + 
-                               (discountRows[0]?.count || 0);
-            }
+            const [rows] = await pool.query(`
+                SELECT COALESCE(SUM(count), 0) as total FROM (
+                    SELECT COUNT(*) as count FROM sarga_discount_requests WHERE status = 'PENDING' ${isAdmin ? '' : "AND approval_level = 'accountant_or_admin'"}
+                    ${isAdmin ? "UNION ALL SELECT COUNT(*) FROM sarga_id_requests WHERE status = 'PENDING' UNION ALL SELECT COUNT(*) FROM sarga_customer_requests WHERE status = 'PENDING' UNION ALL SELECT COUNT(*) FROM sarga_vendor_requests WHERE status = 'Pending' UNION ALL SELECT COUNT(*) FROM sarga_opening_change_requests WHERE status = 'Pending' UNION ALL SELECT COUNT(*) FROM sarga_attendance_requests WHERE status = 'Pending'" : ''}
+                ) subq
+            `);
+            pendingCount = rows[0]?.total || 0;
         }
 
         // 2. Fetch company settings

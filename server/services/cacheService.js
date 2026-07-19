@@ -82,13 +82,6 @@ async function invalidateStaffCache() {
     return invalidatePattern('staff');
 }
 
-function routeCache(ttl, keyFn) {
-    return (req, res, next) => {
-        if (!CACHE_ENABLED) return next();
-        next();
-    };
-}
-
 module.exports = {
     CACHE_TTL,
     CACHE_ENABLED,
@@ -105,5 +98,4 @@ module.exports = {
     invalidateFinanceCache,
     invalidateReportsCache,
     invalidateStaffCache,
-    routeCache,
 };
