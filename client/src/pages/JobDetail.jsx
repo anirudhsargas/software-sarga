@@ -9,7 +9,6 @@ import localDb from '../services/localDb';
 import SecureImage from '../components/SecureImage';
 
 import toast from 'react-hot-toast';
-import { downloadInvoicePDF } from '../utils/invoicePdf';
 import { whatsappUrl, workStatusMessage, paymentReminderMessage, orderReadyMessage, invoiceTextMessage } from '../utils/whatsapp';
 import { formatCurrency } from '../utils/formatters';
 const fmt = formatCurrency;
@@ -766,7 +765,7 @@ const JobDetail = () => {
                     {['Admin', 'Front Office', 'front office'].includes(userRole) && (
                         <button
                             className="btn"
-                            onClick={() => {
+                            onClick={async () => {
                                 const billData = {
                                     invoiceNumber: job.job_number,
                                     invoiceDate: job.created_at,
@@ -812,6 +811,7 @@ const JobDetail = () => {
                                         return branch?.upi_id || undefined;
                                     })(),
                                 };
+                                const { downloadInvoicePDF } = await import('../utils/invoicePdf');
                                 downloadInvoicePDF(billData);
                             }}
                             style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface)', color: 'var(--accent)', border: '1px solid var(--border)', fontWeight: 600 }}

@@ -616,12 +616,23 @@
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
+  touch-action: manipulation;
   transition: all var(--transition-fast);
 }
 
 .phone-action-btn:hover {
   background: var(--surface-2);
   color: var(--success);
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .phone-actions {
+    opacity: 1;
+  }
+  .phone-action-btn {
+    width: 40px;
+    height: 40px;
+  }
 }
 
 /* Outstanding */

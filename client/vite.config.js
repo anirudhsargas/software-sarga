@@ -7,12 +7,25 @@ import sitemap from 'vite-plugin-sitemap'
 
 const publicRoutes = ['/', '/services', '/products', '/design', '/track', '/contact', '/signin', '/privacy', '/terms'];
 
+// Prevent modulepreload for heavy on-demand vendor chunks so they don't add to initial transfer size
+const skipModulePreloadPlugin = () => ({
+  name: 'skip-module-preload',
+  transformIndexHtml: {
+    order: 'post',
+    handler: (html) => html.replace(
+      /<link[^>]*rel="modulepreload"[^>]*href="[^"]*(?:pdf-vendor|charts-vendor|excel-vendor|form-vendor)[^"]*"[^>]*>/gi,
+      ''
+    ),
+  },
+});
+
 // https://vitejs.dev/config/
 export default defineConfig({
   esbuild: {
     drop: ['console', 'debugger'],
   },
   plugins: [
+    skipModulePreloadPlugin(),
     react(),
     boneyardPlugin(),
     sitemap({
@@ -48,6 +61,7 @@ export default defineConfig({
           '**/pdf-vendor-*.js',
           '**/charts-vendor-*.js',
           '**/excel-vendor-*.js',
+          '**/form-vendor-*.js',
         ],
         // Runtime caching for the API
         runtimeCaching: [
@@ -125,12 +139,10 @@ export default defineConfig({
               return 'react-vendor';
             }
             
-            // pdf-vendor
+            // pdf-vendor (dynamically imported — not loaded on initial page load)
             if (
               path.startsWith('jspdf/') ||
-              path.startsWith('jspdf-autotable/') ||
-              path.startsWith('html2canvas/') ||
-              path.startsWith('pdf-lib/')
+              path.startsWith('jspdf-autotable/')
             ) {
               return 'pdf-vendor';
             }
@@ -163,6 +175,48 @@ export default defineConfig({
               path.startsWith('boneyard-js/')
             ) {
               return 'excel-vendor';
+            }
+            
+            // query-vendor
+            if (
+              path.startsWith('@tanstack/react-query')
+            ) {
+              return 'query-vendor';
+            }
+            
+            // form-vendor
+            if (
+              path.startsWith('react-hook-form/') ||
+              path.startsWith('@hookform/resolvers/') ||
+              path.startsWith('zod/')
+            ) {
+              return 'form-vendor';
+            }
+            
+            // network-vendor
+            if (
+              path.startsWith('socket.io-client/') ||
+              path.startsWith('engine.io-client/') ||
+              path.startsWith('axios/') ||
+              path.startsWith('jwt-decode/')
+            ) {
+              return 'network-vendor';
+            }
+            
+            // tanstack-virtual-vendor (virtualized lists, heavy)
+            if (
+              path.startsWith('@tanstack/react-virtual')
+            ) {
+              return 'tanstack-virtual-vendor';
+            }
+            
+            // qr-vendor (QR code generation/scanning, used on demand)
+            if (
+              path.startsWith('qrcode/') ||
+              path.startsWith('jsqr/') ||
+              path.startsWith('html5-qrcode/')
+            ) {
+              return 'qr-vendor';
             }
             
             return 'vendor';

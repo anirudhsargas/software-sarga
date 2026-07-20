@@ -1,4 +1,4 @@
-import React, { useEffect, Suspense, lazy } from 'react';
+import React, { useEffect, useState, Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import AppShellSkeleton from './components/ui/AppShellSkeleton';
@@ -83,36 +83,35 @@ const ProtectedRoute = ({ children, roles }) => {
 };
 
 
-import { useState } from 'react';
-
 function ToastAnnouncer() {
   const [message, setMessage] = useState('');
+  const lastMessageRef = React.useRef('');
   
   useEffect(() => {
+    const container = document.querySelector('.react-hot-toast');
+    if (!container) return;
+    
     const observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
+      for (const mutation of mutations) {
         if (mutation.type === 'childList') {
-          const toastText = mutation.target.textContent;
-          if (toastText && toastText !== message) {
-            setMessage(toastText);
+          const text = mutation.target.textContent;
+          if (text && text !== lastMessageRef.current) {
+            lastMessageRef.current = text;
+            setMessage(text);
           }
         }
-      });
+      }
     });
     
-    const toastContainer = document.querySelector('.react-hot-toast');
-    if (toastContainer) {
-      observer.observe(toastContainer, { childList: true, subtree: true });
-    }
-    
-    return () => observer.disconnect();
-  }, [message]);
+    observer.observe(container, { childList: true, subtree: true });
+    return () => { observer.disconnect(); lastMessageRef.current = ''; };
+  }, []);
   
-  return (
+  return message ? (
     <div aria-live="polite" aria-atomic="true" className="sr-only" style={{ position: 'absolute', left: '-10000px', width: '1px', height: '1px', overflow: 'hidden' }}>
       {message}
     </div>
-  );
+  ) : null;
 }
 
 // Navigation event listener for cross-component navigation (used by api.js interceptors, etc.)
@@ -150,6 +149,7 @@ const ConnectingScreen = () => (
 function App() {
   const [isOffline, setIsOffline] = useState(false);
   const [serverStarting, setServerStarting] = useState(true);
+  const wasOfflineRef = React.useRef(false);
 
   useEffect(() => {
     // Remove splash screen after app mounts
@@ -205,10 +205,14 @@ function App() {
     window.addEventListener('pagehide', handlePageHide);
     window.addEventListener('pageshow', handlePageShow);
 
-    // Periodic health check every 60 seconds
+    // Periodic health check every 60 seconds (skip update if status unchanged)
     const healthInterval = setInterval(async () => {
       const healthy = await checkHealth();
-      setIsOffline(!healthy);
+      const offline = !healthy;
+      if (offline !== wasOfflineRef.current) {
+        wasOfflineRef.current = offline;
+        setIsOffline(offline);
+      }
     }, 60000);
 
     return () => {

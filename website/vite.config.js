@@ -55,6 +55,18 @@ export default defineConfig({
             if (id.includes('jspdf') || id.includes('html2canvas')) {
               return 'vendor-pdf';
             }
+            if (id.includes('axios') || id.includes('socket.io-client') || id.includes('engine.io-client')) {
+              return 'vendor-network';
+            }
+            if (id.includes('lucide-react') || id.includes('react-hot-toast') || id.includes('react-easy-crop') || id.includes('dompurify')) {
+              return 'vendor-ui';
+            }
+            if (id.includes('recharts') || id.includes('d3-')) {
+              return 'vendor-charts';
+            }
+            if (id.includes('react-hook-form') || id.includes('zod') || id.includes('@hookform')) {
+              return 'vendor-forms';
+            }
             return 'vendor-others';
           }
           if (id.includes('/pages/design/')) {

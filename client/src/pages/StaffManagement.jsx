@@ -39,7 +39,7 @@ const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEdit
         <div className="staff-name-cell">
           <div className="staff-avatar-sm">
             {s.image_url ? (
-              <SecureImage src={s.image_url} alt={s.name} onError={(e) => { e.currentTarget.src = ''; e.currentTarget.style.display = 'none'; }} />
+              <SecureImage src={s.image_url} alt={s.name} width={34} height={34} onError={(e) => { e.currentTarget.src = ''; e.currentTarget.style.display = 'none'; }} />
             ) : (
               <User size={16} aria-hidden="true" />
             )}

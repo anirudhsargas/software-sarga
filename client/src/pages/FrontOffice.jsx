@@ -942,7 +942,7 @@ const FrontOffice = () => {
                             <td>{balance > 0 ? <span className="fo-due-amount">{fmt(balance)}</span> : <span className="fo-paid-tag"><CheckCircle2 size={12} aria-hidden="true" /> Paid</span>}</td>
                             <td>
                               <div className="fo-row-actions">
-                                {job.customer_mobile && <a href={`tel:${job.customer_mobile}`} className="fo-action-btn" aria-label="Call customer"><Phone size={13} aria-hidden="true" /></a>}
+                                {job.customer_mobile && <a href={`tel:${job.customer_mobile}`} className="fo-action-btn" aria-label="Call customer" onClick={e => e.stopPropagation()}><Phone size={13} aria-hidden="true" /></a>}
                                 <button className="fo-action-btn fo-action-btn--view" aria-label="View job" onClick={(e) => { e.stopPropagation(); navigate(`/dashboard/jobs/${job.id}`); }}><Eye size={13} aria-hidden="true" /></button>
                               </div>
                             </td>

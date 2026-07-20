@@ -538,7 +538,7 @@ const EmployeeDetail = () => {
                             <div className="staff-avatar-wrap">
                                 <div className="staff-avatar">
                                     {employee.image_url ? (
-                                        <SecureImage src={employee.image_url} alt={employee.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                                        <SecureImage src={employee.image_url} alt={employee.name} width={56} height={56} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
                                     ) : (
                                         employee.name?.charAt(0).toUpperCase()
                                     )}

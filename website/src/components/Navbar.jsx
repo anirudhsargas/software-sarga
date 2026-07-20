@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Menu, X, Printer, Palette } from 'lucide-react'
+import { Menu, X, Printer, Palette, Keyboard } from 'lucide-react'
 import './Navbar.css'
 import CartIcon from './Cart/CartIcon'
 import ThemeToggle from './ThemeToggle'
+import { useShortcuts } from '../context/ShortcutContext'
 
 const navLinks = [
   { path: '/', label: 'Home' },
@@ -11,13 +12,14 @@ const navLinks = [
   { path: '/products', label: 'Products' },
   { path: '/design', label: 'Design', icon: Palette },
   { path: '/track', label: 'Track Order' },
-  { path: '/contact', label: 'Contact' },
+  { path: '/shortcuts', label: 'Shortcuts', icon: Keyboard },
 ]
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const location = useLocation()
+  const { toggleCheatSheet } = useShortcuts()
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20)
@@ -57,6 +59,15 @@ export default function Navbar() {
         </ul>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            className="btn btn-outline btn-sm navbar__cta-desktop"
+            onClick={toggleCheatSheet}
+            title="Keyboard Shortcuts (Alt+K)"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 600, padding: '0.4rem 0.65rem' }}
+          >
+            <Keyboard size={16} />
+            <span>Alt+K</span>
+          </button>
           <ThemeToggle />
           <Link to="/signin" className="btn btn-outline btn-sm navbar__cta-desktop" id="nav-sign-in-desktop">
             Sign In

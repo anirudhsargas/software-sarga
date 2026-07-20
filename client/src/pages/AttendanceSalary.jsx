@@ -148,7 +148,7 @@ const AttendanceSalary = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             {(salaryInfo?.staff?.image_url || user?.image_url) ? (
               <div style={{ width: 56, height: 56, borderRadius: '50%', overflow: 'hidden', flexShrink: 0 }}>
-                <SecureImage src={salaryInfo?.staff?.image_url || user?.image_url} alt={salaryInfo?.staff?.name || user?.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <SecureImage src={salaryInfo?.staff?.image_url || user?.image_url} alt={salaryInfo?.staff?.name || user?.name} width={56} height={56} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               </div>
             ) : (
               <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>

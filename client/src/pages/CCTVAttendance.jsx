@@ -253,7 +253,7 @@ const CCTVAttendance = () => {
                       <td>
                         <div className="row gap-sm" style={{ alignItems: 'center' }}>
                           <div className="user-avatar avatar-sm">
-                            {s.image_url ? <SecureImage src={s.image_url} alt={s.name} className="avatar-img" /> : <User size={16} />}
+                            {s.image_url ? <SecureImage src={s.image_url} alt={s.name} className="avatar-img" width={34} height={34} /> : <User size={16} />}
                           </div>
                           <div>
                             <span className="user-name">{s.name}</span>

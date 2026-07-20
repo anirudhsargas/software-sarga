@@ -1100,7 +1100,7 @@ const Dashboard = () => {
                     <div className="user-profile" onClick={() => setShowProfilePanel(true)} role="button" tabIndex={0} aria-label="User profile" onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowProfilePanel(true); } }}>
                         <div className="user-avatar">
                             {user?.image_url ? (
-                                <SecureImage src={user.image_url} alt={user.name} className="avatar-img" />
+                                <SecureImage src={user.image_url} alt={user.name} className="avatar-img" width={40} height={40} />
                             ) : (
                                 user?.name ? user.name[0] : 'U'
                             )}
@@ -1191,7 +1191,7 @@ const Dashboard = () => {
                         >
                             <div className="user-avatar avatar-sm">
                                 {user?.image_url ? (
-                                    <SecureImage src={user.image_url} alt={user.name} className="avatar-img" />
+                                    <SecureImage src={user.image_url} alt={user.name} className="avatar-img" width={34} height={34} />
                                 ) : (
                                     user?.name ? user.name[0] : 'U'
                                 )}
@@ -1199,8 +1199,6 @@ const Dashboard = () => {
                         </div>
                     </div>
                 </header>
-
-
 
                     <div className={`content-container ${isNavigating ? 'page-enter' : 'page-enter-active'}`} key={location.pathname}>
 
@@ -1325,7 +1323,7 @@ const Dashboard = () => {
                         <div className="profile-panel-header">
                             <div className="user-avatar user-avatar--large">
                                 {user?.image_url ? (
-                                    <SecureImage src={user.image_url} alt={user.name} className="avatar-img" />
+                                    <SecureImage src={user.image_url} alt={user.name} className="avatar-img" width={120} height={120} />
                                 ) : (
                                     user?.name ? user.name[0].toUpperCase() : 'U'
                                 )}
@@ -1453,7 +1451,7 @@ const Dashboard = () => {
                                             {profileImage ? (
                                                 <img src={profilePreview} alt="Profile" className="profile-avatar-img" />
                                             ) : user?.image_url ? (
-                                                <SecureImage src={user.image_url} alt="Profile" className="profile-avatar-img" />
+                                                <SecureImage src={user.image_url} alt="Profile" className="profile-avatar-img" width={84} height={84} />
                                             ) : (
                                                 <div className="profile-avatar-placeholder">
                                                     {profileName ? profileName[0].toUpperCase() : 'U'}

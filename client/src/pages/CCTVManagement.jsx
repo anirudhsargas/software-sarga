@@ -537,7 +537,7 @@ const CCTVManagement = () => {
                         }}
                       >
                         <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
-                          {s.image_url ? <SecureImage src={s.image_url} alt={s.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <User size={13} />}
+                          {s.image_url ? <SecureImage src={s.image_url} alt={s.name} width={28} height={28} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <User size={13} />}
                         </div>
                         <span style={{ flex: 1 }}>{s.name}</span>
                         {markingAttendance === s.id
@@ -583,7 +583,7 @@ const CCTVManagement = () => {
                         <td>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                             <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
-                              {s.staff_image ? <SecureImage src={s.staff_image} alt={s.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <User size={14} />}
+                              {s.staff_image ? <SecureImage src={s.staff_image} alt={s.name} width={32} height={32} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <User size={14} />}
                             </div>
                             <span style={{ fontWeight: 500, fontSize: 13 }}>{s.name}</span>
                           </div>

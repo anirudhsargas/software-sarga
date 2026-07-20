@@ -3,7 +3,9 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import App from './App'
-import './index.css'
+if (import.meta.env.DEV) {
+  import('./index.css')
+}
 import theme from './theme'
 
 try{ theme.init() }catch(e){console.warn('theme init failed',e)}

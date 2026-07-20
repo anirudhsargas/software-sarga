@@ -1,10 +1,14 @@
 import { Routes, Route, useLocation } from 'react-router-dom'
 import { useEffect, lazy, Suspense } from 'react'
+import { Toaster } from 'react-hot-toast'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
 import Chatbot from './components/Chatbot/Chatbot'
 import { CartProvider } from './context/CartContext'
+import { ShortcutProvider } from './context/ShortcutContext'
 import CartDrawer from './components/Cart/CartDrawer'
+import ShortcutCheatSheetModal from './components/Shortcuts/ShortcutCheatSheetModal'
+import QuickActionModals from './components/Shortcuts/QuickActionModals'
 import './App.css'
 
 // Lazy loaded page components
@@ -16,6 +20,7 @@ const SignIn = lazy(() => import('./pages/SignIn'))
 const PortalDashboard = lazy(() => import('./pages/PortalDashboard'))
 const JobDetail = lazy(() => import('./pages/JobDetail'))
 const Contact = lazy(() => import('./pages/Contact'))
+const ShortcutsPage = lazy(() => import('./pages/ShortcutsPage'))
 const NotFound = lazy(() => import('./pages/errors/NotFound'))
 const Privacy = lazy(() => import('./pages/Privacy'))
 const Terms = lazy(() => import('./pages/Terms'))
@@ -90,6 +95,7 @@ function AppLayout() {
 
   return (
     <div className="app">
+      <Toaster position="top-right" />
       {!isDesignTool && <Navbar />}
       <main className="main-content" style={isDesignTool ? { paddingTop: 0 } : undefined}>
         <Suspense fallback={<PageSkeleton />}>
@@ -102,6 +108,7 @@ function AppLayout() {
             <Route path="/portal/dashboard" element={<PortalDashboard />} />
             <Route path="/portal/job/:id" element={<JobDetail />} />
             <Route path="/contact" element={<Contact />} />
+            <Route path="/shortcuts" element={<ShortcutsPage />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/design" element={<DesignHub />} />
@@ -118,6 +125,8 @@ function AppLayout() {
       {!isDesignTool && <Chatbot />}
       {!isDesignTool && <CartDrawer />}
       {!isDesignTool && <Footer />}
+      <ShortcutCheatSheetModal />
+      <QuickActionModals />
     </div>
   )
 }
@@ -125,7 +134,9 @@ function AppLayout() {
 function App() {
   return (
     <CartProvider>
-      <AppLayout />
+      <ShortcutProvider>
+        <AppLayout />
+      </ShortcutProvider>
     </CartProvider>
   )
 }
