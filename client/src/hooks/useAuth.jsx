@@ -52,7 +52,7 @@ export const AuthProvider = ({ children }) => {
 
     const logout = useCallback(() => {
         disconnectSocket();
-        syncManager.terminate();
+        try { syncManager.destroy(); } catch {}
         auth.logout();
         setUser(null);
     }, [setUser]);

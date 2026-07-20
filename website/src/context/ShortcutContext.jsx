@@ -6,117 +6,128 @@ export const SHORTCUT_LIST = [
     id: 'shortcuts_cheat_sheet',
     name: 'Shortcut Page / Cheat Sheet',
     keys: ['Alt', 'K'],
-    keyDisplay: 'Alt + K',
-    altKey: 'Shift + ?',
+    keyDisplay: 'Alt + K  (or Ctrl + Shift + K)',
     category: 'General',
     description: 'Open keyboard shortcuts helper modal',
-    icon: '⌨️'
+    icon: '⌨️',
+    codes: ['KeyK', 'F2']
   },
   {
     id: 'add_customer',
     name: 'Add New Customer',
     keys: ['Alt', 'C'],
-    keyDisplay: 'Alt + C',
+    keyDisplay: 'Alt + C  (or Ctrl + Shift + C)',
     category: 'Sales & CRM',
     description: 'Quickly register a new customer',
-    icon: '👤'
+    icon: '👤',
+    codes: ['KeyC']
   },
   {
     id: 'new_order',
     name: 'New Order',
     keys: ['Alt', 'N'],
-    keyDisplay: 'Alt + N',
+    keyDisplay: 'Alt + N  (or Ctrl + Shift + N)',
     category: 'Sales & CRM',
     description: 'Create a new print/sales order',
-    icon: '🛒'
+    icon: '🛒',
+    codes: ['KeyN']
   },
   {
     id: 'payment',
     name: 'Record Payment',
     keys: ['Alt', 'P'],
-    keyDisplay: 'Alt + P',
+    keyDisplay: 'Alt + P  (or Ctrl + Shift + P)',
     category: 'Finance',
     description: 'Record incoming or outgoing payment',
-    icon: '💳'
+    icon: '💳',
+    codes: ['KeyP']
   },
   {
     id: 'inventory',
     name: 'Inventory & Stock',
     keys: ['Alt', 'I'],
-    keyDisplay: 'Alt + I',
+    keyDisplay: 'Alt + I  (or Ctrl + Shift + I)',
     category: 'Operations',
     description: 'View stock levels & update inventory',
-    icon: '📦'
+    icon: '📦',
+    codes: ['KeyI']
   },
   {
     id: 'scan_item',
     name: 'Scan Item',
     keys: ['Alt', 'S'],
-    keyDisplay: 'Alt + S',
+    keyDisplay: 'Alt + S  (or Ctrl + Shift + S)',
     category: 'Operations',
     description: 'Scan barcode/QR code for instant item lookup',
-    icon: '🔍'
+    icon: '🔍',
+    codes: ['KeyS']
   },
   {
     id: 'daily_book',
     name: 'Daily Book / Day Book',
     keys: ['Alt', 'B'],
-    keyDisplay: 'Alt + B',
+    keyDisplay: 'Alt + B  (or Ctrl + Shift + B)',
     category: 'Finance',
     description: 'View today\'s cash flow, ledger & transaction summary',
-    icon: '📖'
+    icon: '📖',
+    codes: ['KeyB']
   },
   {
     id: 'upload_bills',
     name: 'Upload Bills',
     keys: ['Alt', 'U'],
-    keyDisplay: 'Alt + U',
+    keyDisplay: 'Alt + U  (or Ctrl + Shift + U)',
     category: 'Expenses',
     description: 'Upload supplier invoices, receipts & bills',
-    icon: '🧾'
+    icon: '🧾',
+    codes: ['KeyU']
   },
   {
     id: 'staff_management',
     name: 'Staff Management',
     keys: ['Alt', 'M'],
-    keyDisplay: 'Alt + M',
+    keyDisplay: 'Alt + M  (or Ctrl + Shift + M)',
     category: 'HR & Staff',
     description: 'Manage staff, clock-in, and attendance roster',
-    icon: '👥'
+    icon: '👥',
+    codes: ['KeyM']
   },
   {
     id: 'expense_management',
     name: 'Expense Management',
-    keys: ['Alt', 'E'],
-    keyDisplay: 'Alt + E',
+    keys: ['Alt', 'X'],
+    keyDisplay: 'Alt + X  (or Alt + E / Ctrl + Shift + E)',
     category: 'Expenses',
     description: 'Log and track business operational expenses',
-    icon: '💰'
+    icon: '💰',
+    codes: ['KeyX', 'KeyE']
   },
   {
     id: 'command_palette',
     name: 'Command Palette',
     keys: ['Alt', '/'],
-    keyDisplay: 'Alt + /',
+    keyDisplay: 'Alt + /  (or Ctrl + Shift + /)',
     category: 'Navigation',
     description: 'Search & jump to any section instantly',
-    icon: '⚡'
+    icon: '⚡',
+    codes: ['Slash']
   },
   {
     id: 'reports',
     name: 'Quick Reports',
     keys: ['Alt', 'R'],
-    keyDisplay: 'Alt + R',
+    keyDisplay: 'Alt + R  (or Ctrl + Shift + R)',
     category: 'Analytics',
     description: 'View sales and financial summary reports',
-    icon: '📊'
+    icon: '📊',
+    codes: ['KeyR']
   }
 ];
 
 const ShortcutContext = createContext(null);
 
 export function ShortcutProvider({ children }) {
-  const [activeModal, setActiveModal] = useState(null); // 'add_customer', 'new_order', etc.
+  const [activeModal, setActiveModal] = useState(null);
   const [lastTriggered, setLastTriggered] = useState(null);
 
   const openModal = useCallback((modalId) => {
@@ -138,7 +149,7 @@ export function ShortcutProvider({ children }) {
   useEffect(() => {
     const handleKeyDown = (e) => {
       // Allow Escape key to close open modal anywhere
-      if (e.key === 'Escape') {
+      if (e.key === 'Escape' || e.code === 'Escape') {
         if (activeModal) {
           e.preventDefault();
           e.stopPropagation();
@@ -147,44 +158,42 @@ export function ShortcutProvider({ children }) {
         }
       }
 
-      // Check if user is typing in a form input
-      const target = e.target;
-      const isInput =
-        target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.tagName === 'SELECT' ||
-        target.isContentEditable;
+      // Check key character and physical key code
+      const keyChar = e.key ? e.key.toLowerCase() : '';
+      const keyCode = e.code ? e.code : '';
 
-      // Safe matching for Alt + key combinations
-      if (e.altKey && !e.ctrlKey && !e.metaKey) {
-        const key = e.key.toLowerCase();
+      // Match trigger for Alt + Key OR Ctrl + Shift + Key
+      const hasModifier = (e.altKey && !e.ctrlKey && !e.metaKey) || (e.ctrlKey && e.shiftKey);
 
+      if (hasModifier) {
         let matchedId = null;
-        if (key === 'k') matchedId = 'shortcuts_cheat_sheet';
-        else if (key === 'c') matchedId = 'add_customer';
-        else if (key === 'n') matchedId = 'new_order';
-        else if (key === 'p') matchedId = 'payment';
-        else if (key === 'i') matchedId = 'inventory';
-        else if (key === 's') matchedId = 'scan_item';
-        else if (key === 'b') matchedId = 'daily_book';
-        else if (key === 'u') matchedId = 'upload_bills';
-        else if (key === 'm') matchedId = 'staff_management';
-        else if (key === 'e') matchedId = 'expense_management';
-        else if (key === '/' || key === '?') matchedId = 'command_palette';
-        else if (key === 'r') matchedId = 'reports';
+
+        // Match based on key string OR physical key code
+        if (keyChar === 'k' || keyCode === 'KeyK') matchedId = 'shortcuts_cheat_sheet';
+        else if (keyChar === 'c' || keyCode === 'KeyC') matchedId = 'add_customer';
+        else if (keyChar === 'n' || keyCode === 'KeyN') matchedId = 'new_order';
+        else if (keyChar === 'p' || keyCode === 'KeyP') matchedId = 'payment';
+        else if (keyChar === 'i' || keyCode === 'KeyI') matchedId = 'inventory';
+        else if (keyChar === 's' || keyCode === 'KeyS') matchedId = 'scan_item';
+        else if (keyChar === 'b' || keyCode === 'KeyB') matchedId = 'daily_book';
+        else if (keyChar === 'u' || keyCode === 'KeyU') matchedId = 'upload_bills';
+        else if (keyChar === 'm' || keyCode === 'KeyM') matchedId = 'staff_management';
+        else if (keyChar === 'x' || keyChar === 'e' || keyCode === 'KeyX' || keyCode === 'KeyE') matchedId = 'expense_management';
+        else if (keyChar === '/' || keyChar === '?' || keyCode === 'Slash') matchedId = 'command_palette';
+        else if (keyChar === 'r' || keyCode === 'KeyR') matchedId = 'reports';
 
         if (matchedId) {
-          // CRITICAL: Prevent browser default action (e.g. Alt+P browser print, Alt+S save, etc.)
+          // Prevent browser default behavior (e.g. Chrome Alt+E menu focus, Alt+P print, etc.)
           e.preventDefault();
           e.stopPropagation();
 
           const found = SHORTCUT_LIST.find((s) => s.id === matchedId);
           if (found) {
-            toast.success(`⌨️ Shortcut: ${found.name} (${found.keyDisplay})`, {
+            toast.success(`⌨️ Shortcut: ${found.name}`, {
               id: `shortcut-toast-${matchedId}`,
               duration: 2500,
               style: {
-                background: '#1e293b',
+                background: '#0f172a',
                 color: '#f8fafc',
                 border: '1px solid #3b82f6',
                 borderRadius: '10px',
@@ -197,18 +206,15 @@ export function ShortcutProvider({ children }) {
         }
       }
 
-      // Allow Shift + ? to open cheat sheet when not in text input
-      if (!isInput && e.shiftKey && e.key === '?') {
+      // Dedicated F2 key for Shortcut Cheat Sheet on any page
+      if (e.key === 'F2' || e.code === 'F2') {
         e.preventDefault();
         e.stopPropagation();
-        toast.success(`⌨️ Shortcut: Cheat Sheet (Shift + ?)`, {
-          id: 'shortcut-toast-cheatsheet',
-          duration: 2000
-        });
         openModal('shortcuts_cheat_sheet');
       }
     };
 
+    // Attach to window in capture phase to ensure it works across EVERY PAGE & route
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [activeModal, openModal, closeModal]);
