@@ -218,6 +218,7 @@ const loadSchemaFiles = async (connection, appliedMigrations) => {
           'ER_DUP_FIELDNAME',       // ADD COLUMN for existing column
           'ER_CANT_DROP_FIELD_OR_KEY', // DROP COLUMN/KEY that doesn't exist
           'ER_BAD_FIELD_ERROR',     // column doesn't exist (safe to skip)
+          'ER_NO_SUCH_TABLE',       // ref table doesn't exist yet (safe to skip)
         ];
         if (!ignoredCodes.includes(e.code)) throw e;
       }
