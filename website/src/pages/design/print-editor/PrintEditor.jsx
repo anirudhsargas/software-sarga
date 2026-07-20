@@ -131,10 +131,7 @@ export default function PrintEditor() {
       const grid = createGridPattern(dims.width / zoom, dims.height / zoom, getScale());
       c.setBackgroundColor(grid, () => c.renderAll());
 
-      window.addEventListener('keydown', handleKeyDown);
-
       return () => {
-        window.removeEventListener('keydown', handleKeyDown);
         c.dispose();
         fabricRef.current = null;
       };
@@ -238,6 +235,15 @@ export default function PrintEditor() {
     if (e.ctrlKey && e.key === 'v') { e.preventDefault(); pasteSelected(); }
     if (e.ctrlKey && e.key === 's') { e.preventDefault(); handleSave(); }
   }
+
+  const keyHandlerRef = useRef(handleKeyDown);
+  useEffect(() => { keyHandlerRef.current = handleKeyDown; });
+
+  useEffect(() => {
+    const handler = (e) => keyHandlerRef.current(e);
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   function copySelected() {
     const active = fabricRef.current?.getActiveObject();

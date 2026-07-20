@@ -97,6 +97,7 @@ const DesignDashboard = () => {
   useEffect(() => {
     const handler = (e) => {
       if (!e.altKey) return;
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
       switch (e.key.toLowerCase()) {
         case 'd': e.preventDefault(); navigate('/designer'); break;
         case 'a': e.preventDefault(); navigate('/designer/assigned'); break;
