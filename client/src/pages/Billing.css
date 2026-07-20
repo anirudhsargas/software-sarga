@@ -541,6 +541,7 @@
 }
 
 .billing-catalog-item__icon {
+  position: relative;
   color: var(--muted);
   opacity: 0.5;
 }
@@ -555,6 +556,46 @@
   font-size: var(--text-xs);
   color: var(--text);
   font-weight: 700;
+}
+
+.billing-catalog-item__view {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  padding: 2px;
+  cursor: pointer;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s;
+  line-height: 1;
+}
+
+.billing-catalog-item:hover .billing-catalog-item__view {
+  opacity: 1;
+}
+
+.billing-catalog-item__view:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.billing-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  gap: 8px;
+}
+
+.billing-detail-row:last-of-type {
+  border-bottom: none;
 }
 
 /* ── Products Layout (Table + Side Summary) ── */

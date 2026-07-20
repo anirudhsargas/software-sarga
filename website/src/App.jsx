@@ -9,6 +9,7 @@ import { ShortcutProvider } from './context/ShortcutContext'
 import CartDrawer from './components/Cart/CartDrawer'
 import ShortcutCheatSheetModal from './components/Shortcuts/ShortcutCheatSheetModal'
 import QuickActionModals from './components/Shortcuts/QuickActionModals'
+import FloatingShortcutWidget from './components/Shortcuts/FloatingShortcutWidget'
 import './App.css'
 
 // Lazy loaded page components
@@ -125,6 +126,7 @@ function AppLayout() {
       {!isDesignTool && <Chatbot />}
       {!isDesignTool && <CartDrawer />}
       {!isDesignTool && <Footer />}
+      <FloatingShortcutWidget />
       <ShortcutCheatSheetModal />
       <QuickActionModals />
     </div>

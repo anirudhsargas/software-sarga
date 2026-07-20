@@ -92,6 +92,7 @@ const ProductLibrary = () => {
     const _filterCalcTypeRef = useRef('all');
     const [filterVendor, setFilterVendor] = useState('all');
     const [filterCalcType, setFilterCalcType] = useState('all');
+    const [filterActive, setFilterActive] = useState('all');
     const [sortBy, setSortBy] = useState('name-asc');
     const [selectedProductIds, setSelectedProductIds] = useState([]);
 
@@ -483,7 +484,8 @@ const ProductLibrary = () => {
                 (p.size || '').toLowerCase().includes(q);
             const matchVendor = filterVendor === 'all' || (p.company_name || '') === filterVendor;
             const matchCalc = filterCalcType === 'all' || (p.calculation_type || '') === filterCalcType;
-            return matchSearch && matchVendor && matchCalc;
+            const matchActive = filterActive === 'all' || (filterActive === 'active' ? (p.is_active === 1 || p.is_active === true) : (p.is_active === 0 || p.is_active === false));
+            return matchSearch && matchVendor && matchCalc && matchActive;
         });
         // Apply sorting
         const [field, dir] = sortBy.split('-');
@@ -496,12 +498,12 @@ const ProductLibrary = () => {
             return dir === 'asc' ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
         });
         return result;
-    }, [debouncedSearch, allProducts, filterVendor, filterCalcType, sortBy]);
+    }, [debouncedSearch, allProducts, filterVendor, filterCalcType, filterActive, sortBy]);
 
     const totalProducts = filteredProducts.length;
     const totalProductPages = Math.max(1, Math.ceil(totalProducts / PRODUCTS_PER_PAGE));
     const pagedProducts = useMemo(() => filteredProducts.slice((productPage - 1) * PRODUCTS_PER_PAGE, productPage * PRODUCTS_PER_PAGE), [filteredProducts, productPage, PRODUCTS_PER_PAGE]);
-    const hasActiveFilters = debouncedSearch.trim() !== '' || filterVendor !== 'all' || filterCalcType !== 'all';
+    const hasActiveFilters = debouncedSearch.trim() !== '' || filterVendor !== 'all' || filterCalcType !== 'all' || filterActive !== 'all';
 
     const availableSubcategories = selectedCatId
         ? hierarchy.find(c => String(c.id) === String(selectedCatId))?.subcategories || []
@@ -1606,6 +1608,19 @@ const ProductLibrary = () => {
                         </select>
                     )}
 
+                    {/* Status filter */}
+                    <select
+                        className="input-field select-field"
+                        style={{ flex: '0 1 140px', height: 36, minWidth: 110 }}
+                        value={filterActive}
+                        aria-label="Filter by status"
+                        onChange={e => { setFilterActive(e.target.value); setProductPage(1); }}
+                    >
+                        <option value="all">All Status</option>
+                        <option value="active">Enabled</option>
+                        <option value="inactive">Disabled</option>
+                    </select>
+
                     {/* Sort dropdown */}
                     <select
                         className="input-field select-field"
@@ -1690,7 +1705,7 @@ const ProductLibrary = () => {
                                     <div className="muted" style={{ marginBottom: 8 }}>No products match your filters.</div>
                                     <button
                                         className="btn btn-ghost btn-sm"
-                                        onClick={() => { setProductSearch(''); setFilterVendor('all'); setFilterCalcType('all'); setProductPage(1); }}
+onClick={() => { setProductSearch(''); setFilterVendor('all'); setFilterCalcType('all'); setFilterActive('all'); setProductPage(1); }}
                                     >
                                         <X size={13} /> Clear Filters
                                     </button>

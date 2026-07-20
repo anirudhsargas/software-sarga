@@ -1,20 +1,26 @@
 import React, { useState } from 'react';
-import { useShortcuts } from '../../context/ShortcutContext';
-import { X, Search, ShieldCheck, Keyboard } from 'lucide-react';
+import { useShortcuts, USER_ROLES } from '../../context/ShortcutContext';
+import { X, Search, ShieldCheck, Keyboard, Users } from 'lucide-react';
 import './Shortcuts.css';
 
 export default function ShortcutCheatSheetModal() {
-  const { activeModal, closeModal, openModal, shortcuts } = useShortcuts();
+  const { activeModal, closeModal, openModal, shortcuts, activeRole, setActiveRole } = useShortcuts();
   const [searchTerm, setSearchTerm] = useState('');
 
   if (activeModal !== 'shortcuts_cheat_sheet') return null;
 
-  const filteredShortcuts = shortcuts.filter((s) =>
-    s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.keyDisplay.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredShortcuts = shortcuts.filter((s) => {
+    const matchesSearch =
+      s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      s.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      s.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      s.keyDisplay.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesRole =
+      activeRole === 'All Roles' || s.roles.includes(activeRole);
+
+    return matchesSearch && matchesRole;
+  });
 
   const categories = Array.from(new Set(shortcuts.map((s) => s.category)));
 
@@ -34,7 +40,7 @@ export default function ShortcutCheatSheetModal() {
             <div>
               <h3 className="shortcut-modal__title">Keyboard Shortcuts Guide</h3>
               <p className="shortcut-modal__subtitle">
-                Press any key combination below to trigger quick actions anywhere in the application
+                Universal access active for <strong>All User Roles</strong> (Admin, Manager, Staff, Cashier, Customer)
               </p>
             </div>
           </div>
@@ -44,7 +50,7 @@ export default function ShortcutCheatSheetModal() {
         </div>
 
         <div className="shortcut-modal__body">
-          {/* Safety Notice */}
+          {/* Universal Role Access Notice */}
           <div
             style={{
               padding: '0.85rem 1rem',
@@ -54,7 +60,7 @@ export default function ShortcutCheatSheetModal() {
               marginBottom: '1.25rem',
               display: 'flex',
               alignItems: 'center',
-                justifyContent: 'space-between',
+              justifyContent: 'space-between',
               gap: '1rem',
               flexWrap: 'wrap'
             }}
@@ -62,12 +68,39 @@ export default function ShortcutCheatSheetModal() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.85rem' }}>
               <ShieldCheck size={20} style={{ color: '#059669', flexShrink: 0 }} />
               <span>
-                <strong>Browser Conflict Guard Active:</strong> Hotkeys are explicitly isolated from browser default handlers.
+                <strong>All Roles Enabled:</strong> Keyboard shortcuts function identically across Admin, Manager, Cashier & Customer views.
               </span>
             </div>
             <div className="browser-safety-badge">
-              <span>✓ Safe Hotkeys</span>
+              <span>✓ All Roles Active</span>
             </div>
+          </div>
+
+          {/* Role Filter Selector */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#64748b', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+              <Users size={16} /> Filter by User Role:
+            </span>
+            {USER_ROLES.map((role) => (
+              <button
+                key={role}
+                type="button"
+                onClick={() => setActiveRole(role)}
+                style={{
+                  padding: '0.35rem 0.75rem',
+                  borderRadius: '20px',
+                  border: activeRole === role ? '1px solid #3b82f6' : '1px solid #cbd5e1',
+                  background: activeRole === role ? '#3b82f6' : 'var(--bg-card, #ffffff)',
+                  color: activeRole === role ? '#ffffff' : 'var(--text-primary, #0f172a)',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                {role}
+              </button>
+            ))}
           </div>
 
           {/* Search Bar */}

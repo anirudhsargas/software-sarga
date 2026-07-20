@@ -132,6 +132,9 @@ const Billing = () => {
   const [hierarchy, setHierarchy] = useState([]);
   const [_machines, setMachines] = useState([]);
   const [orderLines, setOrderLines] = useState([]);
+  const orderLinesRef = useRef(orderLines);
+  useEffect(() => { orderLinesRef.current = orderLines; }, [orderLines]);
+  const [detailProduct, setDetailProduct] = useState(null);
   const [_selectedProduct, setSelectedProduct] = useState(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const [selectedSubcategoryId, setSelectedSubcategoryId] = useState('');
@@ -608,6 +611,13 @@ const Billing = () => {
 
   const handleAddLineItem = useCallback(async (product, qty = 1, extras = [], catId, subId, catName) => {
     const quantity = Number(qty) || 1;
+    const existing = orderLinesRef.current.find(l => l.product_id && l.product_id === product.id);
+    if (existing) {
+      updateLine(existing.id, 'quantity', (Number(existing.quantity) || 0) + quantity);
+      setProductSearchQuery('');
+      return;
+    }
+
     const derivedBookType = bookTypeFromCategory(catName);
 
     const priceResult = calculateProductPrice({ product, quantity, extras });
@@ -645,7 +655,7 @@ const Billing = () => {
       localStorage.setItem('recentProducts', JSON.stringify(next));
       return next;
     });
-  }, [resolveProductUnitPrice]);
+  }, [resolveProductUnitPrice, updateLine]);
 
   const handleQuickAdd = useCallback(() => {
     if (!quickEntry.name.trim() || !Number(quickEntry.amount)) { toast.error('Enter name and amount'); return; }
@@ -1576,6 +1586,12 @@ const Billing = () => {
                             ) : (
                               <Package size={18} aria-hidden="true" />
                             )}
+                            <button className="billing-catalog-item__view"
+                              title="View full details"
+                              onClick={e => { e.stopPropagation(); setDetailProduct(prod); }}
+                            >
+                              <Eye size={14} />
+                            </button>
                           </div>
                           <div className="billing-catalog-item__name">{prod.name || prod.title}</div>
                           <div className="billing-catalog-item__price">
@@ -1665,6 +1681,7 @@ const Billing = () => {
                       <td className="font-bold">₹{Number(line.total_amount).toLocaleString()}</td>
                       <td style={{ whiteSpace: 'nowrap' }}>
                         <div style={{ display: 'flex', gap: '4px', alignItems: 'center', justifyContent: 'flex-end' }}>
+                          <button className="btn btn-ghost btn-icon btn-xs" onClick={() => setDetailProduct(line._product || { id: line.product_id, name: line.product_name, mrp: line.unit_price })} title="View details"><Eye size={12} aria-hidden="true" /></button>
                           <button className="btn btn-ghost btn-icon btn-xs" onClick={() => duplicateLine(line)} title="Duplicate"><Copy size={12} aria-hidden="true" /></button>
                           <button className="btn btn-ghost btn-icon btn-xs text-error" onClick={() => handleRemoveWithUndo(line)} title="Remove"><Trash2 size={12} aria-hidden="true" /></button>
                         </div>
@@ -2416,6 +2433,72 @@ const Billing = () => {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Product detail modal */}
+      {detailProduct && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={`Product details: ${detailProduct.name || detailProduct.title}`} onClick={() => setDetailProduct(null)}>
+          <div className="modal modal--sm" onClick={e => e.stopPropagation()}>
+            <div className="modal__header">
+              <h3>{detailProduct.name || detailProduct.title}</h3>
+              <button className="modal-close" onClick={() => setDetailProduct(null)} aria-label="Close product details"><X size={18} aria-hidden="true" /></button>
+            </div>
+            <div className="modal__body stack-sm">
+              {detailProduct.image_url && (
+                <div style={{ textAlign: 'center', marginBottom: 12 }}>
+                  <SecureImage
+                    src={detailProduct.image_url}
+                    alt={detailProduct.name || detailProduct.title}
+                    style={{ maxWidth: '100%', maxHeight: 180, borderRadius: 8, objectFit: 'contain' }}
+                  />
+                </div>
+              )}
+              <div className="billing-detail-row"><span className="text-xs muted">Name</span><span className="font-bold">{detailProduct.name || detailProduct.title}</span></div>
+              {detailProduct.mrp != null && Number(detailProduct.mrp) > 0 && (
+                <div className="billing-detail-row"><span className="text-xs muted">MRP</span><span>₹{Number(detailProduct.mrp).toLocaleString()}</span></div>
+              )}
+              {detailProduct.sell_price != null && Number(detailProduct.sell_price) > 0 && (
+                <div className="billing-detail-row"><span className="text-xs muted">Sell Price</span><span>₹{Number(detailProduct.sell_price).toLocaleString()}</span></div>
+              )}
+              {detailProduct.calculation_type && (
+                <div className="billing-detail-row"><span className="text-xs muted">Pricing Type</span><span>{detailProduct.calculation_type}</span></div>
+              )}
+              {detailProduct.sku && (
+                <div className="billing-detail-row"><span className="text-xs muted">SKU</span><span>{detailProduct.sku}</span></div>
+              )}
+              {detailProduct.description && (
+                <div className="billing-detail-row"><span className="text-xs muted">Description</span><span style={{ fontSize: 12, lineHeight: 1.4 }}>{detailProduct.description}</span></div>
+              )}
+              {detailProduct.slabs && detailProduct.slabs.length > 0 && (
+                <div>
+                  <span className="text-xs muted" style={{ display: 'block', marginBottom: 4 }}>Pricing Slabs</span>
+                  <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ background: 'var(--surface)', textAlign: 'left' }}>
+                        <th style={{ padding: '2px 6px', border: '1px solid var(--border)' }}>Min</th>
+                        <th style={{ padding: '2px 6px', border: '1px solid var(--border)' }}>Max</th>
+                        <th style={{ padding: '2px 6px', border: '1px solid var(--border)' }}>Rate</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {detailProduct.slabs.map((s, i) => (
+                        <tr key={i}>
+                          <td style={{ padding: '2px 6px', border: '1px solid var(--border)' }}>{s.min_qty}</td>
+                          <td style={{ padding: '2px 6px', border: '1px solid var(--border)' }}>{s.max_qty}</td>
+                          <td style={{ padding: '2px 6px', border: '1px solid var(--border)' }}>₹{Number(s.unit_rate || s.rate || 0).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+            <div className="modal__footer">
+              <button className="btn btn-primary btn-sm" onClick={() => { setDetailProduct(null); handleAddLineItem(detailProduct); }}>Add to Bill</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setDetailProduct(null)}>Close</button>
             </div>
           </div>
         </div>

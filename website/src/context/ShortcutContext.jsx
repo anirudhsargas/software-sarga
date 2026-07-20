@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
 
+export const USER_ROLES = ['All Roles', 'Admin', 'Manager', 'Staff / Cashier', 'Customer'];
+
 export const SHORTCUT_LIST = [
   {
     id: 'shortcuts_cheat_sheet',
@@ -10,7 +12,8 @@ export const SHORTCUT_LIST = [
     category: 'General',
     description: 'Open keyboard shortcuts helper modal',
     icon: '⌨️',
-    codes: ['KeyK', 'F2']
+    codes: ['KeyK', 'F2'],
+    roles: ['Admin', 'Manager', 'Staff / Cashier', 'Customer']
   },
   {
     id: 'add_customer',
@@ -20,7 +23,8 @@ export const SHORTCUT_LIST = [
     category: 'Sales & CRM',
     description: 'Quickly register a new customer',
     icon: '👤',
-    codes: ['KeyC']
+    codes: ['KeyC'],
+    roles: ['Admin', 'Manager', 'Staff / Cashier', 'Customer']
   },
   {
     id: 'new_order',
@@ -30,7 +34,8 @@ export const SHORTCUT_LIST = [
     category: 'Sales & CRM',
     description: 'Create a new print/sales order',
     icon: '🛒',
-    codes: ['KeyN']
+    codes: ['KeyN'],
+    roles: ['Admin', 'Manager', 'Staff / Cashier', 'Customer']
   },
   {
     id: 'payment',
@@ -40,7 +45,8 @@ export const SHORTCUT_LIST = [
     category: 'Finance',
     description: 'Record incoming or outgoing payment',
     icon: '💳',
-    codes: ['KeyP']
+    codes: ['KeyP'],
+    roles: ['Admin', 'Manager', 'Staff / Cashier', 'Customer']
   },
   {
     id: 'inventory',
@@ -50,7 +56,8 @@ export const SHORTCUT_LIST = [
     category: 'Operations',
     description: 'View stock levels & update inventory',
     icon: '📦',
-    codes: ['KeyI']
+    codes: ['KeyI'],
+    roles: ['Admin', 'Manager', 'Staff / Cashier', 'Customer']
   },
   {
     id: 'scan_item',
@@ -60,7 +67,8 @@ export const SHORTCUT_LIST = [
     category: 'Operations',
     description: 'Scan barcode/QR code for instant item lookup',
     icon: '🔍',
-    codes: ['KeyS']
+    codes: ['KeyS'],
+    roles: ['Admin', 'Manager', 'Staff / Cashier', 'Customer']
   },
   {
     id: 'daily_book',
@@ -70,7 +78,8 @@ export const SHORTCUT_LIST = [
     category: 'Finance',
     description: 'View today\'s cash flow, ledger & transaction summary',
     icon: '📖',
-    codes: ['KeyB']
+    codes: ['KeyB'],
+    roles: ['Admin', 'Manager', 'Staff / Cashier', 'Customer']
   },
   {
     id: 'upload_bills',
@@ -80,7 +89,8 @@ export const SHORTCUT_LIST = [
     category: 'Expenses',
     description: 'Upload supplier invoices, receipts & bills',
     icon: '🧾',
-    codes: ['KeyU']
+    codes: ['KeyU'],
+    roles: ['Admin', 'Manager', 'Staff / Cashier', 'Customer']
   },
   {
     id: 'staff_management',
@@ -90,7 +100,8 @@ export const SHORTCUT_LIST = [
     category: 'HR & Staff',
     description: 'Manage staff, clock-in, and attendance roster',
     icon: '👥',
-    codes: ['KeyM']
+    codes: ['KeyM'],
+    roles: ['Admin', 'Manager', 'Staff / Cashier', 'Customer']
   },
   {
     id: 'expense_management',
@@ -100,7 +111,8 @@ export const SHORTCUT_LIST = [
     category: 'Expenses',
     description: 'Log and track business operational expenses',
     icon: '💰',
-    codes: ['KeyX', 'KeyE']
+    codes: ['KeyX', 'KeyE'],
+    roles: ['Admin', 'Manager', 'Staff / Cashier', 'Customer']
   },
   {
     id: 'command_palette',
@@ -110,7 +122,8 @@ export const SHORTCUT_LIST = [
     category: 'Navigation',
     description: 'Search & jump to any section instantly',
     icon: '⚡',
-    codes: ['Slash']
+    codes: ['Slash'],
+    roles: ['Admin', 'Manager', 'Staff / Cashier', 'Customer']
   },
   {
     id: 'reports',
@@ -120,7 +133,8 @@ export const SHORTCUT_LIST = [
     category: 'Analytics',
     description: 'View sales and financial summary reports',
     icon: '📊',
-    codes: ['KeyR']
+    codes: ['KeyR'],
+    roles: ['Admin', 'Manager', 'Staff / Cashier', 'Customer']
   }
 ];
 
@@ -129,6 +143,7 @@ const ShortcutContext = createContext(null);
 export function ShortcutProvider({ children }) {
   const [activeModal, setActiveModal] = useState(null);
   const [lastTriggered, setLastTriggered] = useState(null);
+  const [activeRole, setActiveRole] = useState('All Roles');
 
   const openModal = useCallback((modalId) => {
     setActiveModal(modalId);
@@ -168,7 +183,6 @@ export function ShortcutProvider({ children }) {
       if (hasModifier) {
         let matchedId = null;
 
-        // Match based on key string OR physical key code
         if (keyChar === 'k' || keyCode === 'KeyK') matchedId = 'shortcuts_cheat_sheet';
         else if (keyChar === 'c' || keyCode === 'KeyC') matchedId = 'add_customer';
         else if (keyChar === 'n' || keyCode === 'KeyN') matchedId = 'new_order';
@@ -183,13 +197,12 @@ export function ShortcutProvider({ children }) {
         else if (keyChar === 'r' || keyCode === 'KeyR') matchedId = 'reports';
 
         if (matchedId) {
-          // Prevent browser default behavior (e.g. Chrome Alt+E menu focus, Alt+P print, etc.)
           e.preventDefault();
           e.stopPropagation();
 
           const found = SHORTCUT_LIST.find((s) => s.id === matchedId);
           if (found) {
-            toast.success(`⌨️ Shortcut: ${found.name}`, {
+            toast.success(`⌨️ Shortcut (${activeRole}): ${found.name}`, {
               id: `shortcut-toast-${matchedId}`,
               duration: 2500,
               style: {
@@ -214,10 +227,9 @@ export function ShortcutProvider({ children }) {
       }
     };
 
-    // Attach to window in capture phase to ensure it works across EVERY PAGE & route
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [activeModal, openModal, closeModal]);
+  }, [activeModal, activeRole, openModal, closeModal]);
 
   return (
     <ShortcutContext.Provider
@@ -227,6 +239,8 @@ export function ShortcutProvider({ children }) {
         closeModal,
         toggleCheatSheet,
         lastTriggered,
+        activeRole,
+        setActiveRole,
         shortcuts: SHORTCUT_LIST
       }}
     >

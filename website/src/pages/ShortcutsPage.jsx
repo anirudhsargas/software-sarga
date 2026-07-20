@@ -1,10 +1,15 @@
 import React from 'react';
-import { SHORTCUT_LIST, useShortcuts } from '../context/ShortcutContext';
-import { Keyboard, ShieldCheck, Zap } from 'lucide-react';
+import { SHORTCUT_LIST, useShortcuts, USER_ROLES } from '../context/ShortcutContext';
+import { Keyboard, ShieldCheck, Zap, Users } from 'lucide-react';
 import '../components/Shortcuts/Shortcuts.css';
 
 export default function ShortcutsPage() {
-  const { openModal } = useShortcuts();
+  const { openModal, activeRole, setActiveRole } = useShortcuts();
+
+  const filteredShortcuts = SHORTCUT_LIST.filter(
+    (s) => activeRole === 'All Roles' || s.roles.includes(activeRole)
+  );
+
   const categories = Array.from(new Set(SHORTCUT_LIST.map((s) => s.category)));
 
   return (
@@ -28,17 +33,18 @@ export default function ShortcutsPage() {
         </div>
         <h1 style={{ fontSize: '2.25rem', fontWeight: 800, margin: '0 0 0.5rem 0' }}>Keyboard Shortcuts Reference</h1>
         <p style={{ fontSize: '1.1rem', color: '#64748b', maxWidth: '650px', margin: '0 auto' }}>
-          Accelerate your workflow with quick action hotkeys. Trigger any action instantly from anywhere in the application without touching your mouse.
+          Universal access enabled across <strong>All User Roles</strong> (Admin, Manager, Staff, Cashier, Customer).
         </p>
       </div>
 
+      {/* Universal Role Badge */}
       <div
         style={{
           padding: '1.25rem 1.5rem',
           borderRadius: '12px',
           background: 'rgba(16, 185, 129, 0.08)',
           border: '1px solid rgba(16, 185, 129, 0.25)',
-          marginBottom: '2.5rem',
+          marginBottom: '2rem',
           display: 'flex',
           alignItems: 'center',
           gap: '1rem'
@@ -47,16 +53,45 @@ export default function ShortcutsPage() {
         <ShieldCheck size={28} color="#10b981" style={{ flexShrink: 0 }} />
         <div>
           <h4 style={{ margin: '0 0 0.25rem 0', color: '#065f46', fontSize: '1rem' }}>
-            Browser Conflict Override Protection Guaranteed
+            Universal Role Access & Browser Override Active
           </h4>
           <p style={{ margin: 0, fontSize: '0.88rem', color: '#047857' }}>
-            All action shortcuts use safe <kbd>Alt</kbd> + key combinations and run through explicit event prevention handler routines. Standard browser system keys like window opening or tab closing are left completely unaffected.
+            Shortcuts are universally supported for all user roles (Admin, Manager, Staff, Cashier, and Customer) across every page.
           </p>
         </div>
       </div>
 
+      {/* Role Pill Filters */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#64748b', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <Users size={18} /> View Shortcuts for Role:
+        </span>
+        {USER_ROLES.map((role) => (
+          <button
+            key={role}
+            type="button"
+            onClick={() => setActiveRole(role)}
+            style={{
+              padding: '0.4rem 0.9rem',
+              borderRadius: '20px',
+              border: activeRole === role ? '1px solid #3b82f6' : '1px solid #cbd5e1',
+              background: activeRole === role ? '#3b82f6' : 'var(--bg-card, #ffffff)',
+              color: activeRole === role ? '#ffffff' : 'var(--text-primary, #0f172a)',
+              fontSize: '0.85rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            {role}
+          </button>
+        ))}
+      </div>
+
       {categories.map((cat) => {
-        const items = SHORTCUT_LIST.filter((s) => s.category === cat);
+        const items = filteredShortcuts.filter((s) => s.category === cat);
+        if (items.length === 0) return null;
+
         return (
           <div key={cat} style={{ marginBottom: '2.5rem' }}>
             <h3
