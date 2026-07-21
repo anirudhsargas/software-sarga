@@ -174,7 +174,7 @@ const CatalogueModal = ({ isOpen, onClose, hierarchy = [], selectedIds = [] }) =
         if (activeFilters.selectionMode === 'selected' && selectedIds.length > 0) {
             params.ids = selectedIds.join(',');
         }
-        if (activeFilters.activeOnly) params.active_only = 'true';
+        params.active_only = activeFilters.activeOnly ? 'true' : 'false';
         if (activeFilters.priceMin) params.price_min = activeFilters.priceMin;
         if (activeFilters.priceMax) params.price_max = activeFilters.priceMax;
         const res = await api.get('/products/catalogue', { params });
