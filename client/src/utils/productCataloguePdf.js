@@ -300,7 +300,7 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
                     doc.setFontSize(descSize);
                     doc.setTextColor(...textMuted);
                     const descLines = doc.splitTextToSize(String(product.description), textW);
-                    const freeH = cardY + cardH - pad - ty - 5;
+                    const freeH = y + cardH - pad - ty - 5;
                     const maxDL = Math.max(1, Math.floor(freeH / (descSize * 0.32 + 0.5)));
                     const showLines = descLines.slice(0, Math.min(maxDL, 3));
                     showLines.forEach((line, i) => {
