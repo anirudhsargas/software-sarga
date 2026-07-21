@@ -571,6 +571,9 @@ registerRoute('preflight', '/api', () => require('./routes/preflight'));
 registerRoute('pricing', '/api', () => require('./routes/pricing'));
 registerRootRoute('seo', () => require('./routes/seo'));
 
+// Audit Trail System
+registerRoute('auditTrail', '/api', () => require('./routes/auditTrail'));
+
 // Customer-facing Website Routes (public, no auth required — shares same DB)
 registerRoute('website', '/api/website', () => require('./routes/website')(upload));
 registerRoute('websiteDesigns', '/api/website', () => require('./routes/websiteDesigns'));

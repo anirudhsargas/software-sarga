@@ -5,7 +5,7 @@ import SecureImage from '../components/SecureImage';
 import useAuth from '../hooks/useAuth';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-import { Plus, Trash2, ChevronRight, ChevronDown, Package, Layers, Grid, Save, X, PlusCircle, ArrowUp, ArrowDown, RotateCcw, Edit2, GripVertical, Copy, Eye, EyeOff, Upload, Image as ImageIcon, ChevronLeft, Search, Filter, Link as LinkIcon, ExternalLink, Loader2, ArrowRight, Clock, Check } from 'lucide-react';
+import { Plus, Trash2, ChevronRight, ChevronDown, Package, Layers, Grid, Save, X, PlusCircle, ArrowUp, ArrowDown, RotateCcw, Edit2, GripVertical, Copy, Eye, EyeOff, Upload, Image as ImageIcon, ChevronLeft, Search, Filter, Link as LinkIcon, ExternalLink, Loader2, ArrowRight, Clock, Check, FileText } from 'lucide-react';
 import { isTouchDevice } from '../services/utils';
 import { useConfirm } from '../contexts/ConfirmContext';
 import {
@@ -28,6 +28,7 @@ import toast from 'react-hot-toast';
 import { onSocketEvent } from '../services/socketClient';
 import ImageCropModal from '../components/ImageCropModal';
 import VendorModal from '../components/VendorModal';
+import CatalogueModal from '../components/CatalogueModal';
 import PageContainer from '../components/ui/PageContainer';
 
 const SortableItem = React.memo(({ id, children, className, disabled, _index, ...props }) => {
@@ -142,6 +143,7 @@ const ProductLibrary = () => {
     const [vendors, setVendors] = useState([]);
     const [showVendorModal, setShowVendorModal] = useState(false);
     const [vendorNameForModal, setVendorNameForModal] = useState('');
+    const [showCatalogueModal, setShowCatalogueModal] = useState(false);
 
     const [showAdvancedInventory, setShowAdvancedInventory] = useState(false);
     const [originalProduct, setOriginalProduct] = useState(null);
@@ -1676,6 +1678,11 @@ const ProductLibrary = () => {
                             {canManageHierarchy && <button className="btn btn-ghost btn-sm" onClick={bulkToggleActive}>Toggle Active</button>}
                             <button className="btn btn-danger btn-sm" onClick={bulkDeleteSelected}>Delete</button>
                         </div>
+                    )}
+                    {isPrivileged && viewInfo.type === 'subcategory' && filteredProducts.length > 0 && (
+                        <button className="btn btn-primary btn-sm" onClick={() => setShowCatalogueModal(true)}>
+                            <FileText size={16} /> Product Catalogue
+                        </button>
                     )}
                 </div>
             )}
@@ -3333,6 +3340,13 @@ onClick={() => { setProductSearch(''); setFilterVendor('all'); setFilterCalcType
                     </div>
                 </div>
             )}
+
+            <CatalogueModal
+                isOpen={showCatalogueModal}
+                onClose={() => setShowCatalogueModal(false)}
+                hierarchy={hierarchy}
+                selectedIds={selectedProductIds}
+            />
         </PageContainer>
     );
 };

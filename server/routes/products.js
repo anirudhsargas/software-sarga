@@ -249,6 +249,108 @@ module.exports = (upload, removeUploadFile) => {
         }
     });
 
+    // Get all products for catalogue generation with comprehensive filters
+    router.get('/products/catalogue', authenticateToken, async (req, res) => {
+        try {
+            const {
+                category_id, subcategory_id, brand, vendor,
+                active_only, search, product_code,
+                price_min, price_max, ids
+            } = req.query;
+
+            let where = 'WHERE p.is_deleted = 0';
+            const params = [];
+
+            if (active_only !== 'false') {
+                where += ' AND p.is_active = 1';
+            }
+
+            if (category_id) {
+                where += ' AND c.id = ?';
+                params.push(category_id);
+            }
+
+            if (subcategory_id) {
+                where += ' AND p.subcategory_id = ?';
+                params.push(subcategory_id);
+            }
+
+            if (brand) {
+                where += ' AND p.company_name = ?';
+                params.push(brand);
+            }
+
+            if (search) {
+                where += ' AND (p.name LIKE ? OR p.product_code LIKE ?)';
+                const s = `%${search}%`;
+                params.push(s, s);
+            }
+
+            if (product_code) {
+                where += ' AND p.product_code LIKE ?';
+                params.push(`%${product_code}%`);
+            }
+
+            if (ids) {
+                const idArr = ids.split(',').map(Number).filter(Boolean);
+                if (idArr.length > 0) {
+                    where += ` AND p.id IN (${idArr.map(() => '?').join(',')})`;
+                    params.push(...idArr);
+                }
+            }
+
+            if (price_min || price_max) {
+                const [slabRows] = await pool.query(
+                    `SELECT product_id, MIN(unit_rate) as min_rate FROM sarga_product_slabs GROUP BY product_id`
+                );
+                const validIds = slabRows
+                    .filter(s => {
+                        if (price_min && s.min_rate < Number(price_min)) return false;
+                        if (price_max && s.min_rate > Number(price_max)) return false;
+                        return true;
+                    })
+                    .map(s => s.product_id);
+                if (validIds.length === 0) return res.json([]);
+                where += ` AND p.id IN (${validIds.map(() => '?').join(',')})`;
+                params.push(...validIds);
+            }
+
+            const [rows] = await pool.query(`
+                SELECT p.*,
+                       s.name AS subcategory_name,
+                       c.name AS category_name,
+                       c.id AS category_id
+                FROM sarga_products p
+                LEFT JOIN sarga_product_subcategories s ON p.subcategory_id = s.id
+                LEFT JOIN sarga_product_categories c ON s.category_id = c.id
+                ${where}
+                ORDER BY c.name ASC, s.name ASC, p.name ASC
+            `, params);
+
+            // Attach pricing slabs for each product
+            if (rows.length > 0) {
+                const productIds = rows.map(r => r.id);
+                const [slabs] = await pool.query(
+                    `SELECT * FROM sarga_product_slabs WHERE product_id IN (${productIds.map(() => '?').join(',')}) ORDER BY product_id, min_qty ASC`,
+                    productIds
+                );
+                const slabsByProduct = {};
+                slabs.forEach(s => {
+                    if (!slabsByProduct[s.product_id]) slabsByProduct[s.product_id] = [];
+                    slabsByProduct[s.product_id].push(s);
+                });
+                rows.forEach(p => {
+                    p.slabs = slabsByProduct[p.id] || [];
+                });
+            }
+
+            res.json(rows);
+        } catch (err) {
+            console.error('Get catalogue products error:', err);
+            res.status(500).json({ message: 'Database error' });
+        }
+    });
+
     // Generate a unique company code (3-5 letters) that doesn't collide with existing ones
     router.get('/unique-company-code', authenticateToken, asyncHandler(async (req, res) => {
         const rawName = (req.query.name || '').trim();

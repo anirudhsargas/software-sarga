@@ -1,0 +1,240 @@
+.catalogue-modal.modal {
+  max-width: 1100px;
+  width: 95%;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.catalogue-modal-body {
+  padding: 16px 20px;
+  overflow-y: auto;
+}
+
+.catalogue-layout {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 20px;
+}
+
+.catalogue-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.catalogue-right {
+  display: flex;
+  flex-direction: column;
+}
+
+.catalogue-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-heading);
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  user-select: none;
+  transition: background 120ms ease;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+.catalogue-section-header:hover {
+  background: var(--surface-2);
+}
+
+.catalogue-section-content {
+  padding: 10px 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.catalogue-preview {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: white;
+  box-shadow: var(--shadow-sm);
+  flex-shrink: 0;
+}
+
+.catalogue-preview-header {
+  background: var(--primary, #1a3a5f);
+  color: white;
+  padding: 6px 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.catalogue-preview-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: #eee;
+}
+
+.catalogue-preview-card {
+  background: white;
+  padding: 4px;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  min-height: 28px;
+}
+
+.catalogue-preview-img {
+  width: 20px;
+  height: 20px;
+  background: #f5f5f5;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #bbb;
+  flex-shrink: 0;
+}
+
+.catalogue-preview-info {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.catalogue-preview-name {
+  font-size: 8px;
+  font-weight: 600;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.catalogue-preview-price {
+  font-size: 7px;
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.catalogue-preview-more {
+  text-align: center;
+  padding: 6px;
+  font-size: 10px;
+  color: #999;
+  background: white;
+  border-top: 1px solid #eee;
+}
+
+.catalogue-preview-footer {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 8px;
+  font-size: 7px;
+  color: #999;
+  border-top: 1px solid #eee;
+  background: #fafafa;
+}
+
+.catalogue-preview-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.catalogue-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text-muted);
+}
+
+.catalogue-stat span {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-heading);
+}
+
+.catalogue-stat small {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.catalogue-stat svg {
+  color: var(--accent);
+}
+
+.catalogue-progress {
+  padding: 32px 16px;
+  text-align: center;
+}
+
+.catalogue-progress-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-heading);
+  margin-bottom: 16px;
+}
+
+.catalogue-spinner {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.catalogue-progress-bar-track {
+  width: 100%;
+  height: 8px;
+  background: var(--surface-2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.catalogue-progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--primary, #1a3a5f));
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+@media (max-width: 900px) {
+  .catalogue-layout {
+    grid-template-columns: 1fr;
+  }
+  .catalogue-right {
+    order: -1;
+  }
+  .catalogue-preview {
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  .catalogue-preview-stats {
+    margin-bottom: 12px;
+  }
+}
+
+@media (max-width: 600px) {
+  .catalogue-modal.modal {
+    width: 98vw;
+    max-width: 98vw;
+    max-height: 98vh;
+  }
+  .catalogue-modal-body {
+    padding: 12px;
+  }
+}

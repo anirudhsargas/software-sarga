@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState, Suspense, useCallback, useRef, laz
 import usePolling from '../hooks/usePolling';
 import { Routes, Route, NavLink, useNavigate, Navigate, useParams, useLocation } from 'react-router-dom';
 import {
-    Users, ClipboardList, Box, ShieldAlert, Receipt, LogOut, Grid, UserSquare, Building2, ChevronLeft, ChevronRight, Settings, BookOpen, Loader2, Store,
+    Users, ClipboardList, Box, ShieldAlert, Shield, Receipt, LogOut, Grid, UserSquare, Building2, ChevronLeft, ChevronRight, Settings, BookOpen, Loader2, Store, BarChart3,
     Brain, Search, FileCheck, Layers, Zap, TrendingUp, Camera, X, Sparkles, ScanLine, Package, Tag, Clock, FileText, MessageSquare, Star, Upload,
     Image, Calendar, Truck, Globe, Layout, Menu, Database, Award, Lock, Monitor, Sun, Moon
 } from 'lucide-react';
@@ -105,6 +105,8 @@ const SampleRequestsCMS = React.lazy(() => import('./SampleRequestsCMS'));
 const DesignBookingsCMS = React.lazy(() => import('./DesignBookingsCMS'));
 const AccessRestricted = React.lazy(() => import('./AccessRestricted'));
 const ShortcutsPage = React.lazy(() => import('./ShortcutsPage'));
+const AuditTrail = React.lazy(() => import('./admin/AuditTrail'));
+const AuditDashboard = React.lazy(() => import('./admin/AuditDashboard'));
 
 
 const PageLoader = React.memo(() => (
@@ -655,6 +657,8 @@ const Dashboard = () => {
         { key: 'manage', name: 'CCTV', icon: Camera, path: '/dashboard/cctv-management', roles: ['Admin'], group: 'admin' },
         { key: 'manage', name: 'Schedule & Time', icon: Clock, path: '/dashboard/schedules', roles: ['Admin', 'Accountant'], group: 'admin' },
         { key: 'manage', name: 'Settings', icon: Settings, path: '/dashboard/settings', roles: ['Admin'], group: 'admin' },
+        { key: 'manage', name: 'Audit Trail', icon: Shield, path: '/dashboard/admin/audit-trail', roles: ['Admin'], group: 'admin' },
+        { key: 'manage', name: 'Audit Dashboard', icon: BarChart3, path: '/dashboard/admin/audit-dashboard', roles: ['Admin'], group: 'admin' },
         { key: 'manage', name: 'Google Sheets Backup', icon: Database, path: '/dashboard/backup', roles: ['Admin'], group: 'admin' },
         // Website Group Items
         { key: 'manage', name: 'Chatbot Training', icon: Brain, path: '/dashboard/admin/chatbot-training', roles: ['Admin'], group: 'website' },
@@ -1297,6 +1301,8 @@ const Dashboard = () => {
                             <Route path="admin/pickup-bookings" element={<ProtectedSubRoute roles={['Admin']}><PickupBookings /></ProtectedSubRoute>} />
                             <Route path="admin/delivery-rules" element={<ProtectedSubRoute roles={['Admin']}><DeliveryRulesManager /></ProtectedSubRoute>} />
                             <Route path="admin/translations" element={<ProtectedSubRoute roles={['Admin']}><TranslationsManager /></ProtectedSubRoute>} />
+                            <Route path="admin/audit-trail" element={<ProtectedSubRoute roles={['Admin']}><AuditTrail /></ProtectedSubRoute>} />
+                            <Route path="admin/audit-dashboard" element={<ProtectedSubRoute roles={['Admin']}><AuditDashboard /></ProtectedSubRoute>} />
                             <Route path="web-inquiries" element={<ProtectedSubRoute roles={['Admin', 'Front Office']}><WebInquiries /></ProtectedSubRoute>} />
                             <Route path="blog-cms" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Designer']}><BlogCMS /></ProtectedSubRoute>} />
                             <Route path="sample-requests" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><SampleRequestsCMS /></ProtectedSubRoute>} />
