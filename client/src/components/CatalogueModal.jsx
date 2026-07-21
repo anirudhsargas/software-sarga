@@ -166,6 +166,21 @@ const CatalogueModal = ({ isOpen, onClose, hierarchy = [], selectedIds = [] }) =
         }
     }, []);
 
+    const fetchCatalogueProducts = useCallback(async () => {
+        const params = {};
+        if (activeFilters.category !== 'all') params.category_id = activeFilters.category;
+        if (activeFilters.brand !== 'all') params.brand = activeFilters.brand;
+        if (activeFilters.search) params.search = activeFilters.search;
+        if (activeFilters.selectionMode === 'selected' && selectedIds.length > 0) {
+            params.ids = selectedIds.join(',');
+        }
+        if (activeFilters.activeOnly) params.active_only = 'true';
+        if (activeFilters.priceMin) params.price_min = activeFilters.priceMin;
+        if (activeFilters.priceMax) params.price_max = activeFilters.priceMax;
+        const res = await api.get('/products/catalogue', { params });
+        return res.data || [];
+    }, [activeFilters, selectedIds]);
+
     const handleGenerate = async (type = 'pdf') => {
         if (filteredProducts.length === 0) {
             toast.error('No products match the selected filters');
@@ -174,11 +189,22 @@ const CatalogueModal = ({ isOpen, onClose, hierarchy = [], selectedIds = [] }) =
 
         setGenerating(true);
         setCancelled(false);
-        setProgress({ step: 'starting', message: 'Preparing products...', percent: 0 });
+        setProgress({ step: 'starting', message: 'Fetching product data...', percent: 0 });
 
         abortControllerRef.current = new AbortController();
 
         try {
+            setProgress({ step: 'fetching', message: 'Loading product details...', percent: 5 });
+            const products = await fetchCatalogueProducts();
+
+            if (cancelled) return;
+            if (!products || products.length === 0) {
+                toast.error('No products returned from server');
+                setGenerating(false);
+                setProgress(null);
+                return;
+            }
+
             const companyInfo = await getCompanyInfo();
 
             const pdfOptions = {
@@ -207,13 +233,13 @@ const CatalogueModal = ({ isOpen, onClose, hierarchy = [], selectedIds = [] }) =
             };
 
             if (type === 'pdf') {
-                await downloadCataloguePDF(filteredProducts, companyInfo, pdfOptions);
+                await downloadCataloguePDF(products, companyInfo, pdfOptions);
             } else if (type === 'compressed') {
-                await downloadCompressedPDF(filteredProducts, companyInfo, pdfOptions);
+                await downloadCompressedPDF(products, companyInfo, pdfOptions);
             } else if (type === 'print') {
-                await downloadPrintReadyPDF(filteredProducts, companyInfo, pdfOptions);
+                await downloadPrintReadyPDF(products, companyInfo, pdfOptions);
             } else if (type === 'zip') {
-                await downloadIndividualCardsZip(filteredProducts, companyInfo, pdfOptions);
+                await downloadIndividualCardsZip(products, companyInfo, pdfOptions);
             }
 
             if (!cancelled) {

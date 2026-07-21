@@ -101,12 +101,12 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
 
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
-    const margin = 10;
+    const margin = 6;
     const usableW = pageW - margin * 2;
 
-    const headerH = showHeader ? 22 : 0;
-    const footerH = showFooter ? 10 : 0;
-    const gap = 4;
+    const headerH = showHeader ? 16 : 0;
+    const footerH = showFooter ? 7 : 0;
+    const gap = 3;
     const cols = 2;
     const rows = 5;
     const cardW = (usableW - gap) / cols;
@@ -127,23 +127,25 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
 
     let imageCache = {};
     if (showImages) {
-        const imgProducts = products.slice(0, 100);
+        const imgProducts = products.filter(p => p.image_url);
         let loaded = 0;
-        const batchSize = 5;
+        const total = imgProducts.length;
+        const batchSize = 3;
         for (let i = 0; i < imgProducts.length; i += batchSize) {
             const batch = imgProducts.slice(i, i + batchSize);
             const results = await Promise.all(
                 batch.map(async (p) => {
+                    if (imageCache[p.id]) return { id: p.id, data: imageCache[p.id] };
                     const data = await loadImageAsBase64(p.image_url);
                     return { id: p.id, data };
                 })
             );
-            results.forEach(r => { imageCache[r.id] = r.data; });
+            results.forEach(r => { if (r.data) imageCache[r.id] = r.data; });
             loaded += batch.length;
             onProgress({
                 step: 'loading-images',
-                message: `Loading images... ${Math.min(loaded, imgProducts.length)}/${imgProducts.length}`,
-                percent: (loaded / Math.max(imgProducts.length, 1)) * 20,
+                message: `Loading images... ${Math.min(loaded, total)}/${total}`,
+                percent: (loaded / Math.max(total, 1)) * 20,
             });
         }
     }
@@ -177,31 +179,31 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
             doc.rect(margin, yCursor, usableW, headerH, 'F');
 
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(13);
+            doc.setFontSize(11);
             doc.setTextColor(255, 255, 255);
-            doc.text(companyInfo.name || 'Company Name', margin + 4, yCursor + 7);
+            doc.text(companyInfo.name || 'Company Name', margin + 3, yCursor + 6);
 
             doc.setFont('helvetica', 'normal');
-            doc.setFontSize(7);
+            doc.setFontSize(6.5);
             doc.setTextColor(200, 210, 230);
-            doc.text('Product Catalogue', margin + 4, yCursor + 13);
+            doc.text('Product Catalogue', margin + 3, yCursor + 11);
 
-            let rightX = margin + usableW - 4;
-            doc.setFontSize(6);
+            let rightX = margin + usableW - 3;
+            doc.setFontSize(5.5);
             doc.setTextColor(180, 190, 210);
             const contactParts = [];
             if (companyInfo.phone) contactParts.push(`Tel: ${companyInfo.phone}`);
             if (companyInfo.email) contactParts.push(`Email: ${companyInfo.email}`);
             if (companyInfo.website) contactParts.push(companyInfo.website);
             if (contactParts.length > 0) {
-                doc.text(contactParts.join(' | '), rightX, yCursor + 7, { align: 'right' });
+                doc.text(contactParts.join(' | '), rightX, yCursor + 6, { align: 'right' });
             }
             if (companyInfo.gst) {
-                doc.text(`GST: ${companyInfo.gst}`, rightX, yCursor + 13, { align: 'right' });
+                doc.text(`GST: ${companyInfo.gst}`, rightX, yCursor + 11, { align: 'right' });
             }
-            doc.setFontSize(5.5);
+            doc.setFontSize(5);
             doc.setTextColor(160, 170, 200);
-            doc.text(`Generated: ${dateStr} ${timeStr}`, rightX, yCursor + 18, { align: 'right' });
+            doc.text(`Generated: ${dateStr} ${timeStr}`, rightX, yCursor + 14, { align: 'right' });
 
             yCursor = headerBottom + gap;
         } else {
@@ -239,7 +241,7 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
                             if (dim && dim.w > 0 && dim.h > 0) {
                                 imgH = imgW * (dim.h / dim.w);
                             }
-                            const maxImgH = cardH * 0.55;
+                            const maxImgH = cardH * 0.65;
                             if (imgH > maxImgH) {
                                 imgH = maxImgH;
                                 imgW = imgH * (dim ? dim.w / dim.h : 1);
@@ -267,10 +269,10 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
                 }
 
                 const remainingH = cardY + cardH - 4 - textAreaStartY;
-                const nameSize = 6.5;
-                const priceSize = 5.5;
-                const descSize = 4.5;
-                const metaSize = 4;
+                const nameSize = 7;
+                const priceSize = 6;
+                const descSize = 5;
+                const metaSize = 4.5;
                 const lineH = (size) => size * 0.4 + 0.8;
 
                 let ty = textAreaStartY;
