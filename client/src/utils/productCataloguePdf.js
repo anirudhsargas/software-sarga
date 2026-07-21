@@ -215,30 +215,36 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
                     doc.line(margin, y, margin + usableW, y);
                 }
 
+                const priceAreaW = 26;
+                const boxW = colW - priceAreaW - 1;
                 const textStartX = x + imgSize + 2;
-                const textW = colW - imgSize - 2;
+                const textW = boxW - imgSize - 2;
                 const rightX = x + colW;
+                const priceX = x + boxW + 1;
 
+                const borderCol = [218, 220, 225];
+                doc.setDrawColor(...borderCol);
+                doc.setLineWidth(0.3);
                 doc.setFillColor(252, 252, 253);
-                doc.rect(x, y, colW, rowH, 'F');
+                doc.roundedRect(x, y, boxW, rowH, 1, 1, 'FD');
 
                 if (showImages) {
                     const imgY = y + (rowH - imgSize) / 2;
                     const imgData = product.image_url ? imageCache[product.id] : null;
                     if (imgData) {
                         try {
-                            doc.addImage(imgData, 'JPEG', x, imgY, imgSize, imgSize, undefined, 'FAST');
+                            doc.addImage(imgData, 'JPEG', x + 1, imgY, imgSize, imgSize, undefined, 'FAST');
                         } catch {}
                     } else {
                         doc.setFillColor(240, 240, 243);
-                        doc.rect(x, imgY, imgSize, imgSize, 'F');
+                        doc.roundedRect(x + 1, imgY, imgSize, imgSize, 1, 1, 'F');
                         doc.setFont('helvetica', 'normal');
-                        doc.setFontSize(4.5);
+                        doc.setFontSize(4);
                         doc.setTextColor(...textMuted);
-                        doc.text('No', x + imgSize / 2, imgY + imgSize / 2 - 1.5, {
+                        doc.text('No', x + 1 + imgSize / 2, imgY + imgSize / 2 - 1.5, {
                             align: 'center', baseline: 'middle',
                         });
-                        doc.text('Img', x + imgSize / 2, imgY + imgSize / 2 + 2.5, {
+                        doc.text('Img', x + 1 + imgSize / 2, imgY + imgSize / 2 + 2.5, {
                             align: 'center', baseline: 'middle',
                         });
                     }
@@ -247,29 +253,28 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
                 const nameY = y + 3.2;
                 const skuY = y + 6;
                 const descY = y + 8.8;
-                const stockY = y + 11.5;
 
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(8);
                 doc.setTextColor(...textDark);
                 const nameStr = String(product.name || '');
-                const nameLines = doc.splitTextToSize(nameStr, textW - 35);
-                doc.text(nameLines[0] || nameStr.substring(0, 22), textStartX, nameY);
+                const nameLines = doc.splitTextToSize(nameStr, textW - 30);
+                doc.text(nameLines[0] || nameStr.substring(0, 18), textStartX, nameY);
 
                 if (showProductCode && product.product_code) {
                     doc.setFont('helvetica', 'normal');
-                    doc.setFontSize(6.5);
+                    doc.setFontSize(6);
                     doc.setTextColor(...textMuted);
                     doc.text(`SKU: ${product.product_code}`, textStartX, skuY);
                 }
 
                 if (showDescription && product.description) {
                     doc.setFont('helvetica', 'normal');
-                    doc.setFontSize(6.5);
+                    doc.setFontSize(5.5);
                     doc.setTextColor(...textMuted);
                     const descStr = String(product.description);
-                    if (descStr.length > 40) {
-                        doc.text(descStr.substring(0, 40) + '...', textStartX, descY);
+                    if (descStr.length > 35) {
+                        doc.text(descStr.substring(0, 35) + '...', textStartX, descY);
                     } else {
                         doc.text(descStr, textStartX, descY);
                     }
@@ -278,32 +283,32 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
                 if (showRetailPrice) {
                     const rp = getRetailPrice(product);
                     if (rp > 0) {
-                        doc.setFont('helvetica', 'bold');
-                        doc.setFontSize(7);
+                        doc.setFont('helvetica', 'normal');
+                        doc.setFontSize(6.5);
                         doc.setTextColor(...textDark);
-                        doc.text(`\u20B9${formatPrice(rp)}`, rightX - 1, nameY, { align: 'right' });
+                        doc.text(`\u20B9${formatPrice(rp)}`, rightX, nameY, { align: 'right' });
                     }
                 }
                 if (showOffsetPrice) {
                     const op = getOffsetPrice(product);
                     if (op > 0) {
                         doc.setFont('helvetica', 'bold');
-                        doc.setFontSize(7);
+                        doc.setFontSize(6.5);
                         doc.setTextColor(...offsetColor);
-                        doc.text(`\u20B9${formatPrice(op)}`, rightX - 1, skuY, { align: 'right' });
+                        doc.text(`\u20B9${formatPrice(op)}`, rightX, skuY, { align: 'right' });
                     }
                 }
 
                 if (showStock && product.stock_quantity !== undefined && product.stock_quantity !== null) {
                     doc.setFont('helvetica', 'normal');
-                    doc.setFontSize(5.5);
+                    doc.setFontSize(5);
                     doc.setTextColor(...textMuted);
-                    doc.text(`Stock: ${Number(product.stock_quantity)}${product.stock_unit ? ' ' + product.stock_unit : ''}`, rightX - 1, descY, { align: 'right' });
+                    doc.text(`Stock: ${Number(product.stock_quantity)}${product.stock_unit ? ' ' + product.stock_unit : ''}`, rightX, descY, { align: 'right' });
                 }
 
                 if (showCategory && product.category_name && !showProductCode && !showDescription) {
                     doc.setFont('helvetica', 'normal');
-                    doc.setFontSize(5.5);
+                    doc.setFontSize(5);
                     doc.setTextColor(...textMuted);
                     doc.text(product.category_name, textStartX, descY);
                 }
