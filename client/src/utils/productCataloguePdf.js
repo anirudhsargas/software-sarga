@@ -101,14 +101,14 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
 
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
-    const margin = 6;
+    const margin = 5;
     const usableW = pageW - margin * 2;
 
-    const headerH = showHeader ? 16 : 0;
-    const footerH = showFooter ? 7 : 0;
-    const gap = 3;
+    const headerH = showHeader ? 14 : 0;
+    const footerH = showFooter ? 6 : 0;
+    const gap = 2.5;
     const cols = 2;
-    const rows = 5;
+    const rows = 6;
     const cardW = (usableW - gap) / cols;
     const usableH = pageH - margin * 2 - headerH - footerH;
     const cardH = (usableH - gap * (rows - 1)) / rows;
@@ -179,31 +179,29 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
             doc.rect(margin, yCursor, usableW, headerH, 'F');
 
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(11);
+            doc.setFontSize(10);
             doc.setTextColor(255, 255, 255);
-            doc.text(companyInfo.name || 'Company Name', margin + 3, yCursor + 6);
+            doc.text(companyInfo.name || 'Company Name', margin + 2, yCursor + 5);
 
             doc.setFont('helvetica', 'normal');
-            doc.setFontSize(6.5);
+            doc.setFontSize(6);
             doc.setTextColor(200, 210, 230);
-            doc.text('Product Catalogue', margin + 3, yCursor + 11);
+            doc.text('Product Catalogue', margin + 2, yCursor + 10);
 
-            let rightX = margin + usableW - 3;
-            doc.setFontSize(5.5);
+            let rightX = margin + usableW - 2;
+            doc.setFontSize(5);
             doc.setTextColor(180, 190, 210);
             const contactParts = [];
             if (companyInfo.phone) contactParts.push(`Tel: ${companyInfo.phone}`);
             if (companyInfo.email) contactParts.push(`Email: ${companyInfo.email}`);
             if (companyInfo.website) contactParts.push(companyInfo.website);
             if (contactParts.length > 0) {
-                doc.text(contactParts.join(' | '), rightX, yCursor + 6, { align: 'right' });
+                doc.text(contactParts.join(' | '), rightX, yCursor + 5, { align: 'right' });
             }
             if (companyInfo.gst) {
-                doc.text(`GST: ${companyInfo.gst}`, rightX, yCursor + 11, { align: 'right' });
+                doc.text(`GST: ${companyInfo.gst}`, rightX, yCursor + 10, { align: 'right' });
             }
-            doc.setFontSize(5);
-            doc.setTextColor(160, 170, 200);
-            doc.text(`Generated: ${dateStr} ${timeStr}`, rightX, yCursor + 14, { align: 'right' });
+            doc.text(`Generated: ${dateStr} ${timeStr}`, rightX, yCursor + 13, { align: 'right' });
 
             yCursor = headerBottom + gap;
         } else {
@@ -224,65 +222,59 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
                 doc.setLineWidth(0.3);
                 doc.roundedRect(x, y, cardW, cardH, 2, 2, 'FD');
 
-                let cardX = x + 2.5;
-                let cardY = y + 2;
-                const contentW = cardW - 5;
-                const textLeftX = cardX;
-                let textAreaStartY = cardY;
-                let imgHeight = 0;
+                const pad = 2;
+                const imgAreaW = showImages ? Math.min(cardW * 0.32, 30) : 0;
+                const textX = x + pad + imgAreaW + 2;
+                const textW = cardW - pad - imgAreaW - pad - 2;
+                const cardInnerY = y + pad;
+                const cardInnerH = cardH - pad * 2;
 
-                if (showImages && product.image_url) {
-                    const imgData = imageCache[product.id];
+                if (showImages) {
+                    const imgData = product.image_url ? imageCache[product.id] : null;
                     if (imgData) {
                         try {
                             const dim = loadedImageDimensions[product.image_url];
-                            let imgW = contentW;
+                            let imgW = imgAreaW;
                             let imgH = imgW;
                             if (dim && dim.w > 0 && dim.h > 0) {
                                 imgH = imgW * (dim.h / dim.w);
                             }
-                            const maxImgH = cardH * 0.65;
-                            if (imgH > maxImgH) {
-                                imgH = maxImgH;
+                            if (imgH > cardInnerH) {
+                                imgH = cardInnerH;
                                 imgW = imgH * (dim ? dim.w / dim.h : 1);
                             }
-                            const xOffset = cardX + (contentW - imgW) / 2;
-                            doc.addImage(imgData, 'JPEG', xOffset, cardY, imgW, imgH, undefined, 'FAST');
-                            imgHeight = imgH + 1.5;
-                            textAreaStartY = cardY + imgHeight;
-                        } catch {
-                            imgHeight = 0;
-                        }
+                            const imgX = x + pad + (imgAreaW - imgW) / 2;
+                            const imgY = y + pad + (cardInnerH - imgH) / 2;
+                            doc.addImage(imgData, 'JPEG', imgX, imgY, imgW, imgH, undefined, 'FAST');
+                        } catch {}
                     } else {
-                        const placeholderH = cardH * 0.35;
+                        const imgX = x + pad;
+                        const imgY = y + pad;
                         doc.setFillColor(245, 245, 247);
-                        doc.roundedRect(cardX, cardY, contentW, placeholderH, 1, 1, 'F');
+                        doc.roundedRect(imgX, imgY, imgAreaW, cardInnerH, 1, 1, 'F');
                         doc.setFont('helvetica', 'normal');
-                        doc.setFontSize(5);
+                        doc.setFontSize(4.5);
                         doc.setTextColor(...textMuted);
-                        doc.text('No Image', cardX + contentW / 2, cardY + placeholderH / 2, {
+                        doc.text('No\nImage', imgX + imgAreaW / 2, imgY + cardInnerH / 2, {
                             align: 'center', baseline: 'middle',
                         });
-                        imgHeight = placeholderH + 1.5;
-                        textAreaStartY = cardY + imgHeight;
                     }
                 }
 
-                const remainingH = cardY + cardH - 4 - textAreaStartY;
-                const nameSize = 7;
-                const priceSize = 6;
-                const descSize = 5;
-                const metaSize = 4.5;
-                const lineH = (size) => size * 0.4 + 0.8;
+                const nameSize = 6.5;
+                const priceSize = 5.5;
+                const descSize = 4.5;
+                const metaSize = 4;
+                const lh = (s) => s * 0.38 + 0.7;
 
-                let ty = textAreaStartY;
+                let ty = cardInnerY + lh(nameSize);
 
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(nameSize);
                 doc.setTextColor(...textDark);
-                const nameLines = doc.splitTextToSize(String(product.name || ''), contentW);
-                doc.text(nameLines[0] || '', textLeftX, ty);
-                ty += lineH(nameSize);
+                const nameLines = doc.splitTextToSize(String(product.name || ''), textW);
+                doc.text(nameLines[0] || '', textX, ty);
+                ty += lh(nameSize) + 0.3;
 
                 if (showRetailPrice || showOffsetPrice) {
                     const prices = [];
@@ -297,11 +289,9 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
                     if (prices.length > 0) {
                         doc.setFont('helvetica', 'bold');
                         doc.setFontSize(priceSize);
-                        const priceStr = prices.map(p => `${p.label}: \u20B9${formatPrice(p.value)}`).join('  ');
                         doc.setTextColor(...accent);
-                        const priceLines = doc.splitTextToSize(priceStr, contentW);
-                        doc.text(priceLines[0], textLeftX, ty);
-                        ty += lineH(priceSize);
+                        doc.text(prices.map(p => `\u20B9${formatPrice(p.value)}`).join('  '), textX, ty);
+                        ty += lh(priceSize) + 0.3;
                     }
                 }
 
@@ -309,16 +299,17 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
                     doc.setFont('helvetica', 'normal');
                     doc.setFontSize(descSize);
                     doc.setTextColor(...textMuted);
-                    const descLines = doc.splitTextToSize(String(product.description), contentW);
-                    const maxDescLines = Math.max(1, Math.floor((remainingH - (ty - textAreaStartY)) / (descSize * 0.35 + 0.6)) - 1);
-                    const showLines = descLines.slice(0, Math.min(maxDescLines, 3));
+                    const descLines = doc.splitTextToSize(String(product.description), textW);
+                    const freeH = cardY + cardH - pad - ty - 5;
+                    const maxDL = Math.max(1, Math.floor(freeH / (descSize * 0.32 + 0.5)));
+                    const showLines = descLines.slice(0, Math.min(maxDL, 3));
                     showLines.forEach((line, i) => {
                         if (i === showLines.length - 1 && descLines.length > showLines.length) {
-                            doc.text(line.replace(/\s+\S*$/, '...'), textLeftX, ty);
+                            doc.text(line.replace(/\s+\S*$/, '...'), textX, ty);
                         } else {
-                            doc.text(line, textLeftX, ty);
+                            doc.text(line, textX, ty);
                         }
-                        ty += descSize * 0.35 + 0.6;
+                        ty += descSize * 0.32 + 0.5;
                     });
                 }
 
@@ -336,7 +327,8 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
                     doc.setFont('helvetica', 'normal');
                     doc.setFontSize(metaSize);
                     doc.setTextColor(...textMuted);
-                    doc.text(metaParts.join(' | '), textLeftX, cardY + cardH - 3);
+                    const metaStr = metaParts.join(' | ');
+                    doc.text(metaStr, textX, y + cardH - pad - 1);
                 }
             }
         }

@@ -140,7 +140,7 @@ const CatalogueModal = ({ isOpen, onClose, hierarchy = [], selectedIds = [] }) =
     }, [allProducts, activeFilters, selectedIds]);
 
     const estimatedPages = useMemo(() => {
-        return Math.max(1, Math.ceil(filteredProducts.length / 10));
+        return Math.max(1, Math.ceil(filteredProducts.length / 12));
     }, [filteredProducts]);
 
     const getCompanyInfo = useCallback(async () => {
@@ -506,27 +506,25 @@ const CatalogueModal = ({ isOpen, onClose, hierarchy = [], selectedIds = [] }) =
                                     <div style={{ fontSize: '5px', color: '#999' }}>Product Catalogue</div>
                                 </div>
                                 <div className="catalogue-preview-grid">
-                                    {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].slice(0, Math.min(10, filteredProducts.length)).map(i => {
+                                    {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].slice(0, Math.min(12, filteredProducts.length)).map(i => {
                                         const p = filteredProducts[i];
                                         return (
                                             <div key={i} className="catalogue-preview-card">
-                                                {options.showImages && (
-                                                    <div className="catalogue-preview-img">
-                                                        <ImageIcon size={12} />
-                                                    </div>
-                                                )}
+                                                <div className="catalogue-preview-img">
+                                                    <ImageIcon size={10} />
+                                                </div>
                                                 <div className="catalogue-preview-info">
                                                     <div className="catalogue-preview-name">
                                                         {p ? (p.name || '').substring(0, 20) + ((p.name || '').length > 20 ? '...' : '') : '-'}
                                                     </div>
-                                                    {options.showStock && p && p.stock_quantity !== undefined && (
-                                                        <div className="catalogue-preview-stock">
-                                                            Stock: {Number(p.stock_quantity)}
-                                                        </div>
-                                                    )}
                                                     {options.showRetailPrice && p && (
                                                         <div className="catalogue-preview-price">
                                                             {'\u20B9'}{Number(p.slabs?.[0]?.unit_rate || p.sell_price || 0).toLocaleString('en-IN')}
+                                                        </div>
+                                                    )}
+                                                    {options.showStock && p && p.stock_quantity !== undefined && (
+                                                        <div className="catalogue-preview-stock">
+                                                            Stock: {Number(p.stock_quantity)}
                                                         </div>
                                                     )}
                                                 </div>
@@ -534,9 +532,9 @@ const CatalogueModal = ({ isOpen, onClose, hierarchy = [], selectedIds = [] }) =
                                         );
                                     })}
                                 </div>
-                                {filteredProducts.length > 10 && (
+                                {filteredProducts.length > 12 && (
                                     <div className="catalogue-preview-more">
-                                        ...and {filteredProducts.length - 10} more products
+                                        ...and {filteredProducts.length - 12} more products
                                     </div>
                                 )}
                                 <div className="catalogue-preview-footer">
