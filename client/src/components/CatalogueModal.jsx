@@ -140,7 +140,7 @@ const CatalogueModal = ({ isOpen, onClose, hierarchy = [], selectedIds = [] }) =
     }, [allProducts, activeFilters, selectedIds]);
 
     const estimatedPages = useMemo(() => {
-        return Math.max(1, Math.ceil(filteredProducts.length / 20));
+        return Math.max(1, Math.ceil(filteredProducts.length / 30));
     }, [filteredProducts]);
 
     const getCompanyInfo = useCallback(async () => {
@@ -506,7 +506,7 @@ const CatalogueModal = ({ isOpen, onClose, hierarchy = [], selectedIds = [] }) =
                                     <div style={{ fontSize: '5px', color: '#999' }}>Product Catalogue</div>
                                 </div>
                                 <div className="catalogue-preview-list">
-                                    {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19].slice(0, Math.min(20, filteredProducts.length)).map(i => {
+                                    {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29].slice(0, Math.min(30, filteredProducts.length)).map(i => {
                                         const p = filteredProducts[i];
                                         return (
                                             <div key={i} className="catalogue-preview-row">
@@ -516,7 +516,7 @@ const CatalogueModal = ({ isOpen, onClose, hierarchy = [], selectedIds = [] }) =
                                                 <div className="catalogue-preview-info">
                                                     <div className="catalogue-preview-row-top">
                                                         <span className="catalogue-preview-name">
-                                                            {p ? (p.name || '').substring(0, 28) + ((p.name || '').length > 28 ? '...' : '') : '-'}
+                                                            {p ? (p.name || '').substring(0, 18) + ((p.name || '').length > 18 ? '...' : '') : '-'}
                                                         </span>
                                                         {options.showRetailPrice && p && (
                                                             <span className="catalogue-preview-retail">
@@ -530,13 +530,13 @@ const CatalogueModal = ({ isOpen, onClose, hierarchy = [], selectedIds = [] }) =
                                                         )}
                                                         {options.showOffsetPrice && (p?.slabs?.[0]?.offset_unit_rate) && (
                                                             <span className="catalogue-preview-offset">
-                                                                Offset: {'\u20B9'}{Number(p.slabs[0].offset_unit_rate).toLocaleString('en-IN')}
+                                                                {'\u20B9'}{Number(p.slabs[0].offset_unit_rate).toLocaleString('en-IN')}
                                                             </span>
                                                         )}
                                                     </div>
                                                     <div className="catalogue-preview-row-bot">
                                                         <span className="catalogue-preview-desc">
-                                                            {p && p.description ? (p.description.substring(0, 55) + (p.description.length > 55 ? '...' : '')) : ''}
+                                                            {p && p.description ? (p.description.substring(0, 35) + (p.description.length > 35 ? '...' : '')) : ''}
                                                         </span>
                                                         {options.showStock && p && p.stock_quantity !== undefined && (
                                                             <span className="catalogue-preview-stock-sm">Stock: {Number(p.stock_quantity)}</span>
@@ -547,9 +547,9 @@ const CatalogueModal = ({ isOpen, onClose, hierarchy = [], selectedIds = [] }) =
                                         );
                                     })}
                                 </div>
-                                {filteredProducts.length > 20 && (
+                                {filteredProducts.length > 30 && (
                                     <div className="catalogue-preview-more">
-                                        ...and {filteredProducts.length - 20} more products
+                                        ...and {filteredProducts.length - 30} more products
                                     </div>
                                 )}
                                 <div className="catalogue-preview-footer">

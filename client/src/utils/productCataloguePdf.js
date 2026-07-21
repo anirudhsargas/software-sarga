@@ -106,15 +106,16 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
 
     const headerH = showHeader ? 10 : 0;
     const footerH = showFooter ? 5 : 0;
-    const rowGap = 3;
+    const cellGap = 2.5;
+    const rowGap = 2.5;
+    const cols = 2;
+    const targetRows = 15;
+    const colW = (usableW - cellGap) / cols;
     const contentTop = margin + headerH;
     const contentBottom = pageH - margin - footerH;
     const availableH = contentBottom - contentTop;
-    const targetRows = 20;
     const rowH = (availableH - (targetRows - 1) * rowGap) / targetRows;
-    const imgSize = showImages ? 9 : 0;
-    const textStartX = margin + imgSize + 2;
-    const textW = usableW - imgSize - 2;
+    const imgSize = showImages ? 11 : 0;
 
     const primary = [30, 58, 95];
     const accent = [41, 128, 185];
@@ -122,7 +123,7 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
     const textDark = [33, 37, 41];
     const textMuted = [120, 125, 130];
 
-    const productsPerPage = targetRows;
+    const productsPerPage = cols * targetRows;
     const totalPages = Math.ceil(products.length / productsPerPage);
 
     onProgress({ step: 'loading-images', message: 'Loading product images...', percent: 0 });
@@ -200,107 +201,114 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
         }
 
         for (let row = 0; row < targetRows; row++) {
-            const idx = row;
-            if (idx >= pageProducts.length) break;
+            for (let col = 0; col < cols; col++) {
+                const idx = row * cols + col;
+                if (idx >= pageProducts.length) break;
 
-            const product = pageProducts[idx];
-            const y = contentTop + row * (rowH + rowGap);
+                const product = pageProducts[idx];
+                const x = margin + col * (colW + cellGap);
+                const y = contentTop + row * (rowH + rowGap);
 
-            if (row > 0) {
-                doc.setDrawColor(225, 225, 230);
-                doc.setLineWidth(0.2);
-                doc.line(margin, y, margin + usableW, y);
-            }
+                if (col === 0) {
+                    doc.setDrawColor(225, 225, 230);
+                    doc.setLineWidth(0.2);
+                    doc.line(margin, y, margin + usableW, y);
+                }
 
-            if (showImages) {
-                const imgY = y + (rowH - imgSize) / 2;
-                const imgData = product.image_url ? imageCache[product.id] : null;
-                if (imgData) {
-                    try {
-                        doc.addImage(imgData, 'JPEG', margin, imgY, imgSize, imgSize, undefined, 'FAST');
-                    } catch {}
-                } else {
-                    doc.setFillColor(240, 240, 243);
-                    doc.rect(margin, imgY, imgSize, imgSize, 'F');
+                const textStartX = x + imgSize + 2;
+                const textW = colW - imgSize - 2;
+                const rightX = x + colW;
+
+                doc.setFillColor(252, 252, 253);
+                doc.rect(x, y, colW, rowH, 'F');
+
+                if (showImages) {
+                    const imgY = y + (rowH - imgSize) / 2;
+                    const imgData = product.image_url ? imageCache[product.id] : null;
+                    if (imgData) {
+                        try {
+                            doc.addImage(imgData, 'JPEG', x, imgY, imgSize, imgSize, undefined, 'FAST');
+                        } catch {}
+                    } else {
+                        doc.setFillColor(240, 240, 243);
+                        doc.rect(x, imgY, imgSize, imgSize, 'F');
+                        doc.setFont('helvetica', 'normal');
+                        doc.setFontSize(4.5);
+                        doc.setTextColor(...textMuted);
+                        doc.text('No', x + imgSize / 2, imgY + imgSize / 2 - 1.5, {
+                            align: 'center', baseline: 'middle',
+                        });
+                        doc.text('Img', x + imgSize / 2, imgY + imgSize / 2 + 2.5, {
+                            align: 'center', baseline: 'middle',
+                        });
+                    }
+                }
+
+                const nameY = y + 3.2;
+                const skuY = y + 6;
+                const descY = y + 8.8;
+                const stockY = y + 11.5;
+
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(8);
+                doc.setTextColor(...textDark);
+                const nameStr = String(product.name || '');
+                const nameLines = doc.splitTextToSize(nameStr, textW - 35);
+                doc.text(nameLines[0] || nameStr.substring(0, 22), textStartX, nameY);
+
+                if (showProductCode && product.product_code) {
                     doc.setFont('helvetica', 'normal');
-                    doc.setFontSize(4);
+                    doc.setFontSize(6.5);
                     doc.setTextColor(...textMuted);
-                    doc.text('No', margin + imgSize / 2, imgY + imgSize / 2 - 1, {
-                        align: 'center', baseline: 'middle',
-                    });
-                    doc.text('Img', margin + imgSize / 2, imgY + imgSize / 2 + 2.5, {
-                        align: 'center', baseline: 'middle',
-                    });
+                    doc.text(`SKU: ${product.product_code}`, textStartX, skuY);
+                }
+
+                if (showDescription && product.description) {
+                    doc.setFont('helvetica', 'normal');
+                    doc.setFontSize(6.5);
+                    doc.setTextColor(...textMuted);
+                    const descStr = String(product.description);
+                    if (descStr.length > 40) {
+                        doc.text(descStr.substring(0, 40) + '...', textStartX, descY);
+                    } else {
+                        doc.text(descStr, textStartX, descY);
+                    }
+                }
+
+                if (showRetailPrice) {
+                    const rp = getRetailPrice(product);
+                    if (rp > 0) {
+                        doc.setFont('helvetica', 'bold');
+                        doc.setFontSize(7);
+                        doc.setTextColor(...textDark);
+                        doc.text(`\u20B9${formatPrice(rp)}`, rightX - 1, nameY, { align: 'right' });
+                    }
+                }
+                if (showOffsetPrice) {
+                    const op = getOffsetPrice(product);
+                    if (op > 0) {
+                        doc.setFont('helvetica', 'bold');
+                        doc.setFontSize(7);
+                        doc.setTextColor(...offsetColor);
+                        doc.text(`\u20B9${formatPrice(op)}`, rightX - 1, skuY, { align: 'right' });
+                    }
+                }
+
+                if (showStock && product.stock_quantity !== undefined && product.stock_quantity !== null) {
+                    doc.setFont('helvetica', 'normal');
+                    doc.setFontSize(5.5);
+                    doc.setTextColor(...textMuted);
+                    doc.text(`Stock: ${Number(product.stock_quantity)}${product.stock_unit ? ' ' + product.stock_unit : ''}`, rightX - 1, descY, { align: 'right' });
+                }
+
+                if (showCategory && product.category_name && !showProductCode && !showDescription) {
+                    doc.setFont('helvetica', 'normal');
+                    doc.setFontSize(5.5);
+                    doc.setTextColor(...textMuted);
+                    doc.text(product.category_name, textStartX, descY);
                 }
             }
-
-            const nameY = y + 3.8;
-            const skuY = y + 6.8;
-            const descY = y + 9.6;
-            const rightX = margin + usableW;
-
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(9);
-            doc.setTextColor(...textDark);
-            const nameStr = String(product.name || '');
-            const nameLines = doc.splitTextToSize(nameStr, textW - 50);
-            doc.text(nameLines[0] || nameStr.substring(0, 40), textStartX, nameY);
-
-            if (showProductCode && product.product_code) {
-                doc.setFont('helvetica', 'normal');
-                doc.setFontSize(7);
-                doc.setTextColor(...textMuted);
-                doc.text(`SKU: ${product.product_code}`, textStartX, skuY);
-            }
-
-            if (showDescription && product.description) {
-                doc.setFont('helvetica', 'normal');
-                doc.setFontSize(7);
-                doc.setTextColor(...textMuted);
-                const descStr = String(product.description);
-                if (descStr.length > 80) {
-                    doc.text(descStr.substring(0, 80) + '...', textStartX, descY);
-                } else {
-                    doc.text(descStr, textStartX, descY);
-                }
-            }
-
-            let priceOffset = 0;
-            if (showRetailPrice) {
-                const rp = getRetailPrice(product);
-                if (rp > 0) {
-                    doc.setFont('helvetica', 'bold');
-                    doc.setFontSize(8);
-                    doc.setTextColor(...textDark);
-                    doc.text(`Retail: \u20B9${formatPrice(rp)}`, rightX, nameY, { align: 'right' });
-                    priceOffset += 1;
-                }
-            }
-            if (showOffsetPrice) {
-                const op = getOffsetPrice(product);
-                if (op > 0) {
-                    doc.setFont('helvetica', 'bold');
-                    doc.setFontSize(8);
-                    doc.setTextColor(...offsetColor);
-                    doc.text(`Offset: \u20B9${formatPrice(op)}`, rightX, skuY, { align: 'right' });
-                }
-            }
-
-            if (showStock && product.stock_quantity !== undefined && product.stock_quantity !== null) {
-                doc.setFont('helvetica', 'normal');
-                doc.setFontSize(6);
-                doc.setTextColor(...textMuted);
-                doc.text(`Stock: ${Number(product.stock_quantity)}${product.stock_unit ? ' ' + product.stock_unit : ''}`, rightX, descY, { align: 'right' });
-            }
-
-            const leftMeta = [];
-            if (showCategory && product.category_name) leftMeta.push(product.category_name);
-            if (leftMeta.length > 0 && !showProductCode && !showDescription) {
-                doc.setFont('helvetica', 'normal');
-                doc.setFontSize(6);
-                doc.setTextColor(...textMuted);
-                doc.text(leftMeta.join(' | '), textStartX, descY);
-            }
+            if (row * cols + cols > pageProducts.length) break;
         }
 
         if (showFooter) {
