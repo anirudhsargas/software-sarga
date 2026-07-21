@@ -184,6 +184,7 @@ app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 // Request diagnostics logger — logs method, URL, status code, response time, and memory usage
 app.use((req, res, next) => {
     const start = Date.now();
+    req._startTime = start;
     const memStart = process.memoryUsage();
     res.on('finish', () => {
         const duration = Date.now() - start;

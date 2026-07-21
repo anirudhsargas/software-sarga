@@ -3,6 +3,7 @@ const { pool } = require('../database');
 const { authenticateToken, authorizeRoles: _authorizeRoles, JWT_SECRET, revokeSessionInCache } = require('../middleware/auth');
 const { normalizeMobileWithCountry, auditLog } = require('../helpers');
 const { validate, loginSchema, changePasswordSchema } = require('../middleware/validate');
+const { createAuditEntry } = require('../services/auditService');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
@@ -39,12 +40,14 @@ module.exports = (upload) => {
             const user = users[0];
 
             if (!user) {
+                createAuditEntry(req, { module: 'Authentication', actionType: 'Login', username: normalizedUserId || last10, responseStatus: 401, success: false, errorMessage: 'Invalid credentials - user not found' }).catch(() => {});
                 return res.status(401).json({ message: 'Invalid credentials' });
             }
 
             const validPassword = await bcrypt.compare(password, user.password);
 
             if (!validPassword) {
+                createAuditEntry(req, { module: 'Authentication', actionType: 'Login', username: user.user_id, employeeName: user.name, userRole: user.role, branchId: user.branch_id, responseStatus: 401, success: false, errorMessage: 'Invalid credentials - wrong password' }).catch(() => {});
                 return res.status(401).json({ message: 'Invalid credentials' });
             }
 
@@ -87,6 +90,7 @@ module.exports = (upload) => {
             }
 
             auditLog(user.id, 'LOGIN', `User ${user.user_id} logged in`);
+            createAuditEntry(req, { module: 'Authentication', actionType: 'Login', username: user.user_id, employeeName: user.name, userRole: userRoleNormalized, branchId: user.branch_id, recordType: 'Session', recordId: user.id, responseStatus: 200, success: true, durationMs: Date.now() - req._startTime || 0 }).catch(() => {});
 
             res.json({
                 token,
@@ -155,6 +159,7 @@ module.exports = (upload) => {
             }
 
             auditLog(userId, 'PASSWORD_CHANGE', 'User changed password with complexity requirements');
+            createAuditEntry(req, { module: 'Authentication', actionType: 'Update', recordType: 'Password', recordId: userId, responseStatus: 200, success: true, reasonRemarks: 'Password changed successfully' }).catch(() => {});
             res.json({ message: 'Password updated successfully. All sessions revoked.' });
         } catch (err) {
             console.error('Change password error:', err);

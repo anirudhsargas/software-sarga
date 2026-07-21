@@ -4,6 +4,11 @@ const { pool } = require('../database');
 const logger = require('../helpers/logger');
 const SESSION_CACHE_TTL = parseInt(process.env.SESSION_CACHE_TTL || '43200', 10);
 
+const { createAuditEntry, getModuleFromPath, extractUserAgentInfo } = (() => {
+    try { return require('../services/auditService'); }
+    catch { return { createAuditEntry: () => {}, getModuleFromPath: () => 'Unknown', extractUserAgentInfo: () => ({}) }; }
+})();
+
 // In-memory token blacklist (Set of SHA256 hashes)
 const revokedTokens = new Set();
 
@@ -110,6 +115,52 @@ const authenticateToken = async (req, res, next) => {
         }
 
         req.user = user;
+
+        // ── Auto Audit Logging for all write operations ──
+        const writeMethods = ['POST', 'PUT', 'PATCH', 'DELETE'];
+        const skipPaths = ['/api/auth/', '/api/health', '/api/ping', '/api/server-time', '/api/version', '/api/company-settings', '/api/audit/logs', '/api/audit/stats', '/api/audit/filters', '/api/audit/export', '/api/audit/verify-chain'];
+        if (writeMethods.includes(req.method) && !skipPaths.some(p => req.path.startsWith(p))) {
+            const startTime = Date.now();
+            const originalJson = res.json.bind(res);
+            const originalSend = res.send.bind(res);
+            let responseBody = null;
+            res.json = (body) => { responseBody = body; return originalJson(body); };
+            res.send = (body) => { if (!responseBody) responseBody = body; return originalSend(body); };
+            const originalEnd = res.end.bind(res);
+            res.end = (...args) => {
+                const duration = Date.now() - startTime;
+                const success = res.statusCode < 400;
+                let errorMsg = null;
+                if (!success && responseBody) {
+                    try { const parsed = typeof responseBody === 'string' ? JSON.parse(responseBody) : responseBody; errorMsg = parsed?.message || parsed?.error || null; } catch {}
+                }
+                const path = req.originalUrl || req.url;
+                const moduleName = getModuleFromPath(path);
+                const actionMap = { POST: 'Create', PUT: 'Update', PATCH: 'Update', DELETE: 'Delete' };
+                let recordId = req.params?.id || req.body?.id || null;
+                let docNum = req.body?.invoice_no || req.body?.purchase_no || req.body?.job_no || req.body?.expense_id || req.body?.document_number || null;
+                const uaInfo = extractUserAgentInfo(req.headers['user-agent']);
+                setImmediate(() => {
+                    createAuditEntry(req, {
+                        module: moduleName,
+                        actionType: actionMap[req.method] || 'Unknown',
+                        recordType: path.split('/').filter(Boolean).pop()?.replace(/[0-9]/g, '') || null,
+                        recordId,
+                        documentNumber: docNum,
+                        newValues: ['POST', 'PUT', 'PATCH'].includes(req.method) ? req.body : null,
+                        responseStatus: res.statusCode,
+                        success,
+                        errorMessage: errorMsg,
+                        durationMs: duration,
+                        userAgent: req.headers['user-agent'],
+                        deviceName: uaInfo.device,
+                        browser: uaInfo.browser,
+                        operatingSystem: uaInfo.os,
+                    }).catch(() => {});
+                });
+                return originalEnd(...args);
+            };
+        }
         next();
     } catch (error) {
         logger.warn('[Auth] 401 Invalid token', { path: req.path, method: req.method, ip: req.ip, error: error.message });

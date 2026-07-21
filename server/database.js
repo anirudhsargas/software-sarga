@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
-const CURRENT_SCHEMA_VERSION = '043_performance_indexes_phase2.sql';
+const CURRENT_SCHEMA_VERSION = '045_enterprise_audit.sql';
 const BOOTSTRAP_SCHEMA_NAME = 'server_bootstrap';
 
 let poolInstance = null;

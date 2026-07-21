@@ -1,5 +1,7 @@
 const CLOUDINARY_PATTERN = /^https?:\/\/res\.cloudinary\.com\//;
 
+const loadedImageDimensions = {};
+
 async function loadImageAsBase64(url) {
     if (!url) return null;
     try {
@@ -11,6 +13,7 @@ async function loadImageAsBase64(url) {
                 img.onerror = reject;
                 img.src = url;
             });
+            loadedImageDimensions[url] = { w: img.naturalWidth, h: img.naturalHeight };
             const canvas = document.createElement('canvas');
             canvas.width = img.naturalWidth;
             canvas.height = img.naturalHeight;
@@ -32,31 +35,30 @@ async function loadImageAsBase64(url) {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const blob = await response.blob();
 
-        return new Promise((resolve, reject) => {
+        const dataUrl = await new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onloadend = () => resolve(reader.result);
             reader.onerror = reject;
             reader.readAsDataURL(blob);
         });
+
+        const img = new Image();
+        await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+            img.src = dataUrl;
+        });
+        loadedImageDimensions[url] = { w: img.naturalWidth, h: img.naturalHeight };
+
+        return dataUrl;
     } catch {
         return null;
     }
 }
 
-function prepareImage(imgData, maxW, maxH) {
-    if (!imgData) return null;
-    return { data: imgData, width: maxW, height: maxH };
-}
-
 function formatPrice(amount) {
     const num = Number(amount || 0);
     return num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function truncateText(doc, text, maxWidth, fontSize) {
-    doc.setFontSize(fontSize);
-    const lines = doc.splitTextToSize(String(text || ''), maxWidth);
-    return lines;
 }
 
 function getRetailPrice(product) {
@@ -81,10 +83,10 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
         showOffsetPrice = true,
         showProductCode = true,
         showCategory = true,
+        showStock = true,
         showHeader = true,
         showFooter = true,
         orientation = 'portrait',
-        imageSize = 'medium',
         onProgress = () => {},
         onPage = () => {},
     } = options;
@@ -223,33 +225,44 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
                 let cardX = x + 2.5;
                 let cardY = y + 2;
                 const contentW = cardW - 5;
-                const imgSizeRatios = { small: 0.35, medium: 0.42, large: 0.50 };
-                const imgRatio = imgSizeRatios[imageSize] || imgSizeRatios.medium;
-                const imgH = Math.min(cardH * imgRatio, 28);
-                const descMaxW = contentW;
                 const textLeftX = cardX;
                 let textAreaStartY = cardY;
+                let imgHeight = 0;
 
                 if (showImages && product.image_url) {
                     const imgData = imageCache[product.id];
                     if (imgData) {
                         try {
-                            const imgHCalc = imgH;
-                            const imgWCalc = contentW;
-                            doc.addImage(imgData, 'JPEG', cardX, cardY, imgWCalc, imgHCalc, undefined, 'FAST');
-                            textAreaStartY = cardY + imgHCalc + 1.5;
+                            const dim = loadedImageDimensions[product.image_url];
+                            let imgW = contentW;
+                            let imgH = imgW;
+                            if (dim && dim.w > 0 && dim.h > 0) {
+                                imgH = imgW * (dim.h / dim.w);
+                            }
+                            const maxImgH = cardH * 0.55;
+                            if (imgH > maxImgH) {
+                                imgH = maxImgH;
+                                imgW = imgH * (dim ? dim.w / dim.h : 1);
+                            }
+                            const xOffset = cardX + (contentW - imgW) / 2;
+                            doc.addImage(imgData, 'JPEG', xOffset, cardY, imgW, imgH, undefined, 'FAST');
+                            imgHeight = imgH + 1.5;
+                            textAreaStartY = cardY + imgHeight;
                         } catch {
-                            textAreaStartY = cardY;
+                            imgHeight = 0;
                         }
                     } else {
+                        const placeholderH = cardH * 0.35;
+                        doc.setFillColor(245, 245, 247);
+                        doc.roundedRect(cardX, cardY, contentW, placeholderH, 1, 1, 'F');
                         doc.setFont('helvetica', 'normal');
                         doc.setFontSize(5);
                         doc.setTextColor(...textMuted);
-                        doc.text('No Image', cardX + contentW / 2, cardY + imgH / 2, {
-                            align: 'center',
-                            baseline: 'middle',
+                        doc.text('No Image', cardX + contentW / 2, cardY + placeholderH / 2, {
+                            align: 'center', baseline: 'middle',
                         });
-                        textAreaStartY = cardY + imgH + 1.5;
+                        imgHeight = placeholderH + 1.5;
+                        textAreaStartY = cardY + imgHeight;
                     }
                 }
 
@@ -261,15 +274,12 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
                 const lineH = (size) => size * 0.4 + 0.8;
 
                 let ty = textAreaStartY;
-                const priceW = 28;
-                const availW = contentW - priceW - 1;
 
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(nameSize);
                 doc.setTextColor(...textDark);
-                const nameLines = doc.splitTextToSize(String(product.name || ''), availW);
-                const nameLine = nameLines[0] || '';
-                doc.text(nameLine, textLeftX, ty);
+                const nameLines = doc.splitTextToSize(String(product.name || ''), contentW);
+                doc.text(nameLines[0] || '', textLeftX, ty);
                 ty += lineH(nameSize);
 
                 if (showRetailPrice || showOffsetPrice) {
@@ -282,7 +292,6 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
                         const op = getOffsetPrice(product);
                         if (op > 0) prices.push({ label: 'WS', value: op });
                     }
-
                     if (prices.length > 0) {
                         doc.setFont('helvetica', 'bold');
                         doc.setFontSize(priceSize);
@@ -311,21 +320,21 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
                     });
                 }
 
-                if (showProductCode || showCategory) {
-                    const metaParts = [];
-                    if (showProductCode && product.product_code) {
-                        metaParts.push(`SKU: ${product.product_code}`);
-                    }
-                    if (showCategory && product.category_name) {
-                        metaParts.push(product.category_name);
-                    }
-                    if (metaParts.length > 0) {
-                        doc.setFont('helvetica', 'normal');
-                        doc.setFontSize(metaSize);
-                        doc.setTextColor(...textMuted);
-                        const metaStr = metaParts.join(' | ');
-                        doc.text(metaStr, textLeftX, cardY + cardH - 3);
-                    }
+                const metaParts = [];
+                if (showStock && product.stock_quantity !== undefined && product.stock_quantity !== null) {
+                    metaParts.push(`Stock: ${Number(product.stock_quantity)}${product.stock_unit ? ' ' + product.stock_unit : ''}`);
+                }
+                if (showProductCode && product.product_code) {
+                    metaParts.push(`SKU: ${product.product_code}`);
+                }
+                if (showCategory && product.category_name) {
+                    metaParts.push(product.category_name);
+                }
+                if (metaParts.length > 0) {
+                    doc.setFont('helvetica', 'normal');
+                    doc.setFontSize(metaSize);
+                    doc.setTextColor(...textMuted);
+                    doc.text(metaParts.join(' | '), textLeftX, cardY + cardH - 3);
                 }
             }
         }
@@ -358,10 +367,7 @@ export async function downloadCataloguePDF(products, companyInfo, options = {}) 
 }
 
 export async function downloadCompressedPDF(products, companyInfo, options = {}) {
-    const doc = await generateCataloguePDF(products, companyInfo, {
-        ...options,
-        imageSize: options.imageSize || 'small',
-    });
+    const doc = await generateCataloguePDF(products, companyInfo, options);
     const now = new Date();
     const pad = (n) => String(n).padStart(2, '0');
     const filename = `Product_Catalogue_Compressed_${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}.pdf`;
@@ -369,10 +375,7 @@ export async function downloadCompressedPDF(products, companyInfo, options = {})
 }
 
 export async function downloadPrintReadyPDF(products, companyInfo, options = {}) {
-    const doc = await generateCataloguePDF(products, companyInfo, {
-        ...options,
-        imageSize: options.imageSize || 'large',
-    });
+    const doc = await generateCataloguePDF(products, companyInfo, options);
     const now = new Date();
     const pad = (n) => String(n).padStart(2, '0');
     const filename = `Product_Catalogue_Print_${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}.pdf`;
@@ -456,6 +459,9 @@ export async function downloadIndividualCardsZip(products, companyInfo, options 
         doc.setFontSize(8);
         doc.setTextColor(...textMuted);
         const metaParts = [];
+        if (options.showStock !== false && product.stock_quantity !== undefined && product.stock_quantity !== null) {
+            metaParts.push(`Stock: ${Number(product.stock_quantity)}${product.stock_unit ? ' ' + product.stock_unit : ''}`);
+        }
         if (product.product_code) metaParts.push(`SKU: ${product.product_code}`);
         if (product.category_name) metaParts.push(product.category_name);
         if (product.company_name) metaParts.push(product.company_name);

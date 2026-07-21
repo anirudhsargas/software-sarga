@@ -4,6 +4,25 @@ const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { asyncHandler } = require('../helpers');
 const logger = require('../helpers/logger');
 
+const TABLE_EXISTS_CACHE = { checked: false, exists: false };
+
+const safeAuditQuery = async (sql, params, defaultResult) => {
+    try {
+        const result = await pool.query(sql, params);
+        return result;
+    } catch (err) {
+        if (err.code === 'ER_NO_SUCH_TABLE' || (err.errno === 1146)) {
+            if (!TABLE_EXISTS_CACHE.checked) {
+                TABLE_EXISTS_CACHE.exists = false;
+                TABLE_EXISTS_CACHE.checked = true;
+                logger.warn('[Audit] sarga_enterprise_audit table not found - returning empty results');
+            }
+            return defaultResult;
+        }
+        throw err;
+    }
+};
+
 const sanitizeFilter = (value) => {
     if (!value || value === '' || value === 'all') return null;
     return value;
@@ -65,6 +84,19 @@ const buildWhereClause = (query) => {
 router.get('/audit/logs', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
     const { page = 1, limit = 50 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    if (!TABLE_EXISTS_CACHE.checked) {
+        try {
+            await pool.query('SELECT 1 FROM sarga_enterprise_audit LIMIT 1');
+            TABLE_EXISTS_CACHE.exists = true;
+        } catch { TABLE_EXISTS_CACHE.exists = false; }
+        TABLE_EXISTS_CACHE.checked = true;
+    }
+
+    if (!TABLE_EXISTS_CACHE.exists) {
+        return res.json({ success: true, data: [], pagination: { page: 1, limit: parseInt(limit), total: 0, totalPages: 0 } });
+    }
+
     const { where, params } = buildWhereClause(req.query);
 
     const countResult = await pool.query(
@@ -90,6 +122,9 @@ router.get('/audit/logs', authenticateToken, authorizeRoles('Admin'), asyncHandl
 }));
 
 router.get('/audit/logs/:id', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
+    if (!TABLE_EXISTS_CACHE.exists) {
+        return res.status(404).json({ message: 'Audit table not initialized' });
+    }
     const [rows] = await pool.query(
         'SELECT * FROM sarga_enterprise_audit WHERE id = ? OR audit_id = ? LIMIT 1',
         [req.params.id, req.params.id]
@@ -99,6 +134,26 @@ router.get('/audit/logs/:id', authenticateToken, authorizeRoles('Admin'), asyncH
 }));
 
 router.get('/audit/stats', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
+    if (!TABLE_EXISTS_CACHE.checked) {
+        try {
+            await pool.query('SELECT 1 FROM sarga_enterprise_audit LIMIT 1');
+            TABLE_EXISTS_CACHE.exists = true;
+        } catch { TABLE_EXISTS_CACHE.exists = false; }
+        TABLE_EXISTS_CACHE.checked = true;
+    }
+
+    if (!TABLE_EXISTS_CACHE.exists) {
+        return res.json({
+            success: true,
+            data: {
+                totalToday: 0, totalLogins: 0, failedLogins: 0,
+                recordsCreated: 0, recordsUpdated: 0, recordsDeleted: 0, approvals: 0,
+                mostActiveModules: [], mostActiveUsers: [],
+                hourlyActivity: [], branchActivity: [], topErrors: [],
+            }
+        });
+    }
+
     const { date_from, date_to, branch_id } = req.query;
     const conditions = [];
     const params = [];
@@ -108,7 +163,6 @@ router.get('/audit/stats', authenticateToken, authorizeRoles('Admin'), asyncHand
     if (branch_id) { conditions.push('a.branch_id = ?'); params.push(branch_id); }
 
     const where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
-
     const today = new Date().toISOString().slice(0, 10);
 
     const [
@@ -125,42 +179,30 @@ router.get('/audit/stats', authenticateToken, authorizeRoles('Admin'), asyncHand
         [branchActivity],
         [errorOps],
     ] = await Promise.all([
-        pool.query(`SELECT COUNT(*) as count FROM sarga_enterprise_audit a WHERE DATE(a.created_at) = ? ${branch_id ? 'AND a.branch_id = ?' : ''}`,
-            branch_id ? [today, branch_id] : [today]),
-        pool.query(`SELECT COUNT(*) as count FROM sarga_enterprise_audit a WHERE a.action_type = 'Login' AND DATE(a.created_at) = ? ${branch_id ? 'AND a.branch_id = ?' : ''}`,
-            branch_id ? [today, branch_id] : [today]),
-        pool.query(`SELECT COUNT(*) as count FROM sarga_enterprise_audit a WHERE a.success = 0 AND a.action_type = 'Login' AND DATE(a.created_at) = ? ${branch_id ? 'AND a.branch_id = ?' : ''}`,
-            branch_id ? [today, branch_id] : [today]),
-        pool.query(`SELECT COUNT(*) as count FROM sarga_enterprise_audit a WHERE a.action_type = 'Create' AND DATE(a.created_at) = ? ${branch_id ? 'AND a.branch_id = ?' : ''}`,
-            branch_id ? [today, branch_id] : [today]),
-        pool.query(`SELECT COUNT(*) as count FROM sarga_enterprise_audit a WHERE a.action_type = 'Update' AND DATE(a.created_at) = ? ${branch_id ? 'AND a.branch_id = ?' : ''}`,
-            branch_id ? [today, branch_id] : [today]),
-        pool.query(`SELECT COUNT(*) as count FROM sarga_enterprise_audit a WHERE a.action_type = 'Delete' AND DATE(a.created_at) = ? ${branch_id ? 'AND a.branch_id = ?' : ''}`,
-            branch_id ? [today, branch_id] : [today]),
-        pool.query(`SELECT COUNT(*) as count FROM sarga_enterprise_audit a WHERE a.action_type IN ('Approve','Reject') AND DATE(a.created_at) = ? ${branch_id ? 'AND a.branch_id = ?' : ''}`,
-            branch_id ? [today, branch_id] : [today]),
-        pool.query(`
-            SELECT a.module, COUNT(*) as count
-            FROM sarga_enterprise_audit a ${where}
-            GROUP BY a.module ORDER BY count DESC LIMIT 10`, params),
-        pool.query(`
-            SELECT a.user_id_internal, a.username, a.employee_name, COUNT(*) as count
-            FROM sarga_enterprise_audit a ${where}
-            GROUP BY a.user_id_internal, a.username, a.employee_name
-            ORDER BY count DESC LIMIT 10`, params),
-        pool.query(`
-            SELECT DATE_FORMAT(a.timestamp, '%Y-%m-%d %H:00') as hour, COUNT(*) as count
-            FROM sarga_enterprise_audit a ${where}
-            GROUP BY hour ORDER BY hour`, params),
-        pool.query(`
-            SELECT COALESCE(a.branch_name, 'Unknown') as branch, COUNT(*) as count
-            FROM sarga_enterprise_audit a ${where}
-            GROUP BY a.branch_name ORDER BY count DESC`, params),
-        pool.query(`
-            SELECT a.module, a.action_type, a.error_message, COUNT(*) as count
-            FROM sarga_enterprise_audit a WHERE a.success = 0 ${conditions.length > 0 ? 'AND ' + conditions.join(' AND ') : ''}
-            GROUP BY a.module, a.action_type, a.error_message
-            ORDER BY count DESC LIMIT 10`, params),
+        safeAuditQuery(`SELECT COUNT(*) as count FROM sarga_enterprise_audit a WHERE DATE(a.created_at) = ? ${branch_id ? 'AND a.branch_id = ?' : ''}`,
+            branch_id ? [today, branch_id] : [today], [[{ count: 0 }]]),
+        safeAuditQuery(`SELECT COUNT(*) as count FROM sarga_enterprise_audit a WHERE a.action_type = 'Login' AND DATE(a.created_at) = ? ${branch_id ? 'AND a.branch_id = ?' : ''}`,
+            branch_id ? [today, branch_id] : [today], [[{ count: 0 }]]),
+        safeAuditQuery(`SELECT COUNT(*) as count FROM sarga_enterprise_audit a WHERE a.success = 0 AND a.action_type = 'Login' AND DATE(a.created_at) = ? ${branch_id ? 'AND a.branch_id = ?' : ''}`,
+            branch_id ? [today, branch_id] : [today], [[{ count: 0 }]]),
+        safeAuditQuery(`SELECT COUNT(*) as count FROM sarga_enterprise_audit a WHERE a.action_type = 'Create' AND DATE(a.created_at) = ? ${branch_id ? 'AND a.branch_id = ?' : ''}`,
+            branch_id ? [today, branch_id] : [today], [[{ count: 0 }]]),
+        safeAuditQuery(`SELECT COUNT(*) as count FROM sarga_enterprise_audit a WHERE a.action_type = 'Update' AND DATE(a.created_at) = ? ${branch_id ? 'AND a.branch_id = ?' : ''}`,
+            branch_id ? [today, branch_id] : [today], [[{ count: 0 }]]),
+        safeAuditQuery(`SELECT COUNT(*) as count FROM sarga_enterprise_audit a WHERE a.action_type = 'Delete' AND DATE(a.created_at) = ? ${branch_id ? 'AND a.branch_id = ?' : ''}`,
+            branch_id ? [today, branch_id] : [today], [[{ count: 0 }]]),
+        safeAuditQuery(`SELECT COUNT(*) as count FROM sarga_enterprise_audit a WHERE a.action_type IN ('Approve','Reject') AND DATE(a.created_at) = ? ${branch_id ? 'AND a.branch_id = ?' : ''}`,
+            branch_id ? [today, branch_id] : [today], [[{ count: 0 }]]),
+        safeAuditQuery(`SELECT a.module, COUNT(*) as count FROM sarga_enterprise_audit a ${where} GROUP BY a.module ORDER BY count DESC LIMIT 10`,
+            params, [[{ module: 'N/A', count: 0 }]]),
+        safeAuditQuery(`SELECT a.user_id_internal, a.username, a.employee_name, COUNT(*) as count FROM sarga_enterprise_audit a ${where} GROUP BY a.user_id_internal, a.username, a.employee_name ORDER BY count DESC LIMIT 10`,
+            params, [[{ user_id_internal: null, username: null, employee_name: null, count: 0 }]]),
+        safeAuditQuery(`SELECT DATE_FORMAT(a.timestamp, '%Y-%m-%d %H:00') as hour, COUNT(*) as count FROM sarga_enterprise_audit a ${where} GROUP BY hour ORDER BY hour`,
+            params, [[{ hour: null, count: 0 }]]),
+        safeAuditQuery(`SELECT COALESCE(a.branch_name, 'Unknown') as branch, COUNT(*) as count FROM sarga_enterprise_audit a ${where} GROUP BY a.branch_name ORDER BY count DESC`,
+            params, [[{ branch: 'N/A', count: 0 }]]),
+        safeAuditQuery(`SELECT a.module, a.action_type, a.error_message, COUNT(*) as count FROM sarga_enterprise_audit a WHERE a.success = 0 ${conditions.length > 0 ? 'AND ' + conditions.join(' AND ') : ''} GROUP BY a.module, a.action_type, a.error_message ORDER BY count DESC LIMIT 10`,
+            params, [[{ module: 'N/A', action_type: 'N/A', error_message: null, count: 0 }]]),
     ]);
 
     res.json({
@@ -183,22 +225,26 @@ router.get('/audit/stats', authenticateToken, authorizeRoles('Admin'), asyncHand
 }));
 
 router.get('/audit/filters', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
-    const [modules] = await pool.query(
-        'SELECT DISTINCT module FROM sarga_enterprise_audit ORDER BY module'
+    const modules = await safeAuditQuery(
+        'SELECT DISTINCT module FROM sarga_enterprise_audit ORDER BY module', [],
+        [[{ module: null }]]
     );
-    const [actions] = await pool.query(
-        'SELECT DISTINCT action_type FROM sarga_enterprise_audit ORDER BY action_type'
+    const actions = await safeAuditQuery(
+        'SELECT DISTINCT action_type FROM sarga_enterprise_audit ORDER BY action_type', [],
+        [[{ action_type: null }]]
     );
-    const [users] = await pool.query(`
-        SELECT DISTINCT a.user_id_internal, a.username, a.employee_name
-        FROM sarga_enterprise_audit a WHERE a.user_id_internal IS NOT NULL
-        ORDER BY a.employee_name
-    `);
-    const [branches] = await pool.query(`
-        SELECT DISTINCT a.branch_id, a.branch_name
-        FROM sarga_enterprise_audit a WHERE a.branch_id IS NOT NULL
-        ORDER BY a.branch_name
-    `);
+    const users = await safeAuditQuery(
+        `SELECT DISTINCT a.user_id_internal, a.username, a.employee_name
+         FROM sarga_enterprise_audit a WHERE a.user_id_internal IS NOT NULL
+         ORDER BY a.employee_name`, [],
+        [[{ user_id_internal: null, username: null, employee_name: null }]]
+    );
+    const branches = await safeAuditQuery(
+        `SELECT DISTINCT a.branch_id, a.branch_name
+         FROM sarga_enterprise_audit a WHERE a.branch_id IS NOT NULL
+         ORDER BY a.branch_name`, [],
+        [[{ branch_id: null, branch_name: null }]]
+    );
 
     res.json({
         success: true,
@@ -212,7 +258,11 @@ router.get('/audit/filters', authenticateToken, authorizeRoles('Admin'), asyncHa
 }));
 
 router.get('/audit/export', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
-    const { format = 'json', date_from, date_to, user_id, branch_id, module, action, status } = req.query;
+    if (!TABLE_EXISTS_CACHE.exists) {
+        return res.status(404).json({ message: 'Audit table not initialized' });
+    }
+
+    const { format = 'json' } = req.query;
     const { where, params } = buildWhereClause(req.query);
 
     const [rows] = await pool.query(
@@ -249,7 +299,7 @@ router.get('/audit/export', authenticateToken, authorizeRoles('Admin'), asyncHan
     }));
 
     const generatedAt = new Date().toISOString();
-    const filters = { date_from, date_to, user_id, branch_id, module, action, status };
+    const filters = { date_from: req.query.date_from, date_to: req.query.date_to, user_id: req.query.user_id, branch_id: req.query.branch_id, module: req.query.module, action: req.query.action, status: req.query.status };
     const appliedFilters = Object.entries(filters).filter(([, v]) => v && v !== 'all').reduce((acc, [k, v]) => ({ ...acc, [k]: v }), {});
 
     if (format === 'json') {
@@ -270,7 +320,7 @@ router.get('/audit/export', authenticateToken, authorizeRoles('Admin'), asyncHan
         for (const r of exportData) {
             const row = headers.map(h => {
                 const key = h.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/_$/, '');
-                const val = r[key] || '';
+                const val = r[key] !== null && r[key] !== undefined ? r[key] : '';
                 return `"${String(val).replace(/"/g, '""')}"`;
             });
             csvRows.push(row.join(','));
@@ -285,6 +335,10 @@ router.get('/audit/export', authenticateToken, authorizeRoles('Admin'), asyncHan
 }));
 
 router.get('/audit/verify-chain', authenticateToken, authorizeRoles('Admin'), asyncHandler(async (req, res) => {
+    if (!TABLE_EXISTS_CACHE.exists) {
+        return res.json({ success: true, data: { recordsChecked: 0, chainIntact: true, violations: [], firstRecord: null, lastRecord: null } });
+    }
+
     const { start_id, end_id, limit = 100 } = req.query;
     let conditions = [];
     let params = [];

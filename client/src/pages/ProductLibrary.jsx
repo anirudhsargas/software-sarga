@@ -89,6 +89,7 @@ const ProductLibrary = () => {
     const [productSearch, setProductSearch] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const searchTimer = useRef(null);
+    const toggleInProgress = useRef(false);
     const _filterVendorRef = useRef('all');
     const _filterCalcTypeRef = useRef('all');
     const [filterVendor, setFilterVendor] = useState('all');
@@ -176,10 +177,9 @@ const ProductLibrary = () => {
 
 
 
-    // Pause background work when page is hidden
     useEffect(() => {
         const handleVisibility = () => {
-            if (document.hidden) return;
+            if (document.hidden || toggleInProgress.current) return;
             fetchHierarchy();
         };
         document.addEventListener('visibilitychange', handleVisibility);
@@ -191,9 +191,9 @@ const ProductLibrary = () => {
         fetchVendors();
     }, []);
 
-    // Listen for real-time product/inventory changes from other sessions
     useEffect(() => {
         const unsub = onSocketEvent('productDeleted', () => {
+            if (toggleInProgress.current) return;
             fetchHierarchy();
         });
         return unsub;
@@ -394,7 +394,7 @@ const ProductLibrary = () => {
         });
         if (!isConfirmed) return;
 
-        // Optimistic UI Update
+        toggleInProgress.current = true;
         setHierarchy(prev => prev.map(c => ({
             ...c,
             subcategories: c.subcategories?.map(s => ({
@@ -409,12 +409,27 @@ const ProductLibrary = () => {
         })));
 
         try {
-            await Promise.allSettled(selectedProductIds.map(id => api.patch(`/products/${id}/toggle-active`)));
+            const results = await Promise.allSettled(selectedProductIds.map(id => api.patch(`/products/${id}/toggle-active`)));
             toast.success(`${anyActive ? 'Disabled' : 'Enabled'} selected products`);
             setSelectedProductIds([]);
-            fetchHierarchy();
+            const newState = anyActive ? 0 : 1;
+            setHierarchy(prev => prev.map(c => ({
+                ...c,
+                subcategories: c.subcategories?.map(s => ({
+                    ...s,
+                    products: s.products?.map(p => {
+                        if (selectedProductIds.includes(p.id)) {
+                            const result = results.find(r => r.status === 'fulfilled' && r.value?.config?.url?.includes(p.id));
+                            return { ...p, is_active: result?.status === 'fulfilled' ? result.value.data.is_active : newState };
+                        }
+                        return p;
+                    })
+                }))
+            })));
         } catch {
             toast.error('Error updating products');
+        } finally {
+            toggleInProgress.current = false;
         }
     };
 
@@ -1172,14 +1187,13 @@ const ProductLibrary = () => {
     }, [totalProductPages, productPage, viewInfo.type, allProducts.length]);
 
     const handleToggleProduct = async (prod) => {
-        // Inventory-only items cannot be toggled
         if (prod.is_inventory_only) {
             toast.error('Inventory items are always active');
             return;
         }
         const isActive = prod.is_active === 1 || prod.is_active === true;
 
-        // Optimistic UI Update
+        toggleInProgress.current = true;
         setHierarchy(prev => prev.map(c => ({
             ...c,
             subcategories: c.subcategories?.map(s => ({
@@ -1189,52 +1203,66 @@ const ProductLibrary = () => {
         })));
 
         try {
-            await api.patch(`/products/${prod.id}/toggle-active`);
+            const res = await api.patch(`/products/${prod.id}/toggle-active`);
             toast.success(isActive ? `"${prod.name}" disabled` : `"${prod.name}" enabled`);
-            fetchHierarchy();
+            setHierarchy(prev => prev.map(c => ({
+                ...c,
+                subcategories: c.subcategories?.map(s => ({
+                    ...s,
+                    products: s.products?.map(p => p.id === prod.id ? { ...p, is_active: res.data.is_active } : p)
+                }))
+            })));
         } catch {
             toast.error('Error updating product status');
-            fetchHierarchy(); // Revert on error
+            fetchHierarchy();
+        } finally {
+            toggleInProgress.current = false;
         }
     };
 
     const handleToggleCategory = async (cat) => {
         const isActive = cat.is_active === 1 || cat.is_active === true;
 
-        // Optimistic UI Update
+        toggleInProgress.current = true;
         setHierarchy(prev => prev.map(c => c.id === cat.id ? { ...c, is_active: !isActive } : c));
 
         try {
-            await api.patch(`/product-categories/${cat.id}/toggle-active`);
+            const res = await api.patch(`/product-categories/${cat.id}/toggle-active`);
             toast.success(isActive ? `"${cat.name}" disabled` : `"${cat.name}" enabled`);
-            fetchHierarchy();
+            setHierarchy(prev => prev.map(c => c.id === cat.id ? { ...c, is_active: res.data.is_active } : c));
         } catch {
             toast.error('Error updating category status');
-            fetchHierarchy(); // Revert on error
+            fetchHierarchy();
+        } finally {
+            toggleInProgress.current = false;
         }
     };
 
     const handleToggleSubcategory = async (sub) => {
-        // Virtual subcategories cannot be toggled
         if (typeof sub.id === 'string' && sub.id.startsWith('inv-sub-')) {
             toast.error('Virtual subcategories are always active');
             return;
         }
         const isActive = sub.is_active === 1 || sub.is_active === true;
 
-        // Optimistic UI Update
+        toggleInProgress.current = true;
         setHierarchy(prev => prev.map(c => ({
             ...c,
             subcategories: c.subcategories?.map(s => s.id === sub.id ? { ...s, is_active: !isActive } : s)
         })));
 
         try {
-            await api.patch(`/product-subcategories/${sub.id}/toggle-active`);
+            const res = await api.patch(`/product-subcategories/${sub.id}/toggle-active`);
             toast.success(isActive ? `"${sub.name}" disabled` : `"${sub.name}" enabled`);
-            fetchHierarchy();
+            setHierarchy(prev => prev.map(c => ({
+                ...c,
+                subcategories: c.subcategories?.map(s => s.id === sub.id ? { ...s, is_active: res.data.is_active } : s)
+            })));
         } catch {
             toast.error('Error updating subcategory status');
-            fetchHierarchy(); // Revert on error
+            fetchHierarchy();
+        } finally {
+            toggleInProgress.current = false;
         }
     };
 

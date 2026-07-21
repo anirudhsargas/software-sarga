@@ -319,10 +319,13 @@ module.exports = (upload, removeUploadFile) => {
                 SELECT p.*,
                        s.name AS subcategory_name,
                        c.name AS category_name,
-                       c.id AS category_id
+                       c.id AS category_id,
+                       i.quantity AS stock_quantity,
+                       i.unit AS stock_unit
                 FROM sarga_products p
                 LEFT JOIN sarga_product_subcategories s ON p.subcategory_id = s.id
                 LEFT JOIN sarga_product_categories c ON s.category_id = c.id
+                LEFT JOIN sarga_inventory i ON p.inventory_item_id = i.id
                 ${where}
                 ORDER BY c.name ASC, s.name ASC, p.name ASC
             `, params);

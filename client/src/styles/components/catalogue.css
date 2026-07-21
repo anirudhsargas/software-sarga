@@ -119,6 +119,12 @@
   font-weight: 600;
 }
 
+.catalogue-preview-stock {
+  font-size: 6px;
+  color: #059669;
+  font-weight: 600;
+}
+
 .catalogue-preview-more {
   text-align: center;
   padding: 6px;

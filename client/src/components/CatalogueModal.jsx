@@ -38,11 +38,11 @@ const CatalogueModal = ({ isOpen, onClose, hierarchy = [], selectedIds = [] }) =
         showOffsetPrice: true,
         showProductCode: true,
         showCategory: true,
+        showStock: true,
         showHeader: true,
         showFooter: true,
         orientation: 'portrait',
         margins: 'normal',
-        imageSize: 'medium',
     });
 
     const [generating, setGenerating] = useState(false);
@@ -188,10 +188,10 @@ const CatalogueModal = ({ isOpen, onClose, hierarchy = [], selectedIds = [] }) =
                 showOffsetPrice: options.showOffsetPrice,
                 showProductCode: options.showProductCode,
                 showCategory: options.showCategory,
+                showStock: options.showStock,
                 showHeader: options.showHeader,
                 showFooter: options.showFooter,
                 orientation: options.orientation,
-                imageSize: options.imageSize,
                 onProgress: (p) => {
                     if (!cancelled) setProgress(p);
                 },
@@ -411,22 +411,12 @@ const CatalogueModal = ({ isOpen, onClose, hierarchy = [], selectedIds = [] }) =
                                     </div>
                                     {expandedLayout && (
                                         <div className="catalogue-section-content">
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
-                                                <div>
-                                                    <label style={labelStyle}>Orientation</label>
-                                                    <select style={selectStyle} value={options.orientation} onChange={(e) => setOptions(o => ({ ...o, orientation: e.target.value }))}>
-                                                        <option value="portrait">Portrait</option>
-                                                        <option value="landscape">Landscape</option>
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label style={labelStyle}>Image Size</label>
-                                                    <select style={selectStyle} value={options.imageSize} onChange={(e) => setOptions(o => ({ ...o, imageSize: e.target.value }))}>
-                                                        <option value="small">Small</option>
-                                                        <option value="medium">Medium</option>
-                                                        <option value="large">Large</option>
-                                                    </select>
-                                                </div>
+                                            <div style={{ marginBottom: '12px' }}>
+                                                <label style={labelStyle}>Orientation</label>
+                                                <select style={selectStyle} value={options.orientation} onChange={(e) => setOptions(o => ({ ...o, orientation: e.target.value }))}>
+                                                    <option value="portrait">Portrait</option>
+                                                    <option value="landscape">Landscape</option>
+                                                </select>
                                             </div>
 
                                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 16px', marginBottom: '8px' }}>
@@ -435,6 +425,7 @@ const CatalogueModal = ({ isOpen, onClose, hierarchy = [], selectedIds = [] }) =
                                                     { key: 'showDescription', label: 'Description' },
                                                     { key: 'showRetailPrice', label: 'Retail Price' },
                                                     { key: 'showOffsetPrice', label: 'Offset/WS Price' },
+                                                    { key: 'showStock', label: 'Stock Quantity' },
                                                     { key: 'showProductCode', label: 'Product Code/SKU' },
                                                     { key: 'showCategory', label: 'Category' },
                                                     { key: 'showHeader', label: 'Company Header' },
@@ -502,6 +493,11 @@ const CatalogueModal = ({ isOpen, onClose, hierarchy = [], selectedIds = [] }) =
                                                     <div className="catalogue-preview-name">
                                                         {p ? (p.name || '').substring(0, 20) + ((p.name || '').length > 20 ? '...' : '') : '-'}
                                                     </div>
+                                                    {options.showStock && p && p.stock_quantity !== undefined && (
+                                                        <div className="catalogue-preview-stock">
+                                                            Stock: {Number(p.stock_quantity)}
+                                                        </div>
+                                                    )}
                                                     {options.showRetailPrice && p && (
                                                         <div className="catalogue-preview-price">
                                                             {'\u20B9'}{Number(p.slabs?.[0]?.unit_rate || p.sell_price || 0).toLocaleString('en-IN')}
