@@ -101,26 +101,28 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
 
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
-    const margin = 5;
+    const margin = 10;
     const usableW = pageW - margin * 2;
 
-    const headerH = showHeader ? 14 : 0;
-    const footerH = showFooter ? 6 : 0;
-    const gap = 2.5;
-    const cols = 2;
-    const rows = 6;
-    const cardW = (usableW - gap) / cols;
-    const usableH = pageH - margin * 2 - headerH - footerH;
-    const cardH = (usableH - gap * (rows - 1)) / rows;
+    const headerH = showHeader ? 10 : 0;
+    const footerH = showFooter ? 5 : 0;
+    const rowGap = 3;
+    const contentTop = margin + headerH;
+    const contentBottom = pageH - margin - footerH;
+    const availableH = contentBottom - contentTop;
+    const targetRows = 20;
+    const rowH = (availableH - (targetRows - 1) * rowGap) / targetRows;
+    const imgSize = showImages ? 9 : 0;
+    const textStartX = margin + imgSize + 2;
+    const textW = usableW - imgSize - 2;
 
     const primary = [30, 58, 95];
     const accent = [41, 128, 185];
+    const offsetColor = [200, 60, 40];
     const textDark = [33, 37, 41];
     const textMuted = [120, 125, 130];
-    const borderColor = [210, 210, 215];
-    const cardBg = [255, 255, 255];
 
-    const productsPerPage = cols * rows;
+    const productsPerPage = targetRows;
     const totalPages = Math.ceil(products.length / productsPerPage);
 
     onProgress({ step: 'loading-images', message: 'Loading product images...', percent: 0 });
@@ -154,9 +156,6 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
     const dateStr = now.toLocaleDateString('en-IN', {
         day: '2-digit', month: 'short', year: 'numeric',
     });
-    const timeStr = now.toLocaleTimeString('en-IN', {
-        hour: '2-digit', minute: '2-digit',
-    });
 
     for (let page = 0; page < totalPages; page++) {
         if (page > 0) doc.addPage();
@@ -171,22 +170,19 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
         const startIdx = page * productsPerPage;
         const pageProducts = products.slice(startIdx, startIdx + productsPerPage);
 
-        let yCursor = margin;
-
         if (showHeader) {
-            const headerBottom = margin + headerH;
             doc.setFillColor(...primary);
-            doc.rect(margin, yCursor, usableW, headerH, 'F');
+            doc.rect(margin, margin, usableW, headerH, 'F');
 
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(10);
+            doc.setFontSize(11);
             doc.setTextColor(255, 255, 255);
-            doc.text(companyInfo.name || 'Company Name', margin + 2, yCursor + 5);
+            doc.text(companyInfo.name || 'Company Name', margin + 2, margin + 4);
 
             doc.setFont('helvetica', 'normal');
-            doc.setFontSize(6);
+            doc.setFontSize(7);
             doc.setTextColor(200, 210, 230);
-            doc.text('Product Catalogue', margin + 2, yCursor + 10);
+            doc.text('Product Catalogue', margin + 2, margin + 8);
 
             let rightX = margin + usableW - 2;
             doc.setFontSize(5);
@@ -196,155 +192,122 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
             if (companyInfo.email) contactParts.push(`Email: ${companyInfo.email}`);
             if (companyInfo.website) contactParts.push(companyInfo.website);
             if (contactParts.length > 0) {
-                doc.text(contactParts.join(' | '), rightX, yCursor + 5, { align: 'right' });
+                doc.text(contactParts.join(' | '), rightX, margin + 4, { align: 'right' });
             }
             if (companyInfo.gst) {
-                doc.text(`GST: ${companyInfo.gst}`, rightX, yCursor + 10, { align: 'right' });
+                doc.text(`GST: ${companyInfo.gst}`, rightX, margin + 8, { align: 'right' });
             }
-            doc.text(`Generated: ${dateStr} ${timeStr}`, rightX, yCursor + 13, { align: 'right' });
-
-            yCursor = headerBottom + gap;
-        } else {
-            yCursor = margin;
         }
 
-        for (let row = 0; row < rows; row++) {
-            for (let col = 0; col < cols; col++) {
-                const idx = row * cols + col;
-                if (idx >= pageProducts.length) break;
+        for (let row = 0; row < targetRows; row++) {
+            const idx = row;
+            if (idx >= pageProducts.length) break;
 
-                const product = pageProducts[idx];
-                const x = margin + col * (cardW + gap);
-                const y = yCursor + row * (cardH + gap);
+            const product = pageProducts[idx];
+            const y = contentTop + row * (rowH + rowGap);
 
-                doc.setFillColor(...cardBg);
-                doc.setDrawColor(...borderColor);
-                doc.setLineWidth(0.3);
-                doc.roundedRect(x, y, cardW, cardH, 2, 2, 'FD');
+            if (row > 0) {
+                doc.setDrawColor(225, 225, 230);
+                doc.setLineWidth(0.2);
+                doc.line(margin, y, margin + usableW, y);
+            }
 
-                const pad = 2;
-                const imgAreaW = showImages ? Math.min(cardW * 0.32, 30) : 0;
-                const textX = x + pad + imgAreaW + 2;
-                const textW = cardW - pad - imgAreaW - pad - 2;
-                const cardInnerY = y + pad;
-                const cardInnerH = cardH - pad * 2;
-
-                if (showImages) {
-                    const imgData = product.image_url ? imageCache[product.id] : null;
-                    if (imgData) {
-                        try {
-                            const dim = loadedImageDimensions[product.image_url];
-                            let imgW = imgAreaW;
-                            let imgH = imgW;
-                            if (dim && dim.w > 0 && dim.h > 0) {
-                                imgH = imgW * (dim.h / dim.w);
-                            }
-                            if (imgH > cardInnerH) {
-                                imgH = cardInnerH;
-                                imgW = imgH * (dim ? dim.w / dim.h : 1);
-                            }
-                            const imgX = x + pad + (imgAreaW - imgW) / 2;
-                            const imgY = y + pad + (cardInnerH - imgH) / 2;
-                            doc.addImage(imgData, 'JPEG', imgX, imgY, imgW, imgH, undefined, 'FAST');
-                        } catch {}
-                    } else {
-                        const imgX = x + pad;
-                        const imgY = y + pad;
-                        doc.setFillColor(245, 245, 247);
-                        doc.roundedRect(imgX, imgY, imgAreaW, cardInnerH, 1, 1, 'F');
-                        doc.setFont('helvetica', 'normal');
-                        doc.setFontSize(4.5);
-                        doc.setTextColor(...textMuted);
-                        doc.text('No\nImage', imgX + imgAreaW / 2, imgY + cardInnerH / 2, {
-                            align: 'center', baseline: 'middle',
-                        });
-                    }
-                }
-
-                const nameSize = 6.5;
-                const priceSize = 5.5;
-                const descSize = 4.5;
-                const metaSize = 4;
-                const lh = (s) => s * 0.38 + 0.7;
-
-                let ty = cardInnerY + lh(nameSize);
-
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(nameSize);
-                doc.setTextColor(...textDark);
-                const nameLines = doc.splitTextToSize(String(product.name || ''), textW);
-                doc.text(nameLines[0] || '', textX, ty);
-                ty += lh(nameSize) + 0.3;
-
-                if (showRetailPrice || showOffsetPrice) {
-                    const prices = [];
-                    if (showRetailPrice) {
-                        const rp = getRetailPrice(product);
-                        if (rp > 0) prices.push({ label: 'MRP', value: rp });
-                    }
-                    if (showOffsetPrice) {
-                        const op = getOffsetPrice(product);
-                        if (op > 0) prices.push({ label: 'WS', value: op });
-                    }
-                    if (prices.length > 0) {
-                        doc.setFont('helvetica', 'bold');
-                        doc.setFontSize(priceSize);
-                        doc.setTextColor(...accent);
-                        doc.text(prices.map(p => `\u20B9${formatPrice(p.value)}`).join('  '), textX, ty);
-                        ty += lh(priceSize) + 0.3;
-                    }
-                }
-
-                if (showDescription && product.description) {
+            if (showImages) {
+                const imgY = y + (rowH - imgSize) / 2;
+                const imgData = product.image_url ? imageCache[product.id] : null;
+                if (imgData) {
+                    try {
+                        doc.addImage(imgData, 'JPEG', margin, imgY, imgSize, imgSize, undefined, 'FAST');
+                    } catch {}
+                } else {
+                    doc.setFillColor(240, 240, 243);
+                    doc.rect(margin, imgY, imgSize, imgSize, 'F');
                     doc.setFont('helvetica', 'normal');
-                    doc.setFontSize(descSize);
+                    doc.setFontSize(4);
                     doc.setTextColor(...textMuted);
-                    const descLines = doc.splitTextToSize(String(product.description), textW);
-                    const freeH = y + cardH - pad - ty - 5;
-                    const maxDL = Math.max(1, Math.floor(freeH / (descSize * 0.32 + 0.5)));
-                    const showLines = descLines.slice(0, Math.min(maxDL, 3));
-                    showLines.forEach((line, i) => {
-                        if (i === showLines.length - 1 && descLines.length > showLines.length) {
-                            doc.text(line.replace(/\s+\S*$/, '...'), textX, ty);
-                        } else {
-                            doc.text(line, textX, ty);
-                        }
-                        ty += descSize * 0.32 + 0.5;
+                    doc.text('No', margin + imgSize / 2, imgY + imgSize / 2 - 1, {
+                        align: 'center', baseline: 'middle',
+                    });
+                    doc.text('Img', margin + imgSize / 2, imgY + imgSize / 2 + 2.5, {
+                        align: 'center', baseline: 'middle',
                     });
                 }
+            }
 
-                const metaParts = [];
-                if (showStock && product.stock_quantity !== undefined && product.stock_quantity !== null) {
-                    metaParts.push(`Stock: ${Number(product.stock_quantity)}${product.stock_unit ? ' ' + product.stock_unit : ''}`);
+            const nameY = y + 3.8;
+            const skuY = y + 6.8;
+            const descY = y + 9.6;
+            const rightX = margin + usableW;
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(9);
+            doc.setTextColor(...textDark);
+            const nameStr = String(product.name || '');
+            const nameLines = doc.splitTextToSize(nameStr, textW - 50);
+            doc.text(nameLines[0] || nameStr.substring(0, 40), textStartX, nameY);
+
+            if (showProductCode && product.product_code) {
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(7);
+                doc.setTextColor(...textMuted);
+                doc.text(`SKU: ${product.product_code}`, textStartX, skuY);
+            }
+
+            if (showDescription && product.description) {
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(7);
+                doc.setTextColor(...textMuted);
+                const descStr = String(product.description);
+                if (descStr.length > 80) {
+                    doc.text(descStr.substring(0, 80) + '...', textStartX, descY);
+                } else {
+                    doc.text(descStr, textStartX, descY);
                 }
-                if (showProductCode && product.product_code) {
-                    metaParts.push(`SKU: ${product.product_code}`);
+            }
+
+            let priceOffset = 0;
+            if (showRetailPrice) {
+                const rp = getRetailPrice(product);
+                if (rp > 0) {
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(8);
+                    doc.setTextColor(...textDark);
+                    doc.text(`Retail: \u20B9${formatPrice(rp)}`, rightX, nameY, { align: 'right' });
+                    priceOffset += 1;
                 }
-                if (showCategory && product.category_name) {
-                    metaParts.push(product.category_name);
+            }
+            if (showOffsetPrice) {
+                const op = getOffsetPrice(product);
+                if (op > 0) {
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(8);
+                    doc.setTextColor(...offsetColor);
+                    doc.text(`Offset: \u20B9${formatPrice(op)}`, rightX, skuY, { align: 'right' });
                 }
-                if (metaParts.length > 0) {
-                    doc.setFont('helvetica', 'normal');
-                    doc.setFontSize(metaSize);
-                    doc.setTextColor(...textMuted);
-                    const metaStr = metaParts.join(' | ');
-                    doc.text(metaStr, textX, y + cardH - pad - 1);
-                }
+            }
+
+            if (showStock && product.stock_quantity !== undefined && product.stock_quantity !== null) {
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(6);
+                doc.setTextColor(...textMuted);
+                doc.text(`Stock: ${Number(product.stock_quantity)}${product.stock_unit ? ' ' + product.stock_unit : ''}`, rightX, descY, { align: 'right' });
+            }
+
+            const leftMeta = [];
+            if (showCategory && product.category_name) leftMeta.push(product.category_name);
+            if (leftMeta.length > 0 && !showProductCode && !showDescription) {
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(6);
+                doc.setTextColor(...textMuted);
+                doc.text(leftMeta.join(' | '), textStartX, descY);
             }
         }
 
         if (showFooter) {
-            const footerY = pageH - margin - footerH + 1;
-            doc.setDrawColor(200, 200, 205);
-            doc.setLineWidth(0.3);
-            doc.line(margin, footerY, margin + usableW, footerY);
-
             doc.setFont('helvetica', 'normal');
-            doc.setFontSize(5.5);
+            doc.setFontSize(7);
             doc.setTextColor(...textMuted);
-            doc.text(`Page ${page + 1} of ${totalPages}`, margin, footerY + 4);
-            doc.text('Generated by Sarga ERP', margin + usableW / 2, footerY + 4, { align: 'center' });
-            doc.text(`\u00A9 ${now.getFullYear()} ${companyInfo.name || 'Company'}`, margin + usableW, footerY + 4, { align: 'right' });
+            doc.text(`Page ${page + 1} of ${totalPages}`, margin + usableW / 2, pageH - margin - footerH + 3, { align: 'center' });
         }
     }
 
