@@ -502,19 +502,21 @@ const Requests = () => {
                                                                 {Object.keys(selectedRequest.proposed_data).map(fKey => {
                                                                     const curr = selectedRequest.current_data?.[fKey];
                                                                     const prop = selectedRequest.proposed_data?.[fKey];
+                                                                    const isScalar = v => v === null || v === undefined || typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean';
+                                                                    if (!isScalar(curr) && !isScalar(prop)) return null;
                                                                     const changed = String(curr ?? '') !== String(prop ?? '');
                                                                     if (!changed && !prop) return null;
                                                                     return (
                                                                         <tr key={fKey}>
                                                                             <td className="font-semibold text-sm">{fKey}</td>
                                                                             <td style={{ color: changed ? 'var(--text-muted)' : 'var(--text)' }}>
-                                                                                {curr ?? '—'}
+                                                                                {isScalar(curr) ? (curr ?? '—') : JSON.stringify(curr)}
                                                                             </td>
                                                                             <td style={{ textAlign: 'center' }}>
                                                                                 {changed && <ArrowRight size={14} style={{ color: 'var(--warning)' }} />}
                                                                             </td>
                                                                             <td style={{ color: changed ? 'var(--success)' : 'var(--text)', fontWeight: changed ? 600 : 400 }}>
-                                                                                {changed ? (prop ?? '—') : (curr ?? '—')}
+                                                                                {changed ? (isScalar(prop) ? (prop ?? '—') : JSON.stringify(prop)) : (isScalar(curr) ? (curr ?? '—') : JSON.stringify(curr))}
                                                                             </td>
                                                                         </tr>
                                                                     );

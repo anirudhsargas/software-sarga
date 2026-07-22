@@ -1706,7 +1706,7 @@ const ProductLibrary = () => {
                         <div style={{ display: 'flex', gap: 8 }}>
                             <button className="btn btn-ghost btn-sm" onClick={exportSelectedCSV}>Export CSV</button>
                             {canManageHierarchy && <button className="btn btn-ghost btn-sm" onClick={bulkToggleActive}>Toggle Active</button>}
-                            <button className="btn btn-danger btn-sm" onClick={bulkDeleteSelected}>Delete</button>
+                            {isAdmin && <button className="btn btn-danger btn-sm" onClick={bulkDeleteSelected}>Delete</button>}
                         </div>
                     )}
                     {isPrivileged && viewInfo.type === 'subcategory' && filteredProducts.length > 0 && (
@@ -1948,9 +1948,11 @@ onClick={() => { setProductSearch(''); setFilterVendor('all'); setFilterCalcType
                                                 </button>
                                             </>
                                         )}
+                                        {isAdmin && (
                                         <button className="product-card__btn product-card__btn--delete" onClick={(e) => { e.stopPropagation(); handleDelete('product', prod.id, prod.name); }} title="Delete Product" aria-label={`Delete ${prod.name}`}>
                                             <Trash2 size={14} />
                                         </button>
+                                        )}
                                     </div>
                                     )}
                                     <div className="product-card__image-wrap" style={{ position: 'relative' }}>
@@ -3313,19 +3315,22 @@ onClick={() => { setProductSearch(''); setFilterVendor('all'); setFilterCalcType
                                                         {allKeys.map(k => {
                                                             const curVal = curr[k];
                                                             const propVal = prop[k];
+                                                            const isScalar = v => v === null || v === undefined || typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean';
+                                                            if (!isScalar(curVal) && !isScalar(propVal)) return null;
                                                             const changed = String(curVal ?? '') !== String(propVal ?? '');
                                                             if (!changed && !propVal && !curVal) return null;
+                                                            const fmt = v => isScalar(v) ? (v ?? '—') : JSON.stringify(v);
                                                             return (
                                                                 <tr key={k}>
                                                                     <td className="font-semibold text-sm">{FIELD_LABELS[k] || k}</td>
                                                                     <td style={{ color: changed ? 'var(--text-muted)' : 'var(--text)' }}>
-                                                                        {curVal !== null && curVal !== undefined ? String(curVal) : '—'}
+                                                                        {fmt(curVal)}
                                                                     </td>
                                                                     <td style={{ textAlign: 'center' }}>
                                                                         {changed && <ArrowRight size={14} style={{ color: 'var(--warning)' }} />}
                                                                     </td>
                                                                     <td style={{ color: changed ? 'var(--success)' : 'var(--text)', fontWeight: changed ? 600 : 400 }}>
-                                                                        {propVal !== null && propVal !== undefined ? String(propVal) : '—'}
+                                                                        {fmt(propVal)}
                                                                     </td>
                                                                 </tr>
                                                             );
