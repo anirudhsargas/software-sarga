@@ -148,6 +148,11 @@ export default defineConfig({
             ) {
               return 'pdf-vendor';
             }
+            if (
+              path.startsWith('jspdf-autotable/')
+            ) {
+              return 'pdf-autotable-vendor';
+            }
             
             // charts-vendor
             if (
