@@ -817,9 +817,14 @@ router.post('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant
             }
             const oldQty = Number(existingItem.quantity);
             const newQuantity = oldQty + qtyToAdd;
+            const numCost = Number(cost_price);
+            const numSell = Number(sell_price);
             await connection.query(
                 `UPDATE sarga_inventory 
-                 SET quantity = ?, category = ?, unit = ?, reorder_level = ?, cost_price = ?, sell_price = ?, hsn = ?, discount = ?, gst_rate = ?,
+                 SET quantity = ?, category = ?, unit = ?, reorder_level = ?, 
+                     cost_price = CASE WHEN ? > 0 THEN ? ELSE cost_price END,
+                     sell_price = CASE WHEN ? > 0 THEN ? ELSE sell_price END,
+                     hsn = ?, discount = ?, gst_rate = ?,
                      source_code = ?, model_name = ?, size_code = ?, item_type = ?, vendor_name = ?, vendor_contact = ?, purchase_link = ?
                  WHERE id = ?`,
                 [
@@ -827,8 +832,8 @@ router.post('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant
                     category || null,
                     unit || 'pcs',
                     Number(reorder_level) || 0,
-                    Number(cost_price) || 0,
-                    Number(sell_price) || 0,
+                    numCost, numCost,
+                    numSell, numSell,
                     hsn || null,
                     Number(discount) || 0,
                     Number(gst_rate) || 0,

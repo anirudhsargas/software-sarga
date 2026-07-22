@@ -3,6 +3,7 @@ import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import api, { imgUrl } from '../services/api';
 import SecureImage from '../components/SecureImage';
 import useAuth from '../hooks/useAuth';
+import auth from '../services/auth';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { Plus, Trash2, ChevronRight, ChevronDown, Package, Layers, Grid, Save, X, PlusCircle, ArrowUp, ArrowDown, RotateCcw, Edit2, GripVertical, Copy, Eye, EyeOff, Upload, Image as ImageIcon, ChevronLeft, Search, Filter, Link as LinkIcon, ExternalLink, Loader2, ArrowRight, Clock, Check, FileText } from 'lucide-react';
@@ -73,10 +74,11 @@ const ProductLibrary = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const { user } = useAuth();
-    const isAdmin = user?.role === 'Admin';
-    const isPrivileged = ['Admin', 'Accountant', 'Designer', 'Front Office'].includes(user?.role);
-    const canManageHierarchy = ['Admin', 'Accountant'].includes(user?.role);
-    const isDesigner = user?.role === 'Designer';
+    const normalizedRole = user?.role ? auth.normalizeRole(user.role) : '';
+    const isAdmin = normalizedRole === 'Admin';
+    const isPrivileged = ['Admin', 'Accountant', 'Designer', 'Front Office'].includes(normalizedRole);
+    const canManageHierarchy = ['Admin', 'Accountant'].includes(normalizedRole);
+    const isDesigner = normalizedRole === 'Designer';
     const canRequestImageUpdate = isDesigner;
     const { confirm } = useConfirm();
     const [hierarchy, setHierarchy] = useState([]);

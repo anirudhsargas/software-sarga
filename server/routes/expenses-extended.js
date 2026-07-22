@@ -1751,10 +1751,6 @@ router.get('/bills-documents/:id/full', authenticateToken, authorizeRoles('Admin
 // Upload bill/document (file + metadata)
 router.post('/bills-documents/upload', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), uploadDocs.single('file'), async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'File is required' });
-    }
-
     const { branch_id, id: uploaded_by } = req.user;
     const {
       document_type, related_tab, related_id, vendor_name, vendor_gstin, bill_number, bill_date,
@@ -1765,14 +1761,28 @@ router.post('/bills-documents/upload', authenticateToken, authorizeRoles('Admin'
     const normalizedLineItems = normalizeLineItemsInput(line_items);
     const allowDuplicate = String(force_duplicate || '').trim() === '1';
 
-    let filePath;
-    try {
-      const cloudinaryResult = await uploadToCloudinary(req.file.path, 'bills-documents');
-      filePath = cloudinaryResult.secure_url;
-    } catch (uploadError) {
-      console.error('Cloudinary upload error for bill document:', uploadError);
-      // Fallback to local path if Cloudinary fails
-      filePath = `/uploads/${req.file.filename}`;
+    // Safely parse bill_date or default to today's date if not provided / invalid
+    const resolvedBillDate = (bill_date && !isNaN(new Date(bill_date).getTime()))
+      ? bill_date
+      : new Date().toISOString().split('T')[0];
+
+    let filePath = null;
+    let fileName = null;
+    let fileType = null;
+    let fileSizeKb = null;
+
+    if (req.file) {
+      try {
+        const cloudinaryResult = await uploadToCloudinary(req.file.path, 'bills-documents');
+        filePath = cloudinaryResult.secure_url;
+      } catch (uploadError) {
+        console.error('Cloudinary upload error for bill document:', uploadError);
+        // Fallback to local path if Cloudinary fails
+        filePath = `/uploads/${req.file.filename}`;
+      }
+      fileName = req.file.originalname;
+      fileType = req.file.mimetype;
+      fileSizeKb = Math.ceil(req.file.size / 1024);
     }
 
     // Prevent accidental duplicate uploads unless user explicitly confirms override.
@@ -1792,7 +1802,7 @@ router.post('/bills-documents/upload', authenticateToken, authorizeRoles('Admin'
           branch_id,
           normalizedDocumentType,
           vendor_name || null,
-          bill_date || null,
+          resolvedBillDate,
           Number(amount) || 0,
           bill_number || null,
           bill_number || null,
@@ -1820,7 +1830,7 @@ router.post('/bills-documents/upload', authenticateToken, authorizeRoles('Admin'
     const fieldScores = [];
     if (vendor_name) fieldScores.push(vendor_name.length >= 3 ? 0.95 : 0.6);
     if (bill_number) fieldScores.push(/^[A-Z0-9\/\-]{2,20}$/i.test(bill_number) ? 0.95 : 0.7);
-    if (bill_date) { const d = new Date(bill_date); fieldScores.push(!isNaN(d.getTime()) ? 0.98 : 0.6); }
+    if (resolvedBillDate) { const d = new Date(resolvedBillDate); fieldScores.push(!isNaN(d.getTime()) ? 0.98 : 0.6); }
     if (amount && Number(amount) > 0) fieldScores.push(0.95);
     const uploadConfidence = fieldScores.length > 0
       ? Math.round((fieldScores.reduce((a, b) => a + b, 0) / fieldScores.length) * 100) / 100
@@ -1841,7 +1851,7 @@ router.post('/bills-documents/upload', authenticateToken, authorizeRoles('Admin'
         vendor_name || null,
         vendor_gstin || null,
         bill_number || null,
-        bill_date,
+        resolvedBillDate,
         amount || null,
         subtotal || null,
         tax_amount || null,
@@ -1850,9 +1860,9 @@ router.post('/bills-documents/upload', authenticateToken, authorizeRoles('Admin'
         gst_confidence || null,
         gst_category || null,
         filePath,
-        req.file.originalname,
-        req.file.mimetype,
-        Math.ceil(req.file.size / 1024),
+        fileName,
+        fileType,
+        fileSizeKb,
         description || null,
         typeof line_items === 'string' ? line_items : (normalizedLineItems.length > 0 ? JSON.stringify(normalizedLineItems) : null),
         uploaded_by,

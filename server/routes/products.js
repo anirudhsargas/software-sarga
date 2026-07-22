@@ -1426,7 +1426,7 @@ module.exports = (upload, removeUploadFile) => {
     });
 
         // Staff submits a full product update request for admin approval
-        router.post('/products/:id/update-requests', authenticateToken, authorizeRoles('Designer', 'Front Office'), upload.single('image'), async (req, res) => {
+        router.post('/products/:id/update-requests', authenticateToken, authorizeRoles('Designer', 'Front Office', 'Accountant'), upload.single('image'), async (req, res) => {
             const productId = Number(req.params.id);
             const requestedBy = req.user?.id;
 

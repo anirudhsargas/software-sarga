@@ -11,12 +11,14 @@ const MAX_PAGES = 10;
 const MAX_COMPRESS_WIDTH = 1600;
 const COMPRESS_QUALITY = 0.8;
 
+const EMPTY_ITEM = () => ({ description: '', quantity: '', rate: '', amount: '', hsn_sac: '', sell_price: '', _originalIndex: -1 });
+
 const EMPTY_FORM = {
   vendor_name: '',
   bill_number: '',
   bill_date: '',
   gst_number: '',
-  items: [{ description: '', quantity: '', rate: '', amount: '', hsn_sac: '', sell_price: '' }],
+  items: [EMPTY_ITEM()],
   subtotal: '',
   tax_amount: '',
   total_amount: '',
@@ -510,24 +512,26 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
           }
           setProductOverrides({});
           setActiveSelector(null);
+          const extractedItems = (d.items && d.items.length > 0)
+            ? d.items.map((item, idx) => {
+                const match = (response.data.itemMatches || [])[idx];
+                return {
+                  description: item.description || item.name || '',
+                  quantity: item.quantity != null ? String(item.quantity) : (item.qty != null ? String(item.qty) : ''),
+                  rate: item.rate != null ? String(item.rate) : '',
+                  amount: item.amount != null ? String(item.amount) : '',
+                  hsn_sac: item.hsn_sac || item.hsn || '',
+                  sell_price: match?.mrp ? String(match.mrp) : '',
+                  _originalIndex: idx,
+                };
+              })
+            : [EMPTY_ITEM()];
           setForm({
             vendor_name: d.vendor_name || d.vendorName || '',
             bill_number: d.bill_number || d.billNumber || '',
             bill_date: d.bill_date || d.billDate || '',
             gst_number: d.gst_number || d.gstNumber || d.gstin || '',
-            items: (d.items && d.items.length > 0)
-              ? d.items.map((item, idx) => {
-                  const match = (response.data.itemMatches || [])[idx];
-                  return {
-                    description: item.description || item.name || '',
-                    quantity: item.quantity != null ? String(item.quantity) : (item.qty != null ? String(item.qty) : ''),
-                    rate: item.rate != null ? String(item.rate) : '',
-                    amount: item.amount != null ? String(item.amount) : '',
-                    hsn_sac: item.hsn_sac || item.hsn || '',
-                    sell_price: match?.mrp ? String(match.mrp) : '',
-                  };
-                })
-              : [{ description: '', quantity: '', rate: '', amount: '', hsn_sac: '', sell_price: '' }],
+            items: extractedItems,
             subtotal: d.subtotal != null ? String(d.subtotal) : '',
             tax_amount: d.tax_amount || d.taxAmount || d.tax || '',
             total_amount: d.total_amount || d.totalAmount || d.total || '',
@@ -563,15 +567,34 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
   const updateItem = useCallback((index, field, value) => {
     setForm(prev => {
       const items = [...prev.items];
-      items[index] = { ...items[index], [field]: value };
-      return { ...prev, items };
+      const updatedItem = { ...items[index], [field]: value };
+      
+      if (field === 'quantity' || field === 'rate') {
+        const qty = Number(updatedItem.quantity);
+        const rate = Number(updatedItem.rate);
+        if (!isNaN(qty) && !isNaN(rate) && qty >= 0 && rate >= 0) {
+          updatedItem.amount = String(Number((qty * rate).toFixed(2)));
+        }
+      }
+      items[index] = updatedItem;
+
+      // Recalculate subtotal and total
+      const newSubtotal = items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+      const tax = Number(prev.tax_amount) || 0;
+
+      return { 
+        ...prev, 
+        items,
+        subtotal: String(Number(newSubtotal.toFixed(2))),
+        total_amount: String(Number((newSubtotal + tax).toFixed(2)))
+      };
     });
   }, []);
 
   const addItem = useCallback(() => {
     setForm(prev => ({
       ...prev,
-      items: [...prev.items, { description: '', quantity: '', rate: '', amount: '', hsn_sac: '', sell_price: '' }],
+      items: [...prev.items, EMPTY_ITEM()],
     }));
   }, []);
 
@@ -596,22 +619,18 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
     setError('');
 
     try {
-      const originalIndices = form.items
-        .map((item, i) => item.description.trim() ? i : -1)
-        .filter(i => i >= 0);
-
       const payloadItems = form.items
         .filter(item => item.description.trim())
         .map((item, idx) => {
-          const origIdx = originalIndices[idx];
-          const match = (itemMatches && itemMatches[origIdx]) || {};
-          const override = productOverrides[origIdx];
+          const origIdx = item._originalIndex;
+          const match = origIdx >= 0 ? (itemMatches[origIdx] || {}) : {};
+          const override = origIdx >= 0 ? productOverrides[origIdx] : undefined;
           return {
             item_name: item.description,
             quantity: Number(item.quantity) || 0,
             rate: Number(item.rate) || 0,
             amount: Number(item.amount) || 0,
-            serial_no: origIdx + 1,
+            serial_no: idx + 1,
             hsn_sac: item.hsn_sac || '',
             gst_percent: 0,
             mrp: (override?.mrp ?? match.mrp) || 0,
@@ -676,7 +695,7 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
     } finally {
       setSaving(false);
     }
-  }, [form, pages, onSuccess, onError]);
+  }, [form, pages, itemMatches, productOverrides, onSuccess, onError]);
 
   const handleRetry = useCallback(() => {
     setError('');
@@ -823,6 +842,29 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
 
         <div className="extraction-actions">
           <button className="btn btn-outline" onClick={onClose}>Cancel</button>
+          <div style={{ flex: 1 }} />
+          <button
+            type="button"
+            className="btn btn-outline"
+            onClick={() => {
+              const today = new Date().toISOString().split('T')[0];
+              setForm({
+                ...EMPTY_FORM,
+                bill_date: today,
+                items: [{ ...EMPTY_FORM.items[0] }]
+              });
+              setPages([]);
+              setError('');
+              setItemMatches([]);
+              setVendorMatch(null);
+              setSelectedVendorId('');
+              setProductOverrides({});
+              setActiveSelector(null);
+              setStep('review');
+            }}
+          >
+            Enter Manually
+          </button>
           {pages.length > 0 && (
             <button className="btn btn-primary" onClick={handleExtract} disabled={loading || compressing}>
               {loading ? <Loader2 className="spin" size={16} /> : null}
@@ -921,27 +963,30 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
               </tr>
             </thead>
             <tbody>
-              {form.items.map((item, originalIdx) => {
+              {form.items.map((item, idx) => {
                 if (!item.description.trim()) return null;
-                const match = (itemMatches && itemMatches[originalIdx]) || {};
+                const origIdx = item._originalIndex;
+                const match = origIdx >= 0 ? (itemMatches[origIdx] || {}) : {};
+                const override = origIdx >= 0 ? productOverrides[origIdx] : undefined;
+                const selectorKey = `p-${origIdx >= 0 ? origIdx : idx}`;
                 return (
-                  <tr key={originalIdx}>
+                  <tr key={idx}>
                     <td><span className="extraction-pricing-item-name">{item.description}</span></td>
                     <td><span className="extraction-pricing-cell">{item.hsn_sac || '—'}</span></td>
                     <td><span className="extraction-pricing-cell">{item.quantity || '—'}</span></td>
                     <td className="extraction-pricing-product-cell">
                       <ProductSearchCell
                         match={match}
-                        override={productOverrides[originalIdx]}
-                        isActive={activeSelector === originalIdx}
-                        onActivate={() => setActiveSelector(activeSelector === originalIdx ? null : originalIdx)}
-                        onSelect={(product) => handleProductSelect(originalIdx, product)}
-                        onClear={() => clearProductOverride(originalIdx)}
+                        override={override}
+                        isActive={activeSelector === selectorKey}
+                        onActivate={() => setActiveSelector(activeSelector === selectorKey ? null : selectorKey)}
+                        onSelect={(product) => handleProductSelect(origIdx >= 0 ? origIdx : idx, product)}
+                        onClear={() => origIdx >= 0 && clearProductOverride(origIdx)}
                       />
                     </td>
                     <td>
-                      {(productOverrides[originalIdx]?.mrp || match.mrp) ? (
-                        <span className="extraction-pricing-mrp">₹{Number(productOverrides[originalIdx]?.mrp || match.mrp).toFixed(2)}</span>
+                      {(override?.mrp || match.mrp) ? (
+                        <span className="extraction-pricing-mrp">₹{Number(override?.mrp || match.mrp).toFixed(2)}</span>
                       ) : (
                         <span className="extraction-pricing-cell">—</span>
                       )}
@@ -953,7 +998,7 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
                         min="0"
                         className="extraction-pricing-input"
                         value={item.sell_price}
-                        onChange={e => updateItem(originalIdx, 'sell_price', e.target.value)}
+                        onChange={e => updateItem(idx, 'sell_price', e.target.value)}
                         placeholder="0.00"
                       />
                     </td>
@@ -995,10 +1040,16 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
   return (
     <div className="extraction-review">
       <div className="extraction-review-header">
-        <h2>Review Extracted Data</h2>
-        <div className="extraction-badge">
-          <SparklesIcon /> AI-extracted, please verify
-        </div>
+        <h2>{pages.length > 0 ? 'Review Extracted Data' : 'Enter Bill Details'}</h2>
+        {pages.length > 0 ? (
+          <div className="extraction-badge">
+            <SparklesIcon /> AI-extracted, please verify
+          </div>
+        ) : (
+          <div className="extraction-badge-manual">
+            Manual Entry
+          </div>
+        )}
       </div>
 
       {error && (
@@ -1148,7 +1199,15 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
             step="any"
             min="0"
             value={form.subtotal}
-            onChange={e => updateField('subtotal', e.target.value)}
+            onChange={e => {
+              const sub = Number(e.target.value) || 0;
+              const tax = Number(form.tax_amount) || 0;
+              setForm(prev => ({
+                ...prev,
+                subtotal: e.target.value,
+                total_amount: String(Number((sub + tax).toFixed(2)))
+              }));
+            }}
             placeholder="0.00"
           />
         </div>
@@ -1159,7 +1218,15 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
             step="any"
             min="0"
             value={form.tax_amount}
-            onChange={e => updateField('tax_amount', e.target.value)}
+            onChange={e => {
+              const tax = Number(e.target.value) || 0;
+              const sub = Number(form.subtotal) || 0;
+              setForm(prev => ({
+                ...prev,
+                tax_amount: e.target.value,
+                total_amount: String(Number((sub + tax).toFixed(2)))
+              }));
+            }}
             placeholder="0.00"
           />
         </div>
@@ -1173,12 +1240,14 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
             onChange={e => updateField('total_amount', e.target.value)}
             placeholder="0.00"
           />
-          <span className="extraction-field-note">Manually verify — AI may misread</span>
+          {pages.length > 0 && <span className="extraction-field-note">Manually verify — AI may misread</span>}
         </div>
       </div>
 
       <div className="extraction-actions extraction-actions-bottom">
-        <button className="btn btn-outline" onClick={handleRetry}>Upload Different Bill</button>
+        <button className="btn btn-outline" onClick={handleRetry}>
+          {pages.length > 0 ? 'Upload Different Bill' : 'Go Back'}
+        </button>
         <button className="btn btn-primary" onClick={handleGoToPricing} disabled={saving}>
           Next — Set Prices <ChevronRight size={16} />
         </button>
