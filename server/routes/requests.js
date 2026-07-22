@@ -322,8 +322,9 @@ router.get('/requests/pending-count', authenticateToken, authorizeRoles('Admin',
     const [openingRows] = await pool.query("SELECT COUNT(*) as count FROM sarga_opening_change_requests WHERE status = 'Pending'");
     const [attendanceRows] = await pool.query("SELECT COUNT(*) as count FROM sarga_attendance_requests WHERE status = 'Pending'");
     const [discountRows] = await pool.query("SELECT COUNT(*) as count FROM sarga_discount_requests WHERE status = 'PENDING'");
+    const [productRows] = await pool.query("SELECT COUNT(*) as count FROM sarga_product_update_requests WHERE status = 'pending'");
 
-    const totalCount = idRows[0].count + customerRows[0].count + vendorRows[0].count + openingRows[0].count + attendanceRows[0].count + discountRows[0].count;
+    const totalCount = idRows[0].count + customerRows[0].count + vendorRows[0].count + openingRows[0].count + attendanceRows[0].count + discountRows[0].count + productRows[0].count;
     res.json({ pending_count: totalCount });
 }));
 

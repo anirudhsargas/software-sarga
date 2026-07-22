@@ -1,6 +1,6 @@
 import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect } from 'react';
-import { CheckCircle2, XCircle, Loader2, AlertCircle, X, User, Edit, Trash2 } from 'lucide-react';
+import { CheckCircle2, XCircle, Loader2, AlertCircle, X, User, Edit, Trash2, ArrowRight } from 'lucide-react';
 import auth from '../services/auth';
 import api from '../services/api';
 import { isTouchDevice } from '../services/utils';
@@ -52,13 +52,14 @@ const Requests = () => {
         setFetching(true);
         try {
             const fallbackResponse = { data: { data: [] } };
-            const [idResponse, customerResponse, vendorResponse, openingResponse, attendanceResponse, discountResponse] = await Promise.all([
+            const [idResponse, customerResponse, vendorResponse, openingResponse, attendanceResponse, discountResponse, productResponse] = await Promise.all([
                 api.get('/requests/id-change'),
                 api.get('/requests/customer-change'),
                 api.get('/vendor-requests', { params: { status: 'Pending' } }),
                 api.get('/daily-report/change-requests', { params: { status: 'Pending' } }).catch(() => fallbackResponse),
                 api.get('/requests/attendance').catch(() => fallbackResponse),
-                api.get('/requests/discount').catch(() => fallbackResponse)
+                api.get('/requests/discount').catch(() => fallbackResponse),
+                api.get('/products/update-requests', { params: { status: 'pending' } }).catch(() => fallbackResponse)
             ]);
 
             const idData = idResponse.data.data || (Array.isArray(idResponse.data) ? idResponse.data : []);
@@ -67,6 +68,7 @@ const Requests = () => {
             const openingData = openingResponse.data.data || (Array.isArray(openingResponse.data) ? openingResponse.data : []);
             const attendanceData = attendanceResponse.data.data || (Array.isArray(attendanceResponse.data) ? attendanceResponse.data : []);
             const discountData = discountResponse.data.data || (Array.isArray(discountResponse.data) ? discountResponse.data : []);
+            const productData = Array.isArray(productResponse.data) ? productResponse.data : (productResponse.data?.data || []);
 
             setIdRequests(idData);
             setCustomerRequests(customerData);
@@ -79,7 +81,8 @@ const Requests = () => {
                 ...vendorData.map(r => ({ ...r, request_type: 'VENDOR_REQUEST', request_type_value: r.request_type })),
                 ...openingData.map(r => ({ ...r, request_type: 'OPENING_CHANGE' })),
                 ...attendanceData.map(r => ({ ...r, request_type: 'ATTENDANCE_CHANGE' })),
-                ...discountData.map(r => ({ ...r, request_type: 'DISCOUNT_REQUEST' }))
+                ...discountData.map(r => ({ ...r, request_type: 'DISCOUNT_REQUEST' })),
+                ...productData.map(r => ({ ...r, request_type: 'PRODUCT_UPDATE', created_at: r.requested_at, requester_name: r.requested_by_name, name: r.product_name }))
             ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
             setAllRequests(combined);
@@ -130,7 +133,9 @@ const Requests = () => {
                     ? 'attendance change'
                     : request.request_type === 'DISCOUNT_REQUEST'
                         ? 'discount approval'
-                        : 'admin setup';
+                        : request.request_type === 'PRODUCT_UPDATE'
+                            ? 'product update'
+                            : 'admin setup';
 
         const isConfirmed = await confirm({
             title: `${label} Request`,
@@ -153,6 +158,8 @@ const Requests = () => {
                 await api.post(`/requests/attendance/${request.id}/review`, { action });
             } else if (request.request_type === 'DISCOUNT_REQUEST') {
                 await api.post(`/requests/discount/${request.id}/review`, { action });
+            } else if (request.request_type === 'PRODUCT_UPDATE') {
+                await api.patch(`/products/update-requests/${request.id}`, { action: action === 'APPROVE' ? 'approve' : 'reject' });
             } else {
                 await api.put(`/vendor-requests/${request.id}/review`, {
                     status: action === 'APPROVE' ? 'Approved' : 'Rejected'
@@ -190,6 +197,9 @@ const Requests = () => {
         }
         if (type === 'DISCOUNT_REQUEST') {
             return <span className="badge" style={{ backgroundColor: 'var(--warning)', color: 'var(--on-accent)' }}>Discount Approval</span>;
+        }
+        if (type === 'PRODUCT_UPDATE') {
+            return <span className="badge" style={{ backgroundColor: 'var(--accent-soft)', color: 'var(--accent)' }}>Product Update</span>;
         }
         return <span className="badge">{type}</span>;
     };
@@ -311,6 +321,8 @@ const Requests = () => {
                                                 <span>Update attendance on {new Date(req.attendance_date).toLocaleDateString()} to {req.requested_status}</span>
                                             ) : req.request_type === 'DISCOUNT_REQUEST' ? (
                                                 <span>{Number(req.discount_percent).toFixed(1)}% discount on ₹{Number(req.total_amount || 0).toFixed(2)} — by {req.requester_name}</span>
+                                            ) : req.request_type === 'PRODUCT_UPDATE' ? (
+                                                <span>Update product: {req.name || req.product_name}</span>
                                             ) : (
                                                 <span>{req.request_type_value || req.request_type} request: {req.name}</span>
                                             )}
@@ -467,7 +479,59 @@ const Requests = () => {
                                         </div>
                                     )}
                                 </>
-                            ) : selectedRequest.request_type === 'ATTENDANCE_CHANGE' ? (
+                                ) : selectedRequest.request_type === 'PRODUCT_UPDATE' ? (
+                                        <>
+                                            <div>
+                                                <label className="label">Product</label>
+                                                <input type="text" className="input-field" value={selectedRequest.product_name || `Product #${selectedRequest.product_id}`} disabled />
+                                            </div>
+                                            {selectedRequest.current_data && selectedRequest.proposed_data && (
+                                                <div>
+                                                    <label className="label">Changes</label>
+                                                    <div className="table-scroll">
+                                                        <table className="table" style={{ width: '100%' }}>
+                                                            <thead>
+                                                                <tr>
+                                                                    <th style={{ width: '20%' }}>Field</th>
+                                                                    <th style={{ width: '35%' }}>Current</th>
+                                                                    <th style={{ width: '10%' }}></th>
+                                                                    <th style={{ width: '35%' }}>Proposed</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                {Object.keys(selectedRequest.proposed_data).map(fKey => {
+                                                                    const curr = selectedRequest.current_data?.[fKey];
+                                                                    const prop = selectedRequest.proposed_data?.[fKey];
+                                                                    const changed = String(curr ?? '') !== String(prop ?? '');
+                                                                    if (!changed && !prop) return null;
+                                                                    return (
+                                                                        <tr key={fKey}>
+                                                                            <td className="font-semibold text-sm">{fKey}</td>
+                                                                            <td style={{ color: changed ? 'var(--text-muted)' : 'var(--text)' }}>
+                                                                                {curr ?? '—'}
+                                                                            </td>
+                                                                            <td style={{ textAlign: 'center' }}>
+                                                                                {changed && <ArrowRight size={14} style={{ color: 'var(--warning)' }} />}
+                                                                            </td>
+                                                                            <td style={{ color: changed ? 'var(--success)' : 'var(--text)', fontWeight: changed ? 600 : 400 }}>
+                                                                                {changed ? (prop ?? '—') : (curr ?? '—')}
+                                                                            </td>
+                                                                        </tr>
+                                                                    );
+                                                                })}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {selectedRequest.admin_note && (
+                                                <div>
+                                                    <label className="label">Admin Note</label>
+                                                    <textarea className="input-field" rows="2" value={selectedRequest.admin_note} disabled />
+                                                </div>
+                                            )}
+                                        </>
+                                    ) : selectedRequest.request_type === 'ATTENDANCE_CHANGE' ? (
                                 <>
                                     <div className="row gap-md">
                                         <div className="flex-1">
