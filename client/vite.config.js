@@ -140,9 +140,11 @@ export default defineConfig({
             }
             
             // pdf-vendor (dynamically imported — not loaded on initial page load)
+            // jspdf-autotable must be in a SEPARATE chunk from jspdf to prevent
+            // TDZ errors ("Cannot access 'I' before initialization") caused by
+            // module ordering when both are minified in the same chunk.
             if (
-              path.startsWith('jspdf/') ||
-              path.startsWith('jspdf-autotable/')
+              path.startsWith('jspdf/')
             ) {
               return 'pdf-vendor';
             }
