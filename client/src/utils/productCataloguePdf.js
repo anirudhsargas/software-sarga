@@ -215,51 +215,50 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
                     doc.line(margin, y, margin + usableW, y);
                 }
 
-                const priceAreaW = 26;
-                const boxW = colW - priceAreaW - 1;
-                const textStartX = x + imgSize + 2;
-                const textW = boxW - imgSize - 2;
-                const rightX = x + colW;
-                const priceX = x + boxW + 1;
+                const pad = 1.5;
+                const textStartX = x + imgSize + pad + 1.5;
+                const textW = colW - imgSize - pad - 3;
+                const rightX = x + colW - 1;
 
                 const borderCol = [218, 220, 225];
                 doc.setDrawColor(...borderCol);
                 doc.setLineWidth(0.3);
                 doc.setFillColor(252, 252, 253);
-                doc.roundedRect(x, y, boxW, rowH, 1, 1, 'FD');
+                doc.roundedRect(x, y, colW, rowH, 1, 1, 'FD');
+
+                const cellTop = y + pad;
 
                 if (showImages) {
-                    const imgY = y + (rowH - imgSize) / 2;
                     const imgData = product.image_url ? imageCache[product.id] : null;
                     if (imgData) {
                         try {
-                            doc.addImage(imgData, 'JPEG', x + 1, imgY, imgSize, imgSize, undefined, 'FAST');
+                            doc.addImage(imgData, 'JPEG', x + 1, cellTop, imgSize, imgSize, undefined, 'FAST');
                         } catch {}
                     } else {
                         doc.setFillColor(240, 240, 243);
-                        doc.roundedRect(x + 1, imgY, imgSize, imgSize, 1, 1, 'F');
+                        doc.roundedRect(x + 1, cellTop, imgSize, imgSize, 1, 1, 'F');
                         doc.setFont('helvetica', 'normal');
                         doc.setFontSize(4);
                         doc.setTextColor(...textMuted);
-                        doc.text('No', x + 1 + imgSize / 2, imgY + imgSize / 2 - 1.5, {
+                        doc.text('No', x + 1 + imgSize / 2, cellTop + imgSize / 2 - 1.5, {
                             align: 'center', baseline: 'middle',
                         });
-                        doc.text('Img', x + 1 + imgSize / 2, imgY + imgSize / 2 + 2.5, {
+                        doc.text('Img', x + 1 + imgSize / 2, cellTop + imgSize / 2 + 2.5, {
                             align: 'center', baseline: 'middle',
                         });
                     }
                 }
 
-                const nameY = y + 3.2;
-                const skuY = y + 6;
-                const descY = y + 8.8;
+                const nameY = cellTop + 3;
+                const skuY = cellTop + 5.8;
+                const descY = cellTop + 8.5;
 
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(8);
                 doc.setTextColor(...textDark);
                 const nameStr = String(product.name || '');
-                const nameLines = doc.splitTextToSize(nameStr, textW - 30);
-                doc.text(nameLines[0] || nameStr.substring(0, 18), textStartX, nameY);
+                const nameLines = doc.splitTextToSize(nameStr, textW - 25);
+                doc.text(nameLines[0] || nameStr.substring(0, 16), textStartX, nameY);
 
                 if (showProductCode && product.product_code) {
                     doc.setFont('helvetica', 'normal');
@@ -273,18 +272,14 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
                     doc.setFontSize(5.5);
                     doc.setTextColor(...textMuted);
                     const descStr = String(product.description);
-                    if (descStr.length > 35) {
-                        doc.text(descStr.substring(0, 35) + '...', textStartX, descY);
-                    } else {
-                        doc.text(descStr, textStartX, descY);
-                    }
+                    doc.text(descStr.length > 30 ? descStr.substring(0, 30) + '...' : descStr, textStartX, descY);
                 }
 
                 if (showRetailPrice) {
                     const rp = getRetailPrice(product);
                     if (rp > 0) {
-                        doc.setFont('helvetica', 'normal');
-                        doc.setFontSize(6.5);
+                        doc.setFont('helvetica', 'bold');
+                        doc.setFontSize(7);
                         doc.setTextColor(...textDark);
                         doc.text(`\u20B9${formatPrice(rp)}`, rightX, nameY, { align: 'right' });
                     }
@@ -293,7 +288,7 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
                     const op = getOffsetPrice(product);
                     if (op > 0) {
                         doc.setFont('helvetica', 'bold');
-                        doc.setFontSize(6.5);
+                        doc.setFontSize(7);
                         doc.setTextColor(...offsetColor);
                         doc.text(`\u20B9${formatPrice(op)}`, rightX, skuY, { align: 'right' });
                     }
@@ -301,14 +296,14 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
 
                 if (showStock && product.stock_quantity !== undefined && product.stock_quantity !== null) {
                     doc.setFont('helvetica', 'normal');
-                    doc.setFontSize(5);
+                    doc.setFontSize(5.5);
                     doc.setTextColor(...textMuted);
                     doc.text(`Stock: ${Number(product.stock_quantity)}${product.stock_unit ? ' ' + product.stock_unit : ''}`, rightX, descY, { align: 'right' });
                 }
 
                 if (showCategory && product.category_name && !showProductCode && !showDescription) {
                     doc.setFont('helvetica', 'normal');
-                    doc.setFontSize(5);
+                    doc.setFontSize(5.5);
                     doc.setTextColor(...textMuted);
                     doc.text(product.category_name, textStartX, descY);
                 }
