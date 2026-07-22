@@ -1381,7 +1381,7 @@ router.post('/inventory/generate-labels', authenticateToken, authorizeRoles('Adm
 
                 // MRP
                 doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#000000');
-                doc.text(`MRP: Rs. ${mrp % 1 === 0 ? mrp.toFixed(0) : mrp.toFixed(2)}`, x + padding, y + mmToPt(11), { width: textAreaW, lineBreak: false });
+                doc.text(`SRP: Rs. ${mrp % 1 === 0 ? mrp.toFixed(0) : mrp.toFixed(2)}`, x + padding, y + mmToPt(11), { width: textAreaW, lineBreak: false });
 
                 // Place QR Code (right side)
                 doc.image(qrCodeBuffer, x + labelWidth - mmToPt(18), y + padding, { width: mmToPt(16) });
@@ -1390,11 +1390,13 @@ router.post('/inventory/generate-labels', authenticateToken, authorizeRoles('Adm
                 doc.fontSize(5).font('Helvetica').fillColor('#000000');
                 doc.text(qrData, x + labelWidth - mmToPt(18), y + mmToPt(18), { width: mmToPt(16), align: 'center', lineBreak: false });
 
-                // "Sarga, Mob: 9497559257" directly below MRP (increased font sizes to 5.5pt)
+                // "(+DESIGN)" below SRP, then mobile number, then brand name
                 doc.fontSize(5.5).font('Helvetica-Bold').fillColor('#000000');
-                doc.text('Sarga,', x + padding, y + mmToPt(14.8), { width: textAreaW, lineBreak: false });
+                doc.text('(+DESIGN)', x + padding, y + mmToPt(14.8), { width: textAreaW, lineBreak: false });
                 doc.fontSize(5.5).font('Helvetica').fillColor('#000000');
                 doc.text('Mob: 9497559257', x + padding, y + mmToPt(17.2), { width: textAreaW, lineBreak: false });
+                doc.fontSize(5.5).font('Helvetica-Bold').fillColor('#000000');
+                doc.text('SARGA', x + padding, y + mmToPt(19.6), { width: textAreaW, lineBreak: false });
             }
 
             // Flush the current QR cache to release references and avoid growing heap
