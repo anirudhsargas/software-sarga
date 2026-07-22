@@ -344,14 +344,16 @@ const Requests = () => {
             {/* Detail Modal */}
             {showDetailModal && selectedRequest && (
                 <div className="modal-backdrop">
-                    <div className="modal" style={{ maxWidth: '600px' }}>
-                        <button className="modal-close" onClick={() => { setShowDetailModal(false); setSelectedRequest(null); }}>
-                            <X size={22} />
-                        </button>
+                    <div className="modal" style={{ maxWidth: '600px', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
+                        <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+                            <h2 className="modal-title" style={{ margin: 0 }}>Request Details</h2>
+                            <button className="modal-close" onClick={() => { setShowDetailModal(false); setSelectedRequest(null); }}>
+                                <X size={22} />
+                            </button>
+                        </div>
 
-                        <h2 className="section-title mb-16">Request Details</h2>
-
-                        <div className="stack-md">
+                        <div className="modal-body" style={{ padding: '24px', flex: 1, overflowY: 'auto' }}>
+                            <div className="stack-md">
                             {/* Request Type */}
                             <div>
                                 <label className="label">Request Type</label>
@@ -612,23 +614,26 @@ const Requests = () => {
                                 />
                             </div>
 
-                            {/* Action Buttons */}
-                            <div className="row gap-sm" style={{ marginTop: '16px' }}>
-                                <button
-                                    onClick={() => handleReview(selectedRequest, 'APPROVE')}
-                                    className="btn btn-primary flex-1"
-                                >
-                                    <CheckCircle2 size={18} />
-                                    <span>Approve</span>
-                                </button>
-                                <button
-                                    onClick={() => handleReview(selectedRequest, 'REJECT')}
-                                    className="btn btn-ghost btn-danger flex-1"
-                                >
-                                    <XCircle size={18} />
-                                    <span>Reject</span>
-                                </button>
                             </div>
+                        </div>
+
+                        <div className="modal-footer" style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', gap: '12px', justifyContent: 'flex-end', flexShrink: 0 }}>
+                            <button
+                                onClick={() => handleReview(selectedRequest, 'REJECT')}
+                                className="btn btn-ghost btn-danger"
+                                style={{ minWidth: '120px' }}
+                            >
+                                <XCircle size={18} />
+                                <span>Reject</span>
+                            </button>
+                            <button
+                                onClick={() => handleReview(selectedRequest, 'APPROVE')}
+                                className="btn btn-primary"
+                                style={{ minWidth: '120px' }}
+                            >
+                                <CheckCircle2 size={18} />
+                                <span>Approve</span>
+                            </button>
                         </div>
                     </div>
                 </div>
