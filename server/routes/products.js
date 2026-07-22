@@ -702,46 +702,7 @@ module.exports = (upload, removeUploadFile) => {
             imageUrl = cloudinaryResult.secure_url;
         }
 
-        // Intercept Accountant, Designer, Front Office - create request instead of direct creation
-        if (req.user.role !== 'Admin') {
-            try {
-                if (!subcategory_id) {
-                    return res.status(400).json({ message: 'Subcategory is required' });
-                }
-                if (!name || !String(name).trim()) {
-                    return res.status(400).json({ message: 'Product name is required' });
-                }
-                const proposedData = {
-                    subcategory_id,
-                    name: String(name).trim(),
-                    product_code: product_code || null,
-                    company_name: company_name || null,
-                    company_code: company_code || null,
-                    size: size || null,
-                    calculation_type,
-                    description,
-                    image_url: imageUrl,
-                    has_paper_rate: req.body.has_paper_rate === 'true' || req.body.has_paper_rate === 1 || req.body.has_paper_rate === '1' ? 1 : 0,
-                    paper_rate: Number(req.body.paper_rate) || 0,
-                    has_double_side_rate: req.body.has_double_side_rate === 'true' || req.body.has_double_side_rate === 1 || req.body.has_double_side_rate === '1' ? 1 : 0,
-                    inventory_item_id: inventory_item_id || null,
-                    is_physical_product: isPhysicalProduct === 'true' || isPhysicalProduct === 1 || isPhysicalProduct === '1' ? 1 : 0,
-                    slabs: slabs || [],
-                    extras: extras || [],
-                    links: typeof req.body.links === 'string' ? JSON.parse(req.body.links) : (req.body.links || []),
-                    extraInv: parsedExtraInv
-                };
-                const [insertResult] = await pool.query(
-                    `INSERT INTO sarga_product_update_requests (product_id, current_data, proposed_data, requested_by, status, request_type)
-                     VALUES (NULL, NULL, ?, ?, 'pending', 'add')`,
-                    [JSON.stringify(proposedData), req.user.id]
-                );
-                return res.status(202).json({ message: 'Product addition request submitted for Admin approval.', request_id: insertResult.insertId, status: 'pending' });
-            } catch (err) {
-                console.error('Submit product addition request error:', err);
-                return res.status(500).json({ message: 'Failed to submit product addition request.' });
-            }
-        }
+        // Product creation no longer requires admin approval. Added products are inserted directly.
 
         const connection = await pool.getConnection();
         try {
