@@ -333,6 +333,15 @@ const initDb = async () => {
       appliedMigrations.add(migrateUtilityConnectionFieldsName);
     }
 
+    // Add 'draft' status to vendor_invoices for partial bill save support
+    const migrateDraftStatusName = '038_add_draft_status.js';
+    if (!appliedMigrations.has(migrateDraftStatusName)) {
+      const migrateDraftStatus = require('./migrations/038_add_draft_status');
+      await migrateDraftStatus(connection);
+      await connection.query('INSERT IGNORE INTO schema_migrations (migration_name) VALUES (?)', [migrateDraftStatusName]);
+      appliedMigrations.add(migrateDraftStatusName);
+    }
+
     // Create paper_rate_history table and add current_rate_id to paper_types (was never wired into initDb)
     const migratePaperRateHistoryName = '2026_07_15_paper_rate_history.sql';
     if (!appliedMigrations.has(migratePaperRateHistoryName)) {
@@ -359,6 +368,34 @@ const initDb = async () => {
       }
       await connection.query('INSERT IGNORE INTO schema_migrations (migration_name) VALUES (?)', [migratePaperRateHistoryName]);
       appliedMigrations.add(migratePaperRateHistoryName);
+    }
+
+    // Add GST columns (subtotal, tax_amount, sgst_amount, cgst_amount, gst_confidence, gst_category, vendor_gstin, line_items) to sarga_bills_documents — was never wired into initDb
+    const migrateGstBillProcessingName = '2026-06-15-gst-bill-processing.sql';
+    if (!appliedMigrations.has(migrateGstBillProcessingName)) {
+      const sqlPath = path.join(__dirname, 'migrations', migrateGstBillProcessingName);
+      const sql = fs.readFileSync(sqlPath, 'utf8');
+      const statements = sql
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .split('\n')
+        .filter(line => {
+          const trimmed = line.trim();
+          return !trimmed.startsWith('--') && !trimmed.startsWith('#');
+        })
+        .join('\n')
+        .split(';')
+        .map(s => s.trim())
+        .filter(s => s.length > 0);
+      for (const stmt of statements) {
+        try {
+          await connection.query(stmt);
+        } catch (e) {
+          const ignoredCodes = ['ER_TABLE_EXISTS_ERROR', 'ER_DUP_KEYNAME', 'ER_DUP_FIELDNAME', 'ER_CANT_DROP_FIELD_OR_KEY', 'ER_BAD_FIELD_ERROR'];
+          if (!ignoredCodes.includes(e.code)) throw e;
+        }
+      }
+      await connection.query('INSERT IGNORE INTO schema_migrations (migration_name) VALUES (?)', [migrateGstBillProcessingName]);
+      appliedMigrations.add(migrateGstBillProcessingName);
     }
 
     await connection.query(

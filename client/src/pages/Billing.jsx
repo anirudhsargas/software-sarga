@@ -336,6 +336,29 @@ const Billing = () => {
     }).catch(() => {});
   }, []);
 
+  // ── Restore draft from localStorage on mount (before prefill effects so they can override) ──
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('billingDraft');
+      if (!saved) return;
+      const draft = JSON.parse(saved);
+      if (draft.customer) setForm(draft.customer);
+      if (draft.orders && draft.orders.length > 0) {
+        setOrderLines(draft.orders.map(o => ({ ...o, _product: undefined, _matter_file: undefined, _matter_preview: undefined })));
+      }
+      if (draft.payment) setPayment(draft.payment);
+      if (draft.activeTab) setActiveTab(draft.activeTab);
+      if (typeof draft.discountPercent === 'number') setDiscountPercent(draft.discountPercent);
+      if (draft.discountMode) setDiscountMode(draft.discountMode);
+      if (typeof draft.discountInputAmount === 'number') setDiscountInputAmount(draft.discountInputAmount);
+      if (draft.jobType) setJobType(draft.jobType);
+      if (draft.selectedBranchId) setSelectedBranchId(draft.selectedBranchId);
+      if (draft.existingCustomer) setExistingCustomer(draft.existingCustomer);
+    } catch (e) {
+      console.error('Failed to restore billing draft', e);
+    }
+  }, []);
+
   // ── Customer Prefill from Customers page (Walk-in Job, New Job buttons) ──
   useEffect(() => {
     const customer = location.state?.customer;
@@ -931,7 +954,7 @@ const Billing = () => {
         setAssignSelections({});
       }
 
-      // Reset form
+      // Reset form & clear draft
       setForm(defaultForm());
       setExistingCustomer(null);
       setOrderLines([]);
@@ -940,6 +963,7 @@ const Billing = () => {
       setDiscountInputAmount(0);
       setError('');
       setJobType('');
+      localStorage.removeItem('billingDraft');
       toast.success('Invoice created successfully!');
       if (result.payment?.id) {
         window.dispatchEvent(new CustomEvent('paymentRecorded'));
@@ -999,11 +1023,15 @@ const Billing = () => {
     saveTimerRef.current = setInterval(() => {
       if (orderLines.length > 0 || form.mobile || form.name) {
         const draftLines = orderLines.map(({ _product, _matter_file, _matter_preview, ...rest }) => rest);
-        localStorage.setItem('billingDraft', JSON.stringify({ customer: form, orders: draftLines, totals }));
+        localStorage.setItem('billingDraft', JSON.stringify({
+          customer: form, orders: draftLines, payment,
+          activeTab, discountPercent, discountMode, discountInputAmount,
+          jobType, selectedBranchId, existingCustomer,
+        }));
       }
     }, 10000);
     return () => clearInterval(saveTimerRef.current);
-  }, [form, orderLines, totals]);
+  }, [form, orderLines, payment, activeTab, discountPercent, discountMode, discountInputAmount, jobType, selectedBranchId, existingCustomer]);
 
   // ── Print on save ──
   const handlePrintLast = useCallback(async () => {
@@ -2061,9 +2089,6 @@ const Billing = () => {
         return (
           <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="post-bill-title" onClick={() => setShowPostBillOptions(false)}>
             <div className="modal modal--lg" onClick={e => e.stopPropagation()} style={{ maxHeight: '95vh', borderRadius: '16px', boxShadow: '0 20px 50px rgba(0,0,0,0.15)' }}>
-              <div style={{ padding: '8px', background: '#fee2e2', border: '1px solid #ef4444', color: '#b91c1c', fontSize: '11px', whiteSpace: 'pre-wrap', wordBreak: 'break-all', maxHeight: '100px', overflowY: 'auto' }}>
-                [DEBUG] lastBillData keys: {Object.keys(lastBillData).join(', ')} | lastBillData: {JSON.stringify(lastBillData)}
-              </div>
               <div className="modal__header" style={{ borderBottom: 'none', padding: '24px 24px 8px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', position: 'relative' }}>
                 <div className="invoice-success-icon-container">
                   <Check size={32} strokeWidth={3} aria-hidden="true" />

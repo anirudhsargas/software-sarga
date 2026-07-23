@@ -8,7 +8,8 @@ import {
   ArrowLeft, Plus, FileText, CreditCard, 
   TrendingUp, Edit, Trash2, User, 
   Phone, Mail, MapPin, Calendar, 
-  ShieldCheck, AlertCircle, Info, ChevronRight, RotateCcw 
+  ShieldCheck, AlertCircle, Info, ChevronRight, RotateCcw, FileEdit,
+  Save
 } from 'lucide-react';
 import '../pages/Vendors.css';
 
@@ -32,6 +33,8 @@ const VendorDetail = ({
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
+  const [editingInvoice, setEditingInvoice] = useState(null);
+  const [draftInvoices, setDraftInvoices] = useState([]);
   const [_spendTrend, setSpendTrend] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [balanceDiscrepancy, setBalanceDiscrepancy] = useState(null);
@@ -48,7 +51,7 @@ const VendorDetail = ({
   const _latestPaymentDate = getLatestRecordDate(vendorDetails?.payments || vendor?.payments, 'payment_date');
 
   const rawTransactions = [
-    ...(vendorDetails?.invoices || vendor?.invoices || []).map((inv) => ({
+    ...(vendorDetails?.invoices || vendor?.invoices || []).filter(inv => inv.status !== 'draft').map((inv) => ({
       id: inv.id,
       type: 'Debit',
       category: 'Purchase',
@@ -145,6 +148,13 @@ const VendorDetail = ({
       }
       const response = await api.get(`/vendors/${vendorId}`);
       setVendorDetails(response.data.data);
+      // Load draft invoices
+      try {
+        const draftRes = await api.get(`/vendor-invoices/drafts/list?vendor_id=${vendorId}`);
+        setDraftInvoices(draftRes.data.data || []);
+      } catch (_) {
+        setDraftInvoices([]);
+      }
     } catch (error) {
       console.error('Error loading vendor details:', error);
       toast.error('Failed to load vendor details');
@@ -201,7 +211,18 @@ const VendorDetail = ({
   }, [vendorId, refreshKey]);
 
   const handleAddInvoice = () => {
+    setEditingInvoice(null);
     setShowInvoiceModal(true);
+  };
+
+  const handleEditDraft = async (draft) => {
+    try {
+      const res = await api.get(`/vendor-invoices/${draft.id}`);
+      setEditingInvoice(res.data.data);
+      setShowInvoiceModal(true);
+    } catch (error) {
+      toast.error('Failed to load draft');
+    }
   };
 
   const handleAddPayment = (invoice) => {
@@ -211,6 +232,7 @@ const VendorDetail = ({
 
   const handleInvoiceSaved = () => {
     setShowInvoiceModal(false);
+    setEditingInvoice(null);
     loadVendorDetails();
   };
 
@@ -423,45 +445,93 @@ const VendorDetail = ({
                </div>
              </div>
              
-             <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {details.invoices?.length > 0 ? details.invoices.map(inv => (
-                  <div key={inv.id} className="invoice-item">
-                    <div className="invoice-row">
-                      <div className="invoice-meta">
-                        <div className="invoice-title">
-                          <span className="invoice-icon"><FileText size={16} /></span>
-                          <span style={{ fontWeight: 700 }}>{inv.invoice_number || `INV-${inv.id}`}</span>
-                          <span className={`badge badge--pill badge--${inv.status === 'paid' ? 'success' : inv.status === 'partial' ? 'warning' : 'danger'}`}>
-                            {inv.status}
+              {/* Draft Bills Section */}
+              {draftInvoices.length > 0 && (
+                <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-2)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                    <Save size={16} style={{ color: 'var(--warning)' }} />
+                    <h4 style={{ fontSize: '13px', fontWeight: 700, margin: 0, color: 'var(--warning)' }}>
+                      Draft Bills ({draftInvoices.length})
+                    </h4>
+                    <span style={{ fontSize: 11, color: 'var(--muted)' }}>— Complete or edit these drafts</span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {draftInvoices.map(draft => (
+                      <div key={draft.id} style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '10px 14px', background: 'var(--surface)', borderRadius: 10,
+                        border: '1px dashed var(--warning)', cursor: 'pointer'
+                      }}
+                        onClick={() => handleEditDraft(draft)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleEditDraft(draft); }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <FileEdit size={16} style={{ color: 'var(--warning)' }} />
+                          <div>
+                            <div style={{ fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+                              {draft.invoice_number || `Draft INV-${draft.id}`}
+                              <span style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 400 }}>
+                                {new Date(draft.invoice_date).toLocaleDateString()}
+                              </span>
+                            </div>
+                            {draft.notes && (
+                              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{draft.notes}</div>
+                            )}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                            {draft.amount ? formatCurrency(draft.amount) : 'No amount'}
                           </span>
-                        </div>
-                        <div className="invoice-subtext">
-                          {new Date(inv.invoice_date).toLocaleDateString()} • Due {new Date(inv.due_date).toLocaleDateString()}
+                          <Edit size={14} style={{ color: 'var(--accent)' }} />
                         </div>
                       </div>
-                      <div className="invoice-actions">
-                        <div className="invoice-amount" style={{ textAlign: 'right' }}>
-                          <p style={{ fontWeight: 800, color: 'var(--accent)' }}>{formatCurrency(inv.amount)}</p>
-                          <p style={{ fontSize: '11px', color: 'var(--muted)' }}>{inv.paid_amount ? `${formatCurrency(inv.paid_amount)} paid` : 'Not settled yet'}</p>
-                        </div>
-                        {inv.amount - inv.paid_amount > 0 && canAdd && (
-                          <button 
-                            onClick={() => handleAddPayment(inv)}
-                            className="settlement-btn"
-                          >
-                            <CreditCard size={14} /> Settle
-                          </button>
-                        )}
-                      </div>
-                    </div>
+                    ))}
                   </div>
-                )) : (
-                  <div style={{ padding: '60px 0', textAlign: 'center', opacity: 0.4 }}>
-                     <FileText size={32} style={{ margin: '0 auto 8px' }} />
-                     <p style={{ fontSize: '13px' }}>No procurement history recorded</p>
-                  </div>
-                )}
-             </div>
+                </div>
+              )}
+
+              <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                 {(details.invoices || []).filter(inv => inv.status !== 'draft').length > 0 ? (details.invoices || []).filter(inv => inv.status !== 'draft').map(inv => (
+                   <div key={inv.id} className="invoice-item">
+                     <div className="invoice-row">
+                       <div className="invoice-meta">
+                         <div className="invoice-title">
+                           <span className="invoice-icon"><FileText size={16} /></span>
+                           <span style={{ fontWeight: 700 }}>{inv.invoice_number || `INV-${inv.id}`}</span>
+                           <span className={`badge badge--pill badge--${inv.status === 'paid' ? 'success' : inv.status === 'partial' ? 'warning' : 'danger'}`}>
+                             {inv.status}
+                           </span>
+                         </div>
+                         <div className="invoice-subtext">
+                           {new Date(inv.invoice_date).toLocaleDateString()}{inv.due_date ? ` • Due ${new Date(inv.due_date).toLocaleDateString()}` : ''}
+                         </div>
+                       </div>
+                       <div className="invoice-actions">
+                         <div className="invoice-amount" style={{ textAlign: 'right' }}>
+                           <p style={{ fontWeight: 800, color: 'var(--accent)' }}>{formatCurrency(inv.amount)}</p>
+                           <p style={{ fontSize: '11px', color: 'var(--muted)' }}>{inv.paid_amount ? `${formatCurrency(inv.paid_amount)} paid` : 'Not settled yet'}</p>
+                         </div>
+                         {inv.amount - inv.paid_amount > 0 && canAdd && (
+                           <button 
+                             onClick={() => handleAddPayment(inv)}
+                             className="settlement-btn"
+                           >
+                             <CreditCard size={14} /> Settle
+                           </button>
+                         )}
+                       </div>
+                     </div>
+                   </div>
+                 )) : (
+                   <div style={{ padding: '60px 0', textAlign: 'center', opacity: 0.4 }}>
+                      <FileText size={32} style={{ margin: '0 auto 8px' }} />
+                      <p style={{ fontSize: '13px' }}>No procurement history recorded</p>
+                   </div>
+                 )}
+              </div>
           </div>
 
           {/* Payment Logs */}
@@ -570,7 +640,8 @@ const VendorDetail = ({
       {showInvoiceModal && (
         <InvoiceModal
           vendor={details}
-          onClose={() => setShowInvoiceModal(false)}
+          invoice={editingInvoice}
+          onClose={() => { setShowInvoiceModal(false); setEditingInvoice(null); }}
           onSave={handleInvoiceSaved}
         />
       )}

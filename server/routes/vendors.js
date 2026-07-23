@@ -902,6 +902,50 @@ router.get('/vendor-invoices', authenticateToken, async (req, res) => {
   }
 });
 
+// GET /api/vendor-invoices/:id - Get single invoice by ID
+router.get('/vendor-invoices/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [invoices] = await pool.query(`
+      SELECT vi.*, v.name as vendor_name, v.vendor_code
+      FROM vendor_invoices vi
+      JOIN vendors v ON vi.vendor_id = v.id
+      WHERE vi.id = ?
+    `, [id]);
+    if (invoices.length === 0) {
+      return res.status(404).json({ success: false, message: 'Invoice not found' });
+    }
+    res.json({ success: true, data: invoices[0] });
+  } catch (error) {
+    logger.error('Error fetching invoice:', error);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
+});
+
+// GET /api/vendor-invoices/drafts - List draft invoices
+router.get('/vendor-invoices/drafts/list', authenticateToken, async (req, res) => {
+  try {
+    const { vendor_id } = req.query;
+    let where = 'WHERE vi.status = ?';
+    const params = ['draft'];
+    if (vendor_id) {
+      where += ' AND vi.vendor_id = ?';
+      params.push(vendor_id);
+    }
+    const [invoices] = await pool.query(`
+      SELECT vi.*, v.name as vendor_name
+      FROM vendor_invoices vi
+      JOIN vendors v ON vi.vendor_id = v.id
+      ${where}
+      ORDER BY vi.created_at DESC
+    `, params);
+    res.json({ success: true, data: invoices });
+  } catch (error) {
+    logger.error('Error fetching draft invoices:', error);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
+});
+
 // POST /api/vendor-invoices - Create invoice
 router.post('/vendor-invoices', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), validate(addInvoiceSchema), recordVendorBill);
 
@@ -1516,53 +1560,64 @@ router.get('/vendor-statements/:id/result', authenticateToken, async (req, res) 
 async function recordVendorBill(req, res) {
   try {
     const vendor_id = req.params.id ? parseInt(req.params.id) : req.body.vendor_id;
-    const { invoice_number, invoice_date, amount, gst_amount, branch, notes } = req.body;
+    const { invoice_number, invoice_date, amount, gst_amount, branch, notes, status } = req.body;
     
     if (!vendor_id) {
       return res.status(400).json({ success: false, message: 'vendor_id is required' });
     }
 
-    // Get credit limit
+    const isDraft = status === 'draft';
+    const finalStatus = isDraft ? 'draft' : 'pending';
+    let due_date = null;
+    let creditLimitWarning = false;
+    
+    // Get credit limit and credit days (skip for drafts)
     const [vendor] = await pool.query('SELECT credit_limit, current_balance, credit_days FROM vendors WHERE id = ?', [vendor_id]);
     if (vendor.length === 0) {
       return res.status(404).json({ success: false, message: 'Vendor not found' });
     }
     
-    const currentBal = Number(vendor[0].current_balance || 0);
-    const creditLimit = Number(vendor[0].credit_limit) || 0;
-    const newOutstanding = currentBal + Number(amount);
-    const creditLimitWarning = creditLimit > 0 && newOutstanding > creditLimit;
-    if (creditLimitWarning) {
-      res.setHeader('X-Credit-Limit-Warning', 'Breached');
+    if (!isDraft) {
+      const currentBal = Number(vendor[0].current_balance || 0);
+      const creditLimit = Number(vendor[0].credit_limit) || 0;
+      const newOutstanding = currentBal + Number(amount);
+      creditLimitWarning = creditLimit > 0 && newOutstanding > creditLimit;
+      if (creditLimitWarning) {
+        res.setHeader('X-Credit-Limit-Warning', 'Breached');
+      }
+      
+      // Calculate due date
+      const creditDays = vendor[0].credit_days || 0;
+      const dueDateObj = new Date(invoice_date);
+      dueDateObj.setDate(dueDateObj.getDate() + creditDays);
+      due_date = dueDateObj.toISOString().split('T')[0];
     }
     
-    // Calculate due date
-    const creditDays = vendor[0].credit_days || 0;
-    const dueDateObj = new Date(invoice_date);
-    dueDateObj.setDate(dueDateObj.getDate() + creditDays);
-    const due_date = dueDateObj.toISOString().split('T')[0];
-    
-    const finalTotal = Number(amount) + Number(gst_amount || 0);
+    const finalTotal = Number(amount || 0) + Number(gst_amount || 0);
     
     const [result] = await pool.query(`
       INSERT INTO vendor_invoices (vendor_id, invoice_number, invoice_date, due_date, amount, gst_amount, total_amount, paid_amount, status, payment_status, branch, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'pending', 'unpaid', ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, 'unpaid', ?, ?)
     `, [
       vendor_id,
       invoice_number || null,
       invoice_date,
       due_date,
-      amount,
+      amount || 0,
       gst_amount || 0,
       finalTotal,
+      finalStatus,
       branch || 'common',
       notes || null
     ]);
     
-    // Recalculate vendor balance
-    const updatedBalance = await recalculateVendorBalance(vendor_id, pool);
+    // Only recalculate vendor balance for non-draft invoices
+    let updatedBalance = 0;
+    if (!isDraft) {
+      updatedBalance = await recalculateVendorBalance(vendor_id, pool);
+    }
     
-    auditLog(req.user.id, 'VENDOR_BILL_ADD', `Added bill for vendor ID ${vendor_id}`, {
+    auditLog(req.user.id, isDraft ? 'VENDOR_BILL_DRAFT' : 'VENDOR_BILL_ADD', `${isDraft ? 'Saved draft bill' : 'Added bill'} for vendor ID ${vendor_id}`, {
       entity_type: 'vendor_invoice',
       entity_id: result.insertId
     });
@@ -1574,7 +1629,8 @@ async function recordVendorBill(req, res) {
         current_balance: updatedBalance,
         new_vendor_balance: updatedBalance,
         credit_limit_warning: creditLimitWarning,
-        message: 'Bill recorded successfully'
+        is_draft: isDraft,
+        message: isDraft ? 'Draft saved successfully' : 'Bill recorded successfully'
       }
     });
   } catch (error) {
@@ -1586,27 +1642,47 @@ async function recordVendorBill(req, res) {
 async function updateVendorBill(req, res) {
   try {
     const billId = req.params.billId || req.params.id;
-    const { invoice_number, invoice_date, due_date, amount, gst_amount, branch, notes } = req.body;
+    const { invoice_number, invoice_date, due_date, amount, gst_amount, branch, notes, status } = req.body;
     
     // Find old bill
-    const [bill] = await pool.query('SELECT vendor_id, paid_amount FROM vendor_invoices WHERE id = ?', [billId]);
+    const [bill] = await pool.query('SELECT vendor_id, paid_amount, status as old_status FROM vendor_invoices WHERE id = ?', [billId]);
     if (bill.length === 0) {
       return res.status(404).json({ success: false, message: 'Bill not found' });
     }
     const vendorId = bill[0].vendor_id;
     const paidAmount = Number(bill[0].paid_amount || 0);
+    const oldStatus = bill[0].old_status;
     
-    const finalTotal = Number(amount) + Number(gst_amount || 0);
+    const isDraft = status === 'draft';
+    const wasDraft = oldStatus === 'draft';
+    const transitioningFromDraft = wasDraft && !isDraft;
     
-    // Determine status and payment_status
-    let status = 'pending';
+    const finalTotal = Number(amount || 0) + Number(gst_amount || 0);
+    
+    // Determine finalDueDate
+    let finalDueDate = due_date;
+    if (transitioningFromDraft && !due_date) {
+      // Calculate due date from vendor credit days when completing a draft
+      const [vendor] = await pool.query('SELECT credit_days FROM vendors WHERE id = ?', [vendorId]);
+      if (vendor.length > 0) {
+        const creditDays = vendor[0].credit_days || 0;
+        const dueDateObj = new Date(invoice_date);
+        dueDateObj.setDate(dueDateObj.getDate() + creditDays);
+        finalDueDate = dueDateObj.toISOString().split('T')[0];
+      }
+    }
+    
+    // Determine status
+    let newStatus = isDraft ? 'draft' : 'pending';
     let paymentStatus = 'unpaid';
-    if (paidAmount >= finalTotal) {
-      status = 'paid';
-      paymentStatus = 'paid';
-    } else if (paidAmount > 0) {
-      status = 'partial';
-      paymentStatus = 'partial';
+    if (!isDraft) {
+      if (paidAmount >= finalTotal) {
+        newStatus = 'paid';
+        paymentStatus = 'paid';
+      } else if (paidAmount > 0) {
+        newStatus = 'partial';
+        paymentStatus = 'partial';
+      }
     }
     
     await pool.query(`
@@ -1616,21 +1692,24 @@ async function updateVendorBill(req, res) {
     `, [
       invoice_number || null,
       invoice_date,
-      due_date,
-      amount,
+      finalDueDate,
+      amount || 0,
       gst_amount || 0,
       finalTotal,
-      status,
+      newStatus,
       paymentStatus,
       branch || 'common',
       notes || null,
       billId
     ]);
     
-    // Recalculate balance
-    const updatedBalance = await recalculateVendorBalance(vendorId, pool);
+    // Recalculate balance only for non-draft invoices
+    let updatedBalance = 0;
+    if (!isDraft) {
+      updatedBalance = await recalculateVendorBalance(vendorId, pool);
+    }
     
-    auditLog(req.user.id, 'VENDOR_BILL_UPDATE', `Updated bill ID ${billId}`, {
+    auditLog(req.user.id, 'VENDOR_BILL_UPDATE', `Updated bill ID ${billId}${isDraft ? ' (draft)' : ''}`, {
       entity_type: 'vendor_invoice',
       entity_id: billId
     });

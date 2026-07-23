@@ -334,8 +334,12 @@ const addInvoiceSchema = z.object({
     vendor_id: z.preprocess(Number, z.number().int().positive()),
     invoice_number: z.string().optional().nullable(),
     invoice_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD'),
-    amount: requiredPositiveNumber,
+    amount: z.preprocess(
+      (v) => (v === '' || v === null || v === undefined ? undefined : Number(v)),
+      z.number().min(0, 'Amount cannot be negative')
+    ),
     branch: z.enum(['perambra', 'meppayur', 'common']).default('common'),
+    status: z.enum(['draft', 'pending']).optional().default('pending'),
     notes: z.string().optional().nullable()
 });
 

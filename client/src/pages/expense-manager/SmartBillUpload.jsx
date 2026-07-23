@@ -281,9 +281,12 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
     }
   };
 
+  const [selectedVendor, setSelectedVendor] = useState(null);
+
   const handleVendorSelect = (vendor) => {
     setFinalForm(prev => ({ ...prev, vendor_name: vendor.name }));
     if (vendor.id) setSelectedVendorId(String(vendor.id));
+    setSelectedVendor(vendor);
     setVendorSuggestions([]);
     setVendorSearchFocused(false);
   };
@@ -1282,10 +1285,19 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
                             onMouseEnter={() => setHighlightedVendorIdx(idx)}
                           >
                             <span className="sb-autocomplete-item-name">{v.name}</span>
-                            {v.phone && <span className="sb-autocomplete-item-sub">{v.phone}</span>}
+                            <span className="sb-autocomplete-item-sub">
+                              {v.category && <span className="sb-autocomplete-item-cat">{v.category.replace(/_/g, ' ')}</span>}
+                              {v.category && v.phone && <span> · </span>}
+                              {v.phone}
+                            </span>
                           </div>
                         ))}
                       </div>
+                    )}
+                    {selectedVendor?.category && !vendorSearchFocused && (
+                      <span style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2, display: 'inline-block' }}>
+                        Category: {selectedVendor.category.replace(/_/g, ' ')}
+                      </span>
                     )}
                   </div>
                 </div>
@@ -1299,7 +1311,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
                     <option value="">-- Select Vendor --</option>
                     {vendors.map(v => (
                       <option key={v.id} value={v.id}>
-                        {v.name} (Balance: ₹{Number(v.current_balance || 0).toLocaleString('en-IN')})
+                        {v.name}{v.category ? ` (${v.category.replace(/_/g, ' ')})` : ''} — ₹{Number(v.current_balance || 0).toLocaleString('en-IN')}
                       </option>
                     ))}
                   </select>

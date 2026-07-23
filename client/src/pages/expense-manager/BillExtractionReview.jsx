@@ -1,8 +1,9 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Upload, X, Loader2, AlertCircle, CheckCircle, Plus, Trash2, Camera, Image as ImageIcon, ChevronRight, ArrowLeft, Search } from 'lucide-react';
+import { Upload, X, Loader2, AlertCircle, CheckCircle, Plus, Trash2, Camera, Image as ImageIcon, ChevronRight, ArrowLeft, Search, Package } from 'lucide-react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 import { onSocketEvent, getSocket } from '../../services/socketClient';
+import VendorModal from '../../components/VendorModal';
 import './BillExtractionReview.css';
 
 const VALID_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
@@ -79,7 +80,57 @@ function vendorNameSimilarity(a, b) {
   return 1 - dist / Math.max(normA.length, normB.length, 1);
 }
 
-function ProductSearchCell({ match, override, isActive, onActivate, onSelect, onClear }) {
+function matchManualItemWithLibrary(description, allProducts) {
+  if (!description || !description.trim() || !allProducts || allProducts.length === 0) {
+    return { matched: false, suggestions: [], mrp: 0 };
+  }
+
+  const query = description.trim().toLowerCase();
+  
+  const normalize = (name) => {
+    return (name || '').toLowerCase().trim().replace(/\s+/g, ' ').replace(/[.,/#!$%^&*;:{}=\-_`~()]+/g, '');
+  };
+
+  const normQuery = normalize(query);
+
+  const scored = allProducts.map(p => {
+    const prodName = p.product_name || p.name || '';
+    const normProdName = normalize(prodName);
+    
+    let score = 0;
+    if (normProdName === normQuery) {
+      score = 1.0;
+    } else if (normProdName.includes(normQuery) || normQuery.includes(normProdName)) {
+      score = 0.9;
+    } else {
+      score = vendorNameSimilarity(prodName, description);
+    }
+
+    return {
+      product_id: p.product_id || p.id,
+      product_name: prodName,
+      mrp: p.mrp || p.sell_price || 0,
+      hsn_sac: p.hsn_sac || p.hsn || '',
+      confidence: score,
+      ...p
+    };
+  });
+
+  const sorted = scored.sort((a, b) => b.confidence - a.confidence);
+  const suggestions = sorted.filter(p => p.confidence >= 0.25).slice(0, 8);
+  const best = sorted[0];
+  const matched = best && best.confidence >= 0.85;
+
+  return {
+    matched: !!matched,
+    canonical_product_name: matched ? best.product_name : null,
+    mrp: matched ? best.mrp : 0,
+    hsn_sac: matched ? best.hsn_sac : '',
+    suggestions: suggestions
+  };
+}
+
+function ProductSearchCell({ match, override, isActive, onActivate, onSelect, onClear, onAddProduct }) {
   const [search, setSearch] = React.useState('');
   const ref = React.useRef(null);
 
@@ -154,6 +205,20 @@ function ProductSearchCell({ match, override, isActive, onActivate, onSelect, on
                 <span className="pms-item-conf">{Math.round(s.confidence * 100)}%</span>
               </button>
             ))}
+            <button
+              type="button"
+              className="pms-item"
+              style={{ borderTop: '1px solid var(--border)', color: 'var(--accent)' }}
+              onClick={() => {
+                onAddProduct(search.trim());
+                setSearch('');
+                onActivate();
+              }}
+            >
+              <span className="pms-item-name" style={{ fontWeight: 600 }}>
+                {search.trim() ? `+ Add "${search.trim()}" as new product` : '+ Add new product'}
+              </span>
+            </button>
           </div>
           {override && (
             <button
@@ -319,17 +384,12 @@ function VendorSearchCell({ vendorName, vendorMatch, selectedVendorId, onSelect,
                 type="button"
                 className="pms-item"
                 style={{ borderTop: filtered.length > 0 || fuzzyMatches.length > 0 ? '1px solid var(--border)' : 'none', color: 'var(--accent)' }}
-                onClick={async () => {
-                  setAdding(true);
-                  try {
-                    await onAddVendor(search.trim());
-                    setAdding(false);
-                    setOpen(false);
-                  } catch { setAdding(false); }
+                onClick={() => {
+                  onAddVendor(search.trim());
+                  setOpen(false);
                 }}
-                disabled={adding}
               >
-                {adding ? 'Adding...' : `+ Add "${search.trim()}" as new vendor`}
+                + Add "{search.trim()}" as new vendor
               </button>
             )}
           </div>
@@ -363,30 +423,52 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
   const [productSearchFocusedRow, setProductSearchFocusedRow] = useState(null);
   const [productSuggestionsMap, setProductSuggestionsMap] = useState({});
 
-  useEffect(() => {
-    api.get('/product-hierarchy')
-      .then(res => {
-        const cats = Array.isArray(res.data) ? res.data : [];
-        const items = [];
-        cats.forEach(cat => {
-          (cat.subcategories || []).forEach(sub => {
-            (sub.products || []).forEach(p => {
-              items.push({ 
-                ...p, 
-                category_name: cat.name, 
-                subcategory_name: sub.name,
-                category_id: cat.id,
-                subcategory_id: sub.id
-              });
+  // Inline Vendor Modal states
+  const [showVendorModal, setShowVendorModal] = useState(false);
+  const [vendorModalInitialName, setVendorModalInitialName] = useState('');
+
+  // Inline Product Modal states
+  const [showAddProductModal, setShowAddProductModal] = useState(false);
+  const [addProductInitialName, setAddProductInitialName] = useState('');
+  const [addProductRowIndex, setAddProductRowIndex] = useState(null);
+  const [productHierarchy, setProductHierarchy] = useState([]);
+
+  const fetchProducts = useCallback(async () => {
+    try {
+      const res = await api.get('/product-hierarchy');
+      const cats = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      setProductHierarchy(cats);
+      const items = [];
+      cats.forEach(cat => {
+        (cat.subcategories || []).forEach(sub => {
+          (sub.products || []).forEach(p => {
+            items.push({ 
+              ...p, 
+              category_name: cat.name, 
+              subcategory_name: sub.name,
+              category_id: cat.id,
+              subcategory_id: sub.id,
+              product_id: p.id,
+              product_name: p.name,
+              mrp: p.mrp || p.sell_price || 0,
+              hsn: p.hsn_sac || p.hsn || '',
+              sell_price: p.sell_price || 0,
+              cost_price: p.cost_price || 0
             });
           });
         });
-        setAllProducts(items);
-      })
-      .catch((err) => {
-        console.error('Failed to load product hierarchy in BillExtractionReview:', err);
       });
+      setAllProducts(items);
+      return items;
+    } catch (err) {
+      console.error('Failed to load product hierarchy in BillExtractionReview:', err);
+      return [];
+    }
   }, []);
+
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
 
   const getProductSuggestions = (searchText) => {
     if (!allProducts.length) return [];
@@ -412,7 +494,6 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
       let hsnVal = '';
       if (product.hsn) hsnVal = String(product.hsn);
       else if (product.hsn_sac) hsnVal = String(product.hsn_sac);
-      else if (product.product_code) hsnVal = String(product.product_code);
 
       const origIdx = items[index]?._originalIndex;
       if (origIdx >= 0) {
@@ -818,8 +899,28 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
   }, [updateField]);
 
   const handleGoToPricing = useCallback(() => {
+    const nextMatches = [];
+    setForm(prev => {
+      const updatedItems = prev.items.map((item, idx) => {
+        const origIdx = item._originalIndex >= 0 ? item._originalIndex : idx;
+        const match = matchManualItemWithLibrary(item.description, allProducts);
+        nextMatches[origIdx] = match;
+
+        return {
+          ...item,
+          _originalIndex: origIdx,
+          hsn_sac: item.hsn_sac || match.hsn_sac || '',
+          sell_price: item.sell_price || (match.mrp ? String(match.mrp) : '')
+        };
+      });
+      return {
+        ...prev,
+        items: updatedItems
+      };
+    });
+    setItemMatches(nextMatches);
     setStep('pricing');
-  }, []);
+  }, [form.items, allProducts]);
 
   const handleBackToReview = useCallback(() => {
     setStep('review');
@@ -1077,6 +1178,11 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
                         onActivate={() => setActiveSelector(activeSelector === selectorKey ? null : selectorKey)}
                         onSelect={(product) => handleProductSelect(origIdx >= 0 ? origIdx : idx, product)}
                         onClear={() => origIdx >= 0 && clearProductOverride(origIdx)}
+                        onAddProduct={(name) => {
+                          setAddProductInitialName(name);
+                          setAddProductRowIndex(origIdx >= 0 ? origIdx : idx);
+                          setShowAddProductModal(true);
+                        }}
                       />
                     </td>
                     <td>
@@ -1128,6 +1234,22 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
             {saving ? 'Saving...' : 'Save Bill'}
           </button>
         </div>
+
+        {showAddProductModal && (
+          <AddProductModal
+            initialName={addProductInitialName}
+            hierarchy={productHierarchy}
+            onClose={() => setShowAddProductModal(false)}
+            onSave={async (newProductId) => {
+              setShowAddProductModal(false);
+              const items = await fetchProducts();
+              const newlyCreated = items.find(p => String(p.id) === String(newProductId) || String(p.product_id) === String(newProductId));
+              if (newlyCreated) {
+                handleProductSelect(addProductRowIndex, newlyCreated);
+              }
+            }}
+          />
+        )}
       </div>
     );
   }
@@ -1163,13 +1285,9 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
             selectedVendorId={selectedVendorId}
             onSelect={handleVendorSelect}
             onChange={(val) => { setSelectedVendorId(''); updateField('vendor_name', val); }}
-            onAddVendor={async (name) => {
-              const res = await api.post('/vendors', { name, gst_number: form.gst_number || '' });
-              if (res.data?.success) {
-                const v = res.data.data;
-                handleVendorSelect({ id: v.id, name: v.name || name });
-                toast.success(`Vendor "${name}" added`);
-              }
+            onAddVendor={(name) => {
+              setVendorModalInitialName(name);
+              setShowVendorModal(true);
             }}
           />
 
@@ -1405,9 +1523,312 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
           Next — Set Prices <ChevronRight size={16} />
         </button>
       </div>
+
+      {showVendorModal && (
+        <VendorModal
+          vendor={vendorModalInitialName ? { name: vendorModalInitialName, gstin: form.gst_number || '' } : null}
+          onClose={() => setShowVendorModal(false)}
+          onSave={(newVendor) => {
+            setShowVendorModal(false);
+            if (newVendor) {
+              handleVendorSelect({ id: newVendor.id, name: newVendor.name });
+            }
+          }}
+        />
+      )}
     </div>
   );
 };
+
+function AddProductModal({ initialName, hierarchy, onClose, onSave }) {
+  const [name, setName] = useState(initialName || '');
+  const [selectedCatId, setSelectedCatId] = useState('');
+  const [selectedSubId, setSelectedSubId] = useState('');
+  const [productCode, setProductCode] = useState('');
+  const [mrp, setMrp] = useState('');
+  const [description, setDescription] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (hierarchy && hierarchy.length > 0) {
+      setSelectedCatId(hierarchy[0].id);
+      if (hierarchy[0].subcategories && hierarchy[0].subcategories.length > 0) {
+        setSelectedSubId(hierarchy[0].subcategories[0].id);
+      }
+    }
+  }, [hierarchy]);
+
+  const activeCategory = hierarchy.find(c => String(c.id) === String(selectedCatId));
+  const subcategories = activeCategory ? activeCategory.subcategories || [] : [];
+
+  const handleCategoryChange = (catId) => {
+    setSelectedCatId(catId);
+    const cat = hierarchy.find(c => String(c.id) === String(catId));
+    if (cat && cat.subcategories && cat.subcategories.length > 0) {
+      setSelectedSubId(cat.subcategories[0].id);
+    } else {
+      setSelectedSubId('');
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!name.trim()) { setError('Product name is required'); return; }
+    if (!selectedSubId) { setError('Subcategory is required'); return; }
+
+    setSaving(true);
+    setError('');
+    try {
+      const payload = {
+        subcategory_id: Number(selectedSubId),
+        name: name.trim(),
+        product_code: productCode.trim() || undefined,
+        calculation_type: 'Normal',
+        description: description.trim(),
+        slabs: [{ min_qty: 0, max_qty: '', base_value: 0, unit_rate: Number(mrp) || 0, offset_unit_rate: 0, double_side_unit_rate: 0 }],
+        isPhysicalProduct: true
+      };
+
+      const res = await api.post('/products', payload);
+      if (res.data?.id) {
+        onSave(res.data.id);
+      } else {
+        throw new Error(res.data?.message || 'Failed to save product');
+      }
+    } catch (err) {
+      console.error('Error saving product:', err);
+      setError(err.response?.data?.message || err.message || 'Failed to save product');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'var(--modal-overlay, rgba(0,0,0,0.35))', backdropFilter: 'blur(8px)', display: 'grid', placeItems: 'center', zIndex: 9999, padding: 20 }}>
+      <style>{`
+        .product-modal-container {
+          background: var(--surface);
+          border: 1px solid var(--border-subtle);
+          border-radius: 24px;
+          width: 100%;
+          max-width: 580px;
+          max-height: 90vh;
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+          box-shadow: var(--shadow-lg);
+          animation: modal-enter 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes modal-enter {
+          from { opacity: 0; transform: scale(0.96) translateY(10px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .product-form-body {
+          padding: 24px 32px 32px;
+          overflow-y: auto;
+        }
+        .product-fields-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 20px;
+        }
+        @media (min-width: 640px) {
+          .product-fields-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+          .product-span-full {
+            grid-column: 1 / -1;
+          }
+        }
+        .product-field-group {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+        .product-label {
+          font-size: 11px;
+          font-weight: 700;
+          color: var(--text-muted, var(--muted));
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          padding-left: 2px;
+        }
+        .product-input {
+          width: 100%;
+          padding: 11px 14px;
+          border: 1.5px solid var(--border-subtle);
+          border-radius: 10px;
+          background: var(--surface);
+          color: var(--text);
+          font-size: 14px;
+          outline: none;
+          font-family: inherit;
+          transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        .product-input:hover {
+          border-color: var(--text-muted, var(--muted));
+        }
+        .product-input:focus {
+          border-color: var(--accent);
+          box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
+        }
+        select.product-input {
+          appearance: none;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 14px center;
+          background-size: 16px;
+          padding-right: 40px;
+          cursor: pointer;
+        }
+        textarea.product-input {
+          min-height: 80px;
+          resize: vertical;
+        }
+        .product-error-banner {
+          background: color-mix(in srgb, var(--error) 10%, var(--surface));
+          border: 1.5px solid var(--error);
+          color: var(--error);
+          border-radius: 12px;
+          padding: 12px 16px;
+          font-size: 13px;
+          margin-bottom: 20px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+      `}</style>
+      <div className="product-modal-container">
+        <div className="modal-header-premium" style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--surface-2)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div style={{ width: 48, height: 48, borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border-subtle)', display: 'grid', placeItems: 'center', boxShadow: 'var(--shadow-sm)' }}>
+              <Package size={22} style={{ color: 'var(--accent)' }} />
+            </div>
+            <div>
+              <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Add New Product</h2>
+              <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}>Product Library Protocol</p>
+            </div>
+          </div>
+          <button onClick={onClose} style={{ width: 36, height: 36, borderRadius: 10, display: 'grid', placeItems: 'center', color: 'var(--text-muted)', cursor: 'pointer', background: 'none', border: 'none' }}>
+            <X size={20} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="product-form-body">
+          {error && (
+            <div className="product-error-banner">
+              <AlertCircle size={16} />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <div className="product-fields-grid">
+            <div className="product-field-group product-span-full">
+              <label className="product-label">Product Name *</label>
+              <input
+                className="product-input"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="e.g. Wedding Invitation Card"
+                required
+              />
+            </div>
+
+            <div className="product-field-group">
+              <label className="product-label">Category *</label>
+              <select
+                className="product-input"
+                value={selectedCatId}
+                onChange={e => handleCategoryChange(e.target.value)}
+                required
+              >
+                <option value="" disabled>Select Category</option>
+                {hierarchy.map(cat => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="product-field-group">
+              <label className="product-label">Subcategory *</label>
+              <select
+                className="product-input"
+                value={selectedSubId}
+                onChange={e => setSelectedSubId(e.target.value)}
+                required
+                disabled={subcategories.length === 0}
+              >
+                <option value="" disabled>Select Subcategory</option>
+                {subcategories.map(sub => (
+                  <option key={sub.id} value={sub.id}>{sub.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="product-field-group">
+              <label className="product-label">Product Code / SKU</label>
+              <input
+                className="product-input"
+                value={productCode}
+                onChange={e => setProductCode(e.target.value)}
+                placeholder="e.g. WED-CARD-01"
+              />
+            </div>
+
+            <div className="product-field-group">
+              <label className="product-label">MRP / Unit Rate (₹)</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                className="product-input"
+                value={mrp}
+                onChange={e => setMrp(e.target.value)}
+                placeholder="0.00"
+              />
+            </div>
+
+            <div className="product-field-group product-span-full">
+              <label className="product-label">Description</label>
+              <textarea
+                className="product-input"
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+                placeholder="Optional product description..."
+                rows={2}
+              />
+            </div>
+          </div>
+
+          <div style={{ marginTop: 32, paddingTop: 24, borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'flex-end', gap: 16 }}>
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn btn-ghost"
+              style={{ padding: '10px 24px', borderRadius: '10px', height: 44, fontSize: '14px', fontWeight: 600 }}
+              disabled={saving}
+            >
+              Discard
+            </button>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              style={{ padding: '10px 32px', borderRadius: '10px', height: 44, fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              disabled={saving}
+            >
+              {saving ? (
+                <div style={{ width: 18, height: 18, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}></div>
+              ) : (
+                'Save Product'
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 function SparklesIcon() {
   return (

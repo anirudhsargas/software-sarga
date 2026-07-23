@@ -1,26 +1,29 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
-import { X, Upload, FileText, IndianRupee, Calendar, MapPin } from 'lucide-react';
+import { X, Upload, FileText, IndianRupee, Calendar, MapPin, Save, Edit3, FileEdit } from 'lucide-react';
 import Button from './Button';
 import { formatCurrency } from '../utils/formatters';
 import { validateDate, validatePrice } from '../utils/validators';
 import useFormValidation from '../hooks/useFormValidation';
 
-const InvoiceModal = ({ vendor, onClose, onSave }) => {
+const InvoiceModal = ({ vendor, invoice, onClose, onSave }) => {
+  const isEditing = !!invoice;
+  const isDraftEditing = isEditing && invoice.status === 'draft';
+
   const [formData, setFormData] = useState({
-    vendor_id: '',
-    invoice_number: '',
-    invoice_date: new Date().toISOString().split('T')[0],
-    amount: '',
-    branch: 'common',
-    notes: ''
+    vendor_id: vendor?.id || invoice?.vendor_id || '',
+    invoice_number: invoice?.invoice_number || '',
+    invoice_date: invoice?.invoice_date || new Date().toISOString().split('T')[0],
+    amount: invoice?.amount ?? '',
+    branch: invoice?.branch || 'common',
+    notes: invoice?.notes || ''
   });
   const [loading, setLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [extractedData, setExtractedData] = useState(null);
   const [showExtractedItems, setShowExtractedItems] = useState(false);
-  const { errors, validate, focusFirstError, formRef: _formRef } = useFormValidation();
+  const { errors, validate, focusFirstError } = useFormValidation();
   const fileInputRef = useRef(null);
   const triggerRef = useRef(null);
 
@@ -34,13 +37,13 @@ const InvoiceModal = ({ vendor, onClose, onSave }) => {
   }, []);
 
   useEffect(() => {
-    if (vendor) {
+    if (vendor && !isEditing) {
       setFormData(prev => ({
         ...prev,
         vendor_id: vendor.id
       }));
     }
-  }, [vendor]);
+  }, [vendor, isEditing]);
 
   const handleScanBill = () => {
     fileInputRef.current?.click();
@@ -99,18 +102,19 @@ const InvoiceModal = ({ vendor, onClose, onSave }) => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const validateForm = () => {
-    return validate({
+  const validateForm = (forDraft) => {
+    const rules = {
       vendor_id: () => formData.vendor_id ? { valid: true } : { valid: false, error: 'Vendor is required' },
       invoice_date: () => validateDate(formData.invoice_date, { label: 'Invoice date' }),
-      amount: () => validatePrice(formData.amount, { label: 'Amount', min: 0.01 }),
-    });
+    };
+    if (!forDraft) {
+      rules.amount = () => validatePrice(formData.amount, { label: 'Amount', min: 0.01 });
+    }
+    return validate(rules);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    if (!validateForm().valid) {
+  const handleSave = async (saveAsDraft) => {
+    if (!validateForm(saveAsDraft).valid) {
       focusFirstError();
       return;
     }
@@ -119,29 +123,40 @@ const InvoiceModal = ({ vendor, onClose, onSave }) => {
     try {
       const submitData = {
         ...formData,
-        amount: parseFloat(formData.amount)
+        amount: formData.amount ? parseFloat(formData.amount) : 0,
+        status: saveAsDraft ? 'draft' : 'pending'
       };
 
-      await api.post('/vendor-invoices', submitData);
-      toast.success('Invoice added successfully');
+      if (isEditing) {
+        await api.put(`/vendor-invoices/${invoice.id}`, submitData);
+        toast.success(saveAsDraft ? 'Draft updated' : 'Invoice updated successfully');
+      } else {
+        await api.post('/vendor-invoices', submitData);
+        toast.success(saveAsDraft ? 'Draft saved successfully' : 'Invoice added successfully');
+      }
       onSave();
     } catch (error) {
       console.error('Error saving invoice:', error);
       const errorMessage = error.response?.data?.message || 'Failed to save invoice';
       toast.error(errorMessage);
-
-      if (error.response?.data?.errors) {
-        const serverErrors = error.response.data.errors;
-        Object.entries(serverErrors).forEach(([_field, msg]) => {
-          if (typeof msg === 'string') {
-            // Server validation errors handled
-          }
-        });
-      }
     } finally {
       setLoading(false);
     }
   };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    await handleSave(false);
+  };
+
+  const handleSaveDraft = async (e) => {
+    if (e) e.preventDefault();
+    await handleSave(true);
+  };
+
+  const title = isDraftEditing ? 'Edit Draft Bill'
+    : isEditing ? 'Edit Invoice'
+    : 'Add New Invoice';
 
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="invoice-modal-title" style={{ position: 'fixed', inset: 0, background: 'var(--modal-overlay, rgba(0,0,0,0.35))', backdropFilter: 'blur(8px)', display: 'grid', placeItems: 'center', zIndex: 'var(--z-modal)', padding: 20 }}>
@@ -308,17 +323,29 @@ const InvoiceModal = ({ vendor, onClose, onSave }) => {
       `}</style>
       <div className="premium-modal-container">
         <div className="modal-header" style={{ padding: '20px 28px', borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 id="invoice-modal-title" className="modal-title" style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Add New Invoice</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {isDraftEditing ? <FileEdit size={20} style={{ color: 'var(--warning)' }} /> : <FileText size={20} style={{ color: 'var(--accent)' }} />}
+            <h2 id="invoice-modal-title" className="modal-title" style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
+              {title}
+            </h2>
+            {isDraftEditing && (
+              <span className="badge badge--pill" style={{ background: 'var(--warning)', color: '#fff', fontSize: 11, padding: '2px 10px', borderRadius: 20, fontWeight: 700 }}>
+                DRAFT
+              </span>
+            )}
+          </div>
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            <button
-              onClick={handleScanBill}
-              className="btn btn-secondary"
-              disabled={scanning}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', padding: '8px 14px', height: 38, borderRadius: 8 }}
-            >
-              <Upload size={15} />
-              {scanning ? 'Scanning...' : 'Scan Bill'}
-            </button>
+            {!isEditing && (
+              <button
+                onClick={handleScanBill}
+                className="btn btn-secondary"
+                disabled={scanning}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', padding: '8px 14px', height: 38, borderRadius: 8 }}
+              >
+                <Upload size={15} />
+                {scanning ? 'Scanning...' : 'Scan Bill'}
+              </button>
+            )}
             <button onClick={onClose} className="icon-button" aria-label="Close invoice modal" style={{ display: 'grid', placeItems: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={20} aria-hidden="true" /></button>
           </div>
           <input
@@ -337,7 +364,7 @@ const InvoiceModal = ({ vendor, onClose, onSave }) => {
             <div className="premium-field-group">
               <label className="premium-label">Vendor</label>
               <div className="premium-info-panel" style={{ fontWeight: 700, fontSize: 15, background: 'var(--surface-2)', color: 'var(--text-heading)' }}>
-                {vendor?.name || 'Unknown Vendor'}
+                {vendor?.name || invoice?.vendor_name || 'Unknown Vendor'}
               </div>
             </div>
 
@@ -419,9 +446,14 @@ const InvoiceModal = ({ vendor, onClose, onSave }) => {
                 />
               </div>
               {errors.amount && <p id="amount-error" className="premium-error-lbl" role="alert">{errors.amount}</p>}
-              {formData.amount && (
+              {formData.amount && !errors.amount && (
                 <p className="premium-help-lbl" style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)' }}>
                   Formatted: {formatCurrency(formData.amount)}
+                </p>
+              )}
+              {(isDraftEditing || (!isEditing && !formData.amount)) && (
+                <p className="premium-help-lbl">
+                  Can be left blank for draft bills
                 </p>
               )}
             </div>
@@ -458,7 +490,6 @@ const InvoiceModal = ({ vendor, onClose, onSave }) => {
                   )}
                 </div>
 
-                {/* Extracted Line Items */}
                 {showExtractedItems && extractedData.items?.length > 0 && (
                   <div style={{ marginTop: '12px', borderTop: '1px solid var(--border-subtle)', paddingTop: '12px' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '6px', fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
@@ -481,7 +512,7 @@ const InvoiceModal = ({ vendor, onClose, onSave }) => {
             )}
 
             {/* Credit Information */}
-            {vendor && (
+            {vendor && !isDraftEditing && (
               <div className="premium-info-panel">
                 <h4 className="premium-info-title">Credit Terms</h4>
                 <div className="premium-info-grid">
@@ -494,7 +525,7 @@ const InvoiceModal = ({ vendor, onClose, onSave }) => {
                     <span className="premium-info-value">{formatCurrency(vendor.credit_limit || 0)}</span>
                   </div>
                 </div>
-                {vendor.credit_days > 0 && (
+                {vendor.credit_days > 0 && formData.invoice_date && (
                   <div style={{ marginTop: 12, fontSize: '12px', fontWeight: 600, color: 'var(--warning)', display: 'flex', gap: 4 }}>
                     <span>Estimated Due Date:</span>
                     <span>{new Date(new Date(formData.invoice_date).getTime() + (vendor.credit_days * 24 * 60 * 60 * 1000)).toLocaleDateString()}</span>
@@ -520,7 +551,7 @@ const InvoiceModal = ({ vendor, onClose, onSave }) => {
             </div>
           </div>
 
-          <div style={{ marginTop: 28, paddingTop: 20, borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'flex-end', gap: 16 }}>
+          <div style={{ marginTop: 28, paddingTop: 20, borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
             <Button
               variant="ghost"
               onClick={onClose}
@@ -529,15 +560,51 @@ const InvoiceModal = ({ vendor, onClose, onSave }) => {
             >
               Cancel
             </Button>
-            <Button
-              variant="primary"
-              type="submit"
-              loading={loading}
-              loadingText="Saving..."
-              style={{ height: 44, borderRadius: 10, padding: '10px 32px' }}
-            >
-              Add Invoice
-            </Button>
+            {isDraftEditing ? (
+              <>
+                <Button
+                  variant="secondary"
+                  onClick={handleSaveDraft}
+                  loading={loading}
+                  loadingText="Saving..."
+                  style={{ height: 44, borderRadius: 10, padding: '10px 24px', display: 'flex', alignItems: 'center', gap: 6 }}
+                >
+                  <Save size={15} /> Save as Draft
+                </Button>
+                <Button
+                  variant="primary"
+                  type="submit"
+                  loading={loading}
+                  loadingText="Saving..."
+                  style={{ height: 44, borderRadius: 10, padding: '10px 32px', display: 'flex', alignItems: 'center', gap: 6 }}
+                >
+                  <Edit3 size={15} /> Save & Complete
+                </Button>
+              </>
+            ) : (
+              <>
+                {!isEditing && (
+                  <Button
+                    variant="secondary"
+                    onClick={handleSaveDraft}
+                    loading={loading}
+                    loadingText="Saving..."
+                    style={{ height: 44, borderRadius: 10, padding: '10px 24px', display: 'flex', alignItems: 'center', gap: 6 }}
+                  >
+                    <Save size={15} /> Save as Draft
+                  </Button>
+                )}
+                <Button
+                  variant="primary"
+                  type="submit"
+                  loading={loading}
+                  loadingText="Saving..."
+                  style={{ height: 44, borderRadius: 10, padding: '10px 32px' }}
+                >
+                  {isEditing ? 'Update Invoice' : 'Add Invoice'}
+                </Button>
+              </>
+            )}
           </div>
         </form>
       </div>

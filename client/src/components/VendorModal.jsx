@@ -92,10 +92,10 @@ const VendorModal = ({ vendor, onClose, onSave }) => {
         branch_id: vendor?.branch_id || null,
         order_link: vendor?.order_link || null
       };
-      await localDb.saveVendor(toSave);
+      const savedResult = await localDb.saveVendor(toSave);
 
       toast.success(vendor ? 'Vendor intelligence updated' : 'New partner onboarded');
-      onSave();
+      onSave({ id: savedResult?.id || toSave.id, name: formData.name, ...toSave });
     } catch (error) {
       console.error('Error saving vendor:', error);
       toast.error(error.response?.data?.message || error.message || 'Failed to sync partner data');

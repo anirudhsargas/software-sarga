@@ -17,6 +17,7 @@ import './Accounts.css';
 import EmptyState from '../components/EmptyState';
 import BranchSelect from '../components/ui/BranchSelect';
 import PageContainer from '../components/ui/PageContainer';
+import FullBillModal from './expense-manager/FullBillModal';
 const TABS = [
     { key: 'gst', label: 'GST Summary', icon: PieChart },
     { key: 'sales', label: 'Sales Register', icon: TrendingUp },
@@ -699,6 +700,7 @@ const BillsDocsTab = () => {
     const [filter, setFilter] = useState({ document_type: '', vendor_name: '', start_date: '', end_date: '' });
     const [editingDoc, setEditingDoc] = useState(null);
     const [editForm, setEditForm] = useState({});
+    const [viewDocId, setViewDocId] = useState(null);
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [uploadForm, setUploadForm] = useState({ document_type: 'Invoice', related_tab: '', vendor_name: '', bill_number: '', bill_date: new Date().toISOString().split('T')[0], amount: '', description: '', file: null });
@@ -890,6 +892,7 @@ const BillsDocsTab = () => {
                                                     </>
                                                 ) : (
                                                     <>
+                                                        <button className="acc-btn acc-btn--ghost acc-btn--xs" onClick={() => setViewDocId(d.id)}><Eye size={14} /> View</button>
                                                         <button className="acc-btn acc-btn--ghost acc-btn--xs" onClick={() => startEdit(d)}><Edit3 size={14} /></button>
                                                         <button className="acc-btn acc-btn--ghost acc-btn--xs acc-btn--danger" onClick={() => handleDelete(d.id)}><Trash2 size={14} /></button>
                                                     </>
@@ -919,6 +922,12 @@ const BillsDocsTab = () => {
                     onAction={openUploadModal}
                 />
             )}
+
+            <FullBillModal
+                open={Boolean(viewDocId)}
+                documentId={viewDocId}
+                onClose={() => setViewDocId(null)}
+            />
 
             {/* Upload Modal */}
             {showUploadModal && (
