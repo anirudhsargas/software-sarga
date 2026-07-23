@@ -609,6 +609,38 @@ const Billing = () => {
     return 0;
   }, []);
 
+  const updateLine = useCallback((id, field, value) => {
+    setOrderLines(prev => prev.map(l => {
+      if (l.id !== id) return l;
+      const updated = { ...l, [field]: value };
+      if (field === 'quantity') {
+        const newQty = Math.max(1, Number(value) || 1);
+        updated.quantity = newQty;
+        const calcType = l._product?.calculation_type || l.calculation_type;
+        if (l._product && (calcType === 'Slab' || calcType === 'Range')) {
+          const priceResult = calculateProductPrice({
+            product: l._product,
+            quantity: newQty,
+            extras: l.applied_extras || [],
+            currentPaperRate: l.customPaperRate || 0,
+            isDoubleSide: l.is_double_side || false,
+          });
+          if (priceResult) {
+            updated.unit_price = priceResult.unit_price;
+            updated.total_amount = priceResult.total_amount;
+          } else {
+            updated.total_amount = newQty * (Number(l.unit_price) || 0);
+          }
+        } else {
+          updated.total_amount = newQty * (Number(l.unit_price) || 0);
+        }
+      } else if (field === 'unit_price') {
+        updated.total_amount = (Number(l.quantity) || 1) * (Number(value) || 0);
+      }
+      return updated;
+    }));
+  }, []);
+
   const handleAddLineItem = useCallback(async (product, qty = 1, extras = [], catId, subId, catName) => {
     const quantity = Number(qty) || 1;
     const existing = orderLinesRef.current.find(l => l.product_id && l.product_id === product.id);
@@ -683,38 +715,6 @@ const Billing = () => {
 
   const duplicateLine = useCallback((line) => {
     setOrderLines(prev => [...prev, { ...line, id: `${line.product_id || 'dup'}-${Date.now()}` }]);
-  }, []);
-
-  const updateLine = useCallback((id, field, value) => {
-    setOrderLines(prev => prev.map(l => {
-      if (l.id !== id) return l;
-      const updated = { ...l, [field]: value };
-      if (field === 'quantity') {
-        const newQty = Math.max(1, Number(value) || 1);
-        updated.quantity = newQty;
-        const calcType = l._product?.calculation_type || l.calculation_type;
-        if (l._product && (calcType === 'Slab' || calcType === 'Range')) {
-          const priceResult = calculateProductPrice({
-            product: l._product,
-            quantity: newQty,
-            extras: l.applied_extras || [],
-            currentPaperRate: l.customPaperRate || 0,
-            isDoubleSide: l.is_double_side || false,
-          });
-          if (priceResult) {
-            updated.unit_price = priceResult.unit_price;
-            updated.total_amount = priceResult.total_amount;
-          } else {
-            updated.total_amount = newQty * (Number(l.unit_price) || 0);
-          }
-        } else {
-          updated.total_amount = newQty * (Number(l.unit_price) || 0);
-        }
-      } else if (field === 'unit_price') {
-        updated.total_amount = (Number(l.quantity) || 1) * (Number(value) || 0);
-      }
-      return updated;
-    }));
   }, []);
 
   // ── QR / Barcode scan ──

@@ -389,7 +389,10 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
   }, []);
 
   const getProductSuggestions = (searchText) => {
-    if (!searchText || !searchText.trim() || !allProducts.length) return [];
+    if (!allProducts.length) return [];
+    if (!searchText || !searchText.trim()) {
+      return allProducts.slice(0, 8);
+    }
     const q = searchText.trim().toLowerCase();
     return allProducts.filter(p =>
       (p.name && p.name.toLowerCase().includes(q)) ||
@@ -419,10 +422,14 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
         }));
       }
 
+      const existingQty = items[index]?.quantity;
+      const qtyVal = (existingQty && Number(existingQty) > 0) ? String(existingQty) : '1';
+
       const updatedItem = {
         ...items[index],
         description: product.name || '',
         hsn_sac: hsnVal,
+        quantity: qtyVal,
         rate: rateVal
       };
 
@@ -1209,7 +1216,7 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
         <table className="extraction-items-table">
           <thead>
             <tr>
-              <th>Description</th>
+              <th>Item Name</th>
               <th>HSN/SAC</th>
               <th>Quantity</th>
               <th>Rate</th>
@@ -1255,7 +1262,7 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
                         setProductSearchFocusedRow(null);
                       }
                     }}
-                    placeholder="Item description"
+                    placeholder="Item name"
                     autoComplete="off"
                   />
                   {productSearchFocusedRow === i && getProductSuggestions(item.description).length > 0 && (
