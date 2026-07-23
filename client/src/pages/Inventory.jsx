@@ -56,6 +56,7 @@ const Inventory = () => {
     const { confirm } = useConfirm();
     const role = auth.getUser()?.role;
     const isAdmin = ['Admin', 'Accountant'].includes(role);
+    const isSuperAdmin = role === 'Admin';
     const isFrontOffice = role === 'Front Office';
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -1483,7 +1484,7 @@ const Inventory = () => {
                                                                 <Edit2 size={14} />
                                                             </button>
                                                         )}
-                                                        {isAdmin && (
+                                                        {isSuperAdmin && (
                                                             <button
                                                                 className="inv-action-btn inv-action-btn--danger"
                                                                 title="Delete"
@@ -1584,10 +1585,10 @@ const Inventory = () => {
                                 <div className="inv-actions" style={{ justifyContent: 'space-between' }}>
                                     <div className="inv-actions">
                                         {isAdmin && (
-                                            <>
-                                                <button className="inv-action-btn" onClick={() => openEditItem(item)}><Edit2 size={14} /></button>
-                                                <button className="inv-action-btn inv-action-btn--danger" onClick={() => handleDeleteItem(item.id)}><Trash2 size={14} /></button>
-                                            </>
+                                            <button className="inv-action-btn" onClick={() => openEditItem(item)}><Edit2 size={14} /></button>
+                                        )}
+                                        {isSuperAdmin && (
+                                            <button className="inv-action-btn inv-action-btn--danger" onClick={() => handleDeleteItem(item.id)}><Trash2 size={14} /></button>
                                         )}
                                         <button className="inv-action-btn" onClick={() => openStockRequestModal(item)} title="Request from Another Branch"><ArrowLeftRight size={14} /></button>
                                     </div>
