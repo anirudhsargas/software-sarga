@@ -56,6 +56,51 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
   const [connectionsLoading, setConnectionsLoading] = useState(false);
   const fileInputRef = useRef(null);
 
+  // Vendor autocomplete state
+  const [vendorSuggestions, setVendorSuggestions] = useState([]);
+  const [vendorSearchFocused, setVendorSearchFocused] = useState(false);
+  const [highlightedVendorIdx, setHighlightedVendorIdx] = useState(-1);
+  const vendorInputRef = useRef(null);
+  const vendorDropdownRef = useRef(null);
+
+  // Product autocomplete state
+  const [productSuggestionsMap, setProductSuggestionsMap] = useState({});
+  const [productSearchFocusedRow, setProductSearchFocusedRow] = useState(null);
+
+  // Flatten all products from hierarchy for autocomplete
+  const allProducts = React.useMemo(() => {
+    const items = [];
+    hierarchyOptions.forEach(cat => {
+      (cat.subcategories || []).forEach(sub => {
+        (sub.products || []).forEach(p => {
+          items.push({
+            ...p,
+            category_name: cat.name,
+            subcategory_name: sub.name,
+            category_id: cat.id,
+            subcategory_id: sub.id
+          });
+        });
+      });
+    });
+    return items;
+  }, [hierarchyOptions]);
+
+  // Filter vendors based on typed name
+  useEffect(() => {
+    const q = finalForm.vendor_name.trim().toLowerCase();
+    if (!q || !vendors.length) {
+      setVendorSuggestions([]);
+      setHighlightedVendorIdx(-1);
+      return;
+    }
+    const matches = vendors.filter(v =>
+      v.name && v.name.toLowerCase().includes(q)
+    ).slice(0, 8);
+    setVendorSuggestions(matches);
+    setHighlightedVendorIdx(-1);
+  }, [finalForm.vendor_name, vendors]);
+
   // Fetch active vendors for vendor selector
   useEffect(() => {
     api.get('/vendors').then(res => {
@@ -213,6 +258,43 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
     } finally {
       setHierarchyLoading(false);
     }
+  };
+
+  const handleVendorKeyDown = (e) => {
+    if (!vendorSuggestions.length) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightedVendorIdx(prev => Math.min(prev + 1, vendorSuggestions.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedVendorIdx(prev => Math.max(prev - 1, -1));
+    } else if (e.key === 'Enter' && highlightedVendorIdx >= 0) {
+      e.preventDefault();
+      const selected = vendorSuggestions[highlightedVendorIdx];
+      setFinalForm(prev => ({ ...prev, vendor_name: selected.name }));
+      if (selected.id) setSelectedVendorId(String(selected.id));
+      setVendorSuggestions([]);
+      setVendorSearchFocused(false);
+    } else if (e.key === 'Escape') {
+      setVendorSuggestions([]);
+      setVendorSearchFocused(false);
+    }
+  };
+
+  const handleVendorSelect = (vendor) => {
+    setFinalForm(prev => ({ ...prev, vendor_name: vendor.name }));
+    if (vendor.id) setSelectedVendorId(String(vendor.id));
+    setVendorSuggestions([]);
+    setVendorSearchFocused(false);
+  };
+
+  // Filter products based on typed item name for autocomplete
+  const getProductSuggestions = (searchText) => {
+    if (!searchText || !searchText.trim() || !allProducts.length) return [];
+    const q = searchText.trim().toLowerCase();
+    return allProducts.filter(p =>
+      p.name && p.name.toLowerCase().includes(q)
+    ).slice(0, 8);
   };
 
   const updateEditableItem = (index, key, value) => {
@@ -1175,15 +1257,37 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
                     onChange={(e) => setFinalForm(prev => ({ ...prev, bill_date: e.target.value }))}
                   />
                 </div>
-                <div className="data-item">
+                <div className="data-item" style={{ position: 'relative' }}>
                   <label>Vendor Name</label>
-                  <input
-                    name="vendor_name"
-                    type="text"
-                    value={finalForm.vendor_name}
-                    onChange={(e) => setFinalForm(prev => ({ ...prev, vendor_name: e.target.value }))}
-                    placeholder="Vendor or supplier name"
-                  />
+                  <div className="sb-autocomplete-wrapper">
+                    <input
+                      ref={vendorInputRef}
+                      name="vendor_name"
+                      type="text"
+                      value={finalForm.vendor_name}
+                      onChange={(e) => setFinalForm(prev => ({ ...prev, vendor_name: e.target.value }))}
+                      onFocus={() => setVendorSearchFocused(true)}
+                      onKeyDown={handleVendorKeyDown}
+                      onBlur={() => setTimeout(() => setVendorSearchFocused(false), 200)}
+                      placeholder="Vendor or supplier name"
+                      autoComplete="off"
+                    />
+                    {vendorSearchFocused && vendorSuggestions.length > 0 && (
+                      <div className="sb-autocomplete-dropdown" ref={vendorDropdownRef}>
+                        {vendorSuggestions.map((v, idx) => (
+                          <div
+                            key={v.id || idx}
+                            className={`sb-autocomplete-item ${idx === highlightedVendorIdx ? 'sb-autocomplete-item--active' : ''}`}
+                            onMouseDown={(e) => { e.preventDefault(); handleVendorSelect(v); }}
+                            onMouseEnter={() => setHighlightedVendorIdx(idx)}
+                          >
+                            <span className="sb-autocomplete-item-name">{v.name}</span>
+                            {v.phone && <span className="sb-autocomplete-item-sub">{v.phone}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="data-item">
                   <label>Link to Vendor</label>
@@ -1529,14 +1633,82 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
                               step="1"
                             />
                           </td>
-                          <td>
-                            <input
-                              name="item_name"
-                              type="text"
-                              value={item.item_name}
-                              onChange={(e) => updateEditableItem(idx, 'item_name', e.target.value)}
-                              placeholder="Item name"
-                            />
+                          <td className="sb-item-name-cell">
+                            <div className="sb-autocomplete-wrapper">
+                              <input
+                                name="item_name"
+                                type="text"
+                                value={item.item_name}
+                                onChange={(e) => {
+                                  updateEditableItem(idx, 'item_name', e.target.value);
+                                  setProductSearchFocusedRow(idx);
+                                }}
+                                onFocus={() => setProductSearchFocusedRow(idx)}
+                                onBlur={() => setTimeout(() => setProductSearchFocusedRow(null), 200)}
+                                onKeyDown={(e) => {
+                                  const suggestions = getProductSuggestions(item.item_name);
+                                  if (e.key === 'ArrowDown' && suggestions.length) {
+                                    e.preventDefault();
+                                    setProductSuggestionsMap(prev => ({
+                                      ...prev,
+                                      [idx]: { ...prev[idx], highlight: Math.min((prev[idx]?.highlight ?? -1) + 1, suggestions.length - 1) }
+                                    }));
+                                  } else if (e.key === 'ArrowUp' && suggestions.length) {
+                                    e.preventDefault();
+                                    setProductSuggestionsMap(prev => ({
+                                      ...prev,
+                                      [idx]: { ...prev[idx], highlight: Math.max((prev[idx]?.highlight ?? -1) - 1, -1) }
+                                    }));
+                                  } else if (e.key === 'Enter' && suggestions.length && (productSuggestionsMap[idx]?.highlight ?? -1) >= 0) {
+                                    e.preventDefault();
+                                    const sel = suggestions[productSuggestionsMap[idx].highlight];
+                                    updateEditableItem(idx, 'item_name', sel.name);
+                                    if (sel.category_id) updateEditableItem(idx, 'category_id', String(sel.category_id));
+                                    if (sel.subcategory_id) updateEditableItem(idx, 'subcategory_id', String(sel.subcategory_id));
+                                    if (sel.category_name) updateEditableItem(idx, 'category_name', sel.category_name);
+                                    if (sel.subcategory_name) updateEditableItem(idx, 'subcategory_name', sel.subcategory_name);
+                                    if (sel.sell_price) updateEditableItem(idx, 'sell_price', sel.sell_price);
+                                    if (sel.sku) updateEditableItem(idx, 'sku', sel.sku);
+                                    setProductSuggestionsMap(prev => ({ ...prev, [idx]: undefined }));
+                                    setProductSearchFocusedRow(null);
+                                  } else if (e.key === 'Escape') {
+                                    setProductSuggestionsMap(prev => ({ ...prev, [idx]: undefined }));
+                                    setProductSearchFocusedRow(null);
+                                  }
+                                }}
+                                placeholder="Item name"
+                                autoComplete="off"
+                              />
+                              {productSearchFocusedRow === idx && getProductSuggestions(item.item_name).length > 0 && (
+                                <div className="sb-autocomplete-dropdown sb-product-dropdown">
+                                  {getProductSuggestions(item.item_name).map((p, pIdx) => (
+                                    <div
+                                      key={p.id || pIdx}
+                                      className={`sb-autocomplete-item ${pIdx === (productSuggestionsMap[idx]?.highlight ?? -1) ? 'sb-autocomplete-item--active' : ''}`}
+                                      onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        updateEditableItem(idx, 'item_name', p.name);
+                                        if (p.category_id) updateEditableItem(idx, 'category_id', String(p.category_id));
+                                        if (p.subcategory_id) updateEditableItem(idx, 'subcategory_id', String(p.subcategory_id));
+                                        if (p.category_name) updateEditableItem(idx, 'category_name', p.category_name);
+                                        if (p.subcategory_name) updateEditableItem(idx, 'subcategory_name', p.subcategory_name);
+                                        if (p.sell_price) updateEditableItem(idx, 'sell_price', p.sell_price);
+                                        if (p.sku) updateEditableItem(idx, 'sku', p.sku);
+                                        setProductSuggestionsMap(prev => ({ ...prev, [idx]: undefined }));
+                                        setProductSearchFocusedRow(null);
+                                      }}
+                                      onMouseEnter={() => setProductSuggestionsMap(prev => ({
+                                        ...prev,
+                                        [idx]: { ...prev[idx], highlight: pIdx }
+                                      }))}
+                                    >
+                                      <span className="sb-autocomplete-item-name">{p.name}</span>
+                                      <span className="sb-autocomplete-item-sub">{p.category_name} &rsaquo; {p.subcategory_name}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           </td>
                           <td>
                             <input

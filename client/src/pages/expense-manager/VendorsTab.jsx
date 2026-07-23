@@ -161,6 +161,34 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
   const [addInventorySaving, setAddInventorySaving] = useState(false);
   const [addInventoryError, setAddInventoryError] = useState('');
 
+  // Vendor autocomplete for Add Inventory form
+  const [addInvVendorSuggestions, setAddInvVendorSuggestions] = useState([]);
+  const [addInvVendorFocused, setAddInvVendorFocused] = useState(false);
+  const [addInvVendorHighlight, setAddInvVendorHighlight] = useState(-1);
+  const addInvVendorRef = useRef(null);
+  const addInvVendorDropdownRef = useRef(null);
+
+  useEffect(() => {
+    const q = addInventoryForm.vendor_name.trim().toLowerCase();
+    if (!q || !vendors.length) {
+      setAddInvVendorSuggestions([]); setAddInvVendorHighlight(-1); return;
+    }
+    setAddInvVendorSuggestions(vendors.filter(v => v.name && v.name.toLowerCase().includes(q)).slice(0, 8));
+    setAddInvVendorHighlight(-1);
+  }, [addInventoryForm.vendor_name, vendors]);
+
+  const handleAddInvVendorKeyDown = (e) => {
+    if (!addInvVendorSuggestions.length) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); setAddInvVendorHighlight(p => Math.min(p + 1, addInvVendorSuggestions.length - 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setAddInvVendorHighlight(p => Math.max(p - 1, -1)); }
+    else if (e.key === 'Enter' && addInvVendorHighlight >= 0) {
+      e.preventDefault();
+      const sel = addInvVendorSuggestions[addInvVendorHighlight];
+      setAddInventoryForm(p => ({ ...p, vendor_name: sel.name, vendor_contact: sel.phone || p.vendor_contact }));
+      setAddInvVendorSuggestions([]); setAddInvVendorFocused(false);
+    } else if (e.key === 'Escape') { setAddInvVendorSuggestions([]); setAddInvVendorFocused(false); }
+  };
+
   // Local filtering and pagination over vendors prop
   useEffect(() => {
     setLoadingVendors(true);
@@ -1259,9 +1287,29 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
                     <label>Sell Price</label>
                     <input name="sell_price" className="em-input" type="number" step="0.01" min="0" value={addInventoryForm.sell_price} onChange={e => setAddInventoryForm(p => ({ ...p, sell_price: e.target.value }))} />
                   </div>
-                  <div className="em-form-group">
+                  <div className="em-form-group" style={{ position: 'relative' }}>
                     <label>Vendor</label>
-                    <input name="vendor_name" className="em-input" value={addInventoryForm.vendor_name} onChange={e => setAddInventoryForm(p => ({ ...p, vendor_name: e.target.value }))} />
+                    <div className="sb-autocomplete-wrapper">
+                      <input ref={addInvVendorRef} name="vendor_name" className="em-input" value={addInventoryForm.vendor_name}
+                        onChange={e => setAddInventoryForm(p => ({ ...p, vendor_name: e.target.value }))}
+                        onFocus={() => setAddInvVendorFocused(true)}
+                        onKeyDown={handleAddInvVendorKeyDown}
+                        onBlur={() => setTimeout(() => setAddInvVendorFocused(false), 200)}
+                        autoComplete="off" />
+                      {addInvVendorFocused && addInvVendorSuggestions.length > 0 && (
+                        <div className="sb-autocomplete-dropdown" ref={addInvVendorDropdownRef}>
+                          {addInvVendorSuggestions.map((v, idx) => (
+                            <div key={v.id || idx}
+                              className={`sb-autocomplete-item ${idx === addInvVendorHighlight ? 'sb-autocomplete-item--active' : ''}`}
+                              onMouseDown={e => { e.preventDefault(); setAddInventoryForm(p => ({ ...p, vendor_name: v.name, vendor_contact: v.phone || p.vendor_contact })); setAddInvVendorSuggestions([]); setAddInvVendorFocused(false); }}
+                              onMouseEnter={() => setAddInvVendorHighlight(idx)}>
+                              <span className="sb-autocomplete-item-name">{v.name}</span>
+                              {v.phone && <span className="sb-autocomplete-item-sub">{v.phone}</span>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div className="em-form-group">
                     <label>Vendor Contact</label>

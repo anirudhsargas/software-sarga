@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Briefcase, Plus, Edit2, Trash2, Download, IndianRupee, Receipt, X, CheckCircle, AlertTriangle, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import api from '../../services/api';
 import { fmt, fmtDate, today, exportRowsToCsv, OFFICE_EXPENSE_TYPES } from './constants';
@@ -24,6 +24,32 @@ const OfficeTab = ({ onError }) => {
   const [formDirty, setFormDirty] = useState(false);
 
   const hasUnsavedChanges = showForm && formDirty && !submitting;
+
+  // Vendor autocomplete
+  const [vendorsOffice, setVendorsOffice] = useState([]);
+  const [vendorSuggestionsOffice, setVendorSuggestionsOffice] = useState([]);
+  const [vendorFocusedOffice, setVendorFocusedOffice] = useState(false);
+  const [vendorHighlightOffice, setVendorHighlightOffice] = useState(-1);
+  const vendorInputRefOffice = useRef(null);
+
+  useEffect(() => {
+    api.get('/vendors').then(r => { const d = r.data?.data || r.data || []; setVendorsOffice(Array.isArray(d) ? d : []); }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const q = form.vendor_name.trim().toLowerCase();
+    if (!q || !vendorsOffice.length) { setVendorSuggestionsOffice([]); setVendorHighlightOffice(-1); return; }
+    setVendorSuggestionsOffice(vendorsOffice.filter(v => v.name && v.name.toLowerCase().includes(q)).slice(0, 8));
+    setVendorHighlightOffice(-1);
+  }, [form.vendor_name, vendorsOffice]);
+
+  const handleVendorKeyDownOffice = (e) => {
+    if (!vendorSuggestionsOffice.length) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); setVendorHighlightOffice(p => Math.min(p + 1, vendorSuggestionsOffice.length - 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setVendorHighlightOffice(p => Math.max(p - 1, -1)); }
+    else if (e.key === 'Enter' && vendorHighlightOffice >= 0) { e.preventDefault(); updateForm({ vendor_name: vendorSuggestionsOffice[vendorHighlightOffice].name }); setVendorSuggestionsOffice([]); setVendorFocusedOffice(false); }
+    else if (e.key === 'Escape') { setVendorSuggestionsOffice([]); setVendorFocusedOffice(false); }
+  };
 
   const updateForm = (patch) => {
     setForm(p => ({ ...p, ...patch }));
@@ -192,7 +218,7 @@ const OfficeTab = ({ onError }) => {
                 <div className="em-modal__body">
                   <div className="em-form-grid">
 <div className="em-form-group"><label>Expense Type</label><select name="expense_type" aria-label="Select option"  className="em-input" value={form.expense_type} onChange={e => updateForm({ expense_type: e.target.value })} required><option value="">Select Type</option>{OFFICE_EXPENSE_TYPES.map(t => <option key={t}>{t}</option>)}</select></div>
-                    <div className="em-form-group"><label>Vendor / Shop</label><input name="vendor_name" className="em-input" value={form.vendor_name} onChange={e => updateForm({ vendor_name: e.target.value })} /></div>
+                    <div className="em-form-group" style={{ position: 'relative' }}><label>Vendor / Shop</label><div className="sb-autocomplete-wrapper"><input ref={vendorInputRefOffice} name="vendor_name" className="em-input" value={form.vendor_name} onChange={e => updateForm({ vendor_name: e.target.value })} onFocus={() => setVendorFocusedOffice(true)} onKeyDown={handleVendorKeyDownOffice} onBlur={() => setTimeout(() => setVendorFocusedOffice(false), 200)} autoComplete="off" />{vendorFocusedOffice && vendorSuggestionsOffice.length > 0 && <div className="sb-autocomplete-dropdown">{vendorSuggestionsOffice.map((v, idx) => (<div key={v.id || idx} className={`sb-autocomplete-item ${idx === vendorHighlightOffice ? 'sb-autocomplete-item--active' : ''}`} onMouseDown={e => { e.preventDefault(); updateForm({ vendor_name: v.name }); setVendorSuggestionsOffice([]); setVendorFocusedOffice(false); }} onMouseEnter={() => setVendorHighlightOffice(idx)}><span className="sb-autocomplete-item-name">{v.name}</span>{v.phone && <span className="sb-autocomplete-item-sub">{v.phone}</span>}</div>))}</div>}</div></div>
                     <div className="em-form-group"><label>Amount (₹)</label><input name="amount" className="em-input" type="number" min="0" step="0.01" value={form.amount} onChange={e => updateForm({ amount: e.target.value })} required /></div>
                     <div className="em-form-group"><label>Payment Method</label><select name="payment_method" aria-label="Select option"  className="em-input" value={form.payment_method} onChange={e => updateForm({ payment_method: e.target.value })}>{['Cash', 'UPI', 'Bank Transfer', 'Cheque'].map(m => <option key={m}>{m}</option>)}</select></div>
                     <div className="em-form-group"><label>Reference #</label><input name="reference_number" className="em-input" value={form.reference_number} onChange={e => updateForm({ reference_number: e.target.value })} /></div>

@@ -1083,3 +1083,58 @@
     padding: var(--space-8) var(--space-10);
   }
 }
+
+/* ── Autocomplete Styles ── */
+.sb-autocomplete-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.sb-autocomplete-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #ddd);
+  border-radius: var(--radius-sm, 6px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  max-height: 220px;
+  overflow-y: auto;
+  margin-top: 2px;
+}
+
+.sb-autocomplete-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-bottom: 1px solid var(--border-subtle, #f0f0f0);
+  transition: background 0.15s;
+}
+
+.sb-autocomplete-item:last-child {
+  border-bottom: none;
+}
+
+.sb-autocomplete-item:hover,
+.sb-autocomplete-item--active {
+  background: var(--accent-bg, #eef2ff);
+}
+
+.sb-autocomplete-item-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text, #333);
+}
+
+.sb-autocomplete-item-sub {
+  font-size: 11px;
+  color: var(--muted, #888);
+}
+
+.sb-product-dropdown {
+  min-width: 280px;
+}

@@ -1001,6 +1001,67 @@ const UploadBillTab = ({ onUploaded }) => {
     const [finalForm, setFinalForm] = useState({ document_type: 'Invoice', vendor_name: '', bill_number: '', bill_date: '', amount: '', description: '', related_tab: '', gst_category: '' });
     const fileInputRef = useRef(null);
 
+    // Vendor autocomplete
+    const [vendorSuggestions, setVendorSuggestions] = useState([]);
+    const [vendorSearchFocused, setVendorSearchFocused] = useState(false);
+    const [highlightedVendorIdx, setHighlightedVendorIdx] = useState(-1);
+    const vendorInputRef = useRef(null);
+    const vendorDropdownRef = useRef(null);
+    const [allVendors, setAllVendors] = useState([]);
+
+    // Product autocomplete
+    const [allUploadProducts, setAllUploadProducts] = useState([]);
+    const [productSearchFocusedRow, setProductSearchFocusedRow] = useState(null);
+    const [productHighlightMap, setProductHighlightMap] = useState({});
+
+    // Fetch vendors on mount
+    useEffect(() => {
+        api.get('/vendors').then(res => {
+            const list = res.data?.data || res.data || [];
+            setAllVendors(Array.isArray(list) ? list : []);
+        }).catch(() => {});
+        // Fetch product hierarchy
+        api.get('/product-hierarchy').then(res => {
+            const cats = Array.isArray(res.data) ? res.data : [];
+            const items = [];
+            cats.forEach(cat => {
+                (cat.subcategories || []).forEach(sub => {
+                    (sub.products || []).forEach(p => {
+                        items.push({ ...p, category_name: cat.name, subcategory_name: sub.name });
+                    });
+                });
+            });
+            setAllUploadProducts(items);
+        }).catch(() => {});
+    }, []);
+
+    // Filter vendors
+    useEffect(() => {
+        const q = finalForm.vendor_name.trim().toLowerCase();
+        if (!q || !allVendors.length) {
+            setVendorSuggestions([]); setHighlightedVendorIdx(-1); return;
+        }
+        setVendorSuggestions(allVendors.filter(v => v.name && v.name.toLowerCase().includes(q)).slice(0, 8));
+        setHighlightedVendorIdx(-1);
+    }, [finalForm.vendor_name, allVendors]);
+
+    const handleVendorKeyDown = (e) => {
+        if (!vendorSuggestions.length) return;
+        if (e.key === 'ArrowDown') { e.preventDefault(); setHighlightedVendorIdx(p => Math.min(p + 1, vendorSuggestions.length - 1)); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); setHighlightedVendorIdx(p => Math.max(p - 1, -1)); }
+        else if (e.key === 'Enter' && highlightedVendorIdx >= 0) {
+            e.preventDefault();
+            setFinalForm(p => ({ ...p, vendor_name: vendorSuggestions[highlightedVendorIdx].name }));
+            setVendorSuggestions([]); setVendorSearchFocused(false);
+        } else if (e.key === 'Escape') { setVendorSuggestions([]); setVendorSearchFocused(false); }
+    };
+
+    const getProductSuggestions = (text) => {
+        if (!text || !text.trim() || !allUploadProducts.length) return [];
+        const q = text.trim().toLowerCase();
+        return allUploadProducts.filter(p => p.name && p.name.toLowerCase().includes(q)).slice(0, 8);
+    };
+
     const buildEditableItems = (items = []) =>
         items.map(item => {
             const quantity = item.quantity ?? '';
@@ -1200,9 +1261,29 @@ const UploadBillTab = ({ onUploaded }) => {
                                 <label>Bill Date</label>
                                 <input className="acc-input" type="date" value={finalForm.bill_date} onChange={e => setFinalForm(p => ({ ...p, bill_date: e.target.value }))} />
                             </div>
-                            <div className="acc-form-group">
+                            <div className="acc-form-group" style={{ position: 'relative' }}>
                                 <label>Vendor Name</label>
-                                <input className="acc-input" value={finalForm.vendor_name} onChange={e => setFinalForm(p => ({ ...p, vendor_name: e.target.value }))} placeholder="Vendor name" />
+                                <div className="sb-autocomplete-wrapper">
+                                    <input ref={vendorInputRef} className="acc-input" value={finalForm.vendor_name}
+                                        onChange={e => setFinalForm(p => ({ ...p, vendor_name: e.target.value }))}
+                                        onFocus={() => setVendorSearchFocused(true)}
+                                        onKeyDown={handleVendorKeyDown}
+                                        onBlur={() => setTimeout(() => setVendorSearchFocused(false), 200)}
+                                        placeholder="Vendor name" autoComplete="off" />
+                                    {vendorSearchFocused && vendorSuggestions.length > 0 && (
+                                        <div className="sb-autocomplete-dropdown" ref={vendorDropdownRef}>
+                                            {vendorSuggestions.map((v, idx) => (
+                                                <div key={v.id || idx}
+                                                    className={`sb-autocomplete-item ${idx === highlightedVendorIdx ? 'sb-autocomplete-item--active' : ''}`}
+                                                    onMouseDown={e => { e.preventDefault(); setFinalForm(p => ({ ...p, vendor_name: v.name })); setVendorSuggestions([]); setVendorSearchFocused(false); }}
+                                                    onMouseEnter={() => setHighlightedVendorIdx(idx)}>
+                                                    <span className="sb-autocomplete-item-name">{v.name}</span>
+                                                    {v.phone && <span className="sb-autocomplete-item-sub">{v.phone}</span>}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                             <div className="acc-form-group">
                                 <label>Type</label>
@@ -1243,7 +1324,37 @@ const UploadBillTab = ({ onUploaded }) => {
                                     <tbody>
                                         {editableItems.map((item, idx) => (
                                             <tr key={idx}>
-                                                <td><input className="acc-input acc-input--sm" value={item.item_name} onChange={e => updateEditableItem(idx, 'item_name', e.target.value)} /></td>
+                                                <td style={{ position: 'relative' }}>
+                                                    <div className="sb-autocomplete-wrapper">
+                                                        <input className="acc-input acc-input--sm" value={item.item_name}
+                                                            onChange={e => { updateEditableItem(idx, 'item_name', e.target.value); setProductSearchFocusedRow(idx); }}
+                                                            onFocus={() => setProductSearchFocusedRow(idx)}
+                                                            onBlur={() => setTimeout(() => setProductSearchFocusedRow(null), 200)}
+                                                            onKeyDown={e => {
+                                                                const suggestions = getProductSuggestions(item.item_name);
+                                                                if (e.key === 'ArrowDown' && suggestions.length) { e.preventDefault(); setProductHighlightMap(p => ({ ...p, [idx]: Math.min((p[idx] ?? -1) + 1, suggestions.length - 1) })); }
+                                                                else if (e.key === 'ArrowUp' && suggestions.length) { e.preventDefault(); setProductHighlightMap(p => ({ ...p, [idx]: Math.max((p[idx] ?? -1) - 1, -1) })); }
+                                                                else if (e.key === 'Enter' && suggestions.length && (productHighlightMap[idx] ?? -1) >= 0) {
+                                                                    e.preventDefault(); const sel = suggestions[productHighlightMap[idx]];
+                                                                    updateEditableItem(idx, 'item_name', sel.name); setProductSearchFocusedRow(null); setProductHighlightMap(p => ({ ...p, [idx]: undefined }));
+                                                                } else if (e.key === 'Escape') { setProductSearchFocusedRow(null); setProductHighlightMap(p => ({ ...p, [idx]: undefined })); }
+                                                            }}
+                                                            autoComplete="off" />
+                                                        {productSearchFocusedRow === idx && getProductSuggestions(item.item_name).length > 0 && (
+                                                            <div className="sb-autocomplete-dropdown sb-product-dropdown">
+                                                                {getProductSuggestions(item.item_name).map((p, pIdx) => (
+                                                                    <div key={p.id || pIdx}
+                                                                        className={`sb-autocomplete-item ${pIdx === (productHighlightMap[idx] ?? -1) ? 'sb-autocomplete-item--active' : ''}`}
+                                                                        onMouseDown={e => { e.preventDefault(); updateEditableItem(idx, 'item_name', p.name); setProductSearchFocusedRow(null); setProductHighlightMap(m => ({ ...m, [idx]: undefined })); }}
+                                                                        onMouseEnter={() => setProductHighlightMap(p => ({ ...p, [idx]: pIdx }))}>
+                                                                        <span className="sb-autocomplete-item-name">{p.name}</span>
+                                                                        <span className="sb-autocomplete-item-sub">{p.category_name} › {p.subcategory_name}</span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </td>
                                                 <td><input className="acc-input acc-input--sm" value={item.hsn_sac} onChange={e => updateEditableItem(idx, 'hsn_sac', e.target.value)} /></td>
                                                 <td><input className="acc-input acc-input--sm" type="number" value={item.quantity} onChange={e => updateEditableItem(idx, 'quantity', e.target.value)} min="0" step="0.01" /></td>
                                                 <td><input className="acc-input acc-input--sm" type="number" value={item.rate} onChange={e => updateEditableItem(idx, 'rate', e.target.value)} min="0" step="0.01" /></td>
