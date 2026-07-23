@@ -854,8 +854,8 @@ module.exports = (upload, removeUploadFile) => {
             imageUrl = cloudinaryResult.secure_url;
         }
 
-        // Intercept Accountant, Designer, Front Office - create request instead of direct update
-        if (req.user.role !== 'Admin') {
+        // Intercept Designer, Front Office - create request instead of direct update
+        if (!['Admin', 'Accountant'].includes(req.user.role)) {
             try {
                 // Fetch product details
                 const [productRows] = await pool.query('SELECT * FROM sarga_products WHERE id = ? LIMIT 1', [id]);

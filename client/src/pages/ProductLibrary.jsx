@@ -2157,7 +2157,7 @@ onClick={() => { setProductSearch(''); setFilterVendor('all'); setFilterCalcType
                     <div className="modal" style={{ maxWidth: '620px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                         <div className="modal-header" style={{ padding: '20px 24px', flexShrink: 0 }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                <h2 className="modal-title" style={{ margin: 0 }}>{isEditing ? (isAdmin ? 'Edit Product' : (canRequestImageUpdate ? 'Request Product Image Update' : 'View Product Rates')) : 'Add New Product'}</h2>
+                                <h2 className="modal-title" style={{ margin: 0 }}>{isEditing ? (canManageHierarchy ? 'Edit Product' : (canRequestImageUpdate ? 'Request Product Image Update' : 'View Product Rates')) : 'Add New Product'}</h2>
                                 {isAdmin && <p style={{ color: 'var(--text-muted, #94a3b8)', fontSize: '13px', margin: 0 }}>Define pricing rules and default extras.</p>}
                                 {canRequestImageUpdate && isEditing && <p style={{ color: 'var(--text-muted, #94a3b8)', fontSize: '13px', margin: 0 }}>Upload a new product image. Admin approval is required before it goes live.</p>}
                             </div>
@@ -3213,7 +3213,7 @@ onClick={() => { setProductSearch(''); setFilterVendor('all'); setFilterCalcType
                                         ) : (
                                             <>
                                                 <Save size={20} />
-                                                {isEditing ? (isAdmin ? 'Update Product in Library' : 'Submit Update for Admin Approval') : (isAdmin ? 'Create & Save Product' : 'Create & Submit for Admin Approval')}
+                                                {isEditing ? (canManageHierarchy ? 'Update Product in Library' : 'Submit Update for Admin Approval') : (canManageHierarchy ? 'Create & Save Product' : 'Create & Submit for Admin Approval')}
                                             </>
                                         )}
                                     </button>
