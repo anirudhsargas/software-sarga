@@ -11,14 +11,14 @@ const MAX_PAGES = 10;
 const MAX_COMPRESS_WIDTH = 1600;
 const COMPRESS_QUALITY = 0.8;
 
-const EMPTY_ITEM = () => ({ description: '', quantity: '', rate: '', amount: '', hsn_sac: '', sell_price: '', _originalIndex: -1 });
+const EMPTY_ITEM = (idx = -1) => ({ description: '', quantity: '', rate: '', amount: '', hsn_sac: '', sell_price: '', _originalIndex: idx });
 
 const EMPTY_FORM = {
   vendor_name: '',
   bill_number: '',
   bill_date: '',
   gst_number: '',
-  items: [EMPTY_ITEM()],
+  items: [EMPTY_ITEM(0)],
   subtotal: '',
   tax_amount: '',
   total_amount: '',
@@ -344,7 +344,7 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
   const [pages, setPages] = useState([]);
   const [compressing, setCompressing] = useState(false);
   const [compressProgress, setCompressProgress] = useState(0);
-  const [form, setForm] = useState({ ...EMPTY_FORM, items: [{ ...EMPTY_FORM.items[0] }] });
+  const [form, setForm] = useState({ ...EMPTY_FORM, items: [EMPTY_ITEM(0)] });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [queueStatus, setQueueStatus] = useState(null);
@@ -358,6 +358,94 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
   const [selectedVendorId, setSelectedVendorId] = useState('');
   const [activeSelector, setActiveSelector] = useState(null);
   const cleanupSocketRef = useRef(null);
+
+  const [allProducts, setAllProducts] = useState([]);
+  const [productSearchFocusedRow, setProductSearchFocusedRow] = useState(null);
+  const [productSuggestionsMap, setProductSuggestionsMap] = useState({});
+
+  useEffect(() => {
+    api.get('/product-hierarchy')
+      .then(res => {
+        const cats = Array.isArray(res.data) ? res.data : [];
+        const items = [];
+        cats.forEach(cat => {
+          (cat.subcategories || []).forEach(sub => {
+            (sub.products || []).forEach(p => {
+              items.push({ 
+                ...p, 
+                category_name: cat.name, 
+                subcategory_name: sub.name,
+                category_id: cat.id,
+                subcategory_id: sub.id
+              });
+            });
+          });
+        });
+        setAllProducts(items);
+      })
+      .catch((err) => {
+        console.error('Failed to load product hierarchy in BillExtractionReview:', err);
+      });
+  }, []);
+
+  const getProductSuggestions = (searchText) => {
+    if (!searchText || !searchText.trim() || !allProducts.length) return [];
+    const q = searchText.trim().toLowerCase();
+    return allProducts.filter(p =>
+      (p.name && p.name.toLowerCase().includes(q)) ||
+      (p.product_code && p.product_code.toLowerCase().includes(q))
+    ).slice(0, 8);
+  };
+
+  const handleSelectProduct = useCallback((index, product) => {
+    setForm(prev => {
+      const items = [...prev.items];
+      
+      let rateVal = '';
+      if (product.cost_price) rateVal = String(product.cost_price);
+      else if (product.sell_price) rateVal = String(product.sell_price);
+      else if (product.paper_rate) rateVal = String(product.paper_rate);
+
+      let hsnVal = '';
+      if (product.hsn) hsnVal = String(product.hsn);
+      else if (product.hsn_sac) hsnVal = String(product.hsn_sac);
+      else if (product.product_code) hsnVal = String(product.product_code);
+
+      const origIdx = items[index]?._originalIndex;
+      if (origIdx >= 0) {
+        setProductOverrides(prevOverrides => ({
+          ...prevOverrides,
+          [origIdx]: product
+        }));
+      }
+
+      const updatedItem = {
+        ...items[index],
+        description: product.name || '',
+        hsn_sac: hsnVal,
+        rate: rateVal
+      };
+
+      const qty = Number(updatedItem.quantity);
+      const rate = Number(updatedItem.rate);
+      if (!isNaN(qty) && !isNaN(rate) && qty >= 0 && rate >= 0) {
+        updatedItem.amount = String(Number((qty * rate).toFixed(2)));
+      }
+
+      items[index] = updatedItem;
+
+      // Recalculate subtotal and total
+      const newSubtotal = items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+      const tax = Number(prev.tax_amount) || 0;
+
+      return {
+        ...prev,
+        items,
+        subtotal: String(Number(newSubtotal.toFixed(2))),
+        total_amount: String(Number((newSubtotal + tax).toFixed(2)))
+      };
+    });
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -525,7 +613,7 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
                   _originalIndex: idx,
                 };
               })
-            : [EMPTY_ITEM()];
+            : [EMPTY_ITEM(0)];
           setForm({
             vendor_name: d.vendor_name || d.vendorName || '',
             bill_number: d.bill_number || d.billNumber || '',
@@ -541,14 +629,14 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
       } else {
         console.warn('[BillExtraction] response.data.success is falsy:', response.data);
         setError(response.data?.message || 'Extraction failed. You can fill in the details manually below.');
-        setForm({ ...EMPTY_FORM, items: [{ ...EMPTY_FORM.items[0] }] });
+        setForm({ ...EMPTY_FORM, items: [EMPTY_ITEM(0)] });
         setStep('review');
       }
     } catch (err) {
       console.error('[BillExtraction] API call threw an error:', err);
       const msg = err.response?.data?.message || err.message || 'Network error';
       setError(msg + '. You can fill in the details manually below.');
-      setForm({ ...EMPTY_FORM, items: [{ ...EMPTY_FORM.items[0] }] });
+      setForm({ ...EMPTY_FORM, items: [EMPTY_ITEM(0)] });
       setItemMatches([]);
       setStep('review');
     } finally {
@@ -594,7 +682,7 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
   const addItem = useCallback(() => {
     setForm(prev => ({
       ...prev,
-      items: [...prev.items, EMPTY_ITEM()],
+      items: [...prev.items, EMPTY_ITEM(prev.items.length)],
     }));
   }, []);
 
@@ -701,7 +789,7 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
     setError('');
     setStep('upload');
     setPages([]);
-    setForm({ ...EMPTY_FORM, items: [{ ...EMPTY_FORM.items[0] }] });
+    setForm({ ...EMPTY_FORM, items: [EMPTY_ITEM(0)] });
     setQueueStatus(null);
     setExtractionProgress(null);
     setItemMatches([]);
@@ -851,7 +939,7 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
               setForm({
                 ...EMPTY_FORM,
                 bill_date: today,
-                items: [{ ...EMPTY_FORM.items[0] }]
+                items: [EMPTY_ITEM(0)]
               });
               setPages([]);
               setError('');
@@ -1132,13 +1220,71 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
           <tbody>
             {form.items.map((item, i) => (
               <tr key={i}>
-                <td>
+                <td style={{ position: 'relative' }}>
                   <input
                     type="text"
                     value={item.description}
-                    onChange={e => updateItem(i, 'description', e.target.value)}
+                    onChange={e => {
+                      updateItem(i, 'description', e.target.value);
+                      setProductSearchFocusedRow(i);
+                    }}
+                    onFocus={() => setProductSearchFocusedRow(i)}
+                    onBlur={() => setTimeout(() => setProductSearchFocusedRow(null), 200)}
+                    onKeyDown={(e) => {
+                      const suggestions = getProductSuggestions(item.description);
+                      if (e.key === 'ArrowDown' && suggestions.length) {
+                        e.preventDefault();
+                        setProductSuggestionsMap(prev => ({
+                          ...prev,
+                          [i]: { ...prev[i], highlight: Math.min((prev[i]?.highlight ?? -1) + 1, suggestions.length - 1) }
+                        }));
+                      } else if (e.key === 'ArrowUp' && suggestions.length) {
+                        e.preventDefault();
+                        setProductSuggestionsMap(prev => ({
+                          ...prev,
+                          [i]: { ...prev[i], highlight: Math.max((prev[i]?.highlight ?? -1) - 1, -1) }
+                        }));
+                      } else if (e.key === 'Enter' && suggestions.length && (productSuggestionsMap[i]?.highlight ?? -1) >= 0) {
+                        e.preventDefault();
+                        const sel = suggestions[productSuggestionsMap[i].highlight];
+                        handleSelectProduct(i, sel);
+                        setProductSuggestionsMap(prev => ({ ...prev, [i]: undefined }));
+                        setProductSearchFocusedRow(null);
+                      } else if (e.key === 'Escape') {
+                        setProductSuggestionsMap(prev => ({ ...prev, [i]: undefined }));
+                        setProductSearchFocusedRow(null);
+                      }
+                    }}
                     placeholder="Item description"
+                    autoComplete="off"
                   />
+                  {productSearchFocusedRow === i && getProductSuggestions(item.description).length > 0 && (
+                    <div className="sb-autocomplete-dropdown sb-product-dropdown">
+                      {getProductSuggestions(item.description).map((p, pIdx) => (
+                        <div
+                          key={p.id || pIdx}
+                          className={`sb-autocomplete-item ${pIdx === (productSuggestionsMap[i]?.highlight ?? -1) ? 'sb-autocomplete-item--active' : ''}`}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            handleSelectProduct(i, p);
+                            setProductSuggestionsMap(prev => ({ ...prev, [i]: undefined }));
+                            setProductSearchFocusedRow(null);
+                          }}
+                          onMouseEnter={() => setProductSuggestionsMap(prev => ({
+                            ...prev,
+                            [i]: { ...prev[i], highlight: pIdx }
+                          }))}
+                        >
+                          <span className="sb-autocomplete-item-name">{p.name}</span>
+                          <span className="sb-autocomplete-item-sub">
+                            {p.product_code ? `Code: ${p.product_code}` : ''}
+                            {p.product_code && p.sell_price ? ' · ' : ''}
+                            {p.sell_price ? `Price: ₹${Number(p.sell_price).toFixed(2)}` : ''}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </td>
                 <td>
                   <input

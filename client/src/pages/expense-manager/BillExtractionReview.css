@@ -818,3 +818,60 @@
   color: var(--accent, #4361ee);
 }
 
+/* Autocomplete styles for item description */
+.sb-autocomplete-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.sb-autocomplete-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: var(--surface, #1e1e24);
+  border: 1px solid var(--border, #2d2d34);
+  border-radius: var(--radius-sm, 6px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  max-height: 220px;
+  overflow-y: auto;
+  margin-top: 2px;
+}
+
+.sb-autocomplete-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-bottom: 1px solid var(--border, #2d2d34);
+  transition: background 0.15s;
+  text-align: left;
+}
+
+.sb-autocomplete-item:last-child {
+  border-bottom: none;
+}
+
+.sb-autocomplete-item:hover,
+.sb-autocomplete-item--active {
+  background: var(--hover, #2a2a30);
+}
+
+.sb-autocomplete-item-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #fff);
+}
+
+.sb-autocomplete-item-sub {
+  font-size: 11px;
+  color: var(--text-secondary, #aaa);
+}
+
+.sb-product-dropdown {
+  min-width: 280px;
+}
+
+
