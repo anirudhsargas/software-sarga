@@ -1155,6 +1155,26 @@ const ProductLibrary = () => {
                 setProductPage(pageNum);
             }
         }
+        const addProduct = searchParams.get('addProduct');
+        const productName = searchParams.get('name');
+        if (addProduct === '1') {
+            resetProductForm();
+            if (productName) {
+                setNewProduct(prev => ({
+                    ...prev,
+                    name: productName,
+                    product_code: buildAutoSku(prev.company_code, productName, prev.size)
+                }));
+            }
+            setIsEditing(false);
+            setShowProdModal(true);
+            // Remove the query params without triggering a full reload
+            const newParams = new URLSearchParams(location.search);
+            newParams.delete('addProduct');
+            newParams.delete('name');
+            const newSearch = newParams.toString();
+            navigate(`${location.pathname}${newSearch ? '?' + newSearch : ''}`, { replace: true });
+        }
     }, [location.search]);
 
     // Update URL when viewPath or productPage changes (but not when updating from URL)

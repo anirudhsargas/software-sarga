@@ -1085,18 +1085,7 @@ const Inventory = () => {
                     </div>
                     <button
                         className="btn btn-primary"
-                        onClick={() => {
-                            setNewItem({
-                                ...emptyItem,
-                                branch_stocks: branches.map(b => ({
-                                    branch_id: b.id,
-                                    branch_name: b.name,
-                                    short_name: b.short_name,
-                                    quantity: 0
-                                }))
-                            });
-                            setShowAddModal(true);
-                        }}
+                        onClick={() => navigate('/dashboard/products?addProduct=1')}
                     >
                         <Plus size={18} />
                         <span>Add Item</span>
@@ -1377,6 +1366,16 @@ const Inventory = () => {
                                                 <Package size={48} className="inv-empty-icon" />
                                                 <div className="inv-empty-text">No inventory items found</div>
                                                 <div className="inv-empty-sub">Try adjusting your search or filters, or add a new item.</div>
+                                                {searchTerm && (
+                                                    <button
+                                                        className="btn btn-primary"
+                                                        style={{ marginTop: 16 }}
+                                                        onClick={() => navigate(`/dashboard/products?addProduct=1&name=${encodeURIComponent(searchTerm)}`)}
+                                                    >
+                                                        <Plus size={16} />
+                                                        Add "{searchTerm}" to Product Library
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
@@ -1536,6 +1535,16 @@ const Inventory = () => {
                                     <Package size={48} className="inv-empty-icon" />
                                     <div className="inv-empty-text">No inventory items found</div>
                                     <div className="inv-empty-sub">Try adjusting your search or filters.</div>
+                                    {searchTerm && (
+                                        <button
+                                            className="btn btn-primary"
+                                            style={{ marginTop: 16 }}
+                                            onClick={() => navigate(`/dashboard/products?addProduct=1&name=${encodeURIComponent(searchTerm)}`)}
+                                        >
+                                            <Plus size={16} />
+                                            Add "{searchTerm}" to Product Library
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         ) : items.map(item => (
@@ -3188,6 +3197,16 @@ const Inventory = () => {
                                             <Package size={28} style={{ opacity: 0.25, marginBottom: 'var(--space-10)' }} />
                                             <div style={{ fontSize: 'var(--text-sm)', fontWeight: 500 }}>No items found</div>
                                             <div style={{ fontSize: 'var(--text-xs)', marginTop: 4 }}>Try a different search term</div>
+                                            {searchTerm && (
+                                                <button
+                                                    className="btn btn-primary btn-sm"
+                                                    style={{ marginTop: 12 }}
+                                                    onClick={() => navigate(`/dashboard/products?addProduct=1&name=${encodeURIComponent(searchTerm)}`)}
+                                                >
+                                                    <Plus size={14} />
+                                                    Add "{searchTerm}" to Product Library
+                                                </button>
+                                            )}
                                         </div>
                                     );
                                 })()}
