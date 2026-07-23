@@ -22,6 +22,7 @@ const UploadBills = () => {
   return (
     <PageContainer title="AI Bill Extraction">
       <BillExtractionReview
+        stayOnSave={true}
         onClose={() => navigate(redirectPath)}
         onSuccess={() => {
           toast.success('Bill saved successfully!');

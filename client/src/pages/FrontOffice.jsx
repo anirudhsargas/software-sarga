@@ -422,20 +422,10 @@ const FrontOffice = () => {
         e.preventDefault();
         document.getElementById('fo-search')?.focus();
       }
-      if (e.altKey && key === 'n') {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        navigate('/dashboard/sales/invoices/create');
-      }
-      if (e.altKey && key === 'p') {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        navigate('/dashboard/sales/payments');
-      }
     };
     window.addEventListener('keydown', handler, true);
     return () => window.removeEventListener('keydown', handler, true);
-  }, [navigate]);
+  }, []);
 
   const fmt = (v) => { const n = Number(v); return (v !== null && v !== undefined && v !== '' && !isNaN(n)) ? formatCurrency(n) : '—'; };
   const fmtDate = (d) => {

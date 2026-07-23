@@ -32,6 +32,7 @@ import { SyncStatusBar } from './components/SyncStatusBar';
 import UpdateNotification from './components/UpdateNotification';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import TooltipProvider from './components/ui/TooltipProvider';
+import GlobalKeyboardShortcuts from './components/GlobalKeyboardShortcuts';
 
 const PublicLayout = lazy(() => import('./pages/public/PublicLayout'));
 const HomePage = lazy(() => import('./pages/public/HomePage'));
@@ -240,6 +241,7 @@ function App() {
         <ConfirmProvider>
           <TooltipProvider>
           <RouteChangeHandler />
+          <GlobalKeyboardShortcuts />
           <a href="#main-content" className="skip-link">Skip to main content</a>
           <SyncStatusBar />
           <UpdateNotification />

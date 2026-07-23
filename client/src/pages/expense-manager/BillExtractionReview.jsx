@@ -1,9 +1,11 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Upload, X, Loader2, AlertCircle, CheckCircle, Plus, Trash2, Camera, Image as ImageIcon, ChevronRight, ArrowLeft, Search, Package } from 'lucide-react';
-import api from '../../services/api';
+import { Upload, X, Loader2, AlertCircle, CheckCircle, Plus, Trash2, Camera, Image as ImageIcon, ChevronRight, ArrowLeft, Search, Package, FileText, Eye } from 'lucide-react';
+import api, { imgUrl } from '../../services/api';
 import toast from 'react-hot-toast';
 import { onSocketEvent, getSocket } from '../../services/socketClient';
 import VendorModal from '../../components/VendorModal';
+import FullBillModal from './FullBillModal';
+import { fmtDate } from './constants';
 import './BillExtractionReview.css';
 
 const VALID_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
@@ -399,7 +401,7 @@ function VendorSearchCell({ vendorName, vendorMatch, selectedVendorId, onSelect,
   );
 }
 
-const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
+const BillExtractionReview = ({ onClose, onSuccess, onError, stayOnSave = false }) => {
   const [step, setStep] = useState('upload');
   const [pages, setPages] = useState([]);
   const [compressing, setCompressing] = useState(false);
@@ -422,6 +424,11 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
   const [allProducts, setAllProducts] = useState([]);
   const [productSearchFocusedRow, setProductSearchFocusedRow] = useState(null);
   const [productSuggestionsMap, setProductSuggestionsMap] = useState({});
+
+  // Recent bills list states
+  const [recentBills, setRecentBills] = useState([]);
+  const [recentBillsLoading, setRecentBillsLoading] = useState(false);
+  const [fullBillDocId, setFullBillDocId] = useState(null);
 
   // Inline Vendor Modal states
   const [showVendorModal, setShowVendorModal] = useState(false);
@@ -469,6 +476,22 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
   useEffect(() => {
     fetchProducts();
   }, [fetchProducts]);
+
+  const fetchRecentBills = useCallback(async () => {
+    setRecentBillsLoading(true);
+    try {
+      const res = await api.get('/bills-documents', { params: { limit: 5, page: 1 } });
+      setRecentBills(res.data?.data || []);
+    } catch (err) {
+      console.error('Failed to fetch recent bills in BillExtractionReview:', err);
+    } finally {
+      setRecentBillsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchRecentBills();
+  }, [fetchRecentBills]);
 
   const getProductSuggestions = (searchText) => {
     if (!allProducts.length) return [];
@@ -863,7 +886,12 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
       }
 
       toast.success('Bill saved successfully');
-      onSuccess?.();
+      if (stayOnSave) {
+        handleRetry();
+        fetchRecentBills();
+      } else {
+        onSuccess?.();
+      }
     } catch (err) {
       const msg = err.response?.data?.message || err.message || 'Failed to save bill';
       toast.error(msg);
@@ -871,7 +899,7 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
     } finally {
       setSaving(false);
     }
-  }, [form, pages, itemMatches, productOverrides, onSuccess, onError]);
+  }, [form, pages, itemMatches, productOverrides, onSuccess, onError, stayOnSave, handleRetry, fetchRecentBills]);
 
   const handleRetry = useCallback(() => {
     setError('');
@@ -1068,6 +1096,77 @@ const BillExtractionReview = ({ onClose, onSuccess, onError }) => {
             </button>
           )}
         </div>
+
+        {stayOnSave && (
+          <div className="extraction-recent-section" style={{ marginTop: '40px', borderTop: '1px solid var(--border)', paddingTop: '24px' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <FileText size={18} /> Recently Added Bills
+            </h3>
+            {recentBillsLoading ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)', fontSize: '14px', padding: '12px' }}>
+                <Loader2 className="spin" size={16} /> Loading recent bills...
+              </div>
+            ) : recentBills.length === 0 ? (
+              <div style={{ padding: '24px', textAlign: 'center', border: '1px dashed var(--border)', borderRadius: '8px', color: 'var(--text-secondary)', fontSize: '14px' }}>
+                No bills uploaded recently.
+              </div>
+            ) : (
+              <div className="extraction-items-table-wrapper" style={{ overflowX: 'auto' }}>
+                <table className="extraction-items-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: 100 }}>Date</th>
+                      <th>Vendor</th>
+                      <th style={{ width: 120 }}>Bill #</th>
+                      <th style={{ width: 120, textAlign: 'right' }}>Amount</th>
+                      <th style={{ width: 80, textAlign: 'center' }}>File</th>
+                      <th style={{ width: 100, textAlign: 'center' }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentBills.map((d) => (
+                      <tr key={d.id}>
+                        <td style={{ whiteSpace: 'nowrap' }}>{fmtDate(d.bill_date)}</td>
+                        <td style={{ wordBreak: 'break-word', fontWeight: 500 }}>{d.vendor_name || '—'}</td>
+                        <td style={{ whiteSpace: 'nowrap' }}>{d.bill_number || '—'}</td>
+                        <td style={{ textAlign: 'right', fontWeight: 600 }}>{d.amount ? `₹${Number(d.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}</td>
+                        <td style={{ textAlign: 'center' }}>
+                          {d.file_path ? (
+                            <a
+                              href={imgUrl(d.file_path)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="btn btn-ghost btn-sm"
+                              style={{ padding: '2px 8px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                            >
+                              <Eye size={12} /> View
+                            </a>
+                          ) : '—'}
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            style={{ padding: '2px 8px', fontSize: '12px' }}
+                            onClick={() => setFullBillDocId(d.id)}
+                          >
+                            Details
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        <FullBillModal
+          open={Boolean(fullBillDocId)}
+          documentId={fullBillDocId}
+          onClose={() => setFullBillDocId(null)}
+        />
       </div>
     );
   }

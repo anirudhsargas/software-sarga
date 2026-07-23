@@ -93,22 +93,7 @@ const DesignDashboard = () => {
     staleTime: 300000,
   });
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handler = (e) => {
-      if (!e.altKey) return;
-      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
-      switch (e.key.toLowerCase()) {
-        case 'd': e.preventDefault(); navigate('/designer'); break;
-        case 'a': e.preventDefault(); navigate('/designer/assigned'); break;
-        case 'b': e.preventDefault(); navigate('/designer/bookings'); break;
-        case 'j': e.preventDefault(); navigate('/designer/bookings'); break;
-        default: break;
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [navigate]);
+
 
   // Derived stats
   const assigned = bookings.filter(b => b.status === 'Assigned');

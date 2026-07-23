@@ -81,23 +81,7 @@ const DesignerLayout = () => {
 
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handler = (e) => {
-      if (!e.altKey) return;
-      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
-      switch (e.key.toLowerCase()) {
-        case 'd': e.preventDefault(); navigate('/designer'); closeSidebar(); break;
-        case 'a': e.preventDefault(); navigate('/designer/assigned'); closeSidebar(); break;
-        case 'b': e.preventDefault(); navigate('/designer/bookings'); closeSidebar(); break;
-        case 'u': e.preventDefault(); navigate('/designer/bookings'); closeSidebar(); break;
-        case 'j': e.preventDefault(); navigate('/designer/bookings'); closeSidebar(); break;
-        default: break;
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [navigate, closeSidebar]);
+
 
   // Close sidebar on route change (mobile)
   useEffect(() => {
