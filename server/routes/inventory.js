@@ -1395,13 +1395,11 @@ router.post('/inventory/generate-labels', authenticateToken, authorizeRoles('Adm
                 doc.fontSize(5).font('Helvetica').fillColor('#000000');
                 doc.text(qrData, x + labelWidth - mmToPt(18), y + mmToPt(18), { width: mmToPt(16), align: 'center', lineBreak: false });
 
-                // "(+DESIGN)" below SRP, then mobile number, then brand name
-                doc.fontSize(5.5).font('Helvetica-Bold').fillColor('#000000');
+                // "(+DESIGN)" below SRP, then brand name and mobile number on a single line
+                doc.fontSize(8).font('Helvetica-Bold').fillColor('#000000');
                 doc.text('(+DESIGN)', x + padding, y + mmToPt(14.8), { width: textAreaW, lineBreak: false });
-                doc.fontSize(5.5).font('Helvetica').fillColor('#000000');
-                doc.text('Mob: 9497559257', x + padding, y + mmToPt(17.2), { width: textAreaW, lineBreak: false });
-                doc.fontSize(5.5).font('Helvetica-Bold').fillColor('#000000');
-                doc.text('SARGA', x + padding, y + mmToPt(19.6), { width: textAreaW, lineBreak: false });
+                doc.fontSize(6).font('Helvetica-Bold').fillColor('#000000');
+                doc.text('SARGA Mob: 9497559257', x + padding, y + mmToPt(18.8), { width: textAreaW, lineBreak: false });
             }
 
             // Flush the current QR cache to release references and avoid growing heap

@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useDebounce } from '../../hooks/useDebounce';
-import { FileText, Upload, Search, Eye, Trash2, Loader2, X, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
+import { FileText, Upload, Search, Eye, Trash2, Loader2, X, Sparkles, ChevronLeft, ChevronRight, Store } from 'lucide-react';
 import localDb from '../../services/localDb';
 import { fmtDate, today, fmt, DOCUMENT_TYPES } from './constants';
-import { imgUrl } from '../../services/api';
+import api, { imgUrl } from '../../services/api';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import useAuth from '../../hooks/useAuth';
 import PageContainer from '../../components/ui/PageContainer';
@@ -26,6 +26,65 @@ const BillsDocsTab = ({ onError }) => {
   const [page, setPage] = useState(1);
   const [form, setForm] = useState(defaultForm);
   const [fullBillDocId, setFullBillDocId] = useState(null);
+
+  // Vendor autocomplete state
+  const [vendorSuggestions, setVendorSuggestions] = useState([]);
+  const [allVendors, setAllVendors] = useState([]);
+  const [vendorSearchFocused, setVendorSearchFocused] = useState(false);
+  const [highlightedVendorIdx, setHighlightedVendorIdx] = useState(-1);
+  const vendorInputRef = useRef(null);
+  const vendorDropdownRef = useRef(null);
+
+  // Fetch all vendors on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const v = await localDb.getVendors();
+        setAllVendors(v || []);
+      } catch {
+        try {
+          const res = await api.get('/vendors', { params: { limit: 1000 } });
+          const list = res.data?.data || res.data?.vendors || [];
+          setAllVendors(list);
+        } catch { /* ignore */ }
+      }
+    })();
+  }, []);
+
+  // Filter vendors based on typed name
+  useEffect(() => {
+    const q = form.vendor_name.trim().toLowerCase();
+    if (!q) {
+      setVendorSuggestions([]);
+      setHighlightedVendorIdx(-1);
+      return;
+    }
+    const matches = allVendors.filter(v =>
+      v.name && v.name.toLowerCase().includes(q)
+    ).slice(0, 8);
+    setVendorSuggestions(matches);
+    setHighlightedVendorIdx(-1);
+  }, [form.vendor_name, allVendors]);
+
+  const handleVendorKeyDown = (e) => {
+    if (!vendorSuggestions.length) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightedVendorIdx(prev => Math.min(prev + 1, vendorSuggestions.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedVendorIdx(prev => Math.max(prev - 1, -1));
+    } else if (e.key === 'Enter' && highlightedVendorIdx >= 0) {
+      e.preventDefault();
+      const selected = vendorSuggestions[highlightedVendorIdx];
+      setForm(p => ({ ...p, vendor_name: selected.name }));
+      setVendorSuggestions([]);
+      setVendorSearchFocused(false);
+    } else if (e.key === 'Escape') {
+      setVendorSuggestions([]);
+      setVendorSearchFocused(false);
+    }
+  };
 
   const fetchDocs = useCallback(async () => {
     try {
@@ -182,7 +241,50 @@ const BillsDocsTab = ({ onError }) => {
                 <div className="em-form-grid">
                   <div className="em-form-group"><label>Document Type</label><select name="document_type" aria-label="Select option"  className="em-input" value={form.document_type} onChange={e => setForm(p => ({ ...p, document_type: e.target.value }))}>{DOCUMENT_TYPES.map(t => <option key={t}>{t}</option>)}</select></div>
                   <div className="em-form-group"><label>Related Tab</label><select name="related_tab" aria-label="Select option"  className="em-input" value={form.related_tab} onChange={e => setForm(p => ({ ...p, related_tab: e.target.value }))}><option value="">General</option><option value="office">Office</option><option value="transport">Transport</option><option value="misc">Misc</option><option value="rent">Rent</option><option value="vendor">Vendor</option></select></div>
-                  <div className="em-form-group"><label>Vendor Name</label><input name="vendor_name" className="em-input" value={form.vendor_name} onChange={e => setForm(p => ({ ...p, vendor_name: e.target.value }))} /></div>
+                  <div className="em-form-group" style={{ position: 'relative' }}>
+                    <label>Vendor Name</label>
+                    <input
+                      name="vendor_name"
+                      ref={vendorInputRef}
+                      className="em-input"
+                      value={form.vendor_name}
+                      onChange={e => setForm(p => ({ ...p, vendor_name: e.target.value }))}
+                      onFocus={() => setVendorSearchFocused(true)}
+                      onBlur={() => setTimeout(() => setVendorSearchFocused(false), 200)}
+                      onKeyDown={handleVendorKeyDown}
+                      autoComplete="off"
+                    />
+                    {vendorSearchFocused && vendorSuggestions.length > 0 && (
+                      <div
+                        ref={vendorDropdownRef}
+                        style={{
+                          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
+                          background: 'var(--surface)', border: '1px solid var(--border)',
+                          borderRadius: 6, boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                          maxHeight: 240, overflowY: 'auto', marginTop: 2
+                        }}
+                      >
+                        {vendorSuggestions.map((v, i) => (
+                          <div
+                            key={v.id}
+                            role="button"
+                            tabIndex={0}
+                            onMouseDown={(e) => { e.preventDefault(); setForm(p => ({ ...p, vendor_name: v.name })); setVendorSuggestions([]); setVendorSearchFocused(false); }}
+                            style={{
+                              padding: '8px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
+                              fontSize: 13, background: i === highlightedVendorIdx ? 'var(--hover-bg, rgba(0,0,0,0.05))' : 'transparent'
+                            }}
+                          >
+                            <Store size={14} style={{ color: 'var(--muted)', flexShrink: 0 }} />
+                            <span>{v.name}</span>
+                            {v.vendor_type !== 'other' && v.vendor_type && (
+                              <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--muted)' }}>{v.vendor_type}</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   <div className="em-form-group"><label>Bill #</label><input name="bill_number" className="em-input" value={form.bill_number} onChange={e => setForm(p => ({ ...p, bill_number: e.target.value }))} /></div>
                   <div className="em-form-group"><label>Bill Date</label>
         <label htmlFor="date-v0kghe" className="sr-only">Select Date</label>
