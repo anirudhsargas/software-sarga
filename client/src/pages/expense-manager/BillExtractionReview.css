@@ -253,7 +253,7 @@
 
 /* ITEMS TABLE */
 .extraction-items-table-wrapper {
-  overflow-x: auto;
+  overflow: visible;
   margin-bottom: var(--space-20);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
