@@ -8,7 +8,14 @@ import App from "./App.jsx";
 import { API_URL } from "./services/api";
 
 // Service worker — update detection via Workbox onNeedRefresh
-if (import.meta.env.PROD) {
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (refreshing) return;
+    refreshing = true;
+    window.location.reload();
+  });
+
   const updateSW = registerSW({
     onNeedRefresh() {
       window.dispatchEvent(new CustomEvent('sw.update', { detail: { updateSW } }));
