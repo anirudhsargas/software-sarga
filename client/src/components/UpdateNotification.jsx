@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { RefreshCw, X } from 'lucide-react';
 
 const STORAGE_KEY = 'update_dismissed';
@@ -8,6 +8,7 @@ export const UpdateNotification = () => {
   const [dismissed, setDismissed] = useState(
     () => sessionStorage.getItem(STORAGE_KEY) === 'true'
   );
+  const updateSWRef = useRef(null);
 
   const forceReload = useCallback(async () => {
     if ('serviceWorker' in navigator) {
@@ -16,24 +17,22 @@ export const UpdateNotification = () => {
         for (const reg of registrations) await reg.unregister();
       } catch {}
     }
+    if ('caches' in window) {
+      try {
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k)));
+      } catch {}
+    }
     window.location.reload();
   }, []);
 
   const reload = useCallback(async () => {
-    if ('serviceWorker' in navigator) {
-      try {
-        const registration = await navigator.serviceWorker.ready;
-        if (registration.waiting) {
-          registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-          let done = false;
-          const tid = setTimeout(() => { done = true; forceReload(); }, 5000);
-          navigator.serviceWorker.addEventListener('controllerchange', () => {
-            if (!done) { done = true; clearTimeout(tid); window.location.reload(); }
-          }, { once: true });
-          return;
-        }
-      } catch {}
-    }
+    try {
+      if (updateSWRef.current) {
+        await updateSWRef.current(true);
+        return;
+      }
+    } catch {}
     forceReload();
   }, [forceReload]);
 
@@ -43,7 +42,10 @@ export const UpdateNotification = () => {
   }, []);
 
   useEffect(() => {
-    const handleSWUpdate = () => {
+    const handleSWUpdate = (e) => {
+      if (e.detail?.updateSW) {
+        updateSWRef.current = e.detail.updateSW;
+      }
       setUpdateAvailable(true);
       setDismissed(false);
       sessionStorage.removeItem(STORAGE_KEY);

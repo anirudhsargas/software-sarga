@@ -9,9 +9,9 @@ import { API_URL } from "./services/api";
 
 // Service worker — update detection via Workbox onNeedRefresh
 if (import.meta.env.PROD) {
-  registerSW({
+  const updateSW = registerSW({
     onNeedRefresh() {
-      window.dispatchEvent(new CustomEvent('sw.update'));
+      window.dispatchEvent(new CustomEvent('sw.update', { detail: { updateSW } }));
     },
     onOfflineReady() {
       console.log('App ready to work offline');
