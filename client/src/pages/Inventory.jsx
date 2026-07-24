@@ -3131,7 +3131,7 @@ const Inventory = () => {
                                 />
                                 {selectPrintSearch && (
                                     <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4, display: 'flex', borderRadius: 4 }}
-                                        onClick={() => { setSelectPrintSearch(''); setSelectPrintSelectedIds([]); }}>
+                                        onClick={() => { setSelectPrintSearch(''); }}>
                                         <X size={14} />
                                     </button>
                                 )}
