@@ -57,6 +57,12 @@ const customerPaymentSchema = z.object({
 }, {
     message: "Cash + UPI must equal advance paid",
     path: ["payment_method"]
+}).refine(data => {
+    if (data.auto_deliver && data.advance_paid < data.total_amount * 0.99) return false;
+    return true;
+}, {
+    message: "Walk-in customers must pay in full",
+    path: ["advance_paid"]
 });
 
 module.exports = { customerPaymentSchema };

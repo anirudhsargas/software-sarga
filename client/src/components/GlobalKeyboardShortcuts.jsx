@@ -8,6 +8,8 @@ const GlobalKeyboardShortcuts = () => {
 
   useEffect(() => {
     const handleKeyDown = (e) => {
+      if (!user) return;
+
       // Ignore shortcut key triggers when typing in input, textarea, select, or contenteditable
       const tag = document.activeElement?.tagName;
       if (
@@ -19,15 +21,16 @@ const GlobalKeyboardShortcuts = () => {
         return;
       }
 
-      if (!e.altKey) return;
-      if (!user) return; // Only process shortcuts if authenticated
+      // Require Alt only (no Ctrl, no Meta)
+      if (!e.altKey || e.ctrlKey || e.metaKey) return;
 
       const key = e.key.toLowerCase();
       const role = user.role;
 
+      e.preventDefault();
+
       // ALT + D (Dashboard / Summary)
       if (key === 'd') {
-        e.preventDefault();
         if (role === 'Admin' || role === 'Front Office') {
           navigate('/dashboard');
         } else if (role === 'Accountant') {
@@ -37,11 +40,11 @@ const GlobalKeyboardShortcuts = () => {
         } else {
           navigate('/staff');
         }
+        return;
       }
 
       // ALT + A (Assigned Jobs / Tasks)
       if (key === 'a') {
-        e.preventDefault();
         if (role === 'Designer' || role === 'Admin') {
           navigate('/designer/assigned');
         } else if (role === 'Printer') {
@@ -49,11 +52,11 @@ const GlobalKeyboardShortcuts = () => {
         } else {
           navigate('/staff/tasks');
         }
+        return;
       }
 
       // ALT + B / ALT + U / ALT + J (Bookings / Orders)
       if (key === 'b' || key === 'u' || key === 'j') {
-        e.preventDefault();
         if (role === 'Designer' || role === 'Admin') {
           navigate('/designer/bookings');
         } else if (role === 'Front Office' || role === 'Accountant') {
@@ -61,28 +64,37 @@ const GlobalKeyboardShortcuts = () => {
         } else {
           navigate('/staff/tasks');
         }
+        return;
+      }
+
+      // ALT + C (Add New Customer)
+      if (key === 'c') {
+        if (['Admin', 'Front Office', 'Accountant'].includes(role)) {
+          navigate('/dashboard/sales/customers/new');
+        }
+        return;
       }
 
       // ALT + N (Create Invoice)
       if (key === 'n') {
         if (['Admin', 'Front Office', 'Accountant'].includes(role)) {
-          e.preventDefault();
           navigate('/dashboard/sales/invoices/create');
         }
+        return;
       }
 
       // ALT + P (Payments)
       if (key === 'p') {
         if (['Admin', 'Front Office', 'Accountant'].includes(role)) {
-          e.preventDefault();
           navigate('/dashboard/sales/payments');
         }
+        return;
       }
 
       // ALT + S (Shortcuts Page)
       if (key === 's') {
-        e.preventDefault();
         navigate('/dashboard/shortcuts');
+        return;
       }
     };
 

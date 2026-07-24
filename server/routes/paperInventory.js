@@ -420,4 +420,9 @@ router.get('/alerts', authenticateToken, authorizeRoles('Admin', 'Accountant', '
     }
 });
 
+// Test route for stock planning setup
+router.get('/stock-test', (req, res) => {
+    res.json({ ok: true });
+});
+
 module.exports = router;

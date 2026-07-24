@@ -20,6 +20,7 @@ import { useOnlineStatus } from '../hooks/useOffline';
 import { formatForDisplay } from '../utils/phone';
 import SectionErrorBoundary from '../components/SectionErrorBoundary';
 import PageContainer from '../components/ui/PageContainer';
+import QRCode from 'qrcode';
 
 const ReceiptModal = React.lazy(() => import('../components/ReceiptModal'));
 
@@ -67,6 +68,9 @@ const CustomerPayments = () => {
 
   const [pageError, setPageError] = useState(null);
   const [paymentsError, setPaymentsError] = useState(null);
+  const [showUpiQr, setShowUpiQr] = useState(false);
+  const [upiQrDataUrl, setUpiQrDataUrl] = useState('');
+  const [branchUpiId, setBranchUpiId] = useState('');
   const [formData, setFormData] = useState({
     customer_id: null,
     customer_name: '',
@@ -186,6 +190,14 @@ const CustomerPayments = () => {
     if (!formData.customer_id || orderLines.length > 0) return;
     fetchCustomerJobs(formData.customer_id);
   }, [formData.customer_id, orderLines.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    api.get('/branches').then(r => {
+      const branches = Array.isArray(r.data) ? r.data : [];
+      const myBranch = branches.find(b => String(b.id) === String(user?.branch_id));
+      if (myBranch?.upi_id) setBranchUpiId(myBranch.upi_id);
+    }).catch(() => {});
+  }, [user?.branch_id]);
 
   useEffect(() => {
     if (!selectedJobId || orderLines.length > 0) return;
@@ -1265,6 +1277,23 @@ const CustomerPayments = () => {
                     onChange={(e) => updateMethodAmount('UPI', e.target.value)}
                     aria-label="UPI payment amount"
                   />
+                  {Number(payment.methodAmounts.UPI) > 0 && branchUpiId && (
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline touch-target"
+                      style={{ marginTop: 8, width: '100%' }}
+                      onClick={async () => {
+                        try {
+                          const upiLink = `upi://pay?pa=${encodeURIComponent(branchUpiId)}&pn=${encodeURIComponent('SARGA DIGITAL PRESS')}&am=${Number(payment.methodAmounts.UPI).toFixed(2)}&cu=INR&tn=Payment`;
+                          const url = await QRCode.toDataURL(upiLink, { width: 300, margin: 2 });
+                          setUpiQrDataUrl(url);
+                          setShowUpiQr(true);
+                        } catch { toast.error('Failed to generate QR code'); }
+                      }}
+                    >
+                      <Smartphone size={14} /> Show QR Code
+                    </button>
+                  )}
                 </div>
               )}
               {payment.selectedMethods.includes('Cheque') && (
@@ -1393,6 +1422,29 @@ const CustomerPayments = () => {
           )}
         </div>
       </div>
+
+      {/* ── UPI QR Code Modal ── */}
+      {showUpiQr && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="upi-qr-title" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowUpiQr(false); }}>
+          <div className="modal" style={{ maxWidth: 400, textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+            <div className="row items-center justify-between mb-16">
+              <h2 id="upi-qr-title" className="section-title">UPI QR Code</h2>
+              <button type="button" className="btn btn-ghost" onClick={() => setShowUpiQr(false)} aria-label="Close QR code">Close</button>
+            </div>
+            <div style={{ padding: '16px 0' }}>
+              {upiQrDataUrl && <img src={upiQrDataUrl} alt="UPI QR Code" style={{ width: 280, height: 280, borderRadius: 12 }} />}
+              <div style={{ marginTop: 16, fontSize: 13, color: 'var(--text-muted)' }}>
+                Scan with any UPI app to pay <strong>₹{Number(payment.methodAmounts.UPI).toFixed(2)}</strong>
+              </div>
+              {branchUpiId && (
+                <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-muted)', wordBreak: 'break-all' }}>
+                  UPI ID: {branchUpiId}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Discount Approval Request Modal ── */}
       {showDiscountModal && (

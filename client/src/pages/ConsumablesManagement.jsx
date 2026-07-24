@@ -12,6 +12,8 @@ import toast from 'react-hot-toast';
 import auth from '../services/auth';
 import './InventoryModern.css';
 import PageContainer from '../components/ui/PageContainer';
+import useFormValidation from '../hooks/useFormValidation';
+import { validateName, validateEnum, validateQuantity, validatePrice, validateSKU, validateInteger } from '../utils/validators';
 
 const CATEGORY_TABS = [
     { label: 'All', value: 'all' },
@@ -66,6 +68,19 @@ const ConsumablesManagement = () => {
     const [showAdjustModal, setShowAdjustModal] = useState(false);
     const [adjustData, setAdjustData] = useState({ id: null, name: '', quantity_delta: '', reason: '', adjustment_type: 'INWARD' });
     const [formData, setFormData] = useState(emptyForm);
+    const { errors, validate, focusFirstError, formRef, clearErrors } = useFormValidation();
+    
+    // Restock modal states
+    const [showRestockModal, setShowRestockModal] = useState(false);
+    const [restockData, setRestockData] = useState({
+        quantity: '',
+        unit_price: '',
+        supplier_name: '',
+        purchase_date: new Date().toISOString().split('T')[0],
+        invoice_ref: '',
+        notes: ''
+    });
+
     // Detail panel states
     const [detailItem, setDetailItem] = useState(null);
     const [detailTab, setDetailTab] = useState('details');
@@ -125,6 +140,7 @@ const ConsumablesManagement = () => {
     }, [items]);
 
     const handleOpenAdd = () => {
+        clearErrors();
         setModalMode('add');
         setSelectedItem(null);
         setFormData({ ...emptyForm, branch: user?.branch_name || 'Perambra' });
@@ -132,6 +148,7 @@ const ConsumablesManagement = () => {
     };
 
     const handleOpenEdit = (item) => {
+        clearErrors();
         setModalMode('edit');
         setSelectedItem(item);
         setFormData({
@@ -146,6 +163,19 @@ const ConsumablesManagement = () => {
             branch: item.branch || 'Perambra', notes: item.notes || ''
         });
         setShowModal(true);
+    };
+
+    const handleOpenRestock = (item) => {
+        setSelectedItem(item);
+        setRestockData({
+            quantity: '',
+            unit_price: item.unit_cost || '',
+            supplier_name: item.supplier_name || '',
+            purchase_date: new Date().toISOString().split('T')[0],
+            invoice_ref: '',
+            notes: ''
+        });
+        setShowRestockModal(true);
     };
 
     const handleOpenDetail = async (item) => {
@@ -200,8 +230,28 @@ const ConsumablesManagement = () => {
         }
     };
 
+    const validateForm = () => {
+        return validate({
+            name: () => validateName(formData.name, { label: 'Consumable name' }),
+            category: () => validateEnum(formData.category, CATEGORY_TABS.map(c => c.value).filter(v => v !== 'all'), { label: 'Category' }),
+            unit: () => validateEnum(formData.unit, UNIT_OPTIONS, { label: 'Unit' }),
+            quantity_in_stock: () => validateQuantity(formData.quantity_in_stock, { label: 'Quantity', min: 0, decimals: 3 }),
+            reorder_level: () => formData.reorder_level ? validateQuantity(formData.reorder_level, { label: 'Reorder Level', min: 0, decimals: 3 }) : { valid: true, error: null },
+            min_stock_level: () => formData.min_stock_level ? validateQuantity(formData.min_stock_level, { label: 'Min Stock Level', min: 0, decimals: 3 }) : { valid: true, error: null },
+            max_stock_level: () => formData.max_stock_level ? validateQuantity(formData.max_stock_level, { label: 'Max Stock Level', min: 0, decimals: 3 }) : { valid: true, error: null },
+            unit_cost: () => formData.unit_cost ? validatePrice(formData.unit_cost, { label: 'Unit Cost', min: 0 }) : { valid: true, error: null },
+            sku: () => formData.sku ? validateSKU(formData.sku, { required: false }) : { valid: true, error: null },
+            gsm: () => formData.gsm ? validateInteger(formData.gsm, { label: 'GSM', min: 1 }) : { valid: true, error: null },
+            branch: () => validateEnum(formData.branch, ['Perambra', 'Meppayur'], { label: 'Branch' }),
+        });
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (!validateForm().valid) {
+            focusFirstError();
+            return;
+        }
         try {
             if (modalMode === 'add') {
                 await api.post('/inventory/consumables', formData);
@@ -215,6 +265,29 @@ const ConsumablesManagement = () => {
         } catch (err) {
             toast.error(err.response?.data?.message || 'Failed to save');
             fetchConsumables();
+        }
+    };
+
+    const handleRestockSubmit = async (e) => {
+        e.preventDefault();
+        try {
+            await api.post(`/inventory/consumables/${selectedItem.id}/purchases`, {
+                quantity: Number(restockData.quantity),
+                unit_price: Number(restockData.unit_price),
+                supplier_name: restockData.supplier_name,
+                purchase_date: restockData.purchase_date,
+                invoice_ref: restockData.invoice_ref,
+                notes: restockData.notes,
+                branch_id: selectedItem.branch === 'Perambra' ? 5 : 4
+            });
+            toast.success('Stock restocked successfully');
+            setShowRestockModal(false);
+            fetchConsumables();
+            if (detailItem?.id === selectedItem.id) {
+                handleOpenDetail(selectedItem);
+            }
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Failed to restock');
         }
     };
 
@@ -350,7 +423,10 @@ const ConsumablesManagement = () => {
                         {searchTerm && <button className="inv-search-clear" onClick={() => setSearchTerm('')}><X size={14} /></button>}
                     </div>
                     {isManager && (
-                        <button className="btn btn-primary" onClick={handleOpenAdd}><Plus size={18} /> Add Consumable</button>
+                        <div className="row gap-xs">
+                            <button className="btn btn-secondary" onClick={() => navigate('/dashboard/expenses/upload-bills?target=consumables&redirect=/dashboard/inventory/consumables')}><FileText size={18} /> Upload Bill</button>
+                            <button className="btn btn-primary" onClick={handleOpenAdd}><Plus size={18} /> Add Consumable</button>
+                        </div>
                     )}
                 </div>
                 <div className="inv-toolbar-row justify-between wrap gap-sm">
@@ -450,6 +526,9 @@ const ConsumablesManagement = () => {
                                                     <div className="inv-actions justify-end">
                                                         {isManager && (
                                                             <>
+                                                                <button className="inv-action-btn" title="Restock" onClick={(e) => { e.stopPropagation(); handleOpenRestock(item); }}>
+                                                                    <ShoppingCart size={14} />
+                                                                </button>
                                                                 <button className="inv-action-btn" title="Quick Adjust" onClick={(e) => { e.stopPropagation(); handleOpenAdjust(item); }}>
                                                                     <ArrowUp size={12} style={{ marginRight: -4 }} /><ArrowDown size={12} />
                                                                 </button>
@@ -643,74 +722,103 @@ const ConsumablesManagement = () => {
                     <div className="modal" style={{ maxWidth: '750px' }}>
                         <div className="modal-header">
                             <h2 className="section-title">{modalMode === 'add' ? 'Add Consumable' : 'Edit Consumable'}</h2>
-                            <button className="modal-close" onClick={() => setShowModal(false)}><X size={20} /></button>
+                            <button className="modal-close" onClick={() => { setShowModal(false); clearErrors(); }}><X size={20} /></button>
                         </div>
-                        <form onSubmit={handleSubmit} className="stack-md">
+                        <form onSubmit={handleSubmit} ref={formRef} className="stack-md" noValidate>
                             <div className="grid grid--3 gap-md">
-                                <div className="span-3"><label className="label">Name *</label>
-                                    <input className="input-field" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                                <div className={`span-3 form-group ${errors.name ? 'validated-field--error' : ''}`}>
+                                    <label className="label">Name *</label>
+                                    <input className={`input-field ${errors.name ? 'field-error' : ''}`} required aria-invalid={!!errors.name} value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                                    {errors.name && <span style={{ color: 'var(--error, #ef4444)', fontSize: '11px', marginTop: '4px', display: 'block' }}>{errors.name}</span>}
                                 </div>
-                                <div><label className="label">Category</label>
-                                    <select className="input-field" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
+                                <div className={`form-group ${errors.category ? 'validated-field--error' : ''}`}>
+                                    <label className="label">Category</label>
+                                    <select className={`input-field ${errors.category ? 'field-error' : ''}`} aria-invalid={!!errors.category} value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
                                         {CATEGORY_TABS.filter(c => c.value !== 'all').map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                                     </select>
+                                    {errors.category && <span style={{ color: 'var(--error, #ef4444)', fontSize: '11px', marginTop: '4px', display: 'block' }}>{errors.category}</span>}
                                 </div>
-                                <div><label className="label">Unit</label>
-                                    <select className="input-field" value={formData.unit} onChange={e => setFormData({ ...formData, unit: e.target.value })}>
+                                <div className={`form-group ${errors.unit ? 'validated-field--error' : ''}`}>
+                                    <label className="label">Unit</label>
+                                    <select className={`input-field ${errors.unit ? 'field-error' : ''}`} aria-invalid={!!errors.unit} value={formData.unit} onChange={e => setFormData({ ...formData, unit: e.target.value })}>
                                         {UNIT_OPTIONS.map(u => <option key={u} value={u}>{u}</option>)}
                                     </select>
+                                    {errors.unit && <span style={{ color: 'var(--error, #ef4444)', fontSize: '11px', marginTop: '4px', display: 'block' }}>{errors.unit}</span>}
                                 </div>
-                                <div><label className="label">GSM</label>
-                                    <input type="number" className="input-field" value={formData.gsm} onChange={e => setFormData({ ...formData, gsm: e.target.value })} placeholder="e.g. 80" />
+                                <div className={`form-group ${errors.gsm ? 'validated-field--error' : ''}`}>
+                                    <label className="label">GSM</label>
+                                    <input type="number" className={`input-field ${errors.gsm ? 'field-error' : ''}`} aria-invalid={!!errors.gsm} value={formData.gsm} onChange={e => setFormData({ ...formData, gsm: e.target.value })} placeholder="e.g. 80" />
+                                    {errors.gsm && <span style={{ color: 'var(--error, #ef4444)', fontSize: '11px', marginTop: '4px', display: 'block' }}>{errors.gsm}</span>}
                                 </div>
-                                <div><label className="label">Size</label>
+                                <div className="form-group">
+                                    <label className="label">Size</label>
                                     <input className="input-field" value={formData.size_name} onChange={e => setFormData({ ...formData, size_name: e.target.value })} placeholder="e.g. A4, 8.5x11" />
                                 </div>
-                                <div><label className="label">Brand</label>
+                                <div className="form-group">
+                                    <label className="label">Brand</label>
                                     <input className="input-field" value={formData.brand} onChange={e => setFormData({ ...formData, brand: e.target.value })} />
                                 </div>
-                                <div><label className="label">Finish</label>
+                                <div className="form-group">
+                                    <label className="label">Finish</label>
                                     <input className="input-field" value={formData.finish} onChange={e => setFormData({ ...formData, finish: e.target.value })} placeholder="e.g. Glossy, Matte" />
                                 </div>
-                                <div><label className="label">Color</label>
+                                <div className="form-group">
+                                    <label className="label">Color</label>
                                     <input className="input-field" value={formData.color} onChange={e => setFormData({ ...formData, color: e.target.value })} />
                                 </div>
-                                <div><label className="label">SKU</label>
-                                    <input className="input-field" value={formData.sku} onChange={e => setFormData({ ...formData, sku: e.target.value })} />
+                                <div className={`form-group ${errors.sku ? 'validated-field--error' : ''}`}>
+                                    <label className="label">SKU</label>
+                                    <input className={`input-field ${errors.sku ? 'field-error' : ''}`} aria-invalid={!!errors.sku} value={formData.sku} onChange={e => setFormData({ ...formData, sku: e.target.value })} />
+                                    {errors.sku && <span style={{ color: 'var(--error, #ef4444)', fontSize: '11px', marginTop: '4px', display: 'block' }}>{errors.sku}</span>}
                                 </div>
-                                <div><label className="label">Quantity *</label>
-                                    <input type="number" step="0.001" className="input-field" value={formData.quantity_in_stock} onChange={e => setFormData({ ...formData, quantity_in_stock: e.target.value })} />
+                                <div className={`form-group ${errors.quantity_in_stock ? 'validated-field--error' : ''}`}>
+                                    <label className="label">Quantity *</label>
+                                    <input type="number" step="0.001" className={`input-field ${errors.quantity_in_stock ? 'field-error' : ''}`} aria-invalid={!!errors.quantity_in_stock} value={formData.quantity_in_stock} onChange={e => setFormData({ ...formData, quantity_in_stock: e.target.value })} />
+                                    {errors.quantity_in_stock && <span style={{ color: 'var(--error, #ef4444)', fontSize: '11px', marginTop: '4px', display: 'block' }}>{errors.quantity_in_stock}</span>}
                                 </div>
-                                <div><label className="label">Reorder Level</label>
-                                    <input type="number" step="0.001" className="input-field" value={formData.reorder_level} onChange={e => setFormData({ ...formData, reorder_level: e.target.value })} />
+                                <div className={`form-group ${errors.reorder_level ? 'validated-field--error' : ''}`}>
+                                    <label className="label">Reorder Level</label>
+                                    <input type="number" step="0.001" className={`input-field ${errors.reorder_level ? 'field-error' : ''}`} aria-invalid={!!errors.reorder_level} value={formData.reorder_level} onChange={e => setFormData({ ...formData, reorder_level: e.target.value })} />
+                                    {errors.reorder_level && <span style={{ color: 'var(--error, #ef4444)', fontSize: '11px', marginTop: '4px', display: 'block' }}>{errors.reorder_level}</span>}
                                 </div>
-                                <div><label className="label">Min Stock</label>
-                                    <input type="number" step="0.001" className="input-field" value={formData.min_stock_level} onChange={e => setFormData({ ...formData, min_stock_level: e.target.value })} />
+                                <div className={`form-group ${errors.min_stock_level ? 'validated-field--error' : ''}`}>
+                                    <label className="label">Min Stock</label>
+                                    <input type="number" step="0.001" className={`input-field ${errors.min_stock_level ? 'field-error' : ''}`} aria-invalid={!!errors.min_stock_level} value={formData.min_stock_level} onChange={e => setFormData({ ...formData, min_stock_level: e.target.value })} />
+                                    {errors.min_stock_level && <span style={{ color: 'var(--error, #ef4444)', fontSize: '11px', marginTop: '4px', display: 'block' }}>{errors.min_stock_level}</span>}
                                 </div>
-                                <div><label className="label">Max Stock</label>
-                                    <input type="number" step="0.001" className="input-field" value={formData.max_stock_level} onChange={e => setFormData({ ...formData, max_stock_level: e.target.value })} />
+                                <div className={`form-group ${errors.max_stock_level ? 'validated-field--error' : ''}`}>
+                                    <label className="label">Max Stock</label>
+                                    <input type="number" step="0.001" className={`input-field ${errors.max_stock_level ? 'field-error' : ''}`} aria-invalid={!!errors.max_stock_level} value={formData.max_stock_level} onChange={e => setFormData({ ...formData, max_stock_level: e.target.value })} />
+                                    {errors.max_stock_level && <span style={{ color: 'var(--error, #ef4444)', fontSize: '11px', marginTop: '4px', display: 'block' }}>{errors.max_stock_level}</span>}
                                 </div>
-                                <div><label className="label">Location</label>
+                                <div className="form-group">
+                                    <label className="label">Location</label>
                                     <input className="input-field" value={formData.location} onChange={e => setFormData({ ...formData, location: e.target.value })} placeholder="e.g. Rack A, Shelf 3" />
                                 </div>
-                                <div><label className="label">Unit Cost (₹)</label>
-                                    <input type="number" step="0.01" className="input-field" value={formData.unit_cost} onChange={e => setFormData({ ...formData, unit_cost: e.target.value })} />
+                                <div className={`form-group ${errors.unit_cost ? 'validated-field--error' : ''}`}>
+                                    <label className="label">Unit Cost (₹)</label>
+                                    <input type="number" step="0.01" className={`input-field ${errors.unit_cost ? 'field-error' : ''}`} aria-invalid={!!errors.unit_cost} value={formData.unit_cost} onChange={e => setFormData({ ...formData, unit_cost: e.target.value })} />
+                                    {errors.unit_cost && <span style={{ color: 'var(--error, #ef4444)', fontSize: '11px', marginTop: '4px', display: 'block' }}>{errors.unit_cost}</span>}
                                 </div>
-                                <div><label className="label">Supplier</label>
+                                <div className="form-group">
+                                    <label className="label">Supplier</label>
                                     <input className="input-field" value={formData.supplier_name} onChange={e => setFormData({ ...formData, supplier_name: e.target.value })} />
                                 </div>
-                                <div><label className="label">Branch *</label>
-                                    <select className="input-field" value={formData.branch} onChange={e => setFormData({ ...formData, branch: e.target.value })}>
+                                <div className={`form-group ${errors.branch ? 'validated-field--error' : ''}`}>
+                                    <label className="label">Branch *</label>
+                                    <select className={`input-field ${errors.branch ? 'field-error' : ''}`} aria-invalid={!!errors.branch} value={formData.branch} onChange={e => setFormData({ ...formData, branch: e.target.value })}>
                                         <option value="Perambra">Perambra</option>
                                         <option value="Meppayur">Meppayur</option>
                                     </select>
+                                    {errors.branch && <span style={{ color: 'var(--error, #ef4444)', fontSize: '11px', marginTop: '4px', display: 'block' }}>{errors.branch}</span>}
                                 </div>
-                                <div className="span-3"><label className="label">Notes</label>
+                                <div className="span-3 form-group">
+                                    <label className="label">Notes</label>
                                     <textarea className="input-field" rows="2" value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} />
                                 </div>
                             </div>
                             <div className="row justify-end gap-sm mt-md">
-                                <button type="button" className="btn btn-ghost" onClick={() => setShowModal(false)}>Cancel</button>
+                                <button type="button" className="btn btn-ghost" onClick={() => { setShowModal(false); clearErrors(); }}>Cancel</button>
                                 <button type="submit" className="btn btn-primary">{modalMode === 'add' ? 'Create Item' : 'Save Changes'}</button>
                             </div>
                         </form>
@@ -825,6 +933,65 @@ const ConsumablesManagement = () => {
                                 <button type="button" className="btn btn-primary" onClick={handleAddRate}>Add Rate</button>
                             </div>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Restock Modal */}
+            {showRestockModal && selectedItem && (
+                <div className="modal-backdrop">
+                    <div className="modal" style={{ maxWidth: '420px' }}>
+                        <div className="modal-header">
+                            <h2 className="section-title">Restock Consumable: {selectedItem.name}</h2>
+                            <button className="modal-close" onClick={() => setShowRestockModal(false)}><X size={20} /></button>
+                        </div>
+                        <form onSubmit={handleRestockSubmit} className="stack-md" style={{ padding: 16 }}>
+                            <div className="form-group">
+                                <label className="label">Quantity *</label>
+                                <input type="number" step="0.001" className="input-field" required autoFocus
+                                    value={restockData.quantity}
+                                    onChange={e => setRestockData({ ...restockData, quantity: e.target.value })}
+                                    placeholder="Enter quantity to restock" />
+                            </div>
+                            <div className="form-group">
+                                <label className="label">Unit Price (₹) *</label>
+                                <input type="number" step="0.01" className="input-field" required
+                                    value={restockData.unit_price}
+                                    onChange={e => setRestockData({ ...restockData, unit_price: e.target.value })}
+                                    placeholder="Enter price per unit" />
+                            </div>
+                            <div className="form-group">
+                                <label className="label">Supplier Name</label>
+                                <input className="input-field"
+                                    value={restockData.supplier_name}
+                                    onChange={e => setRestockData({ ...restockData, supplier_name: e.target.value })}
+                                    placeholder="e.g. Supplier name" />
+                            </div>
+                            <div className="form-group">
+                                <label className="label">Purchase Date *</label>
+                                <input type="date" className="input-field" required
+                                    value={restockData.purchase_date}
+                                    onChange={e => setRestockData({ ...restockData, purchase_date: e.target.value })} />
+                            </div>
+                            <div className="form-group">
+                                <label className="label">Invoice Reference</label>
+                                <input className="input-field"
+                                    value={restockData.invoice_ref}
+                                    onChange={e => setRestockData({ ...restockData, invoice_ref: e.target.value })}
+                                    placeholder="e.g. INV-12345" />
+                            </div>
+                            <div className="form-group">
+                                <label className="label">Notes</label>
+                                <textarea className="input-field" rows="2"
+                                    value={restockData.notes}
+                                    onChange={e => setRestockData({ ...restockData, notes: e.target.value })}
+                                    placeholder="Optional notes" />
+                            </div>
+                            <div className="row justify-end gap-sm mt-md">
+                                <button type="button" className="btn btn-ghost" onClick={() => setShowRestockModal(false)}>Cancel</button>
+                                <button type="submit" className="btn btn-primary">Restock</button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}

@@ -70,7 +70,7 @@ const addPaymentSchema = z.object({
 });
 
 // ---- Branches ----
-const branchSchema = z.object({ // eslint-disable-line no-unused-vars
+const branchSchema = z.object({
     name: requiredString('Branch name'),
     address: z.string().optional().nullable().or(z.literal('')),
     phone: z.string().optional().nullable().or(z.literal('')),
@@ -81,6 +81,7 @@ const branchSchema = z.object({ // eslint-disable-line no-unused-vars
 // ---- Vendors ----
 const addVendorSchema = z.object({
     name: requiredString('Vendor name'),
+    type: z.enum(['Vendor', 'Utility', 'Salary', 'Rent', 'Other']).optional().default('Vendor'),
     contact_person: z.string().optional().nullable(),
     phone: z.string().regex(/^\d{10}$/, 'Phone must be exactly 10 digits').optional().nullable().or(z.literal('')),
     email: z.string().email('Invalid email format').optional().nullable().or(z.literal('')),
@@ -147,10 +148,10 @@ const addInventorySchema = z.object({
 const paperInventorySchema = z.object({
     paper_name: requiredString('Paper name'),
     size: z.string().optional().nullable().or(z.literal('')),
-    gsm: z.preprocess((v) => (v === '' || v === null ? undefined : Number(v)), z.number().int().min(0).optional()),
-    ream_count: z.preprocess((v) => (v === '' || v === null ? 0 : Number(v)), z.number().int().min(0).optional().default(0)),
-    sheets_per_ream: z.preprocess((v) => (v === '' || v === null ? 500 : Number(v)), z.number().int().min(1).optional().default(500)),
-    reorder_level_reams: z.preprocess((v) => (v === '' || v === null ? 0 : Number(v)), z.number().int().min(0).optional().default(0)),
+    gsm: z.preprocess((v) => (v === '' || v === null || v === undefined ? undefined : Number(v)), z.number().int().min(0).optional()),
+    ream_count: z.preprocess((v) => (v === '' || v === null || v === undefined ? undefined : Number(v)), z.number().int().min(0).optional().default(0)),
+    sheets_per_ream: z.preprocess((v) => (v === '' || v === null || v === undefined ? undefined : Number(v)), z.number().int().min(1).optional().default(500)),
+    reorder_level_reams: z.preprocess((v) => (v === '' || v === null || v === undefined ? undefined : Number(v)), z.number().int().min(0).optional().default(0)),
     supplier_name: z.string().optional().nullable().or(z.literal('')),
     purchase_price_per_ream: positiveDecimal,
     branch: z.enum(['Perambra', 'Meppayur']),
@@ -163,7 +164,7 @@ const addPaperTypeSchema = z.object({
     size_name: requiredString('Size name'),
     width_mm: positiveDecimal,
     height_mm: positiveDecimal,
-    gsm: z.preprocess((v) => (v === '' || v === null ? null : Number(v)), z.number().int().min(0).nullable()),
+    gsm: z.preprocess((v) => (v === '' || v === null || v === undefined ? null : Number(v)), z.number().int().min(0).nullable()),
     brand: z.string().optional().nullable(),
     is_active: z.boolean().optional().default(true)
 });
@@ -185,7 +186,7 @@ const paperRateSchema = z.object({
     effective_date: z.string().optional().nullable(),
     unit_type: z.enum(['Sheets', 'Reams', 'Packets']).default('Reams'),
     supplier_name: z.string().optional().nullable(),
-    supplier_id: z.preprocess((v) => (v === '' || v === null ? null : Number(v)), z.number().int().positive().nullable()),
+    supplier_id: z.preprocess((v) => (v === '' || v === null || v === undefined ? null : Number(v)), z.number().int().positive().nullable()),
     purchase_order_ref: z.string().optional().nullable(),
     notes: z.string().optional().nullable()
 });
@@ -195,8 +196,8 @@ const paperOutwardSchema = z.object({
     branch_id: z.preprocess(Number, z.number().int().positive()),
     quantity: z.preprocess(Number, z.number().int().positive()),
     unit: z.enum(['Reams', 'Packets', 'Sheets']).default('Reams'),
-    job_id: z.preprocess((v) => (v === '' || v === null ? null : Number(v)), z.number().int().positive().nullable()),
-    reference_id: z.preprocess((v) => (v === '' || v === null ? null : Number(v)), z.number().int().positive().nullable()),
+    job_id: z.preprocess((v) => (v === '' || v === null || v === undefined ? null : Number(v)), z.number().int().positive().nullable()),
+    reference_id: z.preprocess((v) => (v === '' || v === null || v === undefined ? null : Number(v)), z.number().int().positive().nullable()),
     reference_type: z.enum(['JOB', 'WASTE', 'SAMPLE', 'DEMO']).default('JOB'),
     notes: z.string().optional().nullable()
 });
@@ -225,8 +226,8 @@ const consumablesInventorySchema = z.object({
     brand: z.string().optional().nullable().or(z.literal('')),
     finish: z.string().optional().nullable().or(z.literal('')),
     color: z.string().optional().nullable().or(z.literal('')),
-    quantity_in_stock: z.preprocess((v) => (v === '' || v === null ? 0 : Number(v)), z.number().min(0).default(0)),
-    reorder_level: z.preprocess((v) => (v === '' || v === null ? 0 : Number(v)), z.number().min(0).default(0)),
+    quantity_in_stock: z.preprocess((v) => (v === '' || v === null || v === undefined ? undefined : Number(v)), z.number().min(0).default(0)),
+    reorder_level: z.preprocess((v) => (v === '' || v === null || v === undefined ? undefined : Number(v)), z.number().min(0).default(0)),
     min_stock_level: z.preprocess((v) => (v === '' || v === null || v === undefined ? undefined : Number(v)), z.number().min(0).optional()),
     max_stock_level: z.preprocess((v) => (v === '' || v === null || v === undefined ? undefined : Number(v)), z.number().min(0).optional()),
     location: z.string().optional().nullable().or(z.literal('')),
@@ -367,7 +368,7 @@ const addBlogPostSchema = z.object({
     content: z.string().optional().nullable(),
     excerpt: z.string().max(500, 'Excerpt too long').optional().nullable(),
     category: z.string().optional().nullable(),
-    author_id: z.preprocess((v) => (v === '' || v === null ? null : Number(v)), z.number().int().positive().nullable()),
+    author_id: z.preprocess((v) => (v === '' || v === null || v === undefined ? null : Number(v)), z.number().int().positive().nullable()),
     status: z.enum(['draft', 'published', 'archived']).optional().default('draft'),
     featured_image_url: z.string().optional().nullable().or(z.literal('')),
     meta_title: z.string().max(200, 'Meta title too long').optional().nullable(),
@@ -409,9 +410,9 @@ const machineReadingSchema = z.object({
     machine_id: z.preprocess(Number, z.number().int().positive()),
     reading_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD'),
     opening_count: z.preprocess(Number, z.number().int().min(0)),
-    closing_count: z.preprocess((v) => (v === '' || v === null ? null : Number(v)), z.number().int().min(0).nullable()),
-    error_threshold: z.preprocess((v) => (v === '' || v === null ? 100 : Number(v)), z.number().min(0).default(100)),
-    warning_threshold: z.preprocess((v) => (v === '' || v === null ? 80 : Number(v)), z.number().min(0).default(80))
+    closing_count: z.preprocess((v) => (v === '' || v === null || v === undefined ? null : Number(v)), z.number().int().min(0).nullable()),
+    error_threshold: z.preprocess((v) => (v === '' || v === null || v === undefined ? undefined : Number(v)), z.number().min(0).default(100)),
+    warning_threshold: z.preprocess((v) => (v === '' || v === null || v === undefined ? undefined : Number(v)), z.number().min(0).default(80))
 });
 
 // ---- Schedule ----
@@ -419,7 +420,7 @@ const addScheduleSchema = z.object({
     name: requiredString('Schedule name'),
     shift_start: z.string().regex(/^\d{2}:\d{2}$/, 'Start time must be HH:MM'),
     shift_end: z.string().regex(/^\d{2}:\d{2}$/, 'End time must be HH:MM'),
-    break_minutes: z.preprocess((v) => (v === '' || v === null ? 0 : Number(v)), z.number().int().min(0).max(120).default(0)),
+    break_minutes: z.preprocess((v) => (v === '' || v === null || v === undefined ? undefined : Number(v)), z.number().int().min(0).max(120).default(0)),
     effective_from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD'),
     effective_to: z.string().optional().nullable().or(z.literal('')),
     branch_id: z.preprocess(Number, z.number().int().positive()).optional().nullable()
@@ -498,6 +499,7 @@ const validate = (schema, property = 'body') => (req, res, next) => {
 
 module.exports = {
     validate,
+    branchSchema,
     loginSchema,
     changePasswordSchema,
     addStaffSchema,

@@ -3436,3 +3436,367 @@ select.em-input {
 .sb-product-dropdown {
   min-width: 280px;
 }
+
+/* ═══════════════════════════════════════════════════════════
+   PREMIUM UTILITIES TAB UI SYSTEM
+   ═══════════════════════════════════════════════════════════ */
+
+/* --- Utilities Stats Dashboard --- */
+.em-utility-stats {
+    margin-bottom: var(--space-20);
+    animation: slideDown 0.3s var(--ease-out);
+}
+
+.em-utility-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: var(--space-16);
+}
+
+.em-utility-stat-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-16) var(--space-20);
+    display: flex;
+    align-items: center;
+    gap: var(--space-14);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
+    transition: transform var(--transition-normal) var(--ease-out), 
+                box-shadow var(--transition-normal) var(--ease-out),
+                border-color var(--transition-normal) var(--ease-out);
+}
+
+.em-utility-stat-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(var(--accent-rgb, 99, 102, 241), 0.3);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
+}
+
+.em-utility-stat-icon {
+    width: 46px;
+    height: 46px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: transform var(--transition-fast) var(--ease-spring);
+}
+
+.em-utility-stat-card:hover .em-utility-stat-icon {
+    transform: scale(1.08);
+}
+
+/* Icon Color Modifiers */
+.em-utility-stat-icon--active {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+}
+.em-utility-stat-icon--connections {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+}
+.em-utility-stat-icon--dues {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+}
+.em-utility-stat-icon--spent {
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+}
+
+.em-utility-stat-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.em-utility-stat-label {
+    font-size: var(--text-2xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+}
+
+.em-utility-stat-value {
+    font-size: var(--text-lg);
+    font-weight: 800;
+    color: var(--text-primary);
+    line-height: 1.1;
+    font-family: var(--font-heading);
+}
+
+.em-utility-stat-sub {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.em-utility-stat-sub--highlight {
+    font-weight: 600;
+    color: var(--danger);
+}
+
+.em-utility-stat-sub--ok {
+    font-weight: 600;
+    color: var(--success);
+}
+
+/* --- Redesigned Category Cards --- */
+.em-utility-category {
+    margin-bottom: var(--space-16);
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+    transition: box-shadow var(--transition-normal) var(--ease-out),
+                transform var(--transition-normal) var(--ease-out);
+}
+
+.em-utility-category:hover {
+    box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.06), 0 4px 12px -2px rgba(0, 0, 0, 0.03);
+}
+
+/* Glassmorphic overlay category header card */
+.em-utility-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-12);
+    padding: var(--space-20);
+    background: var(--card) !important;
+    border: none !important;
+    cursor: pointer;
+    transition: background var(--transition-normal) var(--ease-out);
+    border-left: 4px solid var(--border) !important;
+    margin-bottom: 0 !important;
+    border-radius: 0 !important;
+}
+
+.em-utility-card:hover {
+    background: var(--hover) !important;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+/* Signature glow colors based on utility types */
+.em-utility-card--Electricity {
+    border-left-color: #f59e0b !important;
+}
+.em-utility-card--Electricity:hover {
+    box-shadow: inset 4px 0 0 #f59e0b, 0 8px 24px -4px rgba(245, 158, 11, 0.12) !important;
+}
+
+.em-utility-card--Internet-Broadband {
+    border-left-color: #3b82f6 !important;
+}
+.em-utility-card--Internet-Broadband:hover {
+    box-shadow: inset 4px 0 0 #3b82f6, 0 8px 24px -4px rgba(59, 130, 246, 0.12) !important;
+}
+
+.em-utility-card--Phone {
+    border-left-color: #10b981 !important;
+}
+.em-utility-card--Phone:hover {
+    box-shadow: inset 4px 0 0 #10b981, 0 8px 24px -4px rgba(16, 185, 129, 0.12) !important;
+}
+
+.em-utility-card--Water {
+    border-left-color: #06b6d4 !important;
+}
+.em-utility-card--Water:hover {
+    box-shadow: inset 4px 0 0 #06b6d4, 0 8px 24px -4px rgba(6, 182, 212, 0.12) !important;
+}
+
+/* Icon container decoration */
+.em-utility-icon-wrap {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-full);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: transform var(--transition-fast) var(--ease-spring);
+}
+
+.em-utility-card:hover .em-utility-icon-wrap {
+    transform: rotate(5deg) scale(1.05);
+}
+
+.em-utility-card__header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-12);
+}
+
+.em-utility-card__name {
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--text-primary);
+    font-family: var(--font-heading);
+}
+
+.em-utility-card__status {
+    padding-left: var(--space-56);
+    margin-top: -8px;
+    margin-bottom: var(--space-4);
+}
+
+.em-utility-card__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+    margin-top: var(--space-12);
+    border-top: 1px solid var(--border);
+    padding-top: var(--space-14);
+    width: 100%;
+}
+
+.em-utility-card__btn-bill {
+    flex: 1;
+    background: rgba(245, 158, 11, 0.08) !important;
+    color: #d97706 !important;
+    border: 1px solid rgba(245, 158, 11, 0.2) !important;
+    font-weight: 600;
+    transition: all var(--transition-fast) var(--ease-out);
+}
+.em-utility-card__btn-bill:hover {
+    background: #f59e0b !important;
+    color: #ffffff !important;
+    border-color: #f59e0b !important;
+}
+
+.em-utility-card__btn-pay {
+    flex: 1;
+    background: rgba(99, 102, 241, 0.08) !important;
+    color: #4f46e5 !important;
+    border: 1px solid rgba(99, 102, 241, 0.2) !important;
+    font-weight: 600;
+    transition: all var(--transition-fast) var(--ease-out);
+}
+.em-utility-card__btn-pay:hover {
+    background: #6366f1 !important;
+    color: #ffffff !important;
+    border-color: #6366f1 !important;
+}
+
+/* --- Expandable Connections Accordion List --- */
+.em-connections-list {
+    background: var(--elevated);
+    border-top: 1px solid var(--border) !important;
+    animation: slideDown 0.2s var(--ease-out);
+}
+
+.em-connections-header-grid {
+    display: grid;
+    grid-template-columns: 2fr 1.2fr 1fr 1.5fr 1fr;
+    padding: var(--space-8) var(--space-16);
+    background: var(--hover);
+    border-bottom: 1px solid var(--border);
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+}
+
+.em-connection-row-grid {
+    display: grid;
+    grid-template-columns: 2fr 1.2fr 1fr 1.5fr 1fr;
+    align-items: center;
+    padding: var(--space-12) var(--space-16);
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background var(--transition-fast) var(--ease-out);
+}
+
+.em-connection-row-grid:hover {
+    background: var(--hover);
+}
+
+.em-connection-indicator {
+    width: 6px;
+    height: 6px;
+    border-radius: var(--radius-full);
+    display: inline-block;
+    margin-right: var(--space-8);
+}
+.em-connection-indicator--active {
+    background: var(--success);
+    box-shadow: 0 0 8px var(--success);
+}
+.em-connection-indicator--inactive {
+    background: var(--text-muted);
+}
+
+.em-connection-badge-tag {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: var(--radius-xs);
+    font-weight: 600;
+    background: var(--background);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    display: inline-flex;
+    align-items: center;
+}
+
+.em-connection-bill-text {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 700;
+}
+.em-connection-bill-text--unpaid {
+    color: var(--danger);
+}
+.em-connection-bill-text--paid {
+    color: var(--success);
+}
+
+/* Add connection inline wrap */
+.em-connections-footer-action {
+    padding: var(--space-10) var(--space-16);
+    display: flex;
+    justify-content: flex-end;
+    background: var(--hover);
+}
+
+/* Animations */
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsive Overrides */
+@media (max-width: 768px) {
+    .em-connections-header-grid {
+        display: none;
+    }
+    .em-connection-row-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: var(--space-10);
+        padding: var(--space-14) var(--space-16);
+    }
+    .em-connection-row-grid > div:nth-child(1) {
+        grid-column: span 2;
+    }
+    .em-connection-row-grid > div:nth-child(4) {
+        text-align: right;
+    }
+    .em-connection-row-grid > div:nth-child(5) {
+        grid-column: span 2;
+        display: flex;
+        justify-content: flex-end;
+        border-top: 1px dashed var(--border);
+        padding-top: var(--space-8);
+        margin-top: var(--space-4);
+    }
+}

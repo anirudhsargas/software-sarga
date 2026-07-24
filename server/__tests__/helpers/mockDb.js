@@ -45,6 +45,16 @@ jest.mock('../../middleware/auth', () => {
   };
 });
 
+jest.mock('../../services/auditService', () => ({
+  createAuditEntry: jest.fn().mockResolvedValue(undefined),
+  getClientInfo: jest.fn(),
+  detectChanges: jest.fn(),
+  getModuleFromPath: jest.fn().mockReturnValue('Unknown'),
+  flushQueue: jest.fn().mockResolvedValue(undefined),
+  enqueueAudit: jest.fn(),
+  extractUserAgentInfo: jest.fn(),
+}));
+
 jest.mock('../../helpers/logger', () => ({
   info: jest.fn(),
   warn: jest.fn(),
@@ -119,13 +129,27 @@ jest.mock('multer', () => {
       next();
     },
   });
+  class DummyMulterError extends Error {}
+  multer.MulterError = DummyMulterError;
   multer.diskStorage = () => ({});
+  multer.memoryStorage = () => ({});
   return multer;
 });
+
+const setupMockPool = () => {
+  mockQuery.mockReset();
+  mockQuery.mockResolvedValue([[]]);
+  mockGetConnection.mockReset();
+  mockGetConnection.mockResolvedValue(mockConnection);
+};
+
+const mockQueryResult = (data) => {
+  return Array.isArray(data) ? data : [data];
+};
 
 afterEach(() => {
   mockQuery.mockReset();
   mockGetConnection.mockReset();
 });
 
-module.exports = { mockPool, mockQuery, mockGetConnection, mockConnection, mockRelease };
+module.exports = { mockPool, mockQuery, mockGetConnection, mockConnection, mockRelease, setupMockPool, mockQueryResult };

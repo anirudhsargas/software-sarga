@@ -2,7 +2,7 @@ import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useDebounce } from '../hooks/useDebounce';
 import { useNavigate } from 'react-router-dom';
-import { Users, Search, Phone, User, Loader2, Plus, X, Edit2, Trash2, Filter, Mail, MapPin, ChevronDown, SlidersHorizontal, RefreshCw, Download, Columns, LayoutGrid, List, ChevronRight, UserPlus, Briefcase, Clock, Check } from 'lucide-react';
+import { Users, Search, Phone, User, Loader2, Plus, X, Edit2, Trash2, Filter, Mail, MapPin, ChevronDown, SlidersHorizontal, RefreshCw, Download, Columns, LayoutGrid, List, ChevronRight, UserPlus, Briefcase, Clock, Check, FileText, FileSpreadsheet, Eye, EyeOff } from 'lucide-react';
 import auth from '../services/auth';
 import api from '../services/api';
 import localDb from '../services/localDb';
@@ -637,6 +637,100 @@ const Customers = () => {
     };
 
     const [searchFocused, setSearchFocused] = useState(false);
+    const [showExportMenu, setShowExportMenu] = useState(false);
+    const exportRef = useRef(null);
+    const [showColumnsMenu, setShowColumnsMenu] = useState(false);
+    const columnsRef = useRef(null);
+    const [visibleColumns, setVisibleColumns] = useState({
+        customer: true,
+        phone: true,
+        outstanding: true,
+        lastOrder: true
+    });
+
+    useEffect(() => {
+        if (!showColumnsMenu) return;
+        const handleClickOutside = (e) => {
+            if (columnsRef.current && !columnsRef.current.contains(e.target)) {
+                setShowColumnsMenu(false);
+            }
+        };
+        window.addEventListener('mousedown', handleClickOutside);
+        return () => window.removeEventListener('mousedown', handleClickOutside);
+    }, [showColumnsMenu]);
+
+    const toggleColumn = (col) => {
+        setVisibleColumns(prev => ({ ...prev, [col]: !prev[col] }));
+    };
+
+    useEffect(() => {
+        if (!showExportMenu) return;
+        const handleClickOutside = (e) => {
+            if (exportRef.current && !exportRef.current.contains(e.target)) {
+                setShowExportMenu(false);
+            }
+        };
+        window.addEventListener('mousedown', handleClickOutside);
+        return () => window.removeEventListener('mousedown', handleClickOutside);
+    }, [showExportMenu]);
+
+    const exportToPDF = async () => {
+        const [{ default: jsPDF }, autotable] = await Promise.all([
+            import('jspdf'),
+            import('jspdf-autotable'),
+        ]);
+        const doc = new jsPDF();
+        const tableColumn = ['Name', 'Type', 'Phone', 'Email', 'GST', 'Address', 'Outstanding', 'Last Order'];
+        const tableRows = customers.map(c => [
+            c.name || '',
+            c.type || '',
+            c.mobile ? c.mobile.replace(/^\+/, '') : '',
+            c.email || '',
+            c.gst || '',
+            c.address || '',
+            `₹${Number(c.outstanding_balance || 0).toLocaleString('en-IN')}`,
+            c.last_order_date ? new Date(c.last_order_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Never'
+        ]);
+        doc.setFontSize(16);
+        doc.text('Customer List', 14, 15);
+        doc.setFontSize(10);
+        doc.text(`Generated: ${new Date().toLocaleString('en-IN')}`, 14, 22);
+        doc.autoTable({
+            head: [tableColumn],
+            body: tableRows,
+            startY: 28,
+            styles: { fontSize: 8, cellPadding: 2 },
+            headStyles: { fillColor: [79, 70, 229], fontSize: 8, fontStyle: 'bold' },
+            alternateRowStyles: { fillColor: [245, 245, 250] }
+        });
+        doc.save('customers.pdf');
+        setShowExportMenu(false);
+    };
+
+    const exportToExcel = () => {
+        const headers = ['Name', 'Type', 'Phone', 'Email', 'GST', 'Address', 'Outstanding', 'Last Order'];
+        const rows = customers.map(c => [
+            c.name || '',
+            c.type || '',
+            c.mobile ? c.mobile.replace(/^\+/, '') : '',
+            c.email || '',
+            c.gst || '',
+            c.address || '',
+            Number(c.outstanding_balance || 0),
+            c.last_order_date ? new Date(c.last_order_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Never'
+        ]);
+        const csvContent = [headers, ...rows]
+            .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+            .join('\n');
+        const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'customers.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+        setShowExportMenu(false);
+    };
 
     return (
         <PageContainer>
@@ -814,12 +908,43 @@ const Customers = () => {
                             <LayoutGrid size={14} /> Compact
                         </button>
                     </div>
-                    <button className="toolbar-btn toolbar-btn--icon" title="Export" onClick={() => {}}>
-                        <Download size={14} />
-                    </button>
-                    <button className="toolbar-btn toolbar-btn--icon" title="Columns" onClick={() => {}}>
-                        <Columns size={14} />
-                    </button>
+                    <div className="export-dropdown-wrapper" ref={exportRef}>
+                        <button className="toolbar-btn toolbar-btn--icon" title="Export" onClick={() => setShowExportMenu(prev => !prev)}>
+                            <Download size={14} />
+                        </button>
+                        {showExportMenu && (
+                            <div className="export-dropdown-menu">
+                                <button className="export-dropdown-item" onClick={exportToPDF}>
+                                    <FileText size={14} /> Export as PDF
+                                </button>
+                                <button className="export-dropdown-item" onClick={exportToExcel}>
+                                    <FileSpreadsheet size={14} /> Export as Excel
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                    <div className="export-dropdown-wrapper" ref={columnsRef}>
+                        <button className="toolbar-btn toolbar-btn--icon" title="Columns" onClick={() => setShowColumnsMenu(prev => !prev)}>
+                            <Columns size={14} />
+                        </button>
+                        {showColumnsMenu && (
+                            <div className="export-dropdown-menu columns-dropdown-menu">
+                                <div className="columns-dropdown-header">Toggle Columns</div>
+                                <button className={`columns-dropdown-item ${visibleColumns.customer ? 'columns-dropdown-item--active' : ''}`} onClick={() => toggleColumn('customer')}>
+                                    {visibleColumns.customer ? <Eye size={14} /> : <EyeOff size={14} />} Customer
+                                </button>
+                                <button className={`columns-dropdown-item ${visibleColumns.phone ? 'columns-dropdown-item--active' : ''}`} onClick={() => toggleColumn('phone')}>
+                                    {visibleColumns.phone ? <Eye size={14} /> : <EyeOff size={14} />} Phone
+                                </button>
+                                <button className={`columns-dropdown-item ${visibleColumns.outstanding ? 'columns-dropdown-item--active' : ''}`} onClick={() => toggleColumn('outstanding')}>
+                                    {visibleColumns.outstanding ? <Eye size={14} /> : <EyeOff size={14} />} Outstanding
+                                </button>
+                                <button className={`columns-dropdown-item ${visibleColumns.lastOrder ? 'columns-dropdown-item--active' : ''}`} onClick={() => toggleColumn('lastOrder')}>
+                                    {visibleColumns.lastOrder ? <Eye size={14} /> : <EyeOff size={14} />} Last Order
+                                </button>
+                            </div>
+                        )}
+                    </div>
                     <button className="toolbar-btn toolbar-btn--icon" title="Refresh" onClick={() => fetchCustomers(page)}>
                         <RefreshCw size={14} />
                     </button>
@@ -829,12 +954,22 @@ const Customers = () => {
             {/* ═══ Customer Table Card ═══ */}
             <div className="customer-table-card">
                 {!loading && customers.length > 0 && (
-                    <div className="customer-table-grid">
+                    <div className="customer-table-grid" style={{
+                        gridTemplateColumns: [
+                            '52px',
+                            visibleColumns.customer && '2fr',
+                            visibleColumns.phone && '1.4fr',
+                            visibleColumns.outstanding && '1fr',
+                            visibleColumns.lastOrder && '1.2fr',
+                            '140px',
+                            '36px'
+                        ].filter(Boolean).join(' ')
+                    }}>
                         <div className="customer-table-header-cell"></div>
-                        <div className="customer-table-header-cell">Customer</div>
-                        <div className="customer-table-header-cell">Phone</div>
-                        <div className="customer-table-header-cell">Outstanding</div>
-                        <div className="customer-table-header-cell">Last Order</div>
+                        {visibleColumns.customer && <div className="customer-table-header-cell">Customer</div>}
+                        {visibleColumns.phone && <div className="customer-table-header-cell">Phone</div>}
+                        {visibleColumns.outstanding && <div className="customer-table-header-cell">Outstanding</div>}
+                        {visibleColumns.lastOrder && <div className="customer-table-header-cell">Last Order</div>}
                         <div className="customer-table-header-cell">Actions</div>
                         <div className="customer-table-header-cell"></div>
                     </div>
@@ -893,6 +1028,17 @@ const Customers = () => {
                             <div
                                 className={`customer-row customer-row--${density}`}
                                 onClick={() => navigate(`/dashboard/customers/${c.id}`)}
+                                style={{
+                                    gridTemplateColumns: [
+                                        '52px',
+                                        visibleColumns.customer && '2fr',
+                                        visibleColumns.phone && '1.4fr',
+                                        visibleColumns.outstanding && '1fr',
+                                        visibleColumns.lastOrder && '1.2fr',
+                                        '140px',
+                                        '36px'
+                                    ].filter(Boolean).join(' ')
+                                }}
                             >
                                 {/* Avatar */}
                                 <div className="customer-avatar">
@@ -902,18 +1048,21 @@ const Customers = () => {
                                 </div>
 
                                 {/* Customer Info */}
-                                <div className="customer-info" onClick={e => e.stopPropagation()}>
-                                    <span className="customer-name" title={c.name}>{c.name}</span>
-                                    <span className={`customer-type-badge customer-type-badge--${(c.type || 'walk-in').toLowerCase().replace(' ', '-')}`}>
-                                        {c.type || 'Walk-in'}
-                                    </span>
-                                </div>
+                                {visibleColumns.customer && (
+                                    <div className="customer-info" onClick={e => e.stopPropagation()}>
+                                        <span className="customer-name" title={c.name}>{c.name}</span>
+                                        <span className={`customer-type-badge customer-type-badge--${(c.type || 'walk-in').toLowerCase().replace(' ', '-')}`}>
+                                            {c.type || 'Walk-in'}
+                                        </span>
+                                    </div>
+                                )}
 
                                 {/* Phone */}
-                                <div className="customer-phone">
-                                    <span className="phone-number" onClick={e => e.stopPropagation()}>{formatForDisplay(c.mobile)}</span>
-                                    <span className="phone-actions">
-                                        <a href={telHref(c.mobile)} title="Call" className="phone-action-btn" onClick={e => { e.stopPropagation(); }}>
+                                {visibleColumns.phone && (
+                                    <div className="customer-phone">
+                                        <span className="phone-number" onClick={e => e.stopPropagation()}>{formatForDisplay(c.mobile)}</span>
+                                        <span className="phone-actions">
+                                            <a href={telHref(c.mobile)} title="Call" className="phone-action-btn" onClick={e => { e.stopPropagation(); }}>
                                             <Phone size={13} />
                                         </a>
                                         <a href={whatsappUrl(c.mobile, `Dear ${c.name || 'Customer'},\n\nGreetings from Sarga! 🙏`)} target="_blank" rel="noopener noreferrer" title="WhatsApp" className="phone-action-btn" onClick={e => { e.stopPropagation(); }}>
@@ -921,19 +1070,24 @@ const Customers = () => {
                                         </a>
                                     </span>
                                 </div>
+                                )}
 
                                 {/* Outstanding */}
-                                <div className={`customer-outstanding customer-outstanding--${outstandingStatus}`} onClick={e => e.stopPropagation()}>
-                                    <span className="outstanding-indicator">
-                                        <span className={`outstanding-dot outstanding-dot--${outstandingStatus}`} />
-                                        <span>{outstanding > 0 ? `₹${outstanding.toLocaleString('en-IN')}` : '—'}</span>
-                                    </span>
-                                </div>
+                                {visibleColumns.outstanding && (
+                                    <div className={`customer-outstanding customer-outstanding--${outstandingStatus}`} onClick={e => e.stopPropagation()}>
+                                        <span className="outstanding-indicator">
+                                            <span className={`outstanding-dot outstanding-dot--${outstandingStatus}`} />
+                                            <span>{outstanding > 0 ? `₹${outstanding.toLocaleString('en-IN')}` : '—'}</span>
+                                        </span>
+                                    </div>
+                                )}
 
                                 {/* Last Order */}
-                                <div className={`customer-last-order ${!formattedLastOrder ? 'customer-last-order--empty' : ''}`}>
-                                    {formattedLastOrder || 'Never ordered'}
-                                </div>
+                                {visibleColumns.lastOrder && (
+                                    <div className={`customer-last-order ${!formattedLastOrder ? 'customer-last-order--empty' : ''}`}>
+                                        {formattedLastOrder || 'Never ordered'}
+                                    </div>
+                                )}
 
                                 {/* Actions */}
                                 <div className="customer-actions" onClick={e => e.stopPropagation()}>

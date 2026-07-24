@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Upload, X, Loader2, AlertCircle, CheckCircle, Plus, Trash2, Camera, Image as ImageIcon, ChevronRight, ArrowLeft, Search, Package, FileText, Eye } from 'lucide-react';
+import { Upload, X, Loader2, AlertCircle, CheckCircle, Plus, Trash2, Camera, Image as ImageIcon, ChevronRight, ArrowLeft, Search, Package, FileText, Eye, Receipt, Clock } from 'lucide-react';
 import api, { imgUrl } from '../../services/api';
 import toast from 'react-hot-toast';
 import { onSocketEvent, getSocket } from '../../services/socketClient';
@@ -401,7 +401,7 @@ function VendorSearchCell({ vendorName, vendorMatch, selectedVendorId, onSelect,
   );
 }
 
-const BillExtractionReview = ({ onClose, onSuccess, onError, stayOnSave = false }) => {
+const BillExtractionReview = ({ onClose, onSuccess, onError, stayOnSave = false, target = 'products' }) => {
   const [step, setStep] = useState('upload');
   const [pages, setPages] = useState([]);
   const [compressing, setCompressing] = useState(false);
@@ -430,6 +430,10 @@ const BillExtractionReview = ({ onClose, onSuccess, onError, stayOnSave = false 
   const [recentBillsLoading, setRecentBillsLoading] = useState(false);
   const [fullBillDocId, setFullBillDocId] = useState(null);
 
+  // Recent customer payment bills states
+  const [recentCustomerBills, setRecentCustomerBills] = useState([]);
+  const [recentCustomerBillsLoading, setRecentCustomerBillsLoading] = useState(false);
+
   // Inline Vendor Modal states
   const [showVendorModal, setShowVendorModal] = useState(false);
   const [vendorModalInitialName, setVendorModalInitialName] = useState('');
@@ -439,6 +443,16 @@ const BillExtractionReview = ({ onClose, onSuccess, onError, stayOnSave = false 
   const [addProductInitialName, setAddProductInitialName] = useState('');
   const [addProductRowIndex, setAddProductRowIndex] = useState(null);
   const [productHierarchy, setProductHierarchy] = useState([]);
+
+  // Consumables bill-confirm states
+  const isConsumables = target === 'consumables';
+  const [consumablesBillMeta, setConsumablesBillMeta] = useState({
+    vendor_id: '',
+    due_date: '',
+    branch_id: '',
+  });
+  const [consumablesConfirmError, setConsumablesConfirmError] = useState('');
+  const [branches, setBranches] = useState([]);
 
   const fetchProducts = useCallback(async () => {
     try {
@@ -489,9 +503,36 @@ const BillExtractionReview = ({ onClose, onSuccess, onError, stayOnSave = false 
     }
   }, []);
 
+  const fetchRecentCustomerBills = useCallback(async () => {
+    setRecentCustomerBillsLoading(true);
+    try {
+      const res = await api.get('/customer-payments', { params: { limit: 10, page: 1 } });
+      const data = res.data?.data || res.data || [];
+      setRecentCustomerBills(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to fetch recent customer bills in BillExtractionReview:', err);
+    } finally {
+      setRecentCustomerBillsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchRecentBills();
-  }, [fetchRecentBills]);
+    fetchRecentCustomerBills();
+  }, [fetchRecentBills, fetchRecentCustomerBills]);
+
+  // Fetch branches for consumables mode
+  useEffect(() => {
+    if (isConsumables) {
+      api.get('/website/branches').then(res => {
+        const data = res.data?.branches || res.data || [];
+        setBranches(Array.isArray(data) ? data : []);
+        if (data.length > 0) {
+          setConsumablesBillMeta(prev => ({ ...prev, branch_id: String(data[0].id) }));
+        }
+      }).catch(err => console.error('Failed to fetch branches for consumables bill:', err));
+    }
+  }, [isConsumables]);
 
   const getProductSuggestions = (searchText) => {
     if (!allProducts.length) return [];
@@ -678,6 +719,9 @@ const BillExtractionReview = ({ onClose, onSuccess, onError, stayOnSave = false 
       }
       if (socketId) {
         formData.append('socketId', socketId);
+      }
+      if (isConsumables) {
+        formData.append('target', 'consumables');
       }
       const response = await api.post('/bills/extract-data', formData, {
         timeout: 120000,
@@ -889,6 +933,7 @@ const BillExtractionReview = ({ onClose, onSuccess, onError, stayOnSave = false 
       if (stayOnSave) {
         handleRetry();
         fetchRecentBills();
+        fetchRecentCustomerBills();
       } else {
         onSuccess?.();
       }
@@ -899,7 +944,78 @@ const BillExtractionReview = ({ onClose, onSuccess, onError, stayOnSave = false 
     } finally {
       setSaving(false);
     }
-  }, [form, pages, itemMatches, productOverrides, onSuccess, onError, stayOnSave, handleRetry, fetchRecentBills]);
+  }, [form, pages, itemMatches, productOverrides, onSuccess, onError, stayOnSave, handleRetry, fetchRecentBills, fetchRecentCustomerBills]);
+
+  const handleConsumablesConfirm = useCallback(async () => {
+    if (!form.vendor_name.trim() && !selectedVendorId) {
+      setConsumablesConfirmError('Vendor is required');
+      return;
+    }
+    if (!consumablesBillMeta.due_date) {
+      setConsumablesConfirmError('Due date is required');
+      return;
+    }
+    if (!consumablesBillMeta.branch_id) {
+      setConsumablesConfirmError('Branch is required');
+      return;
+    }
+    const filteredItems = form.items.filter(i => i.description && i.description.trim());
+    if (filteredItems.length === 0) {
+      setConsumablesConfirmError('At least one line item is required');
+      return;
+    }
+
+    setSaving(true);
+    setConsumablesConfirmError('');
+
+    try {
+      const lineItems = filteredItems.map((item, idx) => {
+        const origIdx = item._originalIndex >= 0 ? item._originalIndex : idx;
+        const match = itemMatches[origIdx] || {};
+        return {
+          name: item.description,
+          quantity: Number(item.quantity) || 0,
+          unit_price: Number(item.rate) || 0,
+          amount: Number(item.amount) || 0,
+          consumable_id: match.consumable_id || null,
+          is_new_consumable: !match.consumable_id,
+          brand: match.brand || null,
+          size_name: match.size || null,
+          gsm: match.gsm || null,
+          category: 'other',
+          unit: 'piece',
+          notes: null,
+        };
+      });
+
+      const confirmData = new FormData();
+      if (pages.length > 0) confirmData.append('file', pages[0]);
+      confirmData.append('vendor_id', selectedVendorId || '');
+      confirmData.append('invoice_ref', form.bill_number || '');
+      confirmData.append('bill_date', form.bill_date || new Date().toISOString().split('T')[0]);
+      confirmData.append('due_date', consumablesBillMeta.due_date);
+      confirmData.append('branch_id', consumablesBillMeta.branch_id);
+      confirmData.append('line_items', JSON.stringify(lineItems));
+
+      await api.post('/inventory/consumables/bill-confirm', confirmData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 60000,
+      });
+
+      toast.success('Consumables bill confirmed and stock updated!');
+      if (stayOnSave) {
+        handleRetry();
+      } else {
+        onSuccess?.();
+      }
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || 'Failed to confirm bill';
+      setConsumablesConfirmError(msg);
+      onError?.(msg);
+    } finally {
+      setSaving(false);
+    }
+  }, [form, pages, itemMatches, selectedVendorId, consumablesBillMeta, stayOnSave, handleRetry, onSuccess, onError]);
 
   const handleRetry = useCallback(() => {
     setError('');
@@ -1155,6 +1271,64 @@ const BillExtractionReview = ({ onClose, onSuccess, onError, stayOnSave = false 
                         </td>
                       </tr>
                     ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {stayOnSave && (
+          <div className="extraction-recent-section" style={{ marginTop: '32px', borderTop: '1px solid var(--border)', paddingTop: '24px' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Receipt size={18} /> Recent Customer Payments
+            </h3>
+            {recentCustomerBillsLoading ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)', fontSize: '14px', padding: '12px' }}>
+                <Loader2 className="spin" size={16} /> Loading recent customer payments...
+              </div>
+            ) : recentCustomerBills.length === 0 ? (
+              <div style={{ padding: '24px', textAlign: 'center', border: '1px dashed var(--border)', borderRadius: '8px', color: 'var(--text-secondary)', fontSize: '14px' }}>
+                No recent customer payments found.
+              </div>
+            ) : (
+              <div className="extraction-items-table-wrapper" style={{ overflowX: 'auto' }}>
+                <table className="extraction-items-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: 100 }}>Date</th>
+                      <th>Customer</th>
+                      <th style={{ width: 100 }}>Method</th>
+                      <th style={{ width: 90 }}>Status</th>
+                      <th style={{ width: 110, textAlign: 'right' }}>Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentCustomerBills.map((p) => {
+                      const paid = isNaN(Number(p.advance_paid)) ? 0 : Number(p.advance_paid);
+                      const vStatus = p.payment_method === 'Cash' ? 'N/A' : (p.verification_status || 'Pending');
+                      return (
+                        <tr key={p.id}>
+                          <td style={{ whiteSpace: 'nowrap', fontSize: '13px' }}>{fmtDate(p.payment_date)}</td>
+                          <td style={{ wordBreak: 'break-word', fontWeight: 500, fontSize: '13px' }}>{p.customer_name || 'Walk-in'}</td>
+                          <td style={{ fontSize: '13px' }}>{p.payment_method || '—'}</td>
+                          <td style={{ fontSize: '13px' }}>
+                            {vStatus === 'N/A' ? (
+                              <span style={{ color: 'var(--text-muted)' }}>—</span>
+                            ) : vStatus === 'Verified' ? (
+                              <span style={{ color: 'var(--success)', fontWeight: 600 }}>Verified</span>
+                            ) : vStatus === 'Rejected' ? (
+                              <span style={{ color: 'var(--destructive)', fontWeight: 600 }}>Rejected</span>
+                            ) : (
+                              <span style={{ color: 'var(--warning)', fontWeight: 600 }}>Pending</span>
+                            )}
+                          </td>
+                          <td style={{ textAlign: 'right', fontWeight: 600, fontSize: '13px' }}>
+                            ₹{paid.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1618,9 +1792,40 @@ const BillExtractionReview = ({ onClose, onSuccess, onError, stayOnSave = false 
         <button className="btn btn-outline" onClick={handleRetry}>
           {pages.length > 0 ? 'Upload Different Bill' : 'Go Back'}
         </button>
-        <button className="btn btn-primary" onClick={handleGoToPricing} disabled={saving}>
-          Next — Set Prices <ChevronRight size={16} />
-        </button>
+        {isConsumables ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
+            {consumablesConfirmError && (
+              <div className="extraction-error-banner" style={{ marginBottom: 0 }}>
+                <AlertCircle size={14} /><span>{consumablesConfirmError}</span>
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <select
+                className="extraction-field-select"
+                style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8 }}
+                value={consumablesBillMeta.branch_id}
+                onChange={e => setConsumablesBillMeta(prev => ({ ...prev, branch_id: e.target.value }))}
+              >
+                {branches.map(b => <option key={b.id} value={String(b.id)}>{b.name}</option>)}
+              </select>
+              <input
+                type="date"
+                style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)' }}
+                placeholder="Due date"
+                value={consumablesBillMeta.due_date}
+                onChange={e => setConsumablesBillMeta(prev => ({ ...prev, due_date: e.target.value }))}
+              />
+              <button className="btn btn-primary" onClick={handleConsumablesConfirm} disabled={saving}>
+                {saving ? <Loader2 className="spin" size={16} /> : <CheckCircle size={16} />}
+                {saving ? 'Confirming...' : 'Confirm & Update Stock'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button className="btn btn-primary" onClick={handleGoToPricing} disabled={saving}>
+            Next — Set Prices <ChevronRight size={16} />
+          </button>
+        )}
       </div>
 
       {showVendorModal && (

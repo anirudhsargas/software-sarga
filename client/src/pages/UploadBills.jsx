@@ -9,6 +9,7 @@ const UploadBills = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const redirectPath = searchParams.get('redirect') || '/dashboard/expenses?tab=dashboard';
+  const target = searchParams.get('target') || 'products';
   const userRole = auth.getUser()?.role;
 
   // Navigation Guard
@@ -20,8 +21,9 @@ const UploadBills = () => {
   }, [userRole, navigate]);
 
   return (
-    <PageContainer title="AI Bill Extraction">
+    <PageContainer title={target === 'consumables' ? 'Upload Consumables Bill' : 'AI Bill Extraction'}>
       <BillExtractionReview
+        target={target}
         stayOnSave={true}
         onClose={() => navigate(redirectPath)}
         onSuccess={() => {

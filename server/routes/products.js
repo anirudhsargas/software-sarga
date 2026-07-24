@@ -690,6 +690,50 @@ module.exports = (upload, removeUploadFile) => {
         const slabs = typeof req.body.slabs === 'string' ? JSON.parse(req.body.slabs) : req.body.slabs;
         const extras = typeof req.body.extras === 'string' ? JSON.parse(req.body.extras) : req.body.extras;
         const parsedExtraInv = typeof extraInv === 'string' ? JSON.parse(extraInv) : (extraInv || {});
+
+        if (!subcategory_id) {
+            return res.status(400).json({ message: 'Subcategory is required' });
+        }
+        if (!name || !String(name).trim()) {
+            return res.status(400).json({ message: 'Product name is required' });
+        }
+
+        // Check for duplicate product in the same company
+        const checkName = String(name || '').trim();
+        const checkCompName = String(company_name || '').trim();
+        const checkCompCode = String(company_code || '').trim();
+
+        if (checkName) {
+            let dupQuery = "SELECT id FROM sarga_products WHERE LOWER(TRIM(name)) = LOWER(?) AND is_deleted = 0";
+            let dupParams = [checkName];
+
+            if (checkCompName || checkCompCode) {
+                dupQuery += " AND (";
+                const conditions = [];
+                if (checkCompName) {
+                    conditions.push("LOWER(TRIM(company_name)) = LOWER(?)");
+                    dupParams.push(checkCompName);
+                }
+                if (checkCompCode) {
+                    conditions.push("LOWER(TRIM(company_code)) = LOWER(?)");
+                    dupParams.push(checkCompCode);
+                }
+                dupQuery += conditions.join(" OR ") + ")";
+            } else {
+                dupQuery += " AND (company_name IS NULL OR TRIM(company_name) = '') AND (company_code IS NULL OR TRIM(company_code) = '')";
+            }
+
+            try {
+                const [dupRows] = await pool.query(dupQuery, dupParams);
+                if (dupRows.length > 0) {
+                    return res.status(400).json({ message: 'A product with this name already exists for the specified company.' });
+                }
+            } catch (dbErr) {
+                console.error('Check duplicate product error:', dbErr);
+                return res.status(500).json({ message: 'Database error' });
+            }
+        }
+
         let imageUrl = null;
         if (req.file) {
             let cloudinaryResult;
@@ -706,9 +750,6 @@ module.exports = (upload, removeUploadFile) => {
 
         const connection = await pool.getConnection();
         try {
-            if (!subcategory_id) {
-                return res.status(400).json({ message: 'Subcategory is required' });
-            }
             if (!name || !String(name).trim()) {
                 return res.status(400).json({ message: 'Product name is required' });
             }
@@ -842,6 +883,53 @@ module.exports = (upload, removeUploadFile) => {
         const slabs = typeof req.body.slabs === 'string' ? JSON.parse(req.body.slabs) : req.body.slabs;
         const extras = typeof req.body.extras === 'string' ? JSON.parse(req.body.extras) : req.body.extras;
         const parsedExtraInv = typeof extraInv === 'string' ? JSON.parse(extraInv) : (extraInv || {});
+
+        let product;
+        try {
+            const [productRows] = await pool.query('SELECT * FROM sarga_products WHERE id = ? LIMIT 1', [id]);
+            product = productRows[0];
+        } catch (dbErr) {
+            console.error('Fetch product for update validation error:', dbErr);
+            return res.status(500).json({ message: 'Database error' });
+        }
+        if (!product) return res.status(404).json({ message: 'Product not found' });
+
+        // Check for duplicate product in the same company (excluding current product)
+        const checkName = String(name !== undefined ? name : product.name).trim();
+        const checkCompName = String(company_name !== undefined ? company_name : product.company_name || '').trim();
+        const checkCompCode = String(company_code !== undefined ? company_code : product.company_code || '').trim();
+
+        if (checkName) {
+            let dupQuery = "SELECT id FROM sarga_products WHERE LOWER(TRIM(name)) = LOWER(?) AND id != ? AND is_deleted = 0";
+            let dupParams = [checkName, id];
+
+            if (checkCompName || checkCompCode) {
+                dupQuery += " AND (";
+                const conditions = [];
+                if (checkCompName) {
+                    conditions.push("LOWER(TRIM(company_name)) = LOWER(?)");
+                    dupParams.push(checkCompName);
+                }
+                if (checkCompCode) {
+                    conditions.push("LOWER(TRIM(company_code)) = LOWER(?)");
+                    dupParams.push(checkCompCode);
+                }
+                dupQuery += conditions.join(" OR ") + ")";
+            } else {
+                dupQuery += " AND (company_name IS NULL OR TRIM(company_name) = '') AND (company_code IS NULL OR TRIM(company_code) = '')";
+            }
+
+            try {
+                const [dupRows] = await pool.query(dupQuery, dupParams);
+                if (dupRows.length > 0) {
+                    return res.status(400).json({ message: 'A product with this name already exists for the specified company.' });
+                }
+            } catch (dbErr) {
+                console.error('Check duplicate product for update error:', dbErr);
+                return res.status(500).json({ message: 'Database error' });
+            }
+        }
+
         let imageUrl = req.body.image_url;
         if (req.file) {
             let cloudinaryResult;
@@ -857,10 +945,6 @@ module.exports = (upload, removeUploadFile) => {
         // Intercept Designer, Front Office - create request instead of direct update
         if (!['Admin', 'Accountant'].includes(req.user.role)) {
             try {
-                // Fetch product details
-                const [productRows] = await pool.query('SELECT * FROM sarga_products WHERE id = ? LIMIT 1', [id]);
-                const product = productRows[0];
-                if (!product) return res.status(404).json({ message: 'Product not found' });
 
                 // Check pending request
                 const [pendingRows] = await pool.query(`SELECT id FROM sarga_product_update_requests WHERE product_id = ? AND status = 'pending' LIMIT 1`, [id]);
@@ -1424,6 +1508,37 @@ module.exports = (upload, removeUploadFile) => {
                 const product = productRows[0];
                 if (!product) return res.status(404).json({ message: 'Product not found' });
 
+                // Check for duplicate product in the same company (excluding current product)
+                const checkName = String(proposedData.name !== undefined ? proposedData.name : product.name).trim();
+                const checkCompName = String(proposedData.company_name !== undefined ? proposedData.company_name : product.company_name || '').trim();
+                const checkCompCode = String(proposedData.company_code !== undefined ? proposedData.company_code : product.company_code || '').trim();
+
+                if (checkName) {
+                    let dupQuery = "SELECT id FROM sarga_products WHERE LOWER(TRIM(name)) = LOWER(?) AND id != ? AND is_deleted = 0";
+                    let dupParams = [checkName, productId];
+
+                    if (checkCompName || checkCompCode) {
+                        dupQuery += " AND (";
+                        const conditions = [];
+                        if (checkCompName) {
+                            conditions.push("LOWER(TRIM(company_name)) = LOWER(?)");
+                            dupParams.push(checkCompName);
+                        }
+                        if (checkCompCode) {
+                            conditions.push("LOWER(TRIM(company_code)) = LOWER(?)");
+                            dupParams.push(checkCompCode);
+                        }
+                        dupQuery += conditions.join(" OR ") + ")";
+                    } else {
+                        dupQuery += " AND (company_name IS NULL OR TRIM(company_name) = '') AND (company_code IS NULL OR TRIM(company_code) = '')";
+                    }
+
+                    const [dupRows] = await pool.query(dupQuery, dupParams);
+                    if (dupRows.length > 0) {
+                        return res.status(400).json({ message: 'A product with this name already exists for the specified company.' });
+                    }
+                }
+
                 const [pendingRows] = await pool.query(`SELECT id FROM sarga_product_update_requests WHERE product_id = ? AND status = 'pending' LIMIT 1`, [productId]);
                 if (pendingRows.length > 0) return res.status(409).json({ message: 'An update request is already pending for this product.' });
 
@@ -1554,6 +1669,37 @@ module.exports = (upload, removeUploadFile) => {
 
                 if (action === 'approve') {
                     if (requestType === 'add') {
+                        // Check for duplicate before insertion
+                        const checkName = String(proposed.name || '').trim();
+                        const checkCompName = String(proposed.company_name || '').trim();
+                        const checkCompCode = String(proposed.company_code || '').trim();
+
+                        if (checkName) {
+                            let dupQuery = "SELECT id FROM sarga_products WHERE LOWER(TRIM(name)) = LOWER(?) AND is_deleted = 0";
+                            let dupParams = [checkName];
+
+                            if (checkCompName || checkCompCode) {
+                                dupQuery += " AND (";
+                                const conditions = [];
+                                if (checkCompName) {
+                                    conditions.push("LOWER(TRIM(company_name)) = LOWER(?)");
+                                    dupParams.push(checkCompName);
+                                }
+                                if (checkCompCode) {
+                                    conditions.push("LOWER(TRIM(company_code)) = LOWER(?)");
+                                    dupParams.push(checkCompCode);
+                                }
+                                dupQuery += conditions.join(" OR ") + ")";
+                            } else {
+                                dupQuery += " AND (company_name IS NULL OR TRIM(company_name) = '') AND (company_code IS NULL OR TRIM(company_code) = '')";
+                            }
+
+                            const [dupRows] = await connection.query(dupQuery, dupParams);
+                            if (dupRows.length > 0) {
+                                await connection.rollback();
+                                return res.status(400).json({ message: 'A product with this name already exists for the specified company.' });
+                            }
+                        }
                         // 1. Get next position
                         const [posRows] = await connection.query(
                             "SELECT COALESCE(MAX(position), 0) + 1 AS nextPos FROM sarga_products WHERE subcategory_id = ?",
@@ -1635,6 +1781,38 @@ module.exports = (upload, removeUploadFile) => {
                         // edit
                         // Apply proposed changes to product row
                         const prodId = requestRow.product_id;
+
+                        // Check for duplicate before update
+                        const checkName = String(proposed.name !== undefined ? proposed.name : current.name || '').trim();
+                        const checkCompName = String(proposed.company_name !== undefined ? proposed.company_name : current.company_name || '').trim();
+                        const checkCompCode = String(proposed.company_code !== undefined ? proposed.company_code : current.company_code || '').trim();
+
+                        if (checkName) {
+                            let dupQuery = "SELECT id FROM sarga_products WHERE LOWER(TRIM(name)) = LOWER(?) AND id != ? AND is_deleted = 0";
+                            let dupParams = [checkName, prodId];
+
+                            if (checkCompName || checkCompCode) {
+                                dupQuery += " AND (";
+                                const conditions = [];
+                                if (checkCompName) {
+                                    conditions.push("LOWER(TRIM(company_name)) = LOWER(?)");
+                                    dupParams.push(checkCompName);
+                                }
+                                if (checkCompCode) {
+                                    conditions.push("LOWER(TRIM(company_code)) = LOWER(?)");
+                                    dupParams.push(checkCompCode);
+                                }
+                                dupQuery += conditions.join(" OR ") + ")";
+                            } else {
+                                dupQuery += " AND (company_name IS NULL OR TRIM(company_name) = '') AND (company_code IS NULL OR TRIM(company_code) = '')";
+                            }
+
+                            const [dupRows] = await connection.query(dupQuery, dupParams);
+                            if (dupRows.length > 0) {
+                                await connection.rollback();
+                                return res.status(400).json({ message: 'A product with this name already exists for the specified company.' });
+                            }
+                        }
 
                         // Map fields to update
                         const upFields = ['subcategory_id','name','product_code','company_name','company_code','size','calculation_type','description','image_url','has_paper_rate','paper_rate','has_double_side_rate','inventory_item_id','is_physical_product'];

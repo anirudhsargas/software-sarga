@@ -5,7 +5,20 @@ jest.mock('../middleware/validate');
 jest.mock('../helpers/logger', () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() }));
 jest.mock('node-cache');
 jest.mock('../helpers/cloudinaryUpload', () => ({ cloudinary: {}, getCloudinaryUrl: jest.fn() }));
-jest.mock('axios');
+jest.mock('axios', () => {
+  const mockAxios = {
+    create: jest.fn(() => mockAxios),
+    interceptors: {
+      request: { use: jest.fn() },
+      response: { use: jest.fn() },
+    },
+    post: jest.fn(),
+    get: jest.fn(),
+    put: jest.fn(),
+    delete: jest.fn(),
+  };
+  return mockAxios;
+});
 
 const axios = require('axios');
 const { mockPool, mockConnection, setupMockPool, mockQueryResult } = require('./helpers/mockDb');
@@ -15,6 +28,7 @@ let app;
 let adminToken;
 
 beforeEach(() => {
+  process.env.ENABLE_ML = 'true';
   jest.resetModules();
   setupMockPool();
   app = require('../index');
@@ -69,8 +83,8 @@ describe('Stock Planning API', () => {
 
   it('POST /api/ai/stock-planning/approve-purchase-list creates purchase order', async () => {
     mockConnection.query.mockImplementation(async (sql) => {
-      if (sql.includes('INSERT INTO sarga_purchase_orders')) return [mockQueryResult({ insertId: 55 })];
-      if (sql.includes('INSERT INTO sarga_purchase_order_items')) return [mockQueryResult({ insertId: 1 })];
+      if (sql.includes('INSERT INTO sarga_purchase_orders')) return [{ insertId: 55 }];
+      if (sql.includes('INSERT INTO sarga_purchase_order_items')) return [{ insertId: 1 }];
       return [[]];
     });
     mockPool.getConnection.mockResolvedValue(mockConnection);

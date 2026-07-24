@@ -3,7 +3,7 @@ const multer = require('multer');
 const { authenticateToken } = require('../middleware/auth');
 const { asyncHandler } = require('../helpers');
 const { extractBillDataFromImages, queue } = require('../services/billExtractionService');
-const { matchVendorAndProducts } = require('../services/billMatchingService');
+const { matchVendorAndProducts, matchVendorAndConsumables } = require('../services/billMatchingService');
 const { getIO } = require('../services/socketManager');
 const logger = require('../helpers/logger');
 
@@ -49,6 +49,7 @@ router.post('/bills/extract-data', authenticateToken, upload.array('billPages', 
 
   try {
     const pages = req.files.map(f => ({ buffer: f.buffer, mimeType: f.mimetype }));
+    const target = req.body.target || 'products';
 
     emitProgress(socketId, { stage: 'preparing', percent: 20, label: 'Preparing pages for AI...' });
 
@@ -62,7 +63,7 @@ router.post('/bills/extract-data', authenticateToken, upload.array('billPages', 
       queueStatus: currentQueue,
     });
 
-    const data = await extractBillDataFromImages(pages);
+    const data = await extractBillDataFromImages(pages, target);
 
     emitProgress(socketId, { stage: 'ai_extracting', percent: 75, label: 'AI extraction complete' });
     emitProgress(socketId, { stage: 'matching', percent: 90, label: 'Matching vendors and products...' });
@@ -70,13 +71,20 @@ router.post('/bills/extract-data', authenticateToken, upload.array('billPages', 
     let vendorMatch = null;
     let itemMatches = [];
     try {
-      const matchResult = await matchVendorAndProducts(data);
-      vendorMatch = matchResult.vendorMatch;
-      itemMatches = matchResult.itemMatches;
+      if (target === 'consumables') {
+        const matchResult = await matchVendorAndConsumables(data);
+        vendorMatch = matchResult.vendorMatch;
+        itemMatches = matchResult.itemMatches;
+      } else {
+        const matchResult = await matchVendorAndProducts(data);
+        vendorMatch = matchResult.vendorMatch;
+        itemMatches = matchResult.itemMatches;
+      }
     } catch (matchErr) {
-      logger.error('[BillExtraction] Vendor/product matching failed', {
+      logger.error('[BillExtraction] Vendor/matching failed', {
         error: matchErr.message,
         stack: matchErr.stack,
+        target,
       });
     }
 

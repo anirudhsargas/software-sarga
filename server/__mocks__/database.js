@@ -1,14 +1,7 @@
-const mockConnection = {
-  query: jest.fn().mockResolvedValue([[]]),
-  beginTransaction: jest.fn().mockResolvedValue(),
-  commit: jest.fn().mockResolvedValue(),
-  rollback: jest.fn().mockResolvedValue(),
-  release: jest.fn(),
-};
+const { mockPool } = require('../__tests__/helpers/mockDb');
 
-const mockPool = {
-  query: jest.fn().mockResolvedValue([[]]),
-  getConnection: jest.fn().mockResolvedValue(mockConnection),
-};
+const pool = mockPool;
 
-module.exports = { pool: mockPool, initDb: jest.fn().mockResolvedValue() };
+const initDb = jest.fn().mockResolvedValue();
+
+module.exports = { pool, initDb };

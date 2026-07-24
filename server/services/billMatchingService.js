@@ -288,4 +288,90 @@ async function matchVendorAndProducts(extractedData) {
   return { vendorMatch, itemMatches };
 }
 
-module.exports = { matchVendorAndProducts };
+async function matchConsumables(items, vendorId, canonicalVendorName) {
+  if (!items || items.length === 0) return [];
+
+  const [consumables] = await pool.query(
+    `SELECT id, name, brand, size_name, gsm, unit_cost FROM consumables_inventory`
+  );
+
+  const results = items.map(item => {
+    const name = item.name || '';
+    const brand = item.brand || '';
+    const size = item.size || '';
+    const gsm = item.gsm || '';
+
+    const fullDesc = [name, brand, size, gsm].filter(Boolean).join(' ');
+    const normalizedInput = normalize(fullDesc);
+
+    const candidates = [];
+    for (const c of consumables) {
+      const dbFullDesc = [c.name, c.brand, c.size_name, c.gsm].filter(Boolean).join(' ');
+      const normalizedDb = normalize(dbFullDesc);
+
+      const score = diceCoefficient(normalizedInput, normalizedDb);
+      if (score >= SUGGESTION_MIN_SCORE) {
+        candidates.push({ consumable: c, score });
+      }
+    }
+
+    candidates.sort((a, b) => b.score - a.score);
+    const topCandidates = candidates.slice(0, SUGGESTION_LIMIT);
+
+    const suggestions = topCandidates.map(c => ({
+      id: c.consumable.id,
+      name: c.consumable.name,
+      brand: c.consumable.brand,
+      size_name: c.consumable.size_name,
+      gsm: c.consumable.gsm,
+      unit_cost: c.consumable.unit_cost,
+      confidence: Math.round(c.score * 100) / 100,
+    }));
+
+    const bestCandidate = candidates[0];
+    const isMatched = bestCandidate && bestCandidate.score >= PRODUCT_FUZZY_THRESHOLD;
+
+    return {
+      name,
+      brand,
+      size,
+      gsm,
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+      amount: item.amount,
+      matched: isMatched,
+      consumable_id: isMatched ? bestCandidate.consumable.id : null,
+      canonical_name: isMatched ? [bestCandidate.consumable.name, bestCandidate.consumable.brand, bestCandidate.consumable.size_name].filter(Boolean).join(' ') : null,
+      confidence: isMatched ? Math.round(bestCandidate.score * 100) / 100 : 0,
+      suggestions,
+    };
+  });
+
+  const matchedCount = results.filter(r => r.matched).length;
+  logger.info('[BillMatching] Consumables matching complete', {
+    totalItems: items.length,
+    matchedItems: matchedCount,
+  });
+
+  return results;
+}
+
+async function matchVendorAndConsumables(extractedData) {
+  const { vendor_name, gst_number, items = [] } = extractedData || {};
+
+  const vendorMatch = await matchVendor(vendor_name, gst_number);
+
+  let itemMatches = await matchConsumables(items, vendorMatch.vendor_id, vendorMatch.vendor_name);
+
+  logger.info('[BillMatching] Consumables matching Complete', {
+    vendorMatched: vendorMatch.matched,
+    vendorMatchType: vendorMatch.match_type,
+    vendorConfidence: vendorMatch.confidence,
+    totalItems: items.length,
+    matchedItems: itemMatches.filter(i => i.matched).length,
+  });
+
+  return { vendorMatch, itemMatches };
+}
+
+module.exports = { matchVendorAndProducts, matchVendorAndConsumables };

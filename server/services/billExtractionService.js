@@ -27,6 +27,31 @@ If a field is not found, use null. For items, return an empty array if no line i
 
 Totals cross-check: After extracting all items, verify that SUM(item amounts) approximately equals subtotal, and that subtotal + tax_amount approximately equals total_amount. If these don't reconcile, re-examine your line items and totals — do not default total_amount to 0 or leave it blank.`;
 
+const CONSUMABLES_EXTRACTION_PROMPT = `You are given images of one or more pages of a bill or invoice. Combine information across all pages into a single structured JSON result — for example, an invoice header on page 1 and itemized list on page 2 should merge into one result, not two.
+
+CRITICAL — Table structure analysis: The invoice contains a printed TABLE with columns like SI No, Description, HSN/SAC, Quantity, Rate, Per, Disc%, Amount. Use your visual understanding of the table layout (grid lines, spacing, alignment, indentation) to correctly associate each value with its column and row. Do not rely on reading order alone — visually trace each row across its columns.
+
+Extract the following fields and return them as JSON:
+- vendor_name: the vendor or supplier name
+- bill_number: the invoice or bill number
+- bill_date: date in YYYY-MM-DD format
+- gst_number: GST identification number (if present, otherwise null)
+- items: array of line items, each with {name, brand, size, gsm, quantity, unit_price, amount}
+  - name: Name or description of the consumable item (e.g. "Glossy Paper", "Binding Film")
+  - brand: Brand name (e.g. "Century", "JK")
+  - size: Size name/dimension (e.g. "A4", "12x18", "roll 24 inch")
+  - gsm: paper density if mentioned (e.g. "80", "130", "300")
+  - quantity: quantity of this item purchased
+  - unit_price: unit rate/price of the item
+  - amount: total line cost
+- subtotal: before-tax amount
+- tax_amount: total tax amount
+- total_amount: grand total
+
+If a field is not found, use null. For items, return an empty array if no line items are clearly identified.
+
+Totals cross-check: After extracting all items, verify that SUM(item amounts) approximately equals subtotal, and that subtotal + tax_amount approximately equals total_amount. If these don't reconcile, re-examine your line items and totals — do not default total_amount to 0 or leave it blank.`;
+
 const queue = new RequestQueue();
 
 let genAIInstance = null;
@@ -144,7 +169,7 @@ async function pdfToImages(pdfBuffer) {
   return pages;
 }
 
-async function callGeminiWithImages(pages) {
+async function callGeminiWithImages(pages, target = 'products') {
   const genAI = getGenAI();
   const model = genAI.getGenerativeModel({
     model: GEMINI_MODEL,
@@ -153,7 +178,8 @@ async function callGeminiWithImages(pages) {
     },
   });
 
-  const parts = [EXTRACTION_PROMPT];
+  const prompt = target === 'consumables' ? CONSUMABLES_EXTRACTION_PROMPT : EXTRACTION_PROMPT;
+  const parts = [prompt];
   for (let i = 0; i < pages.length; i++) {
     parts.push({
       inlineData: {
@@ -203,7 +229,7 @@ async function callGeminiWithImages(pages) {
   return parsed;
 }
 
-async function extractBillDataFromImages(pages) {
+async function extractBillDataFromImages(pages, target = 'products') {
   if (!process.env.GEMINI_API_KEY) {
     throw new Error('AI extraction temporarily unavailable, please enter manually');
   }
@@ -224,12 +250,12 @@ async function extractBillDataFromImages(pages) {
 
   return await queue.enqueue(async () => {
     try {
-      return await callGeminiWithImages(resolved);
+      return await callGeminiWithImages(resolved, target);
     } catch (err) {
       if (err.status === 429 || (err.message && err.message.includes('429'))) {
         logger.warn('[BillExtraction] 429 rate limit hit, retrying after 5s');
         await new Promise(resolve => setTimeout(resolve, 5000));
-        return await callGeminiWithImages(resolved);
+        return await callGeminiWithImages(resolved, target);
       }
       throw err;
     }

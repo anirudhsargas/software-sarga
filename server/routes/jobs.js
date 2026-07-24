@@ -625,11 +625,12 @@ router.post('/jobs/bulk', authenticateToken, async (req, res) => {
             const jobNumber = await generateJobNumber(connection, branchId);
             const total = Number(line.total_amount) || 0;
 
+            const isWalkin = !customer_id;
             try {
                 const [result] = await connection.query(
                     `INSERT INTO sarga_jobs
-                (customer_id, product_id, branch_id, job_number, job_name, description, quantity, unit_price, total_amount, advance_paid, balance_amount, payment_status, delivery_date, applied_extras, category, subcategory, machine_id, waste_prints, proof_prints, machine_print_count)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                (customer_id, product_id, branch_id, job_number, job_name, description, quantity, unit_price, total_amount, advance_paid, balance_amount, payment_status, delivery_date, applied_extras, category, subcategory, machine_id, waste_prints, proof_prints, machine_print_count, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                     [
                         customer_id || null,
                         line.product_id || null,
@@ -650,7 +651,8 @@ router.post('/jobs/bulk', authenticateToken, async (req, res) => {
                         line.machine_id || null,
                         Number(line.waste_prints) || 0,
                         Number(line.proof_prints) || 0,
-                        line.machine_print_count != null ? (Number(line.machine_print_count) || null) : null
+                        line.machine_print_count != null ? (Number(line.machine_print_count) || null) : null,
+                        isWalkin ? 'Delivered' : 'Pending'
                     ]
                 );
 
@@ -700,8 +702,8 @@ router.post('/jobs/bulk', authenticateToken, async (req, res) => {
                     // Fallback to basic schema if new columns are missing
                     const [result] = await connection.query(
                         `INSERT INTO sarga_jobs
-                    (customer_id, product_id, branch_id, job_number, job_name, description, quantity, unit_price, total_amount, advance_paid, balance_amount, payment_status, delivery_date, applied_extras)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    (customer_id, product_id, branch_id, job_number, job_name, description, quantity, unit_price, total_amount, advance_paid, balance_amount, payment_status, delivery_date, applied_extras, status)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                         [
                             customer_id || null,
                             line.product_id || null,
@@ -716,7 +718,8 @@ router.post('/jobs/bulk', authenticateToken, async (req, res) => {
                             total,
                             'Unpaid',
                             null,
-                            JSON.stringify(line.applied_extras || [])
+                            JSON.stringify(line.applied_extras || []),
+                            isWalkin ? 'Delivered' : 'Pending'
                         ]
                     );
                     created.push({ id: result.insertId, job_number: jobNumber });
@@ -757,11 +760,12 @@ router.post('/jobs', authenticateToken, validate(addJobSchema), async (req, res)
         const job_number = await generateJobNumber(connection, branch_id);
 
         // 1. Insert job (atomic with payment)
+        const isWalkin = !customer_id;
         const [result] = await connection.query(
             `INSERT INTO sarga_jobs 
-            (customer_id, product_id, branch_id, job_number, job_name, description, quantity, unit_price, total_amount, advance_paid, balance_amount, payment_status, delivery_date, applied_extras, category, subcategory, machine_id) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-            , [customer_id || null, product_id || null, branch_id || null, job_number, job_name, description, quantity, unit_price, total_amount, advance_paid, balance_amount, payment_status, delivery_date || null, JSON.stringify(applied_extras || []), category || null, subcategory || null, machine_id || null]
+            (customer_id, product_id, branch_id, job_number, job_name, description, quantity, unit_price, total_amount, advance_paid, balance_amount, payment_status, delivery_date, applied_extras, category, subcategory, machine_id, status) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            , [customer_id || null, product_id || null, branch_id || null, job_number, job_name, description, quantity, unit_price, total_amount, advance_paid, balance_amount, payment_status, delivery_date || null, JSON.stringify(applied_extras || []), category || null, subcategory || null, machine_id || null, isWalkin ? 'Delivered' : 'Pending']
         );
 
         // 2. SYNC WITH CUSTOMER PAYMENTS IF ADVANCE IS PAID (inside same transaction)
@@ -1835,8 +1839,8 @@ router.post('/jobs/:id/repeat', authenticateToken, async (req, res) => {
 
         const [result] = await connection.query(
             `INSERT INTO sarga_jobs 
-            (customer_id, product_id, branch_id, job_number, job_name, description, quantity, unit_price, total_amount, advance_paid, balance_amount, payment_status, delivery_date, applied_extras, category, subcategory, machine_id, paper_size, required_sheets)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 'Unpaid', ?, ?, ?, ?, ?, ?, ?)`,
+            (customer_id, product_id, branch_id, job_number, job_name, description, quantity, unit_price, total_amount, advance_paid, balance_amount, payment_status, status, delivery_date, applied_extras, category, subcategory, machine_id, paper_size, required_sheets)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 'Unpaid', 'Pending', ?, ?, ?, ?, ?, ?, ?)`,
             [
                 orig.customer_id, orig.product_id, orig.branch_id,
                 job_number,
@@ -1872,8 +1876,8 @@ router.post('/jobs/:id/repeat', authenticateToken, async (req, res) => {
         });
     } catch (err) {
         await connection.rollback();
-        console.error('Repeat order error:', err);
-        res.status(500).json({ message: 'Failed to repeat order' });
+        console.error('Repeat order error:', err.message, err.sqlMessage || '', err.code || '');
+        res.status(500).json({ message: 'Failed to repeat order. Please try again.' });
     } finally {
         connection.release();
     }

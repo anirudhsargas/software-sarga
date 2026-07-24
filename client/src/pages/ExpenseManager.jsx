@@ -290,16 +290,16 @@ const ExpenseManager = () => {
       </div>
 
       {/* ═══════ Tab Content ═══════ */}
-      {activeTab === 'dashboard' && <DashboardTab key={`dash-${refreshKey}`} branches={branches} onPayment={openPayment} />}
-      {activeTab === 'vendors' && <VendorsTab key={`vnd-${refreshKey}`} vendors={vendors} onPayment={openPayment} onRefreshVendors={fetchVendors} />}
-      {activeTab === 'rent' && <RentTab key={`rent-${refreshKey}`} branches={branches} onPayment={openPayment} onError={setError} />}
-      {activeTab === 'utilities' && <UtilitiesTab key={`util-${refreshKey}`} dashboard={dashboard} onPayment={openPayment} onRefresh={fetchDashboardForUtilities} />}
-      {activeTab === 'finance' && <FinanceTab key={`fin-${refreshKey}`} branches={branches} onError={setError} />}
-      {activeTab === 'transport' && <TransportTab key={`trn-${refreshKey}`} onError={setError} />}
-      {activeTab === 'misc' && <MiscTab key={`misc-${refreshKey}`} onError={setError} />}
-      {activeTab === 'office' && <OfficeTab key={`ofc-${refreshKey}`} onError={setError} />}
-      {activeTab === 'staff-expenses' && <StaffExpensesTab key={`staff-${refreshKey}`} onPayment={openPayment} onError={setError} />}
-      {activeTab === 'reports' && <ReportsTab key={`rpt-${refreshKey}`} branches={branches} onError={setError} />}
+      {activeTab === 'dashboard' && <DashboardTab refreshKey={refreshKey} branches={branches} onPayment={openPayment} />}
+      {activeTab === 'vendors' && <VendorsTab refreshKey={refreshKey} vendors={vendors} onPayment={openPayment} onRefreshVendors={fetchVendors} />}
+      {activeTab === 'rent' && <RentTab refreshKey={refreshKey} branches={branches} onPayment={openPayment} onError={setError} />}
+      {activeTab === 'utilities' && <UtilitiesTab refreshKey={refreshKey} dashboard={dashboard} onPayment={openPayment} onRefresh={fetchDashboardForUtilities} />}
+      {activeTab === 'finance' && <FinanceTab refreshKey={refreshKey} branches={branches} onError={setError} />}
+      {activeTab === 'transport' && <TransportTab refreshKey={refreshKey} onError={setError} />}
+      {activeTab === 'misc' && <MiscTab refreshKey={refreshKey} onError={setError} />}
+      {activeTab === 'office' && <OfficeTab refreshKey={refreshKey} onError={setError} />}
+      {activeTab === 'staff-expenses' && <StaffExpensesTab refreshKey={refreshKey} onPayment={openPayment} onError={setError} />}
+      {activeTab === 'reports' && <ReportsTab refreshKey={refreshKey} branches={branches} onError={setError} />}
 
 
 

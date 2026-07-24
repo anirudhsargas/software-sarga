@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Zap, Wifi, Phone, Droplets, ArrowLeft,
   Calendar, TrendingUp, TrendingDown, AlertTriangle, Loader2,
-  Plus, Trash2, X, PlusCircle, ShoppingCart, IndianRupee, FileText, ChevronDown, ChevronRight, ExternalLink, Edit3
+  Plus, Trash2, X, PlusCircle, ShoppingCart, IndianRupee, FileText, ChevronDown, ChevronRight, ExternalLink, Edit3, Check
 } from 'lucide-react';
 import api from '../../services/api';
 import auth from '../../services/auth';
@@ -20,7 +20,7 @@ const DEFAULT_UTILITY_TYPES = [
   { key: 'Water', icon: Droplets, color: 'var(--accent)' },
 ];
 
-const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
+const UtilitiesTab = ({ refreshKey, dashboard, onPayment, onRefresh }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { confirm } = useConfirm();
@@ -102,6 +102,11 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
       api.get('/branches').then(r => setBranches(r.data || [])).catch(() => {});
     }
   }, [fetchCategoriesData, isAdmin]);
+
+  // Refresh data when refreshKey changes (without unmounting)
+  React.useEffect(() => {
+    if (refreshKey > 0) fetchCategoriesData();
+  }, [refreshKey, fetchCategoriesData]);
 
   // Handle pre-selected addBill from URL param (coming from ConnectionLedger)
   React.useEffect(() => {
@@ -567,10 +572,29 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
       }
     });
 
+    // --- Calculate Stats for Dashboard Banner ---
+    const activeCategoriesCount = Object.keys(categoryMap).length;
+    let totalActiveConnections = 0;
+    let outstandingBillsCount = 0;
+    let outstandingAmountSum = 0;
+
+    Object.values(categoryMap).forEach(u => {
+      totalActiveConnections += u.connections.filter(c => c.is_active).length;
+      u.connections.forEach(conn => {
+        if (conn.is_active && conn.latest_bill) {
+          outstandingBillsCount++;
+          outstandingAmountSum += Number(conn.latest_bill.amount || 0);
+        }
+      });
+    });
+
+    const totalSpentThisMonth = dashboard?.utility_summary?.reduce((sum, u) => sum + Number(u.total || 0), 0) || 0;
+
     return (
       <div className="em-section">
-        <div className="em-filter-row" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-          <div className="em-section-title"><Zap size={18} /> Utility Payments</div>
+        {/* Top Header Row */}
+        <div className="em-filter-row" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 'var(--space-16)' }}>
+          <div className="em-section-title"><Zap size={18} style={{ marginRight: 6 }} /> Utility Payments</div>
           {isAdmin ? (
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn btn-sm" onClick={fetchBillsFromEmail} disabled={fetchingEmail}>
@@ -587,6 +611,58 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
           )}
         </div>
 
+        {/* Dashboard Stats Banner */}
+        <div className="em-utility-stats">
+          <div className="em-utility-stats-grid">
+            <div className="em-utility-stat-card">
+              <div className="em-utility-stat-icon em-utility-stat-icon--active">
+                <Zap size={20} />
+              </div>
+              <div className="em-utility-stat-body">
+                <span className="em-utility-stat-label">Categories</span>
+                <span className="em-utility-stat-value">{activeCategoriesCount} Active</span>
+                <span className="em-utility-stat-sub">Configured types</span>
+              </div>
+            </div>
+
+            <div className="em-utility-stat-card">
+              <div className="em-utility-stat-icon em-utility-stat-icon--connections">
+                <ExternalLink size={20} />
+              </div>
+              <div className="em-utility-stat-body">
+                <span className="em-utility-stat-label">Connections</span>
+                <span className="em-utility-stat-value">{totalActiveConnections} Active</span>
+                <span className="em-utility-stat-sub">Across all categories</span>
+              </div>
+            </div>
+
+            <div className="em-utility-stat-card">
+              <div className="em-utility-stat-icon em-utility-stat-icon--dues">
+                <AlertTriangle size={20} />
+              </div>
+              <div className="em-utility-stat-body">
+                <span className="em-utility-stat-label">Pending Dues</span>
+                <span className="em-utility-stat-value">₹{fmt(outstandingAmountSum)}</span>
+                <span className={`em-utility-stat-sub ${outstandingBillsCount > 0 ? 'em-utility-stat-sub--highlight' : 'em-utility-stat-sub--ok'}`}>
+                  {outstandingBillsCount > 0 ? `${outstandingBillsCount} unpaid bills` : 'All bills settled'}
+                </span>
+              </div>
+            </div>
+
+            <div className="em-utility-stat-card">
+              <div className="em-utility-stat-icon em-utility-stat-icon--spent">
+                <IndianRupee size={20} />
+              </div>
+              <div className="em-utility-stat-body">
+                <span className="em-utility-stat-label">Spent This Month</span>
+                <span className="em-utility-stat-value">₹{fmt(totalSpentThisMonth)}</span>
+                <span className="em-utility-stat-sub">Paid utility expenses</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Categories Grid */}
         {loadingCategories ? (
           <div className="em-loading"><Loader2 className="spin" size={20} /> Loading connections...</div>
         ) : (
@@ -596,116 +672,141 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
               const catData = categoriesData.find(c => c.category === u.key);
               const activeConns = catData?.connections?.filter(c => c.is_active) || [];
               const isCustom = customTypes.includes(u.key);
+              const cardTypeClass = u.key.replace(/[\s/]+/g, '-');
 
               return (
                 <div key={u.key} className="em-utility-category">
-                  {/* Category Header */}
-                  <div className="em-utility-card"
-                    onClick={() => {
-                      if (expandedCategory === u.key) {
-                        setExpandedCategory(null);
-                      } else {
-                        setExpandedCategory(u.key);
-                      }
-                    }}
-                    style={{ cursor: 'pointer', marginBottom: 0, borderBottomLeftRadius: expandedCategory === u.key ? 0 : undefined, borderBottomRightRadius: expandedCategory === u.key ? 0 : undefined }}
+                  {/* Category Header Card */}
+                  <div className={`em-utility-card em-utility-card--${cardTypeClass}`}
+                    onClick={() => setExpandedCategory(expandedCategory === u.key ? null : u.key)}
                   >
                     <div className="em-utility-card__header">
-                      <div className="em-utility-card__icon" style={{ background: `${u.color}15`, color: u.color }}>
-                        <Icon size={22} />
+                      <div className="em-utility-icon-wrap" style={{ background: `${u.color}15`, color: u.color }}>
+                        <Icon size={20} />
                       </div>
-                      <div className="em-utility-card__name">{u.key}</div>
-                      {activeConns.length > 0 && (
-                        <span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 8 }}>
-                          {activeConns.length} connection{activeConns.length !== 1 ? 's' : ''}
-                        </span>
-                      )}
-                      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
-                        {expandedCategory === u.key ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div className="em-utility-card__name">{u.key}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                            {activeConns.length} connection{activeConns.length !== 1 ? 's' : ''}
+                          </span>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        {expandedCategory === u.key ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
                       </div>
                     </div>
-                    <div className="em-utility-card__status" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span className="em-status-badge em-status-badge--paid" style={{ background: 'var(--secondary)', color: 'var(--muted)' }}>
-                        {activeConns.length} active
-                      </span>
+
+                    {/* Pending Dues calculation */}
+                    <div className="em-utility-card__status">
+                      {(() => {
+                        const unpaidConns = activeConns.filter(c => c.latest_bill);
+                        if (unpaidConns.length > 0) {
+                          const sumDues = unpaidConns.reduce((sum, c) => sum + Number(c.latest_bill.amount || 0), 0);
+                          return (
+                            <span className="em-status-badge em-status-badge--pending" style={{ background: 'rgba(239, 68, 68, 0.08)', color: 'var(--danger)', fontSize: '10px' }}>
+                              ₹{fmt(sumDues)} Pending ({unpaidConns.length})
+                            </span>
+                          );
+                        }
+                        return (
+                          <span className="em-status-badge em-status-badge--paid" style={{ background: 'rgba(16, 185, 129, 0.08)', color: 'var(--success)', fontSize: '10px' }}>
+                            All Settled
+                          </span>
+                        );
+                      })()}
                     </div>
-                    <div className="em-utility-card__actions" onClick={e => e.stopPropagation()} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
-                      <button type="button" className="btn btn-sm em-utility-card__btn-bill" onClick={(e) => { e.stopPropagation(); openBillForm(u.key, '', ''); }}>
-                        <ShoppingCart size={13} /> Bill
+
+                    {/* Action buttons */}
+                    <div className="em-utility-card__actions" onClick={e => e.stopPropagation()}>
+                      <button type="button" className="btn btn-sm em-utility-card__btn-bill" onClick={() => openBillForm(u.key, '', '')}>
+                        <ShoppingCart size={13} style={{ marginRight: 4 }} /> Record Bill
                       </button>
-                      <button type="button" className="btn btn-primary btn-sm em-utility-card__btn-pay" onClick={(e) => { e.stopPropagation(); onPayment({ type: 'Utility', payee_name: u.key }); }}>
-                        <IndianRupee size={13} /> Pay
+                      <button type="button" className="btn btn-primary btn-sm em-utility-card__btn-pay" onClick={() => onPayment({ type: 'Utility', payee_name: u.key })}>
+                        <IndianRupee size={13} style={{ marginRight: 4 }} /> Pay
                       </button>
                       {isAdmin && (
-                        <button type="button" className="btn btn-ghost btn-sm" title="Manage Connections" onClick={(e) => { e.stopPropagation(); openManageConnections(u.key); }}>
-                          <FileText size={13} /> Connections
+                        <button type="button" className="btn btn-ghost btn-sm" title="Manage Connections" onClick={() => openManageConnections(u.key)}>
+                          <FileText size={13} style={{ marginRight: 4 }} /> Connections
                         </button>
                       )}
                       {isAdmin && isCustom && (
-                        <button type="button" className="btn btn-ghost btn-icon btn-sm" title="Remove type" onClick={(e) => { e.stopPropagation(); handleRemoveType(u.key); }}>
+                        <button type="button" className="btn btn-ghost btn-icon btn-sm" title="Remove type" style={{ color: 'var(--danger)' }} onClick={() => handleRemoveType(u.key)}>
                           <Trash2 size={14} />
                         </button>
                       )}
                     </div>
                   </div>
 
-                  {/* Expanded Connections */}
+                  {/* Expanded Connections list */}
                   {expandedCategory === u.key && (
-                    <div className="em-connections-list" style={{ border: '1px solid var(--border)', borderTop: 'none', borderBottomLeftRadius: 'var(--radius-lg)', borderBottomRightRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+                    <div className="em-connections-list">
                       {activeConns.length === 0 ? (
-                        <div style={{ padding: '16px', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>
-                          No connections yet. Add one below.
+                        <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+                          No connections yet. Add one below to get started.
                         </div>
                       ) : (
-                        activeConns.map(conn => (
-                          <div key={conn.id} className="em-connection-row"
-                            style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderBottom: '1px solid var(--border)', cursor: 'pointer', transition: 'background 0.15s' }}
-                            onClick={() => navigate(`/dashboard/utilities/connections/${conn.id}`)}
-                            onMouseEnter={e => e.currentTarget.style.background = 'var(--hover)'}
-                            onMouseLeave={e => e.currentTarget.style.background = ''}
-                          >
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)' }}>
-                                {conn.label || conn.connection_id}
-                              </div>
-                              <div style={{ display: 'flex', gap: 12, fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
-                                <span>{conn.branch_name}</span>
-                                {conn.provider && <span>{conn.provider}</span>}
-                                <span style={{ textTransform: 'capitalize' }}>{conn.billing_cycle}</span>
-                              </div>
-                            </div>
-                            <div style={{ textAlign: 'right', minWidth: 120 }}>
-                              {conn.latest_bill ? (
-                                <>
-                                  <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--error)' }}>
-                                    ₹{fmt(Number(conn.latest_bill.amount))}
-                                  </div>
-                                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>
-                                    Due {fmtDate(conn.latest_bill.bill_date)}
-                                  </div>
-                                </>
-                              ) : (
-                                <div style={{ fontSize: 12, color: 'var(--muted)' }}>No bills yet</div>
-                              )}
-                            </div>
-                            <button className="btn btn-ghost btn-icon btn-sm" title="View ledger"
-                              onClick={(e) => { e.stopPropagation(); navigate(`/dashboard/utilities/connections/${conn.id}`); }}>
-                              <ExternalLink size={14} />
-                            </button>
-                            <button className="btn btn-ghost btn-icon btn-sm" title="Add bill"
-                              onClick={(e) => { e.stopPropagation(); openBillForm(u.key, conn.id, conn.label || conn.connection_id); }}>
-                              <ShoppingCart size={13} />
-                            </button>
+                        <>
+                          <div className="em-connections-header-grid">
+                            <div>Connection / Label</div>
+                            <div>Branch</div>
+                            <div>Provider</div>
+                            <div>Billing Cycle</div>
+                            <div style={{ textAlign: 'right' }}>Latest Bill / Status</div>
                           </div>
-                        ))
+                          {activeConns.map(conn => (
+                            <div key={conn.id} className="em-connection-row-grid"
+                              onClick={() => navigate(`/dashboard/utilities/connections/${conn.id}`)}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
+                                <span className={`em-connection-indicator ${conn.is_active ? 'em-connection-indicator--active' : 'em-connection-indicator--inactive'}`} />
+                                <div style={{ minWidth: 0 }}>
+                                  <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {conn.label || conn.connection_id}
+                                  </div>
+                                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                                    ID: {conn.connection_id}
+                                  </div>
+                                </div>
+                              </div>
+                              <div>
+                                <span className="em-connection-badge-tag">{conn.branch_name || '—'}</span>
+                              </div>
+                              <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
+                                {conn.provider || '—'}
+                              </div>
+                              <div style={{ textTransform: 'capitalize', color: 'var(--text-secondary)', fontSize: 12 }}>
+                                {conn.billing_cycle || 'monthly'}
+                              </div>
+                              <div style={{ textAlign: 'right' }}>
+                                {conn.latest_bill ? (
+                                  <div>
+                                    <div className="em-connection-bill-text em-connection-bill-text--unpaid">
+                                      ₹{fmt(Number(conn.latest_bill.amount))}
+                                    </div>
+                                    <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>
+                                      Due {fmtDate(conn.latest_bill.bill_date)}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div>
+                                    <span className="em-connection-bill-text em-connection-bill-text--paid" style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                      <Check size={12} /> Settled
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </>
                       )}
-                      <div style={{ padding: '8px 16px', borderTop: '1px solid var(--border)' }}>
+                      <div className="em-connections-footer-action">
                         <button className="btn btn-ghost btn-sm" onClick={() => {
                           setAddConnectionCategory(u.key);
                           setNewConnection({ connection_id: '', label: '', provider: '', billing_cycle: 'monthly', utility_type: '', branch_id: '' });
                           setShowAddConnectionModal(true);
                         }}>
-                          <Plus size={14} /> Add Connection
+                          <Plus size={14} style={{ marginRight: 4 }} /> Add New Connection
                         </button>
                       </div>
                     </div>
@@ -718,7 +819,7 @@ const UtilitiesTab = ({ dashboard, onPayment, onRefresh }) => {
 
         {/* Summary Table */}
         {dashboard?.utility_summary?.length > 0 && (
-          <div className="em-card">
+          <div className="em-card" style={{ marginTop: 'var(--space-24)' }}>
             <div className="em-card__title">This Month's Utility Payments</div>
             <div className="em-table-wrap">
               <table className="em-table">
