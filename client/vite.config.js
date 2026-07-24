@@ -52,6 +52,8 @@ export default defineConfig({
       manifest: false, // we already have public/manifest.json
       workbox: {
         cleanupOutdatedCaches: true,
+        skipWaiting: true,
+        clientsClaim: true,
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB limit for caching
         // Cache JS, CSS, HTML, images, fonts
         globPatterns: ['**/*.{js,css,html,png,webp,avif,svg,ico,woff2,json}'],
@@ -63,8 +65,19 @@ export default defineConfig({
           '**/tanstack-virtual-vendor-*.js',
           '**/qr-vendor-*.js',
         ],
-        // Runtime caching for the API
+        // Runtime caching for the API & assets
         runtimeCaching: [
+          {
+            // JS and CSS chunks (including dynamically imported / on-demand vendor chunks)
+            urlPattern: /\/assets\/.*\.(js|css)$/,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'sarga-js-css-chunks',
+              networkTimeoutSeconds: 10,
+              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 7 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
           {
             // Always fetch HTML from network — fresh index.html references newest JS chunk hashes
             urlPattern: ({ request }) => request.mode === 'navigate',

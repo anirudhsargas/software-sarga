@@ -207,6 +207,7 @@ function App() {
         console.warn('[Server] Backend did not become healthy — continuing anyway');
       }
       setServerStarting(false);
+      sessionStorage.removeItem('chunk-reload');
     })();
 
     // Sync with server clock so staff cannot manipulate dates
