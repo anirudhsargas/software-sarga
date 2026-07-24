@@ -43,6 +43,11 @@ if (import.meta.env.PROD) {
             const lastReloaded = sessionStorage.getItem('sarga_critical_reloaded');
             if (lastReloaded !== data.version) {
               sessionStorage.setItem('sarga_critical_reloaded', data.version);
+              if ("serviceWorker" in navigator) {
+                navigator.serviceWorker.ready.then(r => {
+                  if (r.waiting) r.waiting.postMessage({ type: "SKIP_WAITING" });
+                });
+              }
               window.location.reload();
               return;
             }
@@ -178,9 +183,12 @@ function setReloadCount(count) {
 }
 
 function handleStaleChunk() {
-  // Activate waiting service worker if available
-  if ("serviceWorker" in navigator && navigator.serviceWorker.waiting) {
-    navigator.serviceWorker.waiting.postMessage({ type: "SKIP_WAITING" });
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.ready.then(registration => {
+      if (registration.waiting) {
+        registration.waiting.postMessage({ type: "SKIP_WAITING" });
+      }
+    });
   }
 
   const count = getReloadCount();

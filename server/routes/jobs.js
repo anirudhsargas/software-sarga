@@ -66,8 +66,8 @@ const getHierarchyData = async (includeInactive = false) => {
         const prefixedProductColumns = PRODUCT_COLUMNS.split(', ').map(col => `p.${col}`).join(', ');
         try {
             const productsQuery = includeInactive
-                ? `SELECT ${prefixedProductColumns}, i.hsn AS hsn, i.cost_price AS cost_price FROM sarga_products p LEFT JOIN sarga_inventory i ON p.inventory_item_id = i.id WHERE p.is_deleted = 0 AND (p.inventory_item_id IS NULL OR i.is_deleted = 0)`
-                : `SELECT ${prefixedProductColumns}, i.hsn AS hsn, i.cost_price AS cost_price FROM sarga_products p LEFT JOIN sarga_inventory i ON p.inventory_item_id = i.id WHERE p.is_active = 1 AND p.is_deleted = 0 AND (p.inventory_item_id IS NULL OR i.is_deleted = 0)`;
+                ? `SELECT ${prefixedProductColumns}, i.hsn AS hsn, i.cost_price AS cost_price, i.sell_price AS sell_price FROM sarga_products p LEFT JOIN sarga_inventory i ON p.inventory_item_id = i.id WHERE p.is_deleted = 0 AND (p.inventory_item_id IS NULL OR i.is_deleted = 0)`
+                : `SELECT ${prefixedProductColumns}, i.hsn AS hsn, i.cost_price AS cost_price, i.sell_price AS sell_price FROM sarga_products p LEFT JOIN sarga_inventory i ON p.inventory_item_id = i.id WHERE p.is_active = 1 AND p.is_deleted = 0 AND (p.inventory_item_id IS NULL OR i.is_deleted = 0)`;
 
             // When not including inactive: only link to ACTIVE products.
             // Also fetch has_any_product so we can exclude inventory items tied
@@ -81,8 +81,8 @@ const getHierarchyData = async (includeInactive = false) => {
         } catch (_) {
             // Fallback if is_deleted column doesn't exist yet
             const productsQuery = includeInactive
-                ? `SELECT ${prefixedProductColumns}, i.hsn AS hsn, i.cost_price AS cost_price FROM sarga_products p LEFT JOIN sarga_inventory i ON p.inventory_item_id = i.id WHERE (p.inventory_item_id IS NULL OR i.is_deleted = 0)`
-                : `SELECT ${prefixedProductColumns}, i.hsn AS hsn, i.cost_price AS cost_price FROM sarga_products p LEFT JOIN sarga_inventory i ON p.inventory_item_id = i.id WHERE p.is_active = 1 AND (p.inventory_item_id IS NULL OR i.is_deleted = 0)`;
+                ? `SELECT ${prefixedProductColumns}, i.hsn AS hsn, i.cost_price AS cost_price, i.sell_price AS sell_price FROM sarga_products p LEFT JOIN sarga_inventory i ON p.inventory_item_id = i.id WHERE (p.inventory_item_id IS NULL OR i.is_deleted = 0)`
+                : `SELECT ${prefixedProductColumns}, i.hsn AS hsn, i.cost_price AS cost_price, i.sell_price AS sell_price FROM sarga_products p LEFT JOIN sarga_inventory i ON p.inventory_item_id = i.id WHERE p.is_active = 1 AND (p.inventory_item_id IS NULL OR i.is_deleted = 0)`;
 
             const inventoryQuery = includeInactive
                 ? "SELECT i.id, i.name, i.sku, i.sell_price, i.cost_price, i.hsn, i.category, p.id as linked_product_id, 0 as has_disabled_product FROM sarga_inventory i LEFT JOIN sarga_products p ON i.id = p.inventory_item_id"

@@ -13,7 +13,7 @@ const publicRoutes = ['/', '/services', '/products', '/design', '/track', '/cont
   transformIndexHtml: {
     order: 'post',
     handler: (html) => html.replace(
-      /<link[^>]*rel="modulepreload"[^>]*href="[^"]*(?:pdf-vendor|pdf-autotable-vendor|charts-vendor|excel-vendor|form-vendor|sentry-vendor|tanstack-virtual-vendor|qr-vendor)[^"]*"[^>]*>/gi,
+      /<link[^>]*rel="modulepreload"[^>]*href="[^"]*(?:charts-vendor|excel-vendor|form-vendor|sentry-vendor|tanstack-virtual-vendor|qr-vendor)[^"]*"[^>]*>/gi,
       ''
     ),
   },
@@ -58,8 +58,6 @@ export default defineConfig({
         // Cache JS, CSS, HTML, images, fonts
         globPatterns: ['**/*.{js,css,html,png,webp,avif,svg,ico,woff2,json}'],
         globIgnores: [
-          '**/pdf-vendor-*.js',
-          '**/pdf-autotable-vendor-*.js',
           '**/charts-vendor-*.js',
           '**/excel-vendor-*.js',
           '**/form-vendor-*.js',
@@ -151,20 +149,6 @@ export default defineConfig({
               return 'sentry-vendor';
             }
             
-            // pdf-vendor (dynamically imported — not loaded on initial page load)
-            // jspdf-autotable must be in a SEPARATE chunk from jspdf to prevent
-            // TDZ errors ("Cannot access 'I' before initialization") caused by
-            // module ordering when both are minified in the same chunk.
-            if (
-              path.startsWith('jspdf/')
-            ) {
-              return 'pdf-vendor';
-            }
-            if (
-              path.startsWith('jspdf-autotable/')
-            ) {
-              return 'pdf-autotable-vendor';
-            }
             
             // charts-vendor
             if (

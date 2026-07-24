@@ -15,12 +15,33 @@ export const UpdateNotification = () => {
   );
   const [version, setVersion] = useState(getMetaVersion);
 
-  const reload = useCallback(() => {
-    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-      navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
+  const forceReload = useCallback(async () => {
+    if ('serviceWorker' in navigator) {
+      try {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const reg of registrations) await reg.unregister();
+      } catch {}
     }
-    window.location.reload(true);
+    window.location.reload();
   }, []);
+
+  const reload = useCallback(async () => {
+    if ('serviceWorker' in navigator) {
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        if (registration.waiting) {
+          registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+          let done = false;
+          const tid = setTimeout(() => { done = true; forceReload(); }, 5000);
+          navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (!done) { done = true; clearTimeout(tid); window.location.reload(); }
+          }, { once: true });
+          return;
+        }
+      } catch {}
+    }
+    forceReload();
+  }, [forceReload]);
 
   const dismiss = useCallback(() => {
     setDismissed(true);
@@ -43,7 +64,7 @@ export const UpdateNotification = () => {
     window.addEventListener('app.update', handleAppUpdate);
 
     navigator.serviceWorker?.addEventListener('controllerchange', () => {
-      window.location.reload(true);
+      window.location.reload();
     });
 
     return () => {

@@ -1999,7 +1999,7 @@ onClick={() => { setProductSearch(''); setFilterVendor('all'); setFilterCalcType
                                     <div className="product-card__content">
                                         <div className="product-card__name">{prod.name}</div>
                                         <div className="product-card__meta">
-                                            <span className="badge badge--sm">{prod.calculation_type}</span>
+                                            {prod.sell_price != null ? <span className="badge badge--sm badge--price">₹{Number(prod.sell_price).toLocaleString()}</span> : <span className="badge badge--sm badge--price">—</span>}
                                         </div>
                                         {prod.description && <p className="text-xs muted mb-8 line-clamp-2">{prod.description}</p>}
                                         {prod.links && prod.links.length > 0 && (
