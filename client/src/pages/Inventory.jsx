@@ -119,6 +119,8 @@ const Inventory = () => {
     const [showSelectPrintModal, setShowSelectPrintModal] = useState(false);
     const [selectPrintSearch, setSelectPrintSearch] = useState('');
     const [selectPrintSelectedIds, setSelectPrintSelectedIds] = useState([]);
+    const [allPrintItems, setAllPrintItems] = useState([]);
+    const [allPrintItemsLoading, setAllPrintItemsLoading] = useState(false);
 
     // Consumables actions state
     const [showConsumeModal, setShowConsumeModal] = useState(false);
@@ -802,6 +804,24 @@ const Inventory = () => {
         setShowPrintModal(true);
     };
 
+    const openSelectPrintModal = async () => {
+        setShowSelectPrintModal(true);
+        setSelectPrintSearch('');
+        setSelectPrintSelectedIds([]);
+        setAllPrintItemsLoading(true);
+        try {
+            const res = await api.get('/inventory', { params: { no_pagination: '1' } });
+            const data = res.data;
+            const fetched = Array.isArray(data) ? data : (data?.data || []);
+            setAllPrintItems(fetched);
+        } catch {
+            toast.error('Failed to load inventory items');
+            setAllPrintItems([]);
+        } finally {
+            setAllPrintItemsLoading(false);
+        }
+    };
+
     const generatePDF = async () => {
         setPrintingLabel(true);
         setPrintingProgress(null);
@@ -1256,7 +1276,7 @@ const Inventory = () => {
                         <button
                             type="button"
                             className="inv-action-btn"
-                            onClick={() => setShowSelectPrintModal(true)}
+                            onClick={openSelectPrintModal}
                             title="Print Labels"
                         >
                             <QrCode size={16} />
@@ -3121,7 +3141,7 @@ const Inventory = () => {
                                 <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-6)', cursor: 'pointer', fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-muted)' }}>
                                     <input type="checkbox"
                                         onChange={(e) => {
-                                            const filtered = items.filter(item => {
+                                            const filtered = (allPrintItems.length ? allPrintItems : items).filter(item => {
                                                 const q = selectPrintSearch.toLowerCase();
                                                 if (!q) return !isPaperCategory(item.category);
                                                 return !isPaperCategory(item.category) &&
@@ -3131,7 +3151,7 @@ const Inventory = () => {
                                             else setSelectPrintSelectedIds([]);
                                         }}
                                         checked={(() => {
-                                            const filtered = items.filter(item => {
+                                            const filtered = (allPrintItems.length ? allPrintItems : items).filter(item => {
                                                 const q = selectPrintSearch.toLowerCase();
                                                 if (!q) return !isPaperCategory(item.category);
                                                 return !isPaperCategory(item.category) &&
@@ -3150,7 +3170,16 @@ const Inventory = () => {
                                 overflowY: 'auto',
                             }}>
                                 {(() => {
-                                    const filtered = items
+                                    if (allPrintItemsLoading) {
+                                        return (
+                                            <div style={{ textAlign: 'center', padding: 'var(--space-32) var(--space-16)', color: 'var(--text-muted)' }}>
+                                                <Loader2 size={24} style={{ animation: 'spin 1s linear infinite', margin: '0 auto var(--space-10)' }} />
+                                                <div style={{ fontSize: 'var(--text-sm)', fontWeight: 500 }}>Loading items…</div>
+                                            </div>
+                                        );
+                                    }
+                                    const sourceItems = allPrintItems.length ? allPrintItems : items;
+                                    const filtered = sourceItems
                                         .filter(item => {
                                             const q = selectPrintSearch.toLowerCase();
                                             if (!q) return !isPaperCategory(item.category);
@@ -3196,14 +3225,14 @@ const Inventory = () => {
                                             <Package size={28} style={{ opacity: 0.25, marginBottom: 'var(--space-10)' }} />
                                             <div style={{ fontSize: 'var(--text-sm)', fontWeight: 500 }}>No items found</div>
                                             <div style={{ fontSize: 'var(--text-xs)', marginTop: 4 }}>Try a different search term</div>
-                                            {searchTerm && (
+                                            {selectPrintSearch && (
                                                 <button
                                                     className="btn btn-primary btn-sm"
                                                     style={{ marginTop: 12 }}
-                                                    onClick={() => navigate(`/dashboard/products?addProduct=1&name=${encodeURIComponent(searchTerm)}`)}
+                                                    onClick={() => navigate(`/dashboard/products?addProduct=1&name=${encodeURIComponent(selectPrintSearch)}`)}
                                                 >
                                                     <Plus size={14} />
-                                                    Add "{searchTerm}" to Product Library
+                                                    Add "{selectPrintSearch}" to Product Library
                                                 </button>
                                             )}
                                         </div>

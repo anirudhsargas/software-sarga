@@ -609,6 +609,10 @@
   to { transform: rotate(360deg); }
 }
 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 /* ───── Responsive ───── */
 @media (max-width: 1024px) {
   .inv-kpi-row {

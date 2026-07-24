@@ -87,7 +87,16 @@ setTimeout(async () => {
 router.get('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { branchId: filterBranchId } = await branchFilter(req, { column: 'i.id', allowPrivilegedQuery: true, queryKey: 'branch_id', nullableForPrivileged: true });
-        const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
+        const noPagination = req.query.no_pagination === '1';
+        let limit, offset, _page, response;
+        if (noPagination) {
+            limit = 100000;
+            offset = 0;
+            _page = 1;
+            response = (data, total) => ({ data, total, page: 1, limit: data.length, totalPages: 1 });
+        } else {
+            ({ limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit));
+        }
         
         const search = req.query.search ? `%${String(req.query.search).trim().substring(0, 100)}%` : null;
         const itemType = req.query.item_type ? String(req.query.item_type).trim() : null;
@@ -213,10 +222,10 @@ router.get('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant'
                         ${whereSection}
                         GROUP BY i.id
                         ORDER BY ${finalSortBy} ${finalSortOrder}, i.id ASC
-                        LIMIT ? OFFSET ?`;
+                        ${noPagination ? '' : 'LIMIT ? OFFSET ?'}`;
         
         const [[{ total }]] = await pool.query(countQuery, params);
-        const [rows] = await pool.query(dataQuery, [...params, limit, offset]);
+        const [rows] = await pool.query(dataQuery, noPagination ? params : [...params, limit, offset]);
 
         const itemIds = rows.map(r => r.id);
         if (itemIds.length > 0) {
