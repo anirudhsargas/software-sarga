@@ -1207,12 +1207,14 @@ const Dashboard = () => {
 
                     <div className={`content-container ${isNavigating ? 'page-enter' : 'page-enter-active'}`} key={location.pathname}>
 
-                    {['Admin', 'Accountant', 'Front Office'].includes(user?.role) && (
-                        <div className="ai-panels">
-                            <InsightsPanel />
-                            <AnomalyPanel />
-                        </div>
-                    )}
+                    <Suspense fallback={null}>
+                        {['Admin', 'Accountant', 'Front Office'].includes(user?.role) && (
+                            <div className="ai-panels">
+                                <InsightsPanel />
+                                <AnomalyPanel />
+                            </div>
+                        )}
+                    </Suspense>
 
                     <Suspense fallback={<SuspenseFallback />}>
                         <ErrorBoundary>
@@ -1690,11 +1692,13 @@ const Dashboard = () => {
             )}
 
             {/* Inventory QR Scanner */}
-            <ScannerModal
-                isOpen={showInventoryScan}
-                onClose={() => setShowInventoryScan(false)}
-                onScan={handleInventoryScan}
-            />
+            <Suspense fallback={null}>
+                <ScannerModal
+                    isOpen={showInventoryScan}
+                    onClose={() => setShowInventoryScan(false)}
+                    onScan={handleInventoryScan}
+                />
+            </Suspense>
 
             {/* Loading overlay when hardware scanner fires */}
             {inventoryScanLoading && (
@@ -1760,9 +1764,13 @@ const Dashboard = () => {
                     </div>
                 </div>
             )}
-            <SmartSearch isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
+            <Suspense fallback={null}>
+                <SmartSearch isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
+            </Suspense>
             {showPaperPanel && (
-                <PaperSidePanel open={showPaperPanel} onClose={() => setShowPaperPanel(false)} />
+                <Suspense fallback={null}>
+                    <PaperSidePanel open={showPaperPanel} onClose={() => setShowPaperPanel(false)} />
+                </Suspense>
             )}
         </div>
     );
