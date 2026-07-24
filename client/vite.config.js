@@ -8,12 +8,12 @@ import sitemap from 'vite-plugin-sitemap'
 const publicRoutes = ['/', '/services', '/products', '/design', '/track', '/contact', '/signin', '/privacy', '/terms'];
 
 // Prevent modulepreload for heavy on-demand vendor chunks so they don't add to initial transfer size
-const skipModulePreloadPlugin = () => ({
+    const skipModulePreloadPlugin = () => ({
   name: 'skip-module-preload',
   transformIndexHtml: {
     order: 'post',
     handler: (html) => html.replace(
-      /<link[^>]*rel="modulepreload"[^>]*href="[^"]*(?:pdf-vendor|charts-vendor|excel-vendor|form-vendor)[^"]*"[^>]*>/gi,
+      /<link[^>]*rel="modulepreload"[^>]*href="[^"]*(?:pdf-vendor|pdf-autotable-vendor|charts-vendor|excel-vendor|form-vendor|sentry-vendor|tanstack-virtual-vendor|qr-vendor)[^"]*"[^>]*>/gi,
       ''
     ),
   },
@@ -59,9 +59,13 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,png,webp,avif,svg,ico,woff2,json}'],
         globIgnores: [
           '**/pdf-vendor-*.js',
+          '**/pdf-autotable-vendor-*.js',
           '**/charts-vendor-*.js',
           '**/excel-vendor-*.js',
           '**/form-vendor-*.js',
+          '**/sentry-vendor-*.js',
+          '**/tanstack-virtual-vendor-*.js',
+          '**/qr-vendor-*.js',
         ],
         // Runtime caching for the API
         runtimeCaching: [
@@ -137,6 +141,14 @@ export default defineConfig({
               path.startsWith('@remix-run/')
             ) {
               return 'react-vendor';
+            }
+            
+            // sentry-vendor (dynamically imported — isolate from other chunks
+            // to prevent TDZ errors from mixed deployment chunks)
+            if (
+              path.startsWith('@sentry/')
+            ) {
+              return 'sentry-vendor';
             }
             
             // pdf-vendor (dynamically imported — not loaded on initial page load)

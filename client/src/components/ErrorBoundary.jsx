@@ -1,6 +1,6 @@
 import React from 'react';
 import { AlertTriangle, RefreshCw, RotateCw, Home, ZapOff } from 'lucide-react';
-import { isChunkLoadError } from '../utils/errorUtils';
+import { isStaleChunkError } from '../utils/errorUtils';
 import './ErrorBoundary.css';
 
 class ErrorBoundary extends React.Component {
@@ -10,12 +10,12 @@ class ErrorBoundary extends React.Component {
   }
 
   static getDerivedStateFromError(error) {
-    return { hasError: true, error, isChunk: isChunkLoadError(error) };
+    return { hasError: true, error, isChunk: isStaleChunkError(error) };
   }
 
   componentDidCatch(error, errorInfo) {
     console.error('ErrorBoundary caught:', error, errorInfo);
-    if (isChunkLoadError(error)) {
+    if (isStaleChunkError(error)) {
       const reloadKey = 'sarga_chunk_reload';
       const count = parseInt(sessionStorage.getItem(reloadKey) || '0', 10);
 

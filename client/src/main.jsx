@@ -76,7 +76,14 @@ import('@sentry/react').then((Sentry) => {
     dsn: "https://ed80e78984db726985d5baaa8aaab8d7@o4511491000041472.ingest.us.sentry.io/4511609262112769",
     tracesSampleRate: 0.2,
   });
-}).catch(err => console.error("Sentry load failed:", err));
+}).catch(err => {
+  const msg = err?.message || '';
+  if (/Cannot access\s+['"][^'"]+['"]\s+before initialization/.test(msg)) {
+    handleStaleChunk();
+  } else {
+    console.error("Sentry load failed:", err);
+  }
+});
 
 // Optional: disable logs in production
 
@@ -109,39 +116,46 @@ window.addEventListener('online', () => {
 
 // ── Stale chunk recovery ──────────────
 
-// Catches dynamic import failures (lazy-loaded routes)
+function isStaleChunkError(msg) {
+  return (
+    msg.includes("Failed to fetch dynamically imported module") ||
+    msg.includes("Importing a module script failed") ||
+    msg.includes("Unable to preload CSS") ||
+    /Cannot access\s+['"][^'"]+['"]\s+before initialization/.test(msg)
+  );
+}
+
+// Catches dynamic import failures (lazy-loaded routes) and TDZ errors
+// that occur when chunks from different deployments get mixed.
 window.addEventListener("unhandledrejection", (event) => {
   const msg = event?.reason?.message || "";
-
-  const isChunkError =
-    msg.includes(
-      "Failed to fetch dynamically imported module"
-    ) ||
-    msg.includes(
-      "Importing a module script failed"
-    ) ||
-    msg.includes(
-      "Unable to preload CSS"
-    ) ||
-    event?.reason?.name === "ChunkLoadError";
-
-  if (isChunkError) {
+  if (isStaleChunkError(msg)) {
     handleStaleChunk();
   }
 });
 
 // Catches static script/style loading failures (e.g. cached index.html
 // referencing old chunk hashes that no longer exist after deployment)
+// as well as runtime TDZ errors from stale cached chunks.
 window.addEventListener("error", (event) => {
   const target = event.target;
-  // Only handle resource loading errors (scripts, stylesheets, images)
-  // not runtime errors (which have event.error set)
+
+  // Resource loading errors (scripts, stylesheets, images)
   if (target && (target.tagName === "SCRIPT" || target.tagName === "LINK")) {
     const src = target.src || target.href || "";
     if (src.includes("/assets/")) {
       event.preventDefault();
       handleStaleChunk();
+      return;
     }
+  }
+
+  // Runtime TDZ errors from stale chunks (not resource errors, but
+  // module evaluation errors caused by version-mismatched chunks)
+  const err = event.error || event.reason;
+  if (err && isStaleChunkError(err.message || "")) {
+    event.preventDefault();
+    handleStaleChunk();
   }
 }, true);
 

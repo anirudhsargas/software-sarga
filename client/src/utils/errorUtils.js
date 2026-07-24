@@ -87,12 +87,24 @@ export function parseError(error) {
   };
 }
 
-export function isChunkLoadError(error) {
+export function isStaleChunkError(error) {
   const msg = error?.message || '';
-  return (
+
+  // Chunk load errors from failed dynamic imports / script loading
+  const isChunkFail =
     msg.includes('Failed to fetch dynamically imported module') ||
     msg.includes('Importing a module script failed') ||
     msg.includes('Unable to preload CSS') ||
-    error?.name === 'ChunkLoadError'
-  );
+    error?.name === 'ChunkLoadError';
+
+  if (isChunkFail) return true;
+
+  // TDZ errors ("Cannot access 'X' before initialization") happen when
+  // modules from an older deployment are evaluated alongside modules from
+  // a newer deployment (stale service-worker cache mixing chunks).
+  return /Cannot access\s+['"][^'"]+['"]\s+before initialization/.test(msg);
+}
+
+export function isChunkLoadError(error) {
+  return isStaleChunkError(error);
 }
