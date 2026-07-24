@@ -160,6 +160,22 @@ window.addEventListener("error", (event) => {
 }, true);
 
 const RELOAD_KEY = "sarga_chunk_reload";
+const RELOAD_WINDOW_MS = 30000;
+
+function getReloadCount() {
+  try {
+    const raw = sessionStorage.getItem(RELOAD_KEY);
+    if (!raw) return 0;
+    const data = JSON.parse(raw);
+    return Date.now() - data.t < RELOAD_WINDOW_MS ? data.c : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function setReloadCount(count) {
+  sessionStorage.setItem(RELOAD_KEY, JSON.stringify({ c: count, t: Date.now() }));
+}
 
 function handleStaleChunk() {
   // Activate waiting service worker if available
@@ -167,15 +183,19 @@ function handleStaleChunk() {
     navigator.serviceWorker.waiting.postMessage({ type: "SKIP_WAITING" });
   }
 
-  const count = parseInt(sessionStorage.getItem(RELOAD_KEY) || "0", 10);
+  const count = getReloadCount();
   if (count < 2) {
-    sessionStorage.setItem(RELOAD_KEY, String(count + 1));
-    window.location.reload();
+    setReloadCount(count + 1);
+
+    if (count === 1 && "serviceWorker" in navigator) {
+      navigator.serviceWorker.getRegistrations().then(registrations => {
+        for (const r of registrations) r.unregister();
+      }).finally(() => window.location.reload());
+    } else {
+      window.location.reload();
+    }
   }
 }
-
-// Reset reload counter on fresh page load
-sessionStorage.removeItem(RELOAD_KEY);
 
 // ── React Render ─────────────────────
 

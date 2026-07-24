@@ -1,7 +1,22 @@
 import React from 'react';
 import { AlertTriangle, RefreshCw, RotateCw, Home, ZapOff } from 'lucide-react';
 import { isStaleChunkError } from '../utils/errorUtils';
+
+const RELOAD_KEY = 'sarga_chunk_reload';
+const RELOAD_WINDOW_MS = 30000;
+
 import './ErrorBoundary.css';
+
+function getReloadCount() {
+  try {
+    const raw = sessionStorage.getItem(RELOAD_KEY);
+    if (!raw) return 0;
+    const data = JSON.parse(raw);
+    return Date.now() - data.t < RELOAD_WINDOW_MS ? data.c : 0;
+  } catch {
+    return 0;
+  }
+}
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -16,12 +31,11 @@ class ErrorBoundary extends React.Component {
   componentDidCatch(error, errorInfo) {
     console.error('ErrorBoundary caught:', error, errorInfo);
     if (isStaleChunkError(error)) {
-      const reloadKey = 'sarga_chunk_reload';
-      const count = parseInt(sessionStorage.getItem(reloadKey) || '0', 10);
+      const count = getReloadCount();
+      console.warn(`[PWA] Stale chunk error (attempt ${count + 1}) — reloading.`);
 
       if (count < 2) {
-        sessionStorage.setItem(reloadKey, (count + 1).toString());
-        console.warn(`[PWA] Chunk load error (attempt ${count + 1}) — reloading.`);
+        sessionStorage.setItem(RELOAD_KEY, JSON.stringify({ c: count + 1, t: Date.now() }));
 
         if (count === 1 && 'serviceWorker' in navigator) {
           navigator.serviceWorker.getRegistrations().then(registrations => {
