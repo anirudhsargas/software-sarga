@@ -5,6 +5,7 @@ import { registerSW } from 'virtual:pwa-register';
 import "./index.css";
 import "./styles/global-fixes.css";
 import App from "./App.jsx";
+import { API_URL } from "./services/api";
 
 // Service worker — update detection via Workbox onNeedRefresh
 if (import.meta.env.PROD) {
