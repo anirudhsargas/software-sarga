@@ -63,10 +63,6 @@ export const UpdateNotification = () => {
     window.addEventListener('sw.update', handleSWUpdate);
     window.addEventListener('app.update', handleAppUpdate);
 
-    navigator.serviceWorker?.addEventListener('controllerchange', () => {
-      window.location.reload();
-    });
-
     return () => {
       window.removeEventListener('sw.update', handleSWUpdate);
       window.removeEventListener('app.update', handleAppUpdate);

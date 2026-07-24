@@ -52,8 +52,6 @@ export default defineConfig({
       manifest: false, // we already have public/manifest.json
       workbox: {
         cleanupOutdatedCaches: true,
-        skipWaiting: true,
-        clientsClaim: true,
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB limit for caching
         // Cache JS, CSS, HTML, images, fonts
         globPatterns: ['**/*.{js,css,html,png,webp,avif,svg,ico,woff2,json}'],
