@@ -1,27 +1,28 @@
 import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
+import { lazyWithRetry } from '../utils/errorUtils';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import AccountantSidebar from '../components/accounting/AccountantSidebar';
 import './AccountantLayout.css';
 
 // Lazy load pages
-const AccountantDashboard = React.lazy(() => import('../pages/AccountantDashboard'));
-const Customers = React.lazy(() => import('../pages/Customers'));
-const CustomerPayments = React.lazy(() => import('../pages/CustomerPayments'));
-const ExpenseManager = React.lazy(() => import('../pages/ExpenseManager'));
-const Vendors = React.lazy(() => import('../pages/Vendors'));
-const DailyReport = React.lazy(() => import('../pages/DailyReport'));
-const VendorPayables = React.lazy(() => import('../pages/VendorPayables'));
-const ConnectionLedger = React.lazy(() => import('../pages/ConnectionLedger'));
-const InternalTransactions = React.lazy(() => import('../pages/InternalTransactions'));
-const InternalTransfers = React.lazy(() => import('../pages/InternalTransfers'));
-const Reports = React.lazy(() => import('../pages/Reports'));
-const Accounts = React.lazy(() => import('../pages/Accounts'));
-const AttendanceSalary = React.lazy(() => import('../pages/AttendanceSalary'));
-const RecurringInvoices = React.lazy(() => import('../pages/RecurringInvoices'));
-const UploadBills = React.lazy(() => import('../pages/UploadBills'));
-const PaymentVerification = React.lazy(() => import('../pages/PaymentVerification'));
-const ProductLibrary = React.lazy(() => import('../pages/ProductLibrary'));
+const AccountantDashboard = lazyWithRetry(() => import('../pages/AccountantDashboard'));
+const Customers = lazyWithRetry(() => import('../pages/Customers'));
+const CustomerPayments = lazyWithRetry(() => import('../pages/CustomerPayments'));
+const ExpenseManager = lazyWithRetry(() => import('../pages/ExpenseManager'));
+const Vendors = lazyWithRetry(() => import('../pages/Vendors'));
+const DailyReport = lazyWithRetry(() => import('../pages/DailyReport'));
+const VendorPayables = lazyWithRetry(() => import('../pages/VendorPayables'));
+const ConnectionLedger = lazyWithRetry(() => import('../pages/ConnectionLedger'));
+const InternalTransactions = lazyWithRetry(() => import('../pages/InternalTransactions'));
+const InternalTransfers = lazyWithRetry(() => import('../pages/InternalTransfers'));
+const Reports = lazyWithRetry(() => import('../pages/Reports'));
+const Accounts = lazyWithRetry(() => import('../pages/Accounts'));
+const AttendanceSalary = lazyWithRetry(() => import('../pages/AttendanceSalary'));
+const RecurringInvoices = lazyWithRetry(() => import('../pages/RecurringInvoices'));
+const UploadBills = lazyWithRetry(() => import('../pages/UploadBills'));
+const PaymentVerification = lazyWithRetry(() => import('../pages/PaymentVerification'));
+const ProductLibrary = lazyWithRetry(() => import('../pages/ProductLibrary'));
 
 export default function AccountantLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);

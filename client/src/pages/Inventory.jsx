@@ -1,5 +1,6 @@
 import { useSEO } from '../hooks/useSEO';
 import React, { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
+import { lazyWithRetry } from '../utils/errorUtils';
 import { useNavigate } from 'react-router-dom';
 import { Printer, Trash2, Edit2, Plus, ArrowLeftRight, Minus, Package, Search, Bell, Camera, Filter, FileText, ChevronDown, CheckSquare, Layers, Download, Share2, Phone, ShoppingCart, List, Grid, X, Image as ImageIcon, Settings, IndianRupee, BarChart3, TrendingUp, RefreshCw, Loader2, Link, Clock, Check, QrCode, AlertTriangle } from 'lucide-react';
 import api, { imgUrl } from '../services/api';
@@ -15,7 +16,7 @@ import SmartBillUpload from './expense-manager/SmartBillUpload';
 import { onSocketEvent, getSocket } from '../services/socketClient';
 import './InventoryModern.css';
 
-const ScannerModal = React.lazy(() => import('../components/ScannerModal'));
+const ScannerModal = lazyWithRetry(() => import('../components/ScannerModal'));
 import ScannerErrorBoundary from '../components/ScannerErrorBoundary';
 import PageContainer from '../components/ui/PageContainer';
 
@@ -3104,7 +3105,6 @@ const Inventory = () => {
                                     value={selectPrintSearch}
                                     onChange={e => {
                                         setSelectPrintSearch(e.target.value);
-                                        setSelectPrintSelectedIds([]);
                                     }}
                                     style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', padding: '11px 0', fontSize: 'var(--text-sm)', color: 'var(--text-primary)' }}
                                     autoFocus
@@ -3126,7 +3126,7 @@ const Inventory = () => {
                                                 if (!q) return !isPaperCategory(item.category);
                                                 return !isPaperCategory(item.category) &&
                                                     ((item.name || '').toLowerCase().includes(q) || (item.sku || '').toLowerCase().includes(q));
-                                            }).slice(0, 30);
+                                            });
                                             if (e.target.checked) setSelectPrintSelectedIds(filtered.map(i => i.id));
                                             else setSelectPrintSelectedIds([]);
                                         }}
@@ -3136,7 +3136,7 @@ const Inventory = () => {
                                                 if (!q) return !isPaperCategory(item.category);
                                                 return !isPaperCategory(item.category) &&
                                                     ((item.name || '').toLowerCase().includes(q) || (item.sku || '').toLowerCase().includes(q));
-                                            }).slice(0, 30);
+                                            });
                                             return filtered.length > 0 && filtered.every(i => selectPrintSelectedIds.includes(i.id));
                                         })()}
                                     /> Select All ({selectPrintSelectedIds.length} selected)
@@ -3146,7 +3146,7 @@ const Inventory = () => {
                             <div style={{
                                 borderRadius: 'var(--radius-md)',
                                 border: '1px solid var(--border)',
-                                maxHeight: '260px',
+                                maxHeight: '320px',
                                 overflowY: 'auto',
                             }}>
                                 {(() => {
@@ -3157,7 +3157,6 @@ const Inventory = () => {
                                             return !isPaperCategory(item.category) &&
                                                 ((item.name || '').toLowerCase().includes(q) || (item.sku || '').toLowerCase().includes(q));
                                         })
-                                        .slice(0, 30);
                                     return filtered.length > 0 ? filtered.map((item, idx) => {
                                         const isChecked = selectPrintSelectedIds.includes(item.id);
                                         return (

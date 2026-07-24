@@ -1,5 +1,6 @@
 import { Routes, Route, useLocation } from 'react-router-dom'
-import { useEffect, lazy, Suspense } from 'react'
+import { useEffect, Suspense } from 'react'
+import { lazyWithRetry } from '../../client/src/utils/errorUtils'
 import { Toaster } from 'react-hot-toast'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
@@ -13,24 +14,24 @@ import FloatingShortcutWidget from './components/Shortcuts/FloatingShortcutWidge
 import './App.css'
 
 // Lazy loaded page components
-const Home = lazy(() => import('./pages/Home'))
-const Services = lazy(() => import('./pages/Services'))
-const Products = lazy(() => import('./pages/Products'))
-const TrackOrder = lazy(() => import('./pages/TrackOrder'))
-const SignIn = lazy(() => import('./pages/SignIn'))
-const PortalDashboard = lazy(() => import('./pages/PortalDashboard'))
-const JobDetail = lazy(() => import('./pages/JobDetail'))
-const Contact = lazy(() => import('./pages/Contact'))
-const ShortcutsPage = lazy(() => import('./pages/ShortcutsPage'))
-const NotFound = lazy(() => import('./pages/errors/NotFound'))
-const Privacy = lazy(() => import('./pages/Privacy'))
-const Terms = lazy(() => import('./pages/Terms'))
-const DesignHub = lazy(() => import('./pages/design/DesignHub'))
-const PhotoSheetLayout = lazy(() => import('./pages/design/PhotoSheetLayout'))
-const AlbumDesigner = lazy(() => import('./pages/design/AlbumDesigner'))
-const FabricEditorHub = lazy(() => import('./pages/design/print-editor/FabricEditorHub'))
-const PrintEditor = lazy(() => import('./pages/design/print-editor/PrintEditor'))
-const UploadDesign = lazy(() => import('./pages/design/UploadDesign'))
+const Home = lazyWithRetry(() => import('./pages/Home'))
+const Services = lazyWithRetry(() => import('./pages/Services'))
+const Products = lazyWithRetry(() => import('./pages/Products'))
+const TrackOrder = lazyWithRetry(() => import('./pages/TrackOrder'))
+const SignIn = lazyWithRetry(() => import('./pages/SignIn'))
+const PortalDashboard = lazyWithRetry(() => import('./pages/PortalDashboard'))
+const JobDetail = lazyWithRetry(() => import('./pages/JobDetail'))
+const Contact = lazyWithRetry(() => import('./pages/Contact'))
+const ShortcutsPage = lazyWithRetry(() => import('./pages/ShortcutsPage'))
+const NotFound = lazyWithRetry(() => import('./pages/errors/NotFound'))
+const Privacy = lazyWithRetry(() => import('./pages/Privacy'))
+const Terms = lazyWithRetry(() => import('./pages/Terms'))
+const DesignHub = lazyWithRetry(() => import('./pages/design/DesignHub'))
+const PhotoSheetLayout = lazyWithRetry(() => import('./pages/design/PhotoSheetLayout'))
+const AlbumDesigner = lazyWithRetry(() => import('./pages/design/AlbumDesigner'))
+const FabricEditorHub = lazyWithRetry(() => import('./pages/design/print-editor/FabricEditorHub'))
+const PrintEditor = lazyWithRetry(() => import('./pages/design/print-editor/PrintEditor'))
+const UploadDesign = lazyWithRetry(() => import('./pages/design/UploadDesign'))
 
 const DESIGN_PATHS = ['/design/sheet-layout', '/design/album', '/design/print-editor', '/design/upload-design']
 

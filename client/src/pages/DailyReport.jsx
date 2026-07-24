@@ -1,5 +1,6 @@
 import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect, useCallback } from 'react';
+import { lazyWithRetry } from '../utils/errorUtils';
 import usePolling from '../hooks/usePolling';
 import {
     BookOpen, Printer, Package, RefreshCw, TrendingUp, TrendingDown,
@@ -8,7 +9,7 @@ import {
     ChevronRight, ChevronLeft, BarChart3, Users, Sunrise, User, Phone
 } from 'lucide-react';
 
-const PDFExport = React.lazy(() => import('./DailyReportPDFExport'));
+const PDFExport = lazyWithRetry(() => import('./DailyReportPDFExport'));
 import api from '../services/api';
 import auth from '../services/auth';
 import offlineDb from '../services/offlineDb';

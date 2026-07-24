@@ -1,11 +1,12 @@
 import { useSEO } from '../hooks/useSEO';
 import React, {useState, useEffect, useCallback, useMemo} from 'react';
+import { lazyWithRetry } from '../utils/errorUtils';
 import { FileText, Plus, Edit2, Trash2, Send, ArrowRight, Search, X, Loader2, UserSquare, Package, Clock, Camera } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import PageContainer from '../components/ui/PageContainer';
 
-const ScannerModal = React.lazy(() => import('../components/ScannerModal'));
+const ScannerModal = lazyWithRetry(() => import('../components/ScannerModal'));
 
 const statusColors = {
     draft: 'var(--muted-foreground)', sent: 'var(--accent)', accepted: 'var(--success)', rejected: 'var(--destructive)',

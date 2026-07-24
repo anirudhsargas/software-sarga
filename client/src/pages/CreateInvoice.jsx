@@ -1,11 +1,13 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { useSEO } from '../hooks/useSEO';
 import PageContainer from '../components/ui/PageContainer';
 import SectionErrorBoundary from '../components/SectionErrorBoundary';
 
-const Billing = lazy(() => import('./Billing'));
+import { lazyWithRetry } from '../utils/errorUtils';
+
+const Billing = lazyWithRetry(() => import('./Billing'));
 
 const CreateInvoice = () => {
   useSEO('Create Invoice');

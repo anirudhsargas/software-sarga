@@ -9,12 +9,14 @@ import { useBranches } from '../contexts/BranchContext';
 import LazyViewport from '../components/LazyViewport';
 import DrillDownModal from '../components/DrillDownModal';
 
-const OrderForecastWidget = React.lazy(() => import('../components/OrderForecastWidget'));
+import { lazyWithRetry } from '../utils/errorUtils';
+
+const OrderForecastWidget = lazyWithRetry(() => import('../components/OrderForecastWidget'));
 
 import BranchSelect from '../components/ui/BranchSelect';
 import PageContainer from '../components/ui/PageContainer';
-const AIMonitoring = React.lazy(() => import('./AIMonitoring'));
-const OrderPredictions = React.lazy(() => import('./OrderPredictions'));
+const AIMonitoring = lazyWithRetry(() => import('./AIMonitoring'));
+const OrderPredictions = lazyWithRetry(() => import('./OrderPredictions'));
 
 // Cache variable outside component for immediate render on revisit
 let cachedStats = null;

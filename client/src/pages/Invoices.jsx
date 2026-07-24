@@ -1,5 +1,6 @@
 import { useSEO } from '../hooks/useSEO';
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { lazyWithRetry } from '../utils/errorUtils';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Receipt, Plus, Search, Calendar, Printer, Download,
@@ -10,7 +11,7 @@ import api from '../services/api';
 import toast from 'react-hot-toast';
 import useTranslation from '../hooks/useTranslation';
 import './Invoices.css';
-const Billing = React.lazy(() => import('./Billing'));
+const Billing = lazyWithRetry(() => import('./Billing'));
 import { formatCurrency } from '../constants';
 import SectionErrorBoundary from '../components/SectionErrorBoundary';
 import PageContainer from '../components/ui/PageContainer';

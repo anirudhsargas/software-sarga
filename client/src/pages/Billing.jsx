@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback, Suspense } from 'react';
+import { lazyWithRetry } from '../utils/errorUtils';
 import { useDebounce } from '../hooks/useDebounce';
 import SecureImage from '../components/SecureImage';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -21,7 +22,7 @@ import { getWhatsAppShareLink } from '../utils/whatsappInvoice';
 import PageContainer from '../components/ui/PageContainer';
 import ScannerErrorBoundary from '../components/ScannerErrorBoundary';
 
-const ScannerModal = React.lazy(() => import('../components/ScannerModal'));
+const ScannerModal = lazyWithRetry(() => import('../components/ScannerModal'));
 
 const serverToday = () => new Date().toISOString().split('T')[0];
 

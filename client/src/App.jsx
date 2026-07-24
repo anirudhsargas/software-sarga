@@ -1,23 +1,24 @@
-import React, { useEffect, useState, Suspense, lazy } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import AppShellSkeleton from './components/ui/AppShellSkeleton';
 import './bones/registry';
 import './pages/public/public.css';
-const Login = lazy(() => import('./pages/Login'));
-const Dashboard = lazy(() => import('./pages/Dashboard'));
-const ChangePassword = lazy(() => import('./pages/ChangePassword'));
-const NotFound = lazy(() => import('./pages/NotFound'));
-const ServerError = lazy(() => import('./pages/ServerError'));
-const NetworkError = lazy(() => import('./pages/NetworkError'));
-const AccessDenied = lazy(() => import('./pages/AccessDenied'));
-const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
-const ResetPassword = lazy(() => import('./pages/ResetPassword'));
-const StaffSettingsPage = lazy(() => import('./pages/StaffSettingsPage'));
+const Login = lazyWithRetry(() => import('./pages/Login'));
+const Dashboard = lazyWithRetry(() => import('./pages/Dashboard'));
+const ChangePassword = lazyWithRetry(() => import('./pages/ChangePassword'));
+const NotFound = lazyWithRetry(() => import('./pages/NotFound'));
+const ServerError = lazyWithRetry(() => import('./pages/ServerError'));
+const NetworkError = lazyWithRetry(() => import('./pages/NetworkError'));
+const AccessDenied = lazyWithRetry(() => import('./pages/AccessDenied'));
+const ForgotPassword = lazyWithRetry(() => import('./pages/ForgotPassword'));
+const ResetPassword = lazyWithRetry(() => import('./pages/ResetPassword'));
+const StaffSettingsPage = lazyWithRetry(() => import('./pages/StaffSettingsPage'));
 import auth from './services/auth';
 import { initServerTime, checkHealth, waitForServer } from './services/serverTime';
 import OfflineBanner from './components/OfflineBanner';
 import ErrorBoundary from './components/ErrorBoundary';
+import { lazyWithRetry } from './utils/errorUtils';
 import { ConfirmProvider } from './contexts/ConfirmContext';
 import { BranchProvider } from './contexts/BranchContext';
 import { AuthProvider, AuthContext } from './hooks/useAuth';
@@ -34,29 +35,29 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import TooltipProvider from './components/ui/TooltipProvider';
 import GlobalKeyboardShortcuts from './components/GlobalKeyboardShortcuts';
 
-const PublicLayout = lazy(() => import('./pages/public/PublicLayout'));
-const HomePage = lazy(() => import('./pages/public/HomePage'));
-const ServicesPage = lazy(() => import('./pages/public/ServicesPage'));
-const ProductsPage = lazy(() => import('./pages/public/ProductsPage'));
-const DesignPage = lazy(() => import('./pages/public/DesignPage'));
-const TrackPage = lazy(() => import('./pages/public/TrackPage'));
-const ContactPage = lazy(() => import('./pages/public/ContactPage'));
-const PrivacyPage = lazy(() => import('./pages/public/PrivacyPage'));
-const TermsPage = lazy(() => import('./pages/public/TermsPage'));
+const PublicLayout = lazyWithRetry(() => import('./pages/public/PublicLayout'));
+const HomePage = lazyWithRetry(() => import('./pages/public/HomePage'));
+const ServicesPage = lazyWithRetry(() => import('./pages/public/ServicesPage'));
+const ProductsPage = lazyWithRetry(() => import('./pages/public/ProductsPage'));
+const DesignPage = lazyWithRetry(() => import('./pages/public/DesignPage'));
+const TrackPage = lazyWithRetry(() => import('./pages/public/TrackPage'));
+const ContactPage = lazyWithRetry(() => import('./pages/public/ContactPage'));
+const PrivacyPage = lazyWithRetry(() => import('./pages/public/PrivacyPage'));
+const TermsPage = lazyWithRetry(() => import('./pages/public/TermsPage'));
 
-const AccountantLayout = lazy(() => import('./layouts/AccountantLayout'));
-const StaffLayout = lazy(() => import('./layouts/StaffLayout'));
-const StaffDashboard = lazy(() => import('./pages/staff/StaffDashboard'));
-const LeaveManagement = lazy(() => import('./pages/staff/LeaveManagement'));
-const MyTasks = lazy(() => import('./pages/staff/MyTasks'));
+const AccountantLayout = lazyWithRetry(() => import('./layouts/AccountantLayout'));
+const StaffLayout = lazyWithRetry(() => import('./layouts/StaffLayout'));
+const StaffDashboard = lazyWithRetry(() => import('./pages/staff/StaffDashboard'));
+const LeaveManagement = lazyWithRetry(() => import('./pages/staff/LeaveManagement'));
+const MyTasks = lazyWithRetry(() => import('./pages/staff/MyTasks'));
 
-const DesignerLayout = lazy(() => import('./layouts/DesignerLayout'));
-const DesignDashboard = lazy(() => import('./pages/designer/DesignDashboard'));
-const ProductLibrary = lazy(() => import('./pages/designer/ProductLibrary'));
-const DesignBooking = lazy(() => import('./pages/designer/DesignBooking'));
-const BlockJournal = lazy(() => import('./pages/designer/BlockJournal'));
-const AssignedJobs = lazy(() => import('./pages/designer/AssignedJobs'));
-const DesignAnalytics = lazy(() => import('./pages/designer/DesignAnalytics'));
+const DesignerLayout = lazyWithRetry(() => import('./layouts/DesignerLayout'));
+const DesignDashboard = lazyWithRetry(() => import('./pages/designer/DesignDashboard'));
+const ProductLibrary = lazyWithRetry(() => import('./pages/designer/ProductLibrary'));
+const DesignBooking = lazyWithRetry(() => import('./pages/designer/DesignBooking'));
+const BlockJournal = lazyWithRetry(() => import('./pages/designer/BlockJournal'));
+const AssignedJobs = lazyWithRetry(() => import('./pages/designer/AssignedJobs'));
+const DesignAnalytics = lazyWithRetry(() => import('./pages/designer/DesignAnalytics'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -146,6 +147,43 @@ const ConnectingScreen = () => (
     </div>
   </div>
 );
+
+class RouteErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  handleRetry = () => {
+    this.setState({ hasError: false });
+    window.location.reload();
+  };
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          minHeight: '60vh', gap: '16px', textAlign: 'center', padding: '24px', color: 'var(--text, #212529)',
+        }}>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>Failed to load page</h2>
+          <p style={{ margin: 0, fontSize: 14, color: 'var(--muted, #6c757d)' }}>
+            A new version may have been deployed. Please reload.
+          </p>
+          <button onClick={this.handleRetry} style={{
+            padding: '8px 24px', borderRadius: 'var(--radius-sm, 6px)',
+            border: 'none', background: 'var(--accent, #4361ee)', color: '#fff',
+            fontWeight: 600, fontSize: 14, cursor: 'pointer',
+          }}>
+            Reload
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function App() {
   const [isOffline, setIsOffline] = useState(false);
@@ -263,6 +301,7 @@ function App() {
           <ToastAnnouncer />
           <OfflineBanner visible={isOffline} onRetry={() => { setIsOffline(false); initServerTime(); }} />
           <main id="main-content">
+          <RouteErrorBoundary>
           <Suspense fallback={<AppShellSkeleton />}>
             <Routes>
               {/* Public routes */}
@@ -359,6 +398,7 @@ function App() {
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
+          </RouteErrorBoundary>
           </main>
         </TooltipProvider>
         </ConfirmProvider>

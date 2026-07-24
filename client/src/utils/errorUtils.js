@@ -1,3 +1,5 @@
+import { lazy } from 'react';
+
 export const ErrorCategory = {
   NETWORK: 'NETWORK',
   AUTH: 'AUTH',
@@ -107,4 +109,24 @@ export function isStaleChunkError(error) {
 
 export function isChunkLoadError(error) {
   return isStaleChunkError(error);
+}
+
+/**
+ * Wraps React.lazy with a retry-and-reload helper for stale chunks.
+ * On import failure (e.g. old chunk hash removed by a new deploy), it
+ * forces one hard reload before letting the error propagate.
+ */
+export function lazyWithRetry(importer) {
+  return lazy(async () => {
+    try {
+      return await importer();
+    } catch (err) {
+      const hasReloaded = sessionStorage.getItem('chunk-reload');
+      if (!hasReloaded) {
+        sessionStorage.setItem('chunk-reload', '1');
+        window.location.reload();
+      }
+      throw err;
+    }
+  });
 }

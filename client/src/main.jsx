@@ -113,6 +113,18 @@ if (import.meta.env.PROD) {
   window.addEventListener('beforeunload', () => clearInterval(healthInterval), { once: true });
 }
 
+// ── vite:preloadError — catches stale preload requests for chunk hashes
+// that were removed from the server after a new deployment.
+window.addEventListener('vite:preloadError', () => {
+  window.location.reload();
+});
+
+// Clear the chunk-reload flag on successful app load so it doesn't
+// block a legitimate future reload need.
+if (sessionStorage.getItem('chunk-reload')) {
+  sessionStorage.removeItem('chunk-reload');
+}
+
 // ── Online recovery ───────────────────
 
 window.addEventListener('online', () => {
@@ -198,7 +210,11 @@ function handleStaleChunk() {
     if (count === 1 && "serviceWorker" in navigator) {
       navigator.serviceWorker.getRegistrations().then(registrations => {
         for (const r of registrations) r.unregister();
-      }).finally(() => window.location.reload());
+      });
+      if ("caches" in window) {
+        caches.keys().then(names => Promise.all(names.map(n => caches.delete(n))));
+      }
+      window.location.reload();
     } else {
       window.location.reload();
     }

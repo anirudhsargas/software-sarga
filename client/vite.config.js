@@ -52,7 +52,7 @@ export default defineConfig({
       manifest: false, // we already have public/manifest.json
       workbox: {
         cleanupOutdatedCaches: true,
-        skipWaiting: false,
+        skipWaiting: true,
         clientsClaim: true,
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB limit for caching
         // Cache JS, CSS, HTML, images, fonts
@@ -67,6 +67,17 @@ export default defineConfig({
         ],
         // Runtime caching for the API
         runtimeCaching: [
+          {
+            // Always fetch HTML from network — fresh index.html references newest JS chunk hashes
+            urlPattern: ({ request }) => request.mode === 'navigate',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'sarga-html',
+              expiration: { maxEntries: 5, maxAgeSeconds: 60 * 60 * 24 },
+              networkTimeoutSeconds: 5,
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
           {
             // Cache product hierarchy, branches, customers for instant load
             urlPattern: /\/api\/(product-hierarchy|branches|customers|company-settings)/,

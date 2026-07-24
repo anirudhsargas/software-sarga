@@ -1,5 +1,6 @@
 /* global jsPDF, autoTable */
 import React, { useEffect, useMemo, useState } from 'react';
+import { lazyWithRetry } from '../utils/errorUtils';
 import { useLocation } from 'react-router-dom';
 import {
   Calendar, CreditCard, Receipt, Loader2, Plus, Wallet,
@@ -22,7 +23,7 @@ import SectionErrorBoundary from '../components/SectionErrorBoundary';
 import PageContainer from '../components/ui/PageContainer';
 import QRCode from 'qrcode';
 
-const ReceiptModal = React.lazy(() => import('../components/ReceiptModal'));
+const ReceiptModal = lazyWithRetry(() => import('../components/ReceiptModal'));
 
 const paymentMethods = ['Cash', 'UPI', 'Cheque', 'Account Transfer'];
 
