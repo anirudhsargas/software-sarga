@@ -1,9 +1,25 @@
 import { jwtDecode } from 'jwt-decode';
-import api from './api';
+import axios from 'axios';
+
+// ⚠️ Do NOT import from './api' here — api.js imports auth.js,
+// creating a circular dependency that causes a TDZ ReferenceError at runtime.
+// Instead, we use a plain axios call for login/logout to break the cycle.
+const _getApiBase = () => {
+    const envUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL;
+    if (envUrl) {
+        const t = String(envUrl).trim().replace(/\/?$/, '/');
+        return t.endsWith('/api/') ? t : t.replace(/\/?$/, '/api/');
+    }
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (isLocal) return 'http://localhost:3000/api/';
+    return 'https://software-sarga-2.onrender.com/api/';
+};
+
+const _authHttp = axios.create({ withCredentials: true });
 
 const auth = {
     login: async (userId, password) => {
-        const response = await api.post('/auth/login', { user_id: userId, password });
+        const response = await _authHttp.post(`${_getApiBase()}auth/login`, { user_id: userId, password });
         if (response.data.token) {
             localStorage.setItem('token', response.data.token);
             localStorage.setItem('user', JSON.stringify(response.data.user));
@@ -17,7 +33,7 @@ const auth = {
         sessionStorage.clear();
 
         if (token) {
-            api.post('/auth/logout', null, {
+            _authHttp.post(`${_getApiBase()}auth/logout`, null, {
                 headers: { Authorization: `Bearer ${token}` }
             }).catch(() => {});
         }
