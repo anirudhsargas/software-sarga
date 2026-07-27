@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS sarga_inventory (
   hsn VARCHAR(20),
   discount DECIMAL(5, 2) DEFAULT 0,
   gst_rate DECIMAL(5, 2) DEFAULT 0,
-  source_code VARCHAR(3),
+  source_code VARCHAR(10),
   model_name VARCHAR(100),
   size_code VARCHAR(100),
   item_type ENUM('Retail', 'Consumable') DEFAULT 'Retail',

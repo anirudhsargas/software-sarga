@@ -1805,9 +1805,9 @@ const Inventory = () => {
                                                             <input
                                                                 name="addItemSource"
                                                                 className="input-field"
-                                                                maxLength={3}
-                                                                placeholder="ABC"
-                                                                value={newItem.source_code}
+                                                             maxLength={10}
+                                                             placeholder="ABC"
+                                                             value={newItem.source_code}
                                                                 style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, textTransform: 'uppercase', marginTop: 'var(--space-6)' }}
                                                                 onChange={(e) => {
                                                                     const val = e.target.value.toUpperCase();
@@ -2476,11 +2476,11 @@ const Inventory = () => {
                                         <div className="row gap-sm" style={{ marginTop: '10px' }}>
                                             <div style={{ width: '80px' }}>
                                                 <label className="label">Source</label>
-                                                <input
-                                                    name="editItemSource"
-                                                    className="input-field"
-                                                    maxLength={3}
-                                                    placeholder="ABC"
+                                                 <input
+                                                     name="editItemSource"
+                                                     className="input-field"
+                                                     maxLength={10}
+                                                     placeholder="ABC"
                                                     value={selectedItem.source_code || ''}
                                                     onChange={async (e) => {
                                                         const val = e.target.value.toUpperCase();

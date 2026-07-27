@@ -333,14 +333,23 @@ const initDb = async () => {
       appliedMigrations.add(migrateUtilityConnectionFieldsName);
     }
 
-    // Add 'draft' status to vendor_invoices for partial bill save support
-    const migrateDraftStatusName = '038_add_draft_status.js';
-    if (!appliedMigrations.has(migrateDraftStatusName)) {
-      const migrateDraftStatus = require('./migrations/038_add_draft_status');
-      await migrateDraftStatus(connection);
-      await connection.query('INSERT IGNORE INTO schema_migrations (migration_name) VALUES (?)', [migrateDraftStatusName]);
-      appliedMigrations.add(migrateDraftStatusName);
-    }
+     // Add 'draft' status to vendor_invoices for partial bill save support
+     const migrateDraftStatusName = '038_add_draft_status.js';
+     if (!appliedMigrations.has(migrateDraftStatusName)) {
+       const migrateDraftStatus = require('./migrations/038_add_draft_status');
+       await migrateDraftStatus(connection);
+       await connection.query('INSERT IGNORE INTO schema_migrations (migration_name) VALUES (?)', [migrateDraftStatusName]);
+       appliedMigrations.add(migrateDraftStatusName);
+     }
+
+     // Increase source_code column from VARCHAR(3) to VARCHAR(10) to support longer company codes
+     const migrateSourceCodeLengthName = '039_increase_source_code_length.js';
+     if (!appliedMigrations.has(migrateSourceCodeLengthName)) {
+       const migrateSourceCodeLength = require('./migrations/039_increase_source_code_length');
+       await migrateSourceCodeLength(connection);
+       await connection.query('INSERT IGNORE INTO schema_migrations (migration_name) VALUES (?)', [migrateSourceCodeLengthName]);
+       appliedMigrations.add(migrateSourceCodeLengthName);
+     }
 
     // Create paper_rate_history table and add current_rate_id to paper_types (was never wired into initDb)
     const migratePaperRateHistoryName = '2026_07_15_paper_rate_history.sql';
