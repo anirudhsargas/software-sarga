@@ -226,7 +226,7 @@ const Billing = () => {
     try {
       let onlineBills = [];
       try {
-        const res = await api.get('/customer-payments?limit=20');
+        const res = await api.get('/customer-payments?limit=20', { _noCache: true });
         onlineBills = res.data?.data || res.data || [];
       } catch (err) {
         console.warn('Failed to fetch online bills', err);
@@ -304,11 +304,11 @@ const Billing = () => {
       setHierarchy(Array.isArray(h) ? h : []);
       setLoading(false);
     });
-    api.get('/product-hierarchy').then(r => {
+    api.get('/product-hierarchy', { _noCache: true }).then(r => {
       if (cancelled || !r.data) return;
       setHierarchy(Array.isArray(r.data) ? r.data : []);
     }).catch(() => {});
-    api.get('/branches').then(r => {
+    api.get('/branches', { _noCache: true }).then(r => {
       if (cancelled || !r.data) return;
       setBranches(Array.isArray(r.data) ? r.data : []);
     }).catch(() => {});
@@ -323,7 +323,7 @@ const Billing = () => {
 
   useEffect(() => {
     if (!selectedBranchId) { setBranchUpiId(''); return; }
-    api.get('/branches').then(r => {
+    api.get('/branches', { _noCache: true }).then(r => {
       const branch = (Array.isArray(r.data) ? r.data : []).find(b => String(b.id) === String(selectedBranchId));
       setBranchUpiId(branch?.upi_id || '');
     }).catch(() => {});
@@ -331,7 +331,7 @@ const Billing = () => {
 
   // Fetch staff for assignment
   useEffect(() => {
-    api.get('/staff?active=true&all=true').then(r => {
+    api.get('/staff?active=true&all=true', { _noCache: true }).then(r => {
       const all = Array.isArray(r.data?.data) ? r.data.data : Array.isArray(r.data) ? r.data : [];
       setStaffOptions(all.filter(s => s.role !== 'Front Office' && s.role !== 'Accountant'));
     }).catch(() => {});
@@ -756,7 +756,7 @@ const Billing = () => {
       return;
     }
     try {
-      const { data } = await api.get(`/inventory/by-sku/${encodeURIComponent(normalized)}`);
+      const { data } = await api.get(`/inventory/by-sku/${encodeURIComponent(normalized)}`, { _noCache: true });
       if (data) {
         const invProduct = { id: data.id, name: data.name, mrp: data.mrp || data.sell_price, sku: data.sku };
         if (autoAdd) {

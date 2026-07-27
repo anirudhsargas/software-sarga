@@ -2,9 +2,14 @@ const { getCache, setCache } = require('../services/cacheService');
 
 /**
  * General cache middleware using the service's in-memory storage.
+ * Sets Cache-Control: no-cache on all responses to prevent
+ * browser/service-worker caching of volatile API data.
  */
 function redisCache(ttl = 300, keyPrefix = 'general') {
     return async (req, res, next) => {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
         try {
             // Build cache key based on route path, query parameters, and user context for security isolation
             const queryPart = Object.keys(req.query).length > 0 ? JSON.stringify(req.query) : '';
@@ -38,6 +43,9 @@ function redisCache(ttl = 300, keyPrefix = 'general') {
  */
 function routeCache(ttl, keyFn) {
     return async (req, res, next) => {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
         try {
             const key = typeof keyFn === 'function' ? keyFn(req) : keyFn || req.originalUrl;
             const cached = await getCache(key);
