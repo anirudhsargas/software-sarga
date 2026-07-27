@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import BillExtractionReview from './expense-manager/BillExtractionReview';
 import PageContainer from '../components/ui/PageContainer';
-import auth from '../services/auth';
+import useAuth from '../hooks/useAuth';
 import toast from 'react-hot-toast';
 
 const UploadBills = () => {
@@ -10,11 +10,12 @@ const UploadBills = () => {
   const [searchParams] = useSearchParams();
   const redirectPath = searchParams.get('redirect') || '/dashboard/expenses?tab=dashboard';
   const target = searchParams.get('target') || 'products';
-  const userRole = auth.getUser()?.role;
+  const { user } = useAuth();
+  const userRole = user?.role || auth.getUser()?.role;
 
   // Navigation Guard
   React.useEffect(() => {
-    if (!['Admin', 'Front Office', 'Accountant'].includes(userRole)) {
+    if (userRole && !['Admin', 'Front Office', 'Accountant'].includes(userRole)) {
       toast.error('Access Denied: Insufficient permissions to upload bills.');
       navigate('/dashboard');
     }

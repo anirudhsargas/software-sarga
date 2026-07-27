@@ -848,6 +848,24 @@ const BillExtractionReview = ({ onClose, onSuccess, onError, stayOnSave = false,
     }));
   }, []);
 
+  const handleRetry = useCallback(() => {
+    setError('');
+    setStep('upload');
+    setPages([]);
+    setForm({ ...EMPTY_FORM, items: [EMPTY_ITEM(0)] });
+    setQueueStatus(null);
+    setExtractionProgress(null);
+    setItemMatches([]);
+    setVendorMatch(null);
+    setSelectedVendorId('');
+    setProductOverrides({});
+    setActiveSelector(null);
+    if (cleanupSocketRef.current) {
+      cleanupSocketRef.current();
+      cleanupSocketRef.current = null;
+    }
+  }, []);
+
   const handleSave = useCallback(async () => {
     if (!form.vendor_name.trim()) {
       toast.error('Vendor name is required');
@@ -1016,24 +1034,6 @@ const BillExtractionReview = ({ onClose, onSuccess, onError, stayOnSave = false,
       setSaving(false);
     }
   }, [form, pages, itemMatches, selectedVendorId, consumablesBillMeta, stayOnSave, handleRetry, onSuccess, onError]);
-
-  const handleRetry = useCallback(() => {
-    setError('');
-    setStep('upload');
-    setPages([]);
-    setForm({ ...EMPTY_FORM, items: [EMPTY_ITEM(0)] });
-    setQueueStatus(null);
-    setExtractionProgress(null);
-    setItemMatches([]);
-    setVendorMatch(null);
-    setSelectedVendorId('');
-    setProductOverrides({});
-    setActiveSelector(null);
-    if (cleanupSocketRef.current) {
-      cleanupSocketRef.current();
-      cleanupSocketRef.current = null;
-    }
-  }, []);
 
   const handleVendorSelect = useCallback((vendor) => {
     if (vendor) {
