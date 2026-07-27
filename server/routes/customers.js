@@ -42,7 +42,7 @@ const CUSTOMER_PAYMENT_SUMMARY_COLUMNS = [
 // List Customers
 router.get('/customers', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office', 'Designer'), customerCache(), async (req, res) => {
     try {
-        const { search, type: typeFilter } = req.query;
+        const { search, type: typeFilter, export: exportMode } = req.query;
         const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
 
         let where = '';
@@ -74,6 +74,18 @@ router.get('/customers', authenticateToken, authorizeRoles('Admin', 'Accountant'
         }
 
         const baseFrom = `FROM sarga_customers WHERE 1=1 ${where}`;
+
+        // Export mode: return all customers without pagination
+        if (exportMode === '1') {
+            const [rows] = await pool.query(`
+                SELECT id, mobile, name, type, email, gst, address, branch_id, client_type, internal_branch, created_at, updated_at,
+                       (SELECT COALESCE(SUM(GREATEST(total_amount - advance_paid, 0)), 0) FROM sarga_jobs WHERE customer_id = sarga_customers.id) AS outstanding_balance,
+                       (SELECT MAX(created_at) FROM sarga_jobs WHERE customer_id = sarga_customers.id) AS last_order_date
+                ${baseFrom}
+                ORDER BY (client_type = 'internal') DESC, name ASC
+            `, params);
+            return res.json(rows);
+        }
 
         const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, params);
         const [rows] = await pool.query(`

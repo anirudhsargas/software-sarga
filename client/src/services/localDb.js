@@ -305,7 +305,7 @@ export async function getVendors(filters = {}) {
     syncPendingVendors(vendors);
 
     if (filters.type) {
-        vendors = vendors.filter(v => (v.vendor_type || v.type) === filters.type);
+        vendors = vendors.filter(v => (v.category || v.vendor_type || v.type) === filters.type);
     }
     if (filters.search) {
         const s = filters.search.toLowerCase();

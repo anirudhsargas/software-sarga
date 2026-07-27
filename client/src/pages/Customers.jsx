@@ -674,14 +674,20 @@ const Customers = () => {
         return () => window.removeEventListener('mousedown', handleClickOutside);
     }, [showExportMenu]);
 
+    const fetchAllCustomersForExport = async () => {
+        const res = await api.get('/customers?export=1');
+        return Array.isArray(res.data) ? res.data : (res.data?.data || customers);
+    };
+
     const exportToPDF = async () => {
+        const allCustomers = await fetchAllCustomersForExport();
         const [{ default: jsPDF }, autotable] = await Promise.all([
             import('jspdf'),
             import('jspdf-autotable'),
         ]);
         const doc = new jsPDF();
         const tableColumn = ['Name', 'Type', 'Phone', 'Email', 'GST', 'Address', 'Outstanding', 'Last Order'];
-        const tableRows = customers.map(c => [
+        const tableRows = allCustomers.map(c => [
             c.name || '',
             c.type || '',
             c.mobile ? c.mobile.replace(/^\+/, '') : '',
@@ -707,9 +713,10 @@ const Customers = () => {
         setShowExportMenu(false);
     };
 
-    const exportToExcel = () => {
+    const exportToExcel = async () => {
+        const allCustomers = await fetchAllCustomersForExport();
         const headers = ['Name', 'Type', 'Phone', 'Email', 'GST', 'Address', 'Outstanding', 'Last Order'];
-        const rows = customers.map(c => [
+        const rows = allCustomers.map(c => [
             c.name || '',
             c.type || '',
             c.mobile ? c.mobile.replace(/^\+/, '') : '',

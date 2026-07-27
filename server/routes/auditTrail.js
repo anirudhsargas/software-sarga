@@ -265,12 +265,10 @@ router.get('/audit/export', authenticateToken, authorizeRoles('Admin'), asyncHan
     const { format = 'json' } = req.query;
     const { where, params } = buildWhereClause(req.query);
 
-    const [rows] = await pool.query(
+    const [data] = await pool.query(
         `SELECT a.* FROM sarga_enterprise_audit a ${where} ORDER BY a.timestamp DESC`,
         params
     );
-
-    const data = rows[0] || [];
 
     const exportData = data.map(r => ({
         audit_id: r.audit_id,
@@ -315,12 +313,34 @@ router.get('/audit/export', authenticateToken, authorizeRoles('Admin'), asyncHan
     }
 
     if (format === 'csv') {
-        const headers = ['Audit ID', 'Timestamp', 'Username', 'Employee Name', 'Role', 'Branch', 'Department', 'Module', 'Action', 'Record Type', 'Record ID', 'Document No', 'IP Address', 'Device', 'Browser', 'OS', 'Status', 'Response Status', 'Error', 'Remarks', 'Duration (ms)', 'Hash'];
-        const csvRows = [headers.join(',')];
+        const csvFields = [
+            { label: 'Audit ID', key: 'audit_id' },
+            { label: 'Timestamp', key: 'timestamp' },
+            { label: 'Username', key: 'username' },
+            { label: 'Employee Name', key: 'employee_name' },
+            { label: 'Role', key: 'user_role' },
+            { label: 'Branch', key: 'branch_name' },
+            { label: 'Department', key: 'department' },
+            { label: 'Module', key: 'module' },
+            { label: 'Action', key: 'action_type' },
+            { label: 'Record Type', key: 'record_type' },
+            { label: 'Record ID', key: 'record_id' },
+            { label: 'Document No', key: 'document_number' },
+            { label: 'IP Address', key: 'ip_address' },
+            { label: 'Device', key: 'device_name' },
+            { label: 'Browser', key: 'browser' },
+            { label: 'OS', key: 'operating_system' },
+            { label: 'Status', key: 'success' },
+            { label: 'Response Status', key: 'response_status' },
+            { label: 'Error', key: 'error_message' },
+            { label: 'Remarks', key: 'reason_remarks' },
+            { label: 'Duration (ms)', key: 'duration_ms' },
+            { label: 'Hash', key: 'current_hash' },
+        ];
+        const csvRows = [csvFields.map(f => f.label).join(',')];
         for (const r of exportData) {
-            const row = headers.map(h => {
-                const key = h.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/_$/, '');
-                const val = r[key] !== null && r[key] !== undefined ? r[key] : '';
+            const row = csvFields.map(f => {
+                const val = r[f.key] !== null && r[f.key] !== undefined ? r[f.key] : '';
                 return `"${String(val).replace(/"/g, '""')}"`;
             });
             csvRows.push(row.join(','));
