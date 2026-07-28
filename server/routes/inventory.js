@@ -1714,50 +1714,7 @@ router.post('/inventory/:id/regenerate-image', authenticateToken, authorizeRoles
     }
 });
 
-router.post('/inventory/bulk-generate-images', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
-    // In a real system, queue this. For now, we process asynchronously in background.
-    try {
-        const { force: _force } = req.body;
-        
-        const [items] = await pool.query(
-            `SELECT i.id, i.name, i.category, ps.name as product_subcategory_name 
-             FROM sarga_inventory i
-             LEFT JOIN sarga_product_images spi ON i.id = spi.inventory_item_id
-             LEFT JOIN sarga_products p ON i.id = p.inventory_item_id AND p.is_active = 1 AND p.is_deleted = 0
-             LEFT JOIN sarga_product_subcategories ps ON p.subcategory_id = ps.id
-             WHERE spi.id IS NULL OR spi.source = 'Default'`
-        );
-        
-        res.json({ message: `Queued ${items.length} items for image generation`, queued_count: items.length });
-        
-        // Async processing (simulate background job)
-        const { findImageMatch } = require('../services/imageService');
-        
-        setTimeout(async () => {
-            console.log(`Starting bulk generation for ${items.length} items...`);
-            for (let i = 0; i < items.length; i++) {
-                const item = items[i];
-                try {
-                    const match = await findImageMatch(item.name, item.product_subcategory_name, item.category);
-                    if (match && match.url && match.confidence >= 70) {
-                        await pool.query(
-                            `INSERT INTO sarga_product_images (inventory_item_id, image_url, source, confidence, is_locked)
-                             VALUES (?, ?, 'Generated', ?, 0)
-                             ON DUPLICATE KEY UPDATE image_url = VALUES(image_url), source = VALUES(source), confidence = VALUES(confidence)`,
-                            [item.id, match.url, match.confidence]
-                        );
-                    }
-                } catch(e) {
-                    console.error('Bulk generation error for item', item.id, e.message);
-                }
-            }
-            console.log('Bulk generation complete');
-        }, 1000);
-        
-    } catch (_err) {
-        res.status(500).json({ message: 'Failed to start bulk generation' });
-    }
-});
+
 
 router.post('/inventory/check-bulk-stock', authenticateToken, async (req, res) => {
     const { items } = req.body;

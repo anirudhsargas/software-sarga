@@ -6,6 +6,7 @@ import { useDebounce } from '../../hooks/useDebounce';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import PageContainer from '../../components/ui/PageContainer';
+import { validatePrice, validateDate, validateEnum, validateFields } from '../../utils/validators';
 
 const defaultForm = { transport_type: '', vehicle_number: '', driver_name: '', amount: '', payment_method: 'Cash', reference_number: '', description: '', expense_date: today(), bill_number: '', from_location: '', to_location: '', distance_km: '' };
 const PAGE_SIZE = 50;
@@ -22,6 +23,7 @@ const TransportTab = ({ onError }) => {
   const [submitting, setSubmitting] = useState(false);
   const [page, setPage] = useState(1);
   const [formDirty, setFormDirty] = useState(false);
+  const [formErrors, setFormErrors] = useState({});
 
   const hasUnsavedChanges = showForm && formDirty && !submitting;
 
@@ -38,6 +40,7 @@ const TransportTab = ({ onError }) => {
     setShowForm(false);
     setConfirming(false);
     setFormDirty(false);
+    setFormErrors({});
   };
 
   const fetchDashboard = useCallback(async () => {
@@ -73,7 +76,16 @@ const TransportTab = ({ onError }) => {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
-  const handleReview = (e) => { e.preventDefault(); setConfirming(true); };
+  const handleReview = (e) => {
+    e.preventDefault();
+    const result = validateFields({
+      transport_type: () => validateEnum(form.transport_type, TRANSPORT_EXPENSE_TYPES, { label: 'Transport type' }),
+      amount: () => validatePrice(form.amount, { label: 'Amount', min: 0.01 }),
+      expense_date: () => validateDate(form.expense_date, { label: 'Date' }),
+    });
+    setFormErrors(result.errors);
+    if (result.valid) setConfirming(true);
+  };
 
   const submitForm = async (e) => {
     e.preventDefault();
@@ -224,17 +236,17 @@ const TransportTab = ({ onError }) => {
               <form onSubmit={!editing ? handleReview : submitForm}>
                 <div className="em-modal__body">
                   <div className="em-form-grid">
-<div className="em-form-group"><label>Transport Type</label><select name="transport_type" aria-label="Select option"  className="em-input" value={form.transport_type} onChange={e => updateForm({ transport_type: e.target.value })} required><option value="">Select Type</option>{TRANSPORT_EXPENSE_TYPES.map(t => <option key={t}>{t}</option>)}</select></div>
+<div className="em-form-group"><label>Transport Type</label><select name="transport_type" aria-label="Select option"  className={`em-input ${formErrors.transport_type ? 'field-error' : ''}`} value={form.transport_type} onChange={e => updateForm({ transport_type: e.target.value })} required><option value="">Select Type</option>{TRANSPORT_EXPENSE_TYPES.map(t => <option key={t}>{t}</option>)}</select>{formErrors.transport_type && <div className="field-error-text">{formErrors.transport_type}</div>}</div>
                     <div className="em-form-group"><label>Vehicle #</label><input name="vehicle_number" className="em-input" value={form.vehicle_number} onChange={e => updateForm({ vehicle_number: e.target.value })} /></div>
                     <div className="em-form-group"><label>Driver Name</label><input name="driver_name" className="em-input" value={form.driver_name} onChange={e => updateForm({ driver_name: e.target.value })} /></div>
-                    <div className="em-form-group"><label>Amount (₹)</label><input name="amount" className="em-input" type="number" min="0" step="0.01" value={form.amount} onChange={e => updateForm({ amount: e.target.value })} required /></div>
+                    <div className="em-form-group"><label>Amount (₹)</label><input name="amount" className={`em-input ${formErrors.amount ? 'field-error' : ''}`} type="number" min="0" step="0.01" value={form.amount} onChange={e => updateForm({ amount: e.target.value })} required />{formErrors.amount && <div className="field-error-text">{formErrors.amount}</div>}</div>
                     <div className="em-form-group"><label>From</label><input name="from_location" className="em-input" value={form.from_location} onChange={e => updateForm({ from_location: e.target.value })} /></div>
                     <div className="em-form-group"><label>To</label><input name="to_location" className="em-input" value={form.to_location} onChange={e => updateForm({ to_location: e.target.value })} /></div>
                     <div className="em-form-group"><label>Distance (km)</label><input name="distance_km" className="em-input" type="number" min="0" value={form.distance_km} onChange={e => updateForm({ distance_km: e.target.value })} /></div>
                     <div className="em-form-group"><label>Payment Method</label><select name="payment_method" aria-label="Select option"  className="em-input" value={form.payment_method} onChange={e => updateForm({ payment_method: e.target.value })}>{['Cash', 'UPI', 'Bank Transfer'].map(m => <option key={m}>{m}</option>)}</select></div>
                     <div className="em-form-group"><label>Date</label>
         <label htmlFor="date-y2ztc" className="sr-only">Select Date</label>
-        <input id="date-y2ztc" name="expense_date" className="em-input" type="date" value={form.expense_date} onChange={e => updateForm({ expense_date: e.target.value })} /></div>
+        <input id="date-y2ztc" name="expense_date" className={`em-input ${formErrors.expense_date ? 'field-error' : ''}`} type="date" value={form.expense_date} onChange={e => updateForm({ expense_date: e.target.value })} />{formErrors.expense_date && <div className="field-error-text">{formErrors.expense_date}</div>}</div>
                     <div className="em-form-group"><label>Bill #</label><input name="bill_number" className="em-input" value={form.bill_number} onChange={e => updateForm({ bill_number: e.target.value })} /></div>
                     <div className="em-form-group em-form-group--full"><label>Description</label><input name="description" className="em-input" value={form.description} onChange={e => updateForm({ description: e.target.value })} /></div>
                   </div>

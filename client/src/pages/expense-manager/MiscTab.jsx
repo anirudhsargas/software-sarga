@@ -4,6 +4,7 @@ import api from '../../services/api';
 import { fmt, fmtDate, today, exportRowsToCsv, MISC_CATEGORIES } from './constants';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import PageContainer from '../../components/ui/PageContainer';
+import { validatePrice, validateDate, validateEnum, validateFields } from '../../utils/validators';
 
 const defaultForm = { expense_category: '', vendor_name: '', amount: '', payment_method: 'Cash', reference_number: '', description: '', expense_date: today(), bill_number: '', is_recurring: false };
 const PAGE_SIZE = 50;
@@ -20,6 +21,7 @@ const MiscTab = ({ onError }) => {
   const [submitting, setSubmitting] = useState(false);
   const [page, setPage] = useState(1);
   const [formDirty, setFormDirty] = useState(false);
+  const [formErrors, setFormErrors] = useState({});
 
   const hasUnsavedChanges = showForm && formDirty && !submitting;
 
@@ -62,6 +64,7 @@ const MiscTab = ({ onError }) => {
     setShowForm(false);
     setConfirming(false);
     setFormDirty(false);
+    setFormErrors({});
   };
 
   const fetchDashboard = useCallback(async () => {
@@ -95,7 +98,16 @@ const MiscTab = ({ onError }) => {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
-  const handleReview = (e) => { e.preventDefault(); setConfirming(true); };
+  const handleReview = (e) => {
+    e.preventDefault();
+    const result = validateFields({
+      expense_category: () => validateEnum(form.expense_category, MISC_CATEGORIES, { label: 'Category' }),
+      amount: () => validatePrice(form.amount, { label: 'Amount', min: 0.01 }),
+      expense_date: () => validateDate(form.expense_date, { label: 'Date' }),
+    });
+    setFormErrors(result.errors);
+    if (result.valid) setConfirming(true);
+  };
 
   const submitForm = async (e) => {
     e.preventDefault();
@@ -191,14 +203,14 @@ const MiscTab = ({ onError }) => {
               <form onSubmit={!editing ? handleReview : submitForm}>
                 <div className="em-modal__body">
                   <div className="em-form-grid">
-<div className="em-form-group"><label>Category</label><select name="expense_category" aria-label="Select option"  className="em-input" value={form.expense_category} onChange={e => updateForm({ expense_category: e.target.value })} required><option value="">Select Category</option>{MISC_CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></div>
+<div className="em-form-group"><label>Category</label><select name="expense_category" aria-label="Select option"  className={`em-input ${formErrors.expense_category ? 'field-error' : ''}`} value={form.expense_category} onChange={e => updateForm({ expense_category: e.target.value })} required><option value="">Select Category</option>{MISC_CATEGORIES.map(c => <option key={c}>{c}</option>)}</select>{formErrors.expense_category && <div className="em-error" style={{ fontSize: 11, marginTop: 2 }}>{formErrors.expense_category}</div>}</div>
                     <div className="em-form-group" style={{ position: 'relative' }}><label>Vendor / Shop</label><div className="sb-autocomplete-wrapper"><input ref={vendorInputRefMisc} name="vendor_name" className="em-input" value={form.vendor_name} onChange={e => updateForm({ vendor_name: e.target.value })} onFocus={() => setVendorFocusedMisc(true)} onKeyDown={handleVendorKeyDownMisc} onBlur={() => setTimeout(() => setVendorFocusedMisc(false), 200)} autoComplete="off" />{vendorFocusedMisc && vendorSuggestionsMisc.length > 0 && <div className="sb-autocomplete-dropdown">{vendorSuggestionsMisc.map((v, idx) => (<div key={v.id || idx} className={`sb-autocomplete-item ${idx === vendorHighlightMisc ? 'sb-autocomplete-item--active' : ''}`} onMouseDown={e => { e.preventDefault(); updateForm({ vendor_name: v.name }); setVendorSuggestionsMisc([]); setVendorFocusedMisc(false); }} onMouseEnter={() => setVendorHighlightMisc(idx)}><span className="sb-autocomplete-item-name">{v.name}</span>{v.phone && <span className="sb-autocomplete-item-sub">{v.phone}</span>}</div>))}</div>}</div></div>
-                    <div className="em-form-group"><label>Amount (₹)</label><input name="amount" className="em-input" type="number" min="0" step="0.01" value={form.amount} onChange={e => updateForm({ amount: e.target.value })} required /></div>
+                    <div className="em-form-group"><label>Amount (₹)</label><input name="amount" className={`em-input ${formErrors.amount ? 'field-error' : ''}`} type="number" min="0" step="0.01" value={form.amount} onChange={e => updateForm({ amount: e.target.value })} required />{formErrors.amount && <div className="em-error" style={{ fontSize: 11, marginTop: 2 }}>{formErrors.amount}</div>}</div>
                     <div className="em-form-group"><label>Payment Method</label><select name="payment_method" aria-label="Select option"  className="em-input" value={form.payment_method} onChange={e => updateForm({ payment_method: e.target.value })}>{['Cash', 'UPI', 'Bank Transfer', 'Cheque'].map(m => <option key={m}>{m}</option>)}</select></div>
                     <div className="em-form-group"><label>Bill #</label><input name="bill_number" className="em-input" value={form.bill_number} onChange={e => updateForm({ bill_number: e.target.value })} /></div>
                     <div className="em-form-group"><label>Date</label>
         <label htmlFor="date-rw4fzx" className="sr-only">Select Date</label>
-        <input id="date-rw4fzx" name="expense_date" className="em-input" type="date" value={form.expense_date} onChange={e => updateForm({ expense_date: e.target.value })} /></div>
+        <input id="date-rw4fzx" name="expense_date" className={`em-input ${formErrors.expense_date ? 'field-error' : ''}`} type="date" value={form.expense_date} onChange={e => updateForm({ expense_date: e.target.value })} />{formErrors.expense_date && <div className="em-error" style={{ fontSize: 11, marginTop: 2 }}>{formErrors.expense_date}</div>}</div>
                     <div className="em-form-group"><label>Recurring?</label><select name="is_recurring" aria-label="Select option"  className="em-input" value={form.is_recurring ? 'true' : 'false'} onChange={e => updateForm({ is_recurring: e.target.value === 'true' })}><option value="false">No</option><option value="true">Yes</option></select></div>
                     <div className="em-form-group em-form-group--full"><label>Description</label><input name="description" className="em-input" value={form.description} onChange={e => updateForm({ description: e.target.value })} /></div>
                   </div>

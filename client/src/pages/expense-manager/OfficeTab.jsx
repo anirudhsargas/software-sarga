@@ -4,6 +4,8 @@ import api from '../../services/api';
 import { fmt, fmtDate, today, exportRowsToCsv, OFFICE_EXPENSE_TYPES } from './constants';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import PageContainer from '../../components/ui/PageContainer';
+import Loading from '../../components/ui/Loading';
+import { validatePrice, validateDate, validateEnum, validateFields } from '../../utils/validators';
 
 const defaultForm = { expense_type: '', vendor_name: '', amount: '', payment_method: 'Cash', reference_number: '', description: '', expense_date: today(), bill_number: '' };
 const PAGE_SIZE = 50;
@@ -22,6 +24,7 @@ const OfficeTab = ({ onError }) => {
   const [submitting, setSubmitting] = useState(false);
   const [page, setPage] = useState(1);
   const [formDirty, setFormDirty] = useState(false);
+  const [formErrors, setFormErrors] = useState({});
 
   const hasUnsavedChanges = showForm && formDirty && !submitting;
 
@@ -64,6 +67,7 @@ const OfficeTab = ({ onError }) => {
     setShowForm(false);
     setConfirming(false);
     setFormDirty(false);
+    setFormErrors({});
   };
 
   const fetchDashboard = useCallback(async () => {
@@ -106,7 +110,16 @@ const OfficeTab = ({ onError }) => {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
-  const handleReview = (e) => { e.preventDefault(); setConfirming(true); };
+  const handleReview = (e) => {
+    e.preventDefault();
+    const result = validateFields({
+      expense_type: () => validateEnum(form.expense_type, OFFICE_EXPENSE_TYPES, { label: 'Expense type' }),
+      amount: () => validatePrice(form.amount, { label: 'Amount', min: 0.01 }),
+      expense_date: () => validateDate(form.expense_date, { label: 'Date' }),
+    });
+    setFormErrors(result.errors);
+    if (result.valid) setConfirming(true);
+  };
 
   const submitForm = async (e) => {
     e.preventDefault();
@@ -180,7 +193,7 @@ const OfficeTab = ({ onError }) => {
       )}
 
       {loadingExpenses ? (
-        <div className="em-loading"><Loader2 className="spin" size={20} /> Loading expenses...</div>
+        <Loading type="spinner" text="Loading expenses..." />
       ) : expenses.length > 0 ? (
         <div className="em-card">
           <div className="em-card__title">All Office Expenses <button className="btn btn-ghost btn-sm" onClick={() => exportRowsToCsv(expenses, 'office-expenses.csv')}><Download size={14} /> CSV</button></div>
@@ -217,15 +230,15 @@ const OfficeTab = ({ onError }) => {
               <form onSubmit={!editing ? handleReview : submitForm}>
                 <div className="em-modal__body">
                   <div className="em-form-grid">
-<div className="em-form-group"><label>Expense Type</label><select name="expense_type" aria-label="Select option"  className="em-input" value={form.expense_type} onChange={e => updateForm({ expense_type: e.target.value })} required><option value="">Select Type</option>{OFFICE_EXPENSE_TYPES.map(t => <option key={t}>{t}</option>)}</select></div>
+<div className="em-form-group"><label>Expense Type</label><select name="expense_type" aria-label="Select option"  className={`em-input ${formErrors.expense_type ? 'field-error' : ''}`} value={form.expense_type} onChange={e => updateForm({ expense_type: e.target.value })} required><option value="">Select Type</option>{OFFICE_EXPENSE_TYPES.map(t => <option key={t}>{t}</option>)}</select>{formErrors.expense_type && <div className="field-error-text">{formErrors.expense_type}</div>}</div>
                     <div className="em-form-group" style={{ position: 'relative' }}><label>Vendor / Shop</label><div className="sb-autocomplete-wrapper"><input ref={vendorInputRefOffice} name="vendor_name" className="em-input" value={form.vendor_name} onChange={e => updateForm({ vendor_name: e.target.value })} onFocus={() => setVendorFocusedOffice(true)} onKeyDown={handleVendorKeyDownOffice} onBlur={() => setTimeout(() => setVendorFocusedOffice(false), 200)} autoComplete="off" />{vendorFocusedOffice && vendorSuggestionsOffice.length > 0 && <div className="sb-autocomplete-dropdown">{vendorSuggestionsOffice.map((v, idx) => (<div key={v.id || idx} className={`sb-autocomplete-item ${idx === vendorHighlightOffice ? 'sb-autocomplete-item--active' : ''}`} onMouseDown={e => { e.preventDefault(); updateForm({ vendor_name: v.name }); setVendorSuggestionsOffice([]); setVendorFocusedOffice(false); }} onMouseEnter={() => setVendorHighlightOffice(idx)}><span className="sb-autocomplete-item-name">{v.name}</span>{v.phone && <span className="sb-autocomplete-item-sub">{v.phone}</span>}</div>))}</div>}</div></div>
-                    <div className="em-form-group"><label>Amount (₹)</label><input name="amount" className="em-input" type="number" min="0" step="0.01" value={form.amount} onChange={e => updateForm({ amount: e.target.value })} required /></div>
+                    <div className="em-form-group"><label>Amount (₹)</label><input name="amount" className={`em-input ${formErrors.amount ? 'field-error' : ''}`} type="number" min="0" step="0.01" value={form.amount} onChange={e => updateForm({ amount: e.target.value })} required />{formErrors.amount && <div className="field-error-text">{formErrors.amount}</div>}</div>
                     <div className="em-form-group"><label>Payment Method</label><select name="payment_method" aria-label="Select option"  className="em-input" value={form.payment_method} onChange={e => updateForm({ payment_method: e.target.value })}>{['Cash', 'UPI', 'Bank Transfer', 'Cheque'].map(m => <option key={m}>{m}</option>)}</select></div>
                     <div className="em-form-group"><label>Reference #</label><input name="reference_number" className="em-input" value={form.reference_number} onChange={e => updateForm({ reference_number: e.target.value })} /></div>
                     <div className="em-form-group"><label>Bill #</label><input name="bill_number" className="em-input" value={form.bill_number} onChange={e => updateForm({ bill_number: e.target.value })} /></div>
                     <div className="em-form-group"><label>Date</label>
         <label htmlFor="date-vpeqor" className="sr-only">Select Date</label>
-        <input id="date-vpeqor" name="expense_date" className="em-input" type="date" value={form.expense_date} onChange={e => updateForm({ expense_date: e.target.value })} /></div>
+        <input id="date-vpeqor" name="expense_date" className={`em-input ${formErrors.expense_date ? 'field-error' : ''}`} type="date" value={form.expense_date} onChange={e => updateForm({ expense_date: e.target.value })} />{formErrors.expense_date && <div className="field-error-text">{formErrors.expense_date}</div>}</div>
                     <div className="em-form-group em-form-group--full"><label>Description</label><input name="description" className="em-input" value={form.description} onChange={e => updateForm({ description: e.target.value })} /></div>
                   </div>
                 </div>

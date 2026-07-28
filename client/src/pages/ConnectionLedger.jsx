@@ -7,6 +7,7 @@ import { serverToday } from '../services/serverTime';
 import toast from 'react-hot-toast';
 import './ConnectionLedger.css';
 import EmptyState from '../components/EmptyState';
+import Loading from '../components/ui/Loading';
 
 const UTILITY_CONFIG = {
   'Electricity': { icon: Zap, color: 'var(--warning)', bg: 'rgba(245, 158, 11, 0.1)' },

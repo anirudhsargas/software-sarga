@@ -11,6 +11,7 @@ const NotFound = lazyWithRetry(() => import('./pages/NotFound'));
 const ServerError = lazyWithRetry(() => import('./pages/ServerError'));
 const NetworkError = lazyWithRetry(() => import('./pages/NetworkError'));
 const AccessDenied = lazyWithRetry(() => import('./pages/AccessDenied'));
+const SessionExpired = lazyWithRetry(() => import('./pages/SessionExpired'));
 const ForgotPassword = lazyWithRetry(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazyWithRetry(() => import('./pages/ResetPassword'));
 const StaffSettingsPage = lazyWithRetry(() => import('./pages/StaffSettingsPage'));
@@ -74,6 +75,12 @@ const ProtectedRoute = ({ children, roles }) => {
   const authCtx = React.useContext(AuthContext);
   const user = authCtx?.user || auth.getUser();
   if (!auth.isAuthenticated()) {
+    const token = auth.getToken();
+    if (token) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      return <Navigate to="/session-expired" replace />;
+    }
     return <Navigate to="/login" replace />;
   }
 
@@ -171,11 +178,7 @@ class RouteErrorBoundary extends React.Component {
           <p style={{ margin: 0, fontSize: 14, color: 'var(--muted, #6c757d)' }}>
             A new version may have been deployed. Please reload.
           </p>
-          <button onClick={this.handleRetry} style={{
-            padding: '8px 24px', borderRadius: 'var(--radius-sm, 6px)',
-            border: 'none', background: 'var(--accent, #4361ee)', color: '#fff',
-            fontWeight: 600, fontSize: 14, cursor: 'pointer',
-          }}>
+          <button onClick={this.handleRetry} className="btn btn-primary">
             Reload
           </button>
         </div>
@@ -396,6 +399,7 @@ function App() {
               <Route path="/error/server" element={<ServerError />} />
               <Route path="/error/network" element={<NetworkError />} />
               <Route path="/access-denied" element={<AccessDenied />} />
+              <Route path="/session-expired" element={<SessionExpired />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>

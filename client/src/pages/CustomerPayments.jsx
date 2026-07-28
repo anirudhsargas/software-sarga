@@ -21,6 +21,7 @@ import { useOnlineStatus } from '../hooks/useOffline';
 import { formatForDisplay } from '../utils/phone';
 import SectionErrorBoundary from '../components/SectionErrorBoundary';
 import PageContainer from '../components/ui/PageContainer';
+import NoInternetState from '../components/NoInternetState';
 import QRCode from 'qrcode';
 
 const ReceiptModal = lazyWithRetry(() => import('../components/ReceiptModal'));
@@ -809,13 +810,15 @@ const CustomerPayments = () => {
   if (pageError && !loading) {
     return (
       <SectionErrorBoundary name="CustomerPaymentsPage">
-        <PageContainer style={{ padding: '40px 24px', textAlign: 'center' }}>
-          <AlertTriangle size={40} style={{ opacity: 0.4, marginBottom: 12 }} />
-          <h3>{pageError}</h3>
-          <p className="muted" style={{ marginTop: 8, marginBottom: 16 }}>Please check your connection and try again.</p>
-          <button className="btn btn-primary" onClick={() => { setPageError(null); fetchPayments(1); }}>
-            <RefreshCw size={16} /> Retry
-          </button>
+        <PageContainer>
+          <NoInternetState
+            variant="fullPage"
+            title="Unable to Load Payments"
+            message={pageError}
+            suggestion="Please check your connection and try again."
+            actionLabel="Retry"
+            onRetry={() => { setPageError(null); return fetchPayments(1); }}
+          />
         </PageContainer>
       </SectionErrorBoundary>
     );
@@ -843,21 +846,12 @@ const CustomerPayments = () => {
       </div>
 
       {!isOnline && (
-        <div style={{
-          display: 'flex',
-          gap: 12,
-          alignItems: 'center',
-          padding: '12px 16px',
-          backgroundColor: 'var(--warning-bg, #fef3c7)',
-          borderLeft: '4px solid var(--warning, #f59e0b)',
-          borderRadius: 4,
-          marginBottom: 16,
-          fontSize: 13,
-          color: 'var(--warning-text, #92400e)'
-        }}>
-          <AlertCircle size={16} style={{ flexShrink: 0 }} />
-          <span><strong>Offline mode.</strong> Payments will be saved locally and sync when internet returns.</span>
-        </div>
+        <NoInternetState
+          variant="section"
+          title="Offline Mode"
+          message="Payments will be saved locally and sync when internet returns."
+          actionLabel="Check"
+        />
       )}
 
       {/* ── TWO-COLUMN LAYOUT ── */}

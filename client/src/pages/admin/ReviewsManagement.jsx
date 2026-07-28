@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { Star, Trash2, Edit3, Plus, RefreshCw, ExternalLink, Star as StarIcon, Search } from 'lucide-react';
 import EmptyState from '../../components/EmptyState';
 import PageContainer from '../../components/ui/PageContainer';
+import Loading from '../../components/ui/Loading';
 
 const STARS = [1, 2, 3, 4, 5];
 
@@ -107,7 +108,7 @@ function ReviewsManagement() {
     }
   }, [fetchReviews]);
 
-  if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading reviews...</div>;
+  if (loading) return <Loading type="page" count={3} text="Loading reviews..." />;
 
   return (
     <PageContainer>

@@ -4,6 +4,7 @@ import { RefreshCw, Plus, Edit2, Trash2, Play, Pause, Loader2, Calendar, Clock, 
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import PageContainer from '../components/ui/PageContainer';
+import Loading from '../components/ui/Loading';
 
 export default function RecurringInvoices() {
     useSEO('Recurring Invoices');
@@ -103,7 +104,7 @@ export default function RecurringInvoices() {
     const freqLabel = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', quarterly: 'Quarterly', yearly: 'Yearly' };
     const getCustomerName = (id) => (Array.isArray(customers) ? customers : []).find(c => String(c.id) === String(id))?.name || `#${id}`;
 
-    if (loading) return <div style={{ textAlign: 'center', padding: 60 }}><Loader2 size={28} className="animate-spin" /></div>;
+    if (loading) return <Loading type="page" count={4} text="Loading recurring invoices..." />;
 
     return (
         <PageContainer>

@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import api from '../../services/api';
 import localDb from '../../services/localDb';
+import Loading from '../../components/ui/Loading';
 import PageContainer from '../../components/ui/PageContainer';
 import auth from '../../services/auth';
 import { fmt, fmtDate } from './constants';
@@ -15,6 +16,7 @@ import { serverToday } from '../../services/serverTime';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import toast from 'react-hot-toast';
 import FullBillModal from './FullBillModal';
+import { validatePhone, validateGST, validateURL, validateName, validateSKU } from '../../utils/validators';
 
 const emptyVendorForm = { name: '', vendor_type: 'other', contact_person: '', phone: '', address: '', gst_number: '', order_link: '' };
 
@@ -297,7 +299,12 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
 
   const handleAddInventorySubmit = async (e) => {
     e.preventDefault();
-    if (!addInventoryForm.name || !addInventoryForm.name.trim()) { setAddInventoryError('Name is required'); return; }
+    const nameResult = validateName(addInventoryForm.name, { label: 'Item name' });
+    if (!nameResult.valid) { setAddInventoryError(nameResult.error); return; }
+    if (addInventoryForm.sku) {
+      const skuResult = validateSKU(addInventoryForm.sku);
+      if (!skuResult.valid) { setAddInventoryError(skuResult.error); return; }
+    }
     setAddInventorySaving(true); setAddInventoryError('');
     try {
       await localDb.saveInventoryItem({
@@ -341,7 +348,20 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
   const handleSaveVendor = async (e) => {
     e.preventDefault();
     if (savingRef.current) return;
-    if (!vendorForm.name.trim()) { setFormError('Name is required'); return; }
+    const nameResult = validateName(vendorForm.name, { label: 'Vendor name' });
+    if (!nameResult.valid) { setFormError(nameResult.error); return; }
+    if (vendorForm.phone) {
+      const phoneResult = validatePhone(vendorForm.phone);
+      if (!phoneResult.valid) { setFormError(phoneResult.error); return; }
+    }
+    if (vendorForm.gst_number) {
+      const gstResult = validateGST(vendorForm.gst_number);
+      if (!gstResult.valid) { setFormError(gstResult.error); return; }
+    }
+    if (vendorForm.order_link) {
+      const urlResult = validateURL(vendorForm.order_link, { required: false });
+      if (!urlResult.valid) { setFormError(urlResult.error); return; }
+    }
     savingRef.current = true;
     setSaving(true); setFormError('');
     try {
@@ -408,7 +428,16 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
 
   const submitVendorRequest = async (e) => {
     e.preventDefault();
-    if (!requestForm.name.trim()) { setRequestError('Name is required'); return; }
+    const nameResult = validateName(requestForm.name, { label: 'Vendor name' });
+    if (!nameResult.valid) { setRequestError(nameResult.error); return; }
+    if (requestForm.phone) {
+      const phoneResult = validatePhone(requestForm.phone);
+      if (!phoneResult.valid) { setRequestError(phoneResult.error); return; }
+    }
+    if (requestForm.gst_number) {
+      const gstResult = validateGST(requestForm.gst_number);
+      if (!gstResult.valid) { setRequestError(gstResult.error); return; }
+    }
     setRequestSaving(true);
     try {
       await localDb.saveVendorRequest({
@@ -437,6 +466,8 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
 
   const handlePurchaseSubmit = async (e) => {
     e.preventDefault();
+    if (!purchaseForm.amount || Number(purchaseForm.amount) <= 0) { setPurchaseError('Amount is required'); return; }
+    if (!purchaseForm.bill_date) { setPurchaseError('Bill date is required'); return; }
     setPurchaseSaving(true);
     setPurchaseError('');
     try {
@@ -831,7 +862,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
               <button className="btn btn-ghost btn-sm" onClick={() => { setStatementFrom(''); setStatementTo(''); fetchVendorLedger(selectedVendor, '', ''); }}>Clear</button>
             </div>
           </div>
-          {loadingLedger ? <div className="em-loading"><Loader2 className="spin" size={20} /> Loading...</div> : rows.length > 0 ? (
+          {loadingLedger ? <Loading type="spinner" text="Loading ledger..." /> : rows.length > 0 ? (
             <div className="em-table-wrap">
               <table className="em-table">
                 <thead>
@@ -949,7 +980,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
 
 
       {loadingVendors ? (
-        <div className="em-loading"><Loader2 className="spin" size={20} /> Loading vendors...</div>
+        <Loading type="spinner" text="Loading vendors..." />
       ) : paginatedVendors.length === 0 ? (
         <div className="em-empty-state">
           <div className="em-empty-state__icon"><Store size={48} strokeWidth={1.5} /></div>

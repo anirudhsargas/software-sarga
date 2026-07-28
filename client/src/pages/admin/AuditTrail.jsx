@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { Search, Filter, X, Download, ChevronDown, ChevronUp, Clock, User, Monitor, Globe, MapPin, CheckCircle, XCircle, AlertTriangle, Loader2, FileText, Table, FileJson, FileSpreadsheet, ExternalLink, Shield, Calendar, Layers, Activity, BarChart3, Eye, ChevronLeft, ChevronRight, Info, Hash, Smartphone, Laptop, Terminal, Maximize2, Minimize2, Copy, Check, RefreshCw } from 'lucide-react'
+import { Search, Filter, X, Download, ChevronDown, ChevronUp, Clock, User, Monitor, Globe, MapPin, CheckCircle, XCircle, AlertTriangle, Loader2, FileText, Table, FileJson, FileSpreadsheet, ExternalLink, Shield, Calendar, Layers, Activity, BarChart3, Eye, ChevronLeft, ChevronRight, Info, Hash, Smartphone, Laptop, Terminal, Maximize2, Minimize2, Copy, Check, RefreshCw, AlertOctagon, WifiOff } from 'lucide-react'
 import api from '../../services/api'
 import toast from 'react-hot-toast'
 import PageContainer from '../../components/ui/PageContainer'
@@ -50,6 +50,11 @@ function AuditTrail() {
     const [showFilters, setShowFilters] = useState(false)
     const [exporting, setExporting] = useState(false)
     const [copiedId, setCopiedId] = useState(null)
+    const [loadError, setLoadError] = useState(null)
+    const [exportError, setExportError] = useState(null)
+    const [filterLoadError, setFilterLoadError] = useState(false)
+    const [exportSuccess, setExportSuccess] = useState(null)
+    const [dataRefreshSuccess, setDataRefreshSuccess] = useState(false)
 
     const [filters, setFilters] = useState({
         search: '',
@@ -73,10 +78,13 @@ function AuditTrail() {
 
     const observerRef = useRef(null)
     const listRef = useRef(null)
+    const successTimerRef = useRef(null)
 
     const loadLogs = useCallback(async (pageNum = 1, append = false) => {
         try {
             setLoading(true)
+            setLoadError(null)
+            setExportError(null)
             const params = new URLSearchParams()
             params.set('page', pageNum)
             params.set('limit', 50)
@@ -92,12 +100,19 @@ function AuditTrail() {
                     setLogs(prev => [...prev, ...result.data])
                 } else {
                     setLogs(result.data)
+                    setDataRefreshSuccess(true)
+                    if (successTimerRef.current) clearTimeout(successTimerRef.current)
+                    successTimerRef.current = setTimeout(() => setDataRefreshSuccess(false), 2000)
                 }
                 setTotal(result.pagination.total)
                 setHasMore(pageNum < result.pagination.totalPages)
+            } else {
+                setLoadError(result.message || 'Failed to load audit logs')
             }
         } catch (err) {
-            toast.error('Failed to load audit logs')
+            const msg = err.response?.data?.message || err.message || 'Failed to load audit logs'
+            setLoadError(msg)
+            if (!append) setLogs([])
         } finally {
             setLoading(false)
         }
@@ -109,7 +124,10 @@ function AuditTrail() {
             if (res.data?.success) {
                 setFilterOptions(res.data.data)
             }
-        } catch { }
+            setFilterLoadError(false)
+        } catch {
+            setFilterLoadError(true)
+        }
     }, [])
 
     useEffect(() => {
@@ -147,6 +165,14 @@ function AuditTrail() {
         setFilters(prev => ({ ...prev, [key]: value }))
     }
 
+    const dismissLoadError = () => setLoadError(null)
+
+    const retryLoad = () => {
+        setLoadError(null)
+        setPage(1)
+        loadLogs(1)
+    }
+
     const clearFilters = () => {
         setFilters({
             search: '',
@@ -160,6 +186,7 @@ function AuditTrail() {
             date_from: '',
             date_to: '',
         })
+        toast.success('Filters cleared')
     }
 
     const hasActiveFilters = Object.entries(filters).some(([k, v]) => {
@@ -175,6 +202,8 @@ function AuditTrail() {
 
     const handleExport = async (format) => {
         setExporting(true)
+        setExportError(null)
+        setExportSuccess(null)
         try {
             const params = new URLSearchParams()
             params.set('format', format)
@@ -188,11 +217,15 @@ function AuditTrail() {
 
             let blob
             let filename
+            let recordCount
 
             if (format === 'json') {
+                recordCount = res.data?.totalRecords || res.data?.data?.length || 0
                 blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' })
                 filename = `audit-log-${new Date().toISOString().slice(0, 10)}.json`
             } else if (format === 'csv') {
+                const lines = res.data.split('\n').filter(l => l && !l.startsWith('#'))
+                recordCount = lines.length - 1
                 blob = new Blob([res.data], { type: 'text/csv' })
                 filename = `audit-log-${new Date().toISOString().slice(0, 10)}.csv`
             }
@@ -205,13 +238,20 @@ function AuditTrail() {
             a.click()
             document.body.removeChild(a)
             URL.revokeObjectURL(url)
-            toast.success(`${format.toUpperCase()} exported successfully`)
+
+            setExportSuccess({ format: format.toUpperCase(), count: Math.max(0, recordCount) })
+            if (successTimerRef.current) clearTimeout(successTimerRef.current)
+            successTimerRef.current = setTimeout(() => setExportSuccess(null), 4000)
         } catch (err) {
-            toast.error('Export failed')
+            const msg = err.response?.data?.message || err.message || 'Export failed'
+            setExportError(msg)
+            toast.error(msg)
         } finally {
             setExporting(false)
         }
     }
+
+    const dismissExportError = () => setExportError(null)
 
     const copyToClipboard = (text) => {
         navigator.clipboard.writeText(text).then(() => {
@@ -289,6 +329,7 @@ function AuditTrail() {
                         <button className="btn btn-secondary btn-sm" onClick={() => setShowFilters(!showFilters)}>
                             <Filter size={16} />
                             Filters{activeFilterCount > 0 && <span className="audit-filter-count">{activeFilterCount}</span>}
+                            {filterLoadError && <WifiOff size={12} className="audit-filter-warn-icon" title="Could not load filter options" />}
                         </button>
                         <div className="audit-export-group">
                             <button className="btn btn-secondary btn-sm" onClick={() => handleExport('csv')} disabled={exporting}>
@@ -300,6 +341,52 @@ function AuditTrail() {
                         </div>
                     </div>
                 </div>
+
+                {loadError && (
+                    <div className="audit-error-banner">
+                        <div className="audit-error-banner-content">
+                            <AlertOctagon size={18} />
+                            <div className="audit-error-banner-text">
+                                <span className="audit-error-banner-title">Failed to load audit trail</span>
+                                <span className="audit-error-banner-detail">{loadError}</span>
+                            </div>
+                        </div>
+                        <div className="audit-error-banner-actions">
+                            <button className="btn btn-ghost btn-sm" onClick={retryLoad}>
+                                <RefreshCw size={14} /> Retry
+                            </button>
+                            <button className="btn btn-ghost btn-sm" onClick={dismissLoadError}>
+                                <X size={14} />
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {exportError && (
+                    <div className="audit-export-error-msg">
+                        <AlertTriangle size={14} />
+                        <span>{exportError}</span>
+                        <button className="audit-export-error-dismiss" onClick={dismissExportError}>
+                            <X size={12} />
+                        </button>
+                    </div>
+                )}
+
+                {exportSuccess && (
+                    <div className="audit-success-banner">
+                        <CheckCircle size={16} />
+                        <span className="audit-success-banner-text">
+                            {exportSuccess.format} exported — <strong>{exportSuccess.count.toLocaleString()}</strong> record{exportSuccess.count !== 1 ? 's' : ''}
+                        </span>
+                    </div>
+                )}
+
+                {dataRefreshSuccess && logs.length > 0 && (
+                    <div className="audit-refresh-chip">
+                        <CheckCircle size={12} />
+                        <span>{total.toLocaleString()} records</span>
+                    </div>
+                )}
 
                 {showFilters && (
                     <div className="audit-filters-panel">
@@ -455,7 +542,21 @@ function AuditTrail() {
                                     </td>
                                 </tr>
                             ))}
-                            {loading && logs.length === 0 && (
+                            {loadError && !loading && logs.length === 0 && (
+                                <tr>
+                                    <td colSpan={11} className="audit-error-cell">
+                                        <div className="audit-error-state">
+                                            <WifiOff size={48} />
+                                            <h3>Connection Error</h3>
+                                            <p className="audit-error-state-detail">{loadError}</p>
+                                            <button className="btn btn-primary btn-sm" onClick={retryLoad}>
+                                                <RefreshCw size={14} /> Retry
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            )}
+                            {loading && logs.length === 0 && !loadError && (
                                 <tr>
                                     <td colSpan={11} className="audit-loading-cell">
                                         <div className="audit-loader">
@@ -465,7 +566,7 @@ function AuditTrail() {
                                     </td>
                                 </tr>
                             )}
-                            {!loading && logs.length === 0 && (
+                            {!loading && logs.length === 0 && !loadError && (
                                 <tr>
                                     <td colSpan={11} className="audit-empty-cell">
                                         <div className="audit-empty">
@@ -763,13 +864,23 @@ function AuditDetailPanel({ log, onClose, formatTimestamp, copyToClipboard, copi
 
                     {activeTab === 'security' && (
                         <div className="audit-detail-section">
-                            <div className="audit-security-info">
-                                <div className="audit-security-icon">
-                                    <Shield size={24} />
-                                </div>
+                            <div className={`audit-security-info ${log.previous_hash ? 'audit-security-info--verified' : ''}`}>
+                                {log.previous_hash ? (
+                                    <div className="audit-security-icon audit-security-icon--verified">
+                                        <CheckCircle size={24} />
+                                    </div>
+                                ) : (
+                                    <div className="audit-security-icon">
+                                        <Shield size={24} />
+                                    </div>
+                                )}
                                 <div className="audit-security-text">
                                     <h3>Hash Chain Verification</h3>
-                                    <p>This record is cryptographically linked to the previous record using SHA-256 hashing, forming an immutable chain. Any tampering with past records will break the chain.</p>
+                                    {log.previous_hash ? (
+                                        <p className="audit-security-success">Chain link verified — this record is cryptographically linked to the previous record using SHA-256. Tamper detection is active.</p>
+                                    ) : (
+                                        <p>This record is cryptographically linked to the previous record using SHA-256 hashing, forming an immutable chain. Any tampering with past records will break the chain.</p>
+                                    )}
                                 </div>
                             </div>
                             <div className="audit-detail-grid">

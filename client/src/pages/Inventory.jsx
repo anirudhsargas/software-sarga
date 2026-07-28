@@ -19,6 +19,7 @@ import './InventoryModern.css';
 const ScannerModal = lazyWithRetry(() => import('../components/ScannerModal'));
 import ScannerErrorBoundary from '../components/ScannerErrorBoundary';
 import PageContainer from '../components/ui/PageContainer';
+import NoInternetState from '../components/NoInternetState';
 
 const emptyItem = {
     name: '',
@@ -70,6 +71,7 @@ const Inventory = () => {
     const [selectedItem, setSelectedItem] = useState(null);
     const [newItem, setNewItem] = useState(emptyItem);
     const [error, setError] = useState('');
+    const [networkError, setNetworkError] = useState(false);
     const [saving, setSaving] = useState(false);
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
@@ -121,6 +123,9 @@ const Inventory = () => {
     const [selectPrintSelectedIds, setSelectPrintSelectedIds] = useState([]);
     const [allPrintItems, setAllPrintItems] = useState([]);
     const [allPrintItemsLoading, setAllPrintItemsLoading] = useState(false);
+    const [printItemIds, setPrintItemIds] = useState([]);
+    const [showAddItems, setShowAddItems] = useState(false);
+    const [addItemSearch, setAddItemSearch] = useState('');
 
     // Consumables actions state
     const [showConsumeModal, setShowConsumeModal] = useState(false);
@@ -317,8 +322,12 @@ const Inventory = () => {
                 setTotal(resp?.total || 0);
                 setTotalPages(resp?.totalPages || 1);
             }
-        } catch {
-            setError('Failed to fetch inventory');
+        } catch (err) {
+            if (!err.response && (err.code === 'ERR_NETWORK' || !navigator.onLine)) {
+                setNetworkError(true);
+            } else {
+                setError('Failed to fetch inventory');
+            }
         } finally {
             setLoading(false);
         }
@@ -742,7 +751,7 @@ const Inventory = () => {
     const applyStockQuantitiesForSelected = () => {
         const next = {};
         items
-            .filter(i => selectedIds.includes(i.id))
+            .filter(i => printItemIds.includes(i.id))
             .forEach((item) => {
                 next[item.id] = getStockBasedPrintQty(item);
             });
@@ -769,6 +778,9 @@ const Inventory = () => {
         const initialQtys = {};
         printableIds.forEach(id => { initialQtys[id] = 1; });
         setPrintQuantities(initialQtys);
+        setPrintItemIds(printableIds);
+        setShowAddItems(false);
+        setAddItemSearch('');
         setShowPrintModal(true);
     };
 
@@ -801,6 +813,9 @@ const Inventory = () => {
         });
         setSelectedIds(nextIds);
         setPrintQuantities(nextQuantities);
+        setPrintItemIds(nextIds);
+        setShowAddItems(false);
+        setAddItemSearch('');
         setShowPrintModal(true);
     };
 
@@ -908,6 +923,9 @@ const Inventory = () => {
 
             setShowPrintModal(false);
             setSelectedIds([]);
+            setPrintItemIds([]);
+            setShowAddItems(false);
+            setAddItemSearch('');
             setShowSelectPrintModal(false);
             setSelectPrintSearch('');
             setSelectPrintSelectedIds([]);
@@ -1282,23 +1300,11 @@ const Inventory = () => {
                             <QrCode size={16} />
                         </button>
 
-                        {/* Image Sync / Settings */}
+                        {/* Image Fallback Settings */}
                         {isAdmin && (
-                            <>
-                                <button type="button" className="inv-action-btn" title="Image Fallback Settings" onClick={() => setShowImageSettingsModal(true)}>
-                                    <Settings size={16} />
-                                </button>
-                                <button type="button" className="inv-action-btn" title="Bulk Generate Missing Images" onClick={async () => {
-                                    try {
-                                        const res = await api.post('/inventory/bulk-generate-images');
-                                        toast.success(res.data.message);
-                                    } catch {
-                                        toast.error('Failed to trigger bulk generation');
-                                    }
-                                }}>
-                                    <RefreshCw size={16} />
-                                </button>
-                            </>
+                            <button type="button" className="inv-action-btn" title="Image Fallback Settings" onClick={() => setShowImageSettingsModal(true)}>
+                                <Settings size={16} />
+                            </button>
                         )}
 
                         {/* Pending Stock Requests Bell */}
@@ -1328,6 +1334,15 @@ const Inventory = () => {
                 </div>
             </div>
 
+            {networkError && (
+                <NoInternetState
+                    variant="section"
+                    title="Inventory Unavailable"
+                    message="Could not fetch inventory data. Check your connection."
+                    actionLabel="Retry"
+                    onRetry={() => { setNetworkError(false); fetchInventory(); }}
+                />
+            )}
             {error && (
                 <div className="alert alert--error">
                     <span>{error}</span>
@@ -2943,7 +2958,7 @@ const Inventory = () => {
                             <div className="modal-body" style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-20) var(--space-24)' }}>
 
                                 {/* Quick-action buttons */}
-                                <div style={{ display: 'flex', gap: 'var(--space-8)', marginBottom: 'var(--space-16)' }}>
+                                <div style={{ display: 'flex', gap: 'var(--space-8)', marginBottom: 'var(--space-16)', flexWrap: 'wrap' }}>
                                     <button className="btn btn-ghost btn-sm" onClick={applyStockQuantitiesForSelected} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                         <Layers size={14} /> Use Stock Qty
                                     </button>
@@ -2951,17 +2966,89 @@ const Inventory = () => {
                                         className="btn btn-ghost btn-sm"
                                         onClick={() => {
                                             const reset = {};
-                                            selectedIds.forEach((id) => { reset[id] = 1; });
+                                            printItemIds.forEach((id) => { reset[id] = 1; });
                                             setPrintQuantities(reset);
                                         }}
                                     >
                                         Reset to 1
                                     </button>
+                                    <button
+                                        className="btn btn-ghost btn-sm"
+                                        onClick={() => setShowAddItems(prev => !prev)}
+                                        style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}
+                                    >
+                                        <Plus size={14} /> Add Items
+                                    </button>
                                 </div>
+
+                                {/* Inline Add Items panel */}
+                                {showAddItems && (
+                                    <div style={{
+                                        marginBottom: 'var(--space-12)',
+                                        padding: 'var(--space-12)',
+                                        borderRadius: 'var(--radius-md)',
+                                        background: 'var(--surface-alt)',
+                                        border: '1px solid var(--border)',
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)', marginBottom: 'var(--space-8)' }}>
+                                            <Search size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                                            <input
+                                                type="text"
+                                                className="input-field"
+                                                placeholder="Search items to add..."
+                                                value={addItemSearch}
+                                                onChange={(e) => setAddItemSearch(e.target.value)}
+                                                style={{ flex: 1, padding: '6px 10px', fontSize: 'var(--text-xs)' }}
+                                                autoFocus
+                                            />
+                                            <button className="btn btn-ghost btn-sm" onClick={() => setShowAddItems(false)} style={{ flexShrink: 0 }}>
+                                                <X size={14} />
+                                            </button>
+                                        </div>
+                                        <div style={{ maxHeight: 200, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                                            {items
+                                                .filter(i => !printItemIds.includes(i.id) && !isPaperCategory(i.category))
+                                                .filter(i => !addItemSearch || i.name?.toLowerCase().includes(addItemSearch.toLowerCase()) || i.sku?.toLowerCase().includes(addItemSearch.toLowerCase()))
+                                                .slice(0, 50)
+                                                .map(item => (
+                                                    <button
+                                                        key={item.id}
+                                                        onClick={() => {
+                                                            setPrintItemIds(prev => [...prev, item.id]);
+                                                            setPrintQuantities(prev => ({ ...prev, [item.id]: 1 }));
+                                                            setAddItemSearch('');
+                                                        }}
+                                                        style={{
+                                                            display: 'flex', alignItems: 'center', gap: 'var(--space-8)',
+                                                            padding: 'var(--space-8) var(--space-10)',
+                                                            borderRadius: 'var(--radius-sm)',
+                                                            border: 'none',
+                                                            background: 'var(--surface)',
+                                                            cursor: 'pointer',
+                                                            textAlign: 'left',
+                                                            fontSize: 'var(--text-xs)',
+                                                            color: 'var(--text-primary)',
+                                                            transition: 'background 0.12s',
+                                                            width: '100%',
+                                                        }}
+                                                        onMouseEnter={(e) => e.currentTarget.style.background = 'var(--accent-alpha)'}
+                                                        onMouseLeave={(e) => e.currentTarget.style.background = 'var(--surface)'}
+                                                    >
+                                                        <Plus size={12} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+                                                        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
+                                                        {item.sku && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{item.sku}</span>}
+                                                    </button>
+                                                ))}
+                                            {items.filter(i => !printItemIds.includes(i.id) && !isPaperCategory(i.category)).filter(i => !addItemSearch || i.name?.toLowerCase().includes(addItemSearch.toLowerCase()) || i.sku?.toLowerCase().includes(addItemSearch.toLowerCase())).length === 0 && (
+                                                <div style={{ padding: 'var(--space-12)', textAlign: 'center', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>No more items available</div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* Item rows */}
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
-                                    {items.filter(i => selectedIds.includes(i.id)).map(item => (
+                                    {items.filter(i => printItemIds.includes(i.id)).map(item => (
                                         <div key={item.id}
                                             style={{
                                                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -2986,34 +3073,58 @@ const Inventory = () => {
                                                     </span>
                                                 </div>
                                             </div>
-                                            {/* Stepper */}
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-6)', flexShrink: 0, background: 'var(--surface-alt)', borderRadius: 'var(--radius-sm)', padding: '4px', border: '1px solid var(--border)' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-6)', flexShrink: 0 }}>
+                                                {/* Stepper */}
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-6)', background: 'var(--surface-alt)', borderRadius: 'var(--radius-sm)', padding: '4px', border: '1px solid var(--border)' }}>
+                                                    <button
+                                                        className="icon-button icon-button--sm"
+                                                        style={{ width: 28, height: 28 }}
+                                                        onClick={() => setPrintQuantities(prev => ({ ...prev, [item.id]: Math.max(1, (prev[item.id] || 1) - 1) }))}
+                                                    >
+                                                        <Minus size={13} />
+                                                    </button>
+                                                    <input
+                                                        type="number"
+                                                        className="input-field text-center"
+                                                        style={{ width: 52, padding: '4px 2px', fontSize: 'var(--text-sm)', fontWeight: 700, border: 'none', background: 'transparent', outline: 'none' }}
+                                                        min={1}
+                                                        value={printQuantities[item.id] || 1}
+                                                        onChange={(e) => setPrintQuantities(prev => ({ ...prev, [item.id]: Math.max(1, Number(e.target.value) || 1) }))}
+                                                    />
+                                                    <button
+                                                        className="icon-button icon-button--sm"
+                                                        style={{ width: 28, height: 28 }}
+                                                        onClick={() => setPrintQuantities(prev => ({ ...prev, [item.id]: (prev[item.id] || 1) + 1 }))}
+                                                    >
+                                                        <Plus size={13} />
+                                                    </button>
+                                                </div>
+                                                {/* Remove button */}
                                                 <button
                                                     className="icon-button icon-button--sm"
-                                                    style={{ width: 28, height: 28 }}
-                                                    onClick={() => setPrintQuantities(prev => ({ ...prev, [item.id]: Math.max(1, (prev[item.id] || 1) - 1) }))}
+                                                    style={{ width: 28, height: 28, color: '#e63946' }}
+                                                    onClick={() => {
+                                                        setPrintItemIds(prev => prev.filter(id => id !== item.id));
+                                                        setPrintQuantities(prev => {
+                                                            const next = { ...prev };
+                                                            delete next[item.id];
+                                                            return next;
+                                                        });
+                                                    }}
+                                                    title="Remove item"
                                                 >
-                                                    <Minus size={13} />
-                                                </button>
-                                                <input
-                                                    type="number"
-                                                    className="input-field text-center"
-                                                    style={{ width: 52, padding: '4px 2px', fontSize: 'var(--text-sm)', fontWeight: 700, border: 'none', background: 'transparent', outline: 'none' }}
-                                                    min={1}
-                                                    value={printQuantities[item.id] || 1}
-                                                    onChange={(e) => setPrintQuantities(prev => ({ ...prev, [item.id]: Math.max(1, Number(e.target.value) || 1) }))}
-                                                />
-                                                <button
-                                                    className="icon-button icon-button--sm"
-                                                    style={{ width: 28, height: 28 }}
-                                                    onClick={() => setPrintQuantities(prev => ({ ...prev, [item.id]: (prev[item.id] || 1) + 1 }))}
-                                                >
-                                                    <Plus size={13} />
+                                                    <Trash2 size={13} />
                                                 </button>
                                             </div>
                                         </div>
                                     ))}
                                 </div>
+
+                                {printItemIds.length === 0 && (
+                                    <div style={{ padding: 'var(--space-24)', textAlign: 'center', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
+                                        No items selected. Click <strong>"Add Items"</strong> to add items.
+                                    </div>
+                                )}
 
                                 {/* Summary bar */}
                                 {(() => {
@@ -3050,7 +3161,7 @@ const Inventory = () => {
                                 <button
                                     className="btn btn-primary"
                                     onClick={generatePDF}
-                                    disabled={printingLabel}
+                                    disabled={printingLabel || printItemIds.length === 0}
                                     style={{ minWidth: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-8)', fontWeight: 700 }}
                                 >
                                     {printingLabel ? (

@@ -121,8 +121,9 @@ const ConsumablesManagement = () => {
             setItems(res.data || []);
         } catch (err) {
             if (err.response?.status === 401) {
-                toast.error('Authentication required');
-                window.dispatchEvent(new CustomEvent('navigate', { detail: { path: '/login' } }));
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.dispatchEvent(new CustomEvent('navigate', { detail: { path: '/session-expired' } }));
                 return;
             }
             toast.error('Failed to load consumables');

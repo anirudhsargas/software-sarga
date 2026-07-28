@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { Search, ExternalLink, RefreshCw, Loader2, CheckCircle, XCircle, Clock, Eye, Palette } from 'lucide-react';
 import EmptyState from '../../components/EmptyState';
 import PageContainer from '../../components/ui/PageContainer';
+import Loading from '../../components/ui/Loading';
 
 const STATUSES = [
   { value: 'uploaded', label: 'Uploaded', color: 'var(--primary)' },
@@ -114,7 +115,7 @@ function ArtworkManager() {
 
   const totalPages = useMemo(() => Math.ceil(total / limit), [total]);
 
-  if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading artwork uploads...</div>;
+  if (loading) return <Loading type="page" count={3} text="Loading artwork uploads..." />;
 
   return (
     <PageContainer>

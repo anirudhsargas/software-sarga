@@ -7,6 +7,7 @@ import api from '../../services/api';
 import { fmt, fmtDate, today, thisMonth, exportRowsToCsv } from './constants';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import PageContainer from '../../components/ui/PageContainer';
+import Loading from '../../components/ui/Loading';
 
 const defaultForm = { transaction_date: today(), transaction_type: 'Cash Out', amount: '', description: '', reference_number: '', received_from: '', paid_to: '', category: '' };
 const PETTY_CATEGORIES = ['Tea / Snacks', 'Stationery', 'Cleaning', 'Travel', 'Courier', 'Tips', 'Parking', 'Photocopies', 'Misc Purchases', 'Other'];
@@ -191,7 +192,7 @@ const PettyCashTab = ({ onError }) => {
       </div>
 
       {/* Ledger Table */}
-      {loading ? <div className="em-loading"><Loader2 className="spin" size={20} /> Loading...</div> : filteredLedger.length > 0 ? (
+      {loading ? <Loading type="spinner" text="Loading petty cash..." /> : filteredLedger.length > 0 ? (
         <div className="em-card">
           <div className="em-card__title">
             Daily Cash Ledger

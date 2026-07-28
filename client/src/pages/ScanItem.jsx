@@ -10,6 +10,7 @@ import api from '../services/api';
 import auth from '../services/auth';
 import SecureImage from '../components/SecureImage';
 import CameraPermissionModal from '../components/CameraPermissionModal';
+import PermissionDeniedState from '../components/PermissionDeniedState';
 import toast from 'react-hot-toast';
 import './ScanItem.css';
 import PageContainer from '../components/ui/PageContainer';
@@ -119,12 +120,14 @@ const ScanItem = () => {
     const normalizeCode = (val) => String(val || '').replace(/\s+/g, '').toUpperCase();
 
     // ── Permission check ───────────────────────────────────────────────────────
+    const permitted = ['Admin', 'Front Office', 'Accountant'].includes(userRole);
+
     useEffect(() => {
-        if (!['Admin', 'Front Office', 'Accountant'].includes(userRole)) {
+        if (!permitted) {
             toast.error('Access Denied: Insufficient permissions.');
             navigate('/dashboard');
         }
-    }, [userRole, navigate]);
+    }, [permitted, navigate]);
 
     useEffect(() => {
         mountedRef.current = true;
@@ -677,6 +680,20 @@ const ScanItem = () => {
     };
 
     // ── Render ─────────────────────────────────────────────────────────────────
+    if (!permitted) {
+        return (
+            <PageContainer title="Scan Item">
+                <PermissionDeniedState
+                    icon={ShieldAlert}
+                    title="Access Denied"
+                    message="You do not have permission to access the inventory scanner."
+                    suggestion="This feature is available to Admin, Accountant, and Front Office roles only."
+                    action={{ label: 'Go to Dashboard', onClick: () => navigate('/dashboard') }}
+                />
+            </PageContainer>
+        );
+    }
+
     return (
         <PageContainer>
             {/* ── Page Header ─────────────────────────────────────────────────── */}

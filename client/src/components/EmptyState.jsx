@@ -1,54 +1,49 @@
 import React from 'react';
+import { X } from 'lucide-react';
+import './EmptyState.css';
 
-const EmptyState = React.memo(({ 
-  icon: Icon, 
-  title = 'Nothing here yet', 
-  description, 
-  action, 
+const EmptyState = React.memo(({
+  icon: Icon,
+  title = 'Nothing here yet',
+  description,
+  action,
+  onAction,
   actionLabel,
-  onAction 
+  variant = 'default',
+  size = 'md',
+  secondaryAction,
+  secondaryLabel
 }) => (
-  <div style={{
-    textAlign: 'center',
-    padding: '60px 24px',
-    color: 'var(--muted)',
-  }}>
+  <div className={`empty-state-root empty-state-root--${size}`}>
     {Icon && (
-      <Icon 
-        size={40} 
-        style={{ 
-          margin: '0 auto 12px', 
-          display: 'block', 
-          opacity: 0.3 
-        }} 
-      />
-    )}
-    <div style={{ 
-      fontSize: 16, 
-      fontWeight: 600, 
-      marginBottom: 4,
-      color: 'var(--text)',
-    }}>
-      {title}
-    </div>
-    {description && (
-      <div style={{ 
-        fontSize: 14, 
-        maxWidth: 320, 
-        margin: '0 auto',
-        lineHeight: 1.5,
-      }}>
-        {description}
+      <div className={`empty-state-icon empty-state-icon--${variant}`}>
+        <Icon size={32} />
       </div>
     )}
-    {(action || onAction) && (
-      <button
-        className="btn btn-primary"
-        style={{ marginTop: 16 }}
-        onClick={onAction || action}
-      >
-        {actionLabel || 'Get Started'}
-      </button>
+    <h3 className="empty-state-title">{title}</h3>
+    {description && (
+      <p className="empty-state-description">{description}</p>
+    )}
+    {(action || onAction || secondaryAction) && (
+      <div className="empty-state-actions">
+        {(action || onAction) && (
+          <button
+            className="btn btn-primary"
+            onClick={onAction || action}
+          >
+            {actionLabel || 'Get Started'}
+          </button>
+        )}
+        {secondaryAction && (
+          <button
+            className="empty-state-secondary-btn"
+            onClick={secondaryAction}
+          >
+            <X size={14} />
+            {secondaryLabel || 'Clear'}
+          </button>
+        )}
+      </div>
     )}
   </div>
 ));

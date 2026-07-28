@@ -1,5 +1,6 @@
 import React from 'react';
-import { WifiOff, RefreshCw } from 'lucide-react';
+import { X } from 'lucide-react';
+import NoInternetState from './NoInternetState';
 
 const OfflineBanner = ({ visible, onRetry }) => {
   const [dismissed, setDismissed] = React.useState(false);
@@ -15,56 +16,35 @@ const OfflineBanner = ({ visible, onRetry }) => {
         left: 0,
         right: 0,
         zIndex: 9999,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '12px',
-        padding: '10px 16px',
-        background: 'var(--danger, #dc3545)',
-        color: '#fff',
-        fontSize: '14px',
-        fontWeight: 500,
+        padding: '8px 16px',
+        background: 'var(--destructive)',
         boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
       }}
     >
-      <WifiOff size={16} />
-      <span>Unable to reach the server. Your data may not be saved.</span>
-      {onRetry && (
+      <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 12 }}>
+        <NoInternetState
+          variant="section"
+          title="Server Unreachable"
+          message="Your data may not be saved until connection restores."
+          actionLabel="Retry"
+          onRetry={onRetry}
+        />
         <button
-          onClick={onRetry}
+          onClick={() => setDismissed(true)}
           style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '4px 12px',
-            border: '1px solid rgba(255,255,255,0.5)',
-            borderRadius: '4px',
-            background: 'transparent',
+            background: 'none',
+            border: 'none',
             color: '#fff',
             cursor: 'pointer',
-            fontSize: '13px',
-            fontWeight: 500,
+            opacity: 0.7,
+            padding: '4px',
+            flexShrink: 0,
           }}
+          aria-label="Dismiss"
         >
-          <RefreshCw size={14} /> Retry
+          <X size={18} />
         </button>
-      )}
-      <button
-        onClick={() => setDismissed(true)}
-        style={{
-          marginLeft: 'auto',
-          background: 'none',
-          border: 'none',
-          color: '#fff',
-          cursor: 'pointer',
-          fontSize: '18px',
-          opacity: 0.7,
-          padding: '0 4px',
-        }}
-        aria-label="Dismiss"
-      >
-        &times;
-      </button>
+      </div>
     </div>
   );
 };

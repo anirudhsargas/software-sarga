@@ -5,6 +5,7 @@ import auth from '../../services/auth';
 import { fmt } from './constants';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import PageContainer from '../../components/ui/PageContainer';
+import { validateName, validatePhone, validatePrice } from '../../utils/validators';
 
 const defaultRentForm = { property_name: '', location: '', owner_name: '', owner_mobile: '', monthly_rent: '', due_day: '1', advance_deposit: '', branch_id: '' };
 
@@ -36,6 +37,14 @@ const RentTab = ({ branches, onPayment, onError }) => {
 
   const submitRent = async (e) => {
     e.preventDefault();
+    const nameResult = validateName(form.property_name, { label: 'Property name' });
+    if (!nameResult.valid) { onError(nameResult.error); return; }
+    if (form.owner_mobile) {
+      const phoneResult = validatePhone(form.owner_mobile);
+      if (!phoneResult.valid) { onError(phoneResult.error); return; }
+    }
+    const rentResult = validatePrice(form.monthly_rent, { label: 'Monthly rent', min: 0 });
+    if (!rentResult.valid) { onError(rentResult.error); return; }
     try {
       if (editing) await api.put(`/rent-locations/${editing.id}`, form);
       else await api.post('/rent-locations', form);
@@ -68,7 +77,12 @@ const RentTab = ({ branches, onPayment, onError }) => {
 
   const submitRentRequest = async (e) => {
     e.preventDefault();
-    if (!requestForm.property_name.trim()) { setRequestError('Property name is required'); return; }
+    const nameResult = validateName(requestForm.property_name, { label: 'Property name' });
+    if (!nameResult.valid) { setRequestError(nameResult.error); return; }
+    if (requestForm.owner_mobile) {
+      const phoneResult = validatePhone(requestForm.owner_mobile);
+      if (!phoneResult.valid) { setRequestError(phoneResult.error); return; }
+    }
     setRequestSaving(true);
     try {
       const reasonBits = [

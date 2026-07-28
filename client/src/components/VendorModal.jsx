@@ -7,7 +7,7 @@ import {
   ShieldCheck, Info, Tag, Globe,
   Calendar
 } from 'lucide-react';
-import { validateName, validateVendorCode, validateGST, validateEmail, validatePhone } from '../utils/validators';
+import { validateName, validateVendorCode, validateGST, validateEmail, validatePhone, validateInteger, validatePrice, validateString } from '../utils/validators';
 import useFormValidation from '../hooks/useFormValidation';
 
 const VendorModal = ({ vendor, onClose, onSave }) => {
@@ -70,6 +70,8 @@ const VendorModal = ({ vendor, onClose, onSave }) => {
       gstin: () => formData.gstin ? validateGST(formData.gstin) : { valid: true, error: null },
       email: () => formData.email ? validateEmail(formData.email) : { valid: true, error: null },
       phone: () => formData.phone ? validatePhone(formData.phone) : { valid: true, error: null },
+      credit_days: () => validateInteger(formData.credit_days, { required: false, min: 0, label: 'Credit days' }),
+      credit_limit: () => formData.credit_limit ? validatePrice(formData.credit_limit, { label: 'Credit limit', min: 0 }) : { valid: true, error: null },
     });
   };
 
@@ -473,9 +475,10 @@ const VendorModal = ({ vendor, onClose, onSave }) => {
                       value={formData.credit_days} 
                       onChange={handleInputChange} 
                       min="0" 
-                      className="vendor-input"
+                      className={`vendor-input ${errors.credit_days ? 'field-error' : ''}`}
                     />
                   </div>
+                  {errors.credit_days && <span className="vendor-error-lbl">{errors.credit_days}</span>}
                 </div>
 
                 <div className="vendor-field-group">
@@ -489,9 +492,10 @@ const VendorModal = ({ vendor, onClose, onSave }) => {
                       onChange={handleInputChange} 
                       min="0" 
                       step="0.01" 
-                      className="vendor-input"
+                      className={`vendor-input ${errors.credit_limit ? 'field-error' : ''}`}
                     />
                   </div>
+                  {errors.credit_limit && <span className="vendor-error-lbl">{errors.credit_limit}</span>}
                 </div>
 
                 <div className="vendor-field-group vendor-span-full">

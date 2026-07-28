@@ -71,8 +71,10 @@ function AuditDashboard() {
         )
     }
 
-    const maxModuleCount = Math.max(...(stats?.mostActiveModules || []).map(m => m.count), 1)
-    const maxHourCount = Math.max(...(stats?.hourlyActivity || []).map(h => h.count), 1)
+    const modules = Array.isArray(stats?.mostActiveModules) ? stats.mostActiveModules : []
+    const hourly = Array.isArray(stats?.hourlyActivity) ? stats.hourlyActivity : []
+    const maxModuleCount = Math.max(...modules.map(m => m.count), 1)
+    const maxHourCount = Math.max(...hourly.map(h => h.count), 1)
 
     return (
         <PageContainer>

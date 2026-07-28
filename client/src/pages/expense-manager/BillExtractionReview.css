@@ -1,7 +1,49 @@
 .extraction-review {
   padding: var(--space-8);
-  max-width: 900px;
+  max-width: 100%;
   margin: 0 auto;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.extraction-review .extraction-review-header {
+  flex-shrink: 0;
+}
+
+.extraction-review .extraction-error-banner {
+  flex-shrink: 0;
+}
+
+.extraction-review .extraction-form-grid {
+  flex-shrink: 0;
+}
+
+.extraction-review .extraction-section-divider {
+  flex-shrink: 0;
+}
+
+.extraction-review .extraction-totals-grid {
+  flex-shrink: 0;
+}
+
+.extraction-review .extraction-actions-bottom {
+  flex-shrink: 0;
+}
+
+.extraction-review .extraction-items-table-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.extraction-review .extraction-items-table-wrapper .extraction-items-table {
+  overflow: visible;
+}
+
+.extraction-review > .sb-autocomplete-wrapper {
+  flex-shrink: 0;
 }
 
 .extraction-review-header {

@@ -6,6 +6,7 @@ import {
 import api from '../../services/api';
 import { fmt, fmtDate, REPORT_TYPES, exportRowsToCsv } from './constants';
 import PageContainer from '../../components/ui/PageContainer';
+import Loading from '../../components/ui/Loading';
 
 const REPORT_ICONS = {
   'monthly-expenses': TrendingUp, 'category-wise': PieChart, 'branch-wise': Building2,
@@ -78,7 +79,7 @@ const ReportsTab = ({ branches, onError }) => {
       </div>
 
       {loading ? (
-        <div className="em-loading"><Loader2 className="spin" size={20} /> Generating report...</div>
+        <Loading type="spinner" text="Generating report..." />
       ) : !data ? (
         <div className="em-empty-state">
           <div className="em-empty-state__icon"><RIcon size={48} strokeWidth={1.5} /></div>

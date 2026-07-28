@@ -16,6 +16,7 @@ import localDb from '../services/localDb';
 import auth from '../services/auth';
 import { CUSTOMER_TYPES } from '../constants';
 import { useConfirm } from '../contexts/ConfirmContext';
+import NoInternetState from '../components/NoInternetState';
 import { calculateProductPrice } from '../utils/pricing';
 import './Billing.css';
 import { getWhatsAppShareLink } from '../utils/whatsappInvoice';
@@ -1236,6 +1237,8 @@ const Billing = () => {
           </button>
         </div>
       </header>
+
+      <NoInternetState variant="section" />
 
       {/* STICKY SUMMARY BAR — Branch + Stats */}
       <div className="billing-summary-bar">

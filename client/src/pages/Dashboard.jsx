@@ -27,6 +27,7 @@ import Button from '../components/Button';
 import BranchSelect from '../components/ui/BranchSelect';
 import useTranslation from '../hooks/useTranslation';
 import { useBranches } from '../contexts/BranchContext';
+import PermissionDeniedState from '../components/PermissionDeniedState';
 import '../styles/profile-edit.css';
 import '../styles/dashboard-redesign.css';
 
@@ -344,7 +345,7 @@ const ProtectedSubRoute = ({ children, roles }) => {
     }
     const normalizedUserRole = user.role;
     if (roles && !roles.map(r => r.toLowerCase().trim()).includes(normalizedUserRole?.toLowerCase().trim())) {
-        return <Navigate to="/access-denied" replace />;
+        return <PermissionDeniedState />;
     }
     return children;
 };

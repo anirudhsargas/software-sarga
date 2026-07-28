@@ -4,7 +4,7 @@ import { toast } from 'react-hot-toast';
 import { X, Calendar, IndianRupee, CreditCard, FileText, AlertCircle } from 'lucide-react';
 import Button from './Button';
 import { formatCurrency } from '../utils/formatters';
-import { validateDate, validatePrice } from '../utils/validators';
+import { validateDate, validatePrice, validateString } from '../utils/validators';
 import useFormValidation from '../hooks/useFormValidation';
 
 const PaymentModal = ({ invoice, onClose, onSave }) => {
@@ -37,8 +37,11 @@ const PaymentModal = ({ invoice, onClose, onSave }) => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const nonCashModes = ['bank', 'upi', 'cheque', 'neft', 'rtgs'];
+
   const validateForm = () => {
     const balanceDue = invoiceDetails ? invoiceDetails.amount - (invoiceDetails.paid_amount || 0) : 0;
+    const needsReference = nonCashModes.includes(formData.payment_mode);
     return validate({
       vendor_invoice_id: () => formData.vendor_invoice_id ? { valid: true } : { valid: false, error: 'Invoice is required' },
       payment_date: () => validateDate(formData.payment_date, { label: 'Payment date' }),
@@ -51,6 +54,9 @@ const PaymentModal = ({ invoice, onClose, onSave }) => {
         }
         return priceResult;
       },
+      reference_number: () => needsReference && !formData.reference_number
+        ? { valid: false, error: `Reference number is required for ${formData.payment_mode}` }
+        : { valid: true, error: null },
     });
   };
 
@@ -427,10 +433,11 @@ const PaymentModal = ({ invoice, onClose, onSave }) => {
                     name="reference_number"
                     value={formData.reference_number}
                     onChange={handleInputChange}
-                    className="premium-input"
+                    className={`premium-input ${errors.reference_number ? 'field-error' : ''}`}
                     placeholder={formData.payment_mode === 'cheque' ? 'Cheque Number (required)' : 'Transaction ID / Reference'}
                   />
                 </div>
+                {errors.reference_number && <p className="premium-error-lbl">{errors.reference_number}</p>}
               </div>
             )}
 

@@ -8,6 +8,7 @@ import api from '../../services/api';
 import auth from '../../services/auth';
 import { fmt, fmtDate, today } from './constants';
 import PageContainer from '../../components/ui/PageContainer';
+import Loading from '../../components/ui/Loading';
 
 const defaultEmiForm = { institution_name: '', emi_type: 'Loan', loan_amount: '', monthly_emi: '', tenure_months: '', start_date: today(), due_day: '1', branch_id: '', remarks: '' };
 const defaultKuriForm = { kuri_name: '', organizer_name: '', organizer_phone: '', total_amount: '', monthly_installment: '', duration_months: '', start_date: today(), due_day: '1', branch_id: '', description: '' };
@@ -269,7 +270,7 @@ const FinanceTab = ({ branches, onError }) => {
     return (
       <div className="em-section">
         <button className="btn btn-ghost btn-sm" onClick={() => { setSelectedEmi(null); setEmiDetail(null); }}><ArrowLeft size={16} /> Back to EMI List</button>
-        {loadingDetail ? <div className="em-loading"><Loader2 className="spin" size={20} /></div> : det ? (
+        {loadingDetail ? <Loading type="spinner" /> : det ? (
           <>
             <div className="em-finance-header">
               <Landmark size={24} style={{ color: 'var(--accent-2)' }} />
@@ -316,7 +317,7 @@ const FinanceTab = ({ branches, onError }) => {
     return (
       <div className="em-section">
         <button className="btn btn-ghost btn-sm" onClick={() => { setSelectedKuri(null); setKuriDetail(null); }}><ArrowLeft size={16} /> Back to Kuri List</button>
-        {loadingDetail ? <div className="em-loading"><Loader2 className="spin" size={20} /></div> : det ? (
+        {loadingDetail ? <Loading type="spinner" /> : det ? (
           <>
             <div className="em-finance-header">
               <Repeat size={24} style={{ color: 'var(--accent)' }} />
@@ -378,7 +379,7 @@ const FinanceTab = ({ branches, onError }) => {
             )}
           </div>
           {loadingEmis ? (
-            <div className="em-loading"><Loader2 className="spin" size={20} /> Loading EMIs...</div>
+            <Loading type="spinner" text="Loading EMIs..." />
           ) : emis.length === 0 ? (
             <div className="em-empty-state"><div className="em-empty-state__icon"><Landmark size={48} strokeWidth={1.5} /></div><h3 className="em-empty-state__title">No EMI Commitments</h3><p className="em-empty-state__desc">Add your loan EMIs to track monthly payments and get due date reminders.</p></div>
           ) : (
@@ -443,7 +444,7 @@ const FinanceTab = ({ branches, onError }) => {
             )}
           </div>
           {loadingKuris ? (
-            <div className="em-loading"><Loader2 className="spin" size={20} /> Loading Kuris...</div>
+            <Loading type="spinner" text="Loading Kuris..." />
           ) : kuris.length === 0 ? (
             <div className="em-empty-state"><div className="em-empty-state__icon"><Repeat size={48} strokeWidth={1.5} /></div><h3 className="em-empty-state__title">No Kuri / Chit Fund</h3><p className="em-empty-state__desc">Add your Kuri commitments to track installments and due dates.</p></div>
           ) : (

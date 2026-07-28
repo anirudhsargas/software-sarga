@@ -8,10 +8,12 @@ import {
 import api from '../../services/api';
 import auth from '../../services/auth';
 import { fmt, fmtDate } from './constants';
+import Loading from '../../components/ui/Loading';
 import { serverToday } from '../../services/serverTime';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import PageContainer from '../../components/ui/PageContainer';
 import toast from 'react-hot-toast';
+import { validatePrice, validateDate } from '../../utils/validators';
 
 const DEFAULT_UTILITY_TYPES = [
   { key: 'Electricity', icon: Zap, color: 'var(--warning)' },
@@ -367,7 +369,10 @@ const UtilitiesTab = ({ refreshKey, dashboard, onPayment, onRefresh }) => {
       return;
     }
 
-    if (!billForm.amount || Number(billForm.amount) <= 0) { setBillError('Amount is required'); return; }
+    const amountResult = validatePrice(billForm.amount, { label: 'Amount', min: 0.01 });
+    if (!amountResult.valid) { setBillError(amountResult.error); return; }
+    const dateResult = validateDate(billForm.bill_date, { label: 'Bill date' });
+    if (!dateResult.valid) { setBillError(dateResult.error); return; }
     setBillSaving(true); setBillError(''); setBillSuccess('');
     try {
       await api.post('/utility-bills', billForm);
@@ -490,7 +495,7 @@ const UtilitiesTab = ({ refreshKey, dashboard, onPayment, onRefresh }) => {
 
         <div className="em-card">
           <div className="em-card__title"><FileText size={16} /> Transaction History</div>
-          {loadingStmt ? <div className="em-loading"><Loader2 className="spin" size={20} /> Loading...</div> : rows.length > 0 ? (
+          {loadingStmt ? <Loading type="spinner" text="Loading statement..." /> : rows.length > 0 ? (
             <div className="em-table-wrap">
               <table className="em-table">
                 <thead>
@@ -664,7 +669,7 @@ const UtilitiesTab = ({ refreshKey, dashboard, onPayment, onRefresh }) => {
 
         {/* Categories Grid */}
         {loadingCategories ? (
-          <div className="em-loading"><Loader2 className="spin" size={20} /> Loading connections...</div>
+          <Loading type="spinner" text="Loading connections..." />
         ) : (
           <div className="em-utility-grid">
             {Object.values(categoryMap).map(u => {

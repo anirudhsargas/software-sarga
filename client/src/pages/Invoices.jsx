@@ -16,6 +16,7 @@ import { formatCurrency } from '../constants';
 import SectionErrorBoundary from '../components/SectionErrorBoundary';
 import PageContainer from '../components/ui/PageContainer';
 import Pagination from '../components/Pagination';
+import NoInternetState from '../components/NoInternetState';
 
 const STATUS_CONFIG = {
   draft: { class: 'badge--default', label: 'Draft' },
@@ -318,16 +319,14 @@ const Invoices = () => {
       <SectionErrorBoundary name="InvoicesPage">
         <PageContainer>
           <div className="inv-page">
-            <div className="inv-error-state">
-              <div className="inv-error-state__icon">
-                <AlertTriangle size={32} />
-              </div>
-              <h3>{pageError}</h3>
-              <p className="muted">Check your connection and try again.</p>
-              <button className="btn btn-primary" onClick={() => { setPageError(null); fetchInvoices(); }}>
-                <RefreshCw size={16} /> Retry
-              </button>
-            </div>
+            <NoInternetState
+              variant="fullPage"
+              title="Unable to Load Invoices"
+              message={pageError}
+              suggestion="Check your connection and try again."
+              actionLabel="Retry"
+              onRetry={() => { setPageError(null); return fetchInvoices(); }}
+            />
           </div>
         </PageContainer>
       </SectionErrorBoundary>

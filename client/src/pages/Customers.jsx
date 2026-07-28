@@ -17,6 +17,7 @@ import SkeletonLoader from '../components/SkeletonLoader';
 import ServerError from '../components/ServerError';
 import toast from 'react-hot-toast';
 import BranchSelect from '../components/ui/BranchSelect';
+import EmptyState from '../components/EmptyState';
 import './Customers.css';
 import PageContainer from '../components/ui/PageContainer';
 
@@ -1000,28 +1001,18 @@ const Customers = () => {
                 ) : error && customers.length === 0 ? (
                     <ServerError onRetry={fetchCustomers} message={error} />
                 ) : customers.length === 0 ? (
-                    <div className="customer-empty-state">
-                        <div className="customer-empty-icon">
-                            <Users size={32} />
-                        </div>
-                        <h2 className="customer-empty-title">No customers found</h2>
-                        <p className="customer-empty-text">
-                            {searchQuery || typeFilter
-                                ? 'Try adjusting your search or filter criteria to find what you\'re looking for.'
-                                : 'Get started by adding your first customer to manage orders, quotations and invoices.'}
-                        </p>
-                        <div className="customer-empty-action">
-                            {searchQuery || typeFilter ? (
-                                <button className="btn-clear-filters" onClick={() => { setSearchInput(''); setTypeFilter(''); setPage(1); }}>
-                                    <X size={14} /> Clear Filters
-                                </button>
-                            ) : (
-                                <button className="btn-add-customer" onClick={() => { setAddFormDirty(false); setShowAddModal(true); }}>
-                                    <UserPlus size={18} /> Add Customer
-                                </button>
-                            )}
-                        </div>
-                    </div>
+                    <EmptyState
+                        icon={Users}
+                        title="No customers found"
+                        description={searchQuery || typeFilter
+                            ? 'Try adjusting your search or filter criteria to find what you\'re looking for.'
+                            : 'Get started by adding your first customer to manage orders, quotations and invoices.'}
+                        variant={searchQuery || typeFilter ? 'search' : 'default'}
+                        action={searchQuery || typeFilter ? undefined : () => { setAddFormDirty(false); setShowAddModal(true); }}
+                        actionLabel="Add Customer"
+                        secondaryAction={searchQuery || typeFilter ? () => { setSearchInput(''); setTypeFilter(''); setPage(1); } : undefined}
+                        secondaryLabel="Clear Filters"
+                    />
                 ) : customers.map((c, _idx) => {
                     const isExpanded = !!expandedRows[c.id];
                     const outstanding = Number(c.outstanding_balance || 0);

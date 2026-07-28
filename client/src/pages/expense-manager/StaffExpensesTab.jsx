@@ -7,6 +7,8 @@ import {
 import api from '../../services/api';
 import { fmt, fmtDate, today, thisMonth } from './constants';
 import PageContainer from '../../components/ui/PageContainer';
+import Loading from '../../components/ui/Loading';
+import { validateDate } from '../../utils/validators';
 
 const DEFAULT_PAY_FORM = { amount: '', payment_date: today(), payment_method: 'Cash', reference_number: '', notes: '', bonus: '0', deduction: '0' };
 const DEFAULT_BULK_FORM = { payment_method: 'Cash', payment_date: today(), reference_number: '', notes: '', bonus: '0', deduction: '0' };
@@ -117,6 +119,9 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
       if (onError) onError('Select at least one staff for bulk payment');
       return;
     }
+    const dateResult = validateDate(bulkForm.payment_date, { label: 'Payment date' });
+    if (!dateResult.valid) { if (onError) onError(dateResult.error); return; }
+    if (!month) { if (onError) onError('Payment month is required'); return; }
     setBulkSubmitting(true);
     try {
       const { data } = await api.post('/staff/bulk-pay-salary', {
@@ -164,7 +169,7 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
           <ArrowLeft size={16} /> Back to Staff List
         </button>
 
-        {loadingInfo ? <div className="em-loading"><Loader2 className="spin" size={20} /> Loading salary info...</div> : (
+        {loadingInfo ? <Loading type="spinner" text="Loading salary info..." /> : (
           <>
             <div className="em-finance-header">
               <div className="em-staff-avatar"><User size={24} /></div>
@@ -278,7 +283,7 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
         </div>
       )}
 
-      {loading ? <div className="em-loading"><Loader2 className="spin" size={20} /> Loading staff...</div> : staffList.length === 0 ? (
+      {loading ? <Loading type="spinner" text="Loading staff..." /> : staffList.length === 0 ? (
         <div className="em-empty-state">
           <div className="em-empty-state__icon"><Users size={48} strokeWidth={1.5} /></div>
           <h3 className="em-empty-state__title">No Staff Members Found</h3>

@@ -1,0 +1,251 @@
+/* ─── Shimmer Keyframe ─── */
+@keyframes loading-shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+@keyframes loading-spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-spin-anim {
+  animation: loading-spin 0.8s linear infinite;
+}
+
+/* ─── Base Shimmer Block ─── */
+.loading-shimmer {
+  background: var(--skeleton-base, var(--surface-2));
+  background-image: linear-gradient(
+    90deg,
+    var(--skeleton-base, var(--surface-2)) 0%,
+    var(--skeleton-shimmer, rgba(255,255,255,0.06)) 50%,
+    var(--skeleton-base, var(--surface-2)) 100%
+  );
+  background-size: 400px 100%;
+  animation: loading-shimmer 1.5s ease-in-out infinite;
+  border-radius: 8px;
+}
+
+/* ─── Shimmer Variants ─── */
+.loading-shimmer--title {
+  height: 28px;
+  width: 280px;
+  margin-bottom: 8px;
+}
+
+.loading-shimmer--subtitle {
+  height: 14px;
+  width: 200px;
+}
+
+.loading-shimmer--card {
+  height: 100px;
+  border-radius: 14px;
+}
+
+.loading-shimmer--stat {
+  height: 80px;
+  border-radius: 14px;
+}
+
+.loading-shimmer--avatar-lg {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.loading-shimmer--table-header {
+  height: 42px;
+  border-radius: 10px 10px 0 0;
+  margin-bottom: 2px;
+}
+
+.loading-shimmer--table-row {
+  height: 48px;
+  border-radius: 0;
+  margin-bottom: 1px;
+}
+
+.loading-shimmer--table-row:last-child {
+  border-radius: 0 0 10px 10px;
+}
+
+/* ─── Spinner ─── */
+.loading-spinner-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 80px 24px;
+}
+
+.loading-spinner-ring {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 3px solid var(--accent-soft, rgba(99,102,241,0.15));
+  border-top-color: var(--accent);
+  display: grid;
+  place-items: center;
+  animation: loading-spin 0.8s linear infinite;
+}
+
+.loading-spinner-icon {
+  color: var(--accent);
+  animation: none;
+}
+
+.loading-spinner-text {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 0;
+}
+
+/* ─── Inline ─── */
+.loading-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.loading-inline-text {
+  color: var(--muted);
+}
+
+/* ─── Page Skeleton ─── */
+.loading-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  animation: fade-in 0.2s ease-out;
+}
+
+.loading-page-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.loading-page-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.loading-page-table {
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+}
+
+/* ─── Cards Grid ─── */
+.loading-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--loading-cols, 4), 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 768px) {
+  .loading-cards-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .loading-cards-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ─── Profile Skeleton ─── */
+.loading-profile {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.loading-profile-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.loading-profile-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.loading-profile-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+}
+
+/* ─── Ledger Skeleton ─── */
+.loading-ledger {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.loading-ledger-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.loading-ledger-filters {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+/* ─── Table Skeleton ─── */
+.loading-table {
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (max-width: 768px) {
+  .loading-spinner-wrap {
+    padding: 48px 16px;
+  }
+
+  .loading-page-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .loading-ledger-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .loading-shimmer--title {
+    width: 200px;
+  }
+}
+
+@media (max-width: 480px) {
+  .loading-page-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .loading-ledger-cards {
+    grid-template-columns: 1fr 1fr;
+  }
+}

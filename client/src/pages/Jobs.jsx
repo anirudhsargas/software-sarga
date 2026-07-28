@@ -11,6 +11,7 @@ import './Jobs.css';
 import { useOptimistic } from '../hooks/useOptimistic';
 import SkeletonLoader from '../components/SkeletonLoader';
 import ServerError from '../components/ServerError';
+import EmptyState from '../components/EmptyState';
 import { formatForDisplay } from '../utils/phone';
 import {formatCurrencyDecimal} from '../utils/formatters';
 import PageContainer from '../components/ui/PageContainer';
@@ -536,6 +537,23 @@ const Jobs = () => {
                                         <tr>
                                             <td colSpan={tableColumnCount} style={{ textAlign: 'center', padding: '20px' }}>
                                                 <ServerError onRetry={() => fetchJobs(1)} message={error} />
+                                            </td>
+                                        </tr>
+                                    );
+                                }
+                                if (!loading && !error && displayJobs.length === 0) {
+                                    return (
+                                        <tr>
+                                            <td colSpan={tableColumnCount} style={{ textAlign: 'center', padding: '20px' }}>
+                                                <EmptyState
+                                                    icon={FileText}
+                                                    title={total > 0 ? 'No matching jobs' : 'No jobs yet'}
+                                                    description={total > 0
+                                                        ? 'Try adjusting your search or filter criteria.'
+                                                        : 'Create your first job to get started with order management.'}
+                                                    variant={total > 0 ? 'search' : 'default'}
+                                                    size="sm"
+                                                />
                                             </td>
                                         </tr>
                                     );

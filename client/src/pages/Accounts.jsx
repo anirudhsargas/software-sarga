@@ -15,6 +15,7 @@ import toast from 'react-hot-toast';
 import './Accounts.css';
 
 import EmptyState from '../components/EmptyState';
+import NoInternetState from '../components/NoInternetState';
 import BranchSelect from '../components/ui/BranchSelect';
 import PageContainer from '../components/ui/PageContainer';
 import FullBillModal from './expense-manager/FullBillModal';
@@ -35,9 +36,15 @@ const Accounts = () => {
     const [tab, setTab] = useState('gst');
     const [branches, setBranches] = useState([]);
     const [branchId, setBranchId] = useState('');
+    const [networkError, setNetworkError] = useState(false);
 
     useEffect(() => {
-        api.get('/branches').then(r => setBranches(r.data || [])).catch(() => {});
+        api.get('/branches').then(r => {
+            setBranches(r.data || []);
+            setNetworkError(false);
+        }).catch(() => {
+            setNetworkError(true);
+        });
     }, []);
 
     return (
@@ -62,6 +69,19 @@ const Accounts = () => {
                     </div>
                 </div>
             </div>
+
+            {networkError && (
+                <NoInternetState
+                    variant="section"
+                    title="Server Unreachable"
+                    message="Some data may not load. Try refreshing."
+                    actionLabel="Retry"
+                    onRetry={() => {
+                        setNetworkError(false);
+                        window.location.reload();
+                    }}
+                />
+            )}
 
             <div className="acc-tab-bar">
                 {TABS.map(t => {
@@ -116,7 +136,15 @@ const GSTSummaryTab = ({ branchId }) => {
     useEffect(() => { fetchData(); }, [fetchData]);
 
     if (loading) return <LoadingSpinner />;
-    if (!data) return <EmptyState text="Failed to load GST data" />;
+    if (!data) return (
+        <NoInternetState
+            variant="inline"
+            title="Failed to load GST data"
+            message="Could not fetch GST summary. Check your connection."
+            actionLabel="Retry"
+            onRetry={fetchData}
+        />
+    );
 
     const t = data.totals;
 
@@ -281,6 +309,7 @@ const SalesRegisterTab = ({ branchId }) => {
     const [rows, setRows] = useState([]);
     const [totals, setTotals] = useState({});
     const [loading, setLoading] = useState(true);
+    const [fetchError, setFetchError] = useState(false);
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [search, setSearch] = useState('');
@@ -292,6 +321,7 @@ const SalesRegisterTab = ({ branchId }) => {
 
     const fetchData = useCallback(async () => {
         setLoading(true);
+        setFetchError(false);
         try {
             const params = new URLSearchParams({ page, limit: 30, startDate, endDate });
             if (branchId) params.append('branch_id', branchId);
@@ -300,7 +330,7 @@ const SalesRegisterTab = ({ branchId }) => {
             setRows(res.data.data || []);
             setTotals(res.data.totals || {});
             setTotalPages(res.data.totalPages || 1);
-        } catch { setRows([]); }
+        } catch { setRows([]); setFetchError(true); }
         finally { setLoading(false); }
     }, [page, startDate, endDate, branchId, search]);
 
@@ -350,7 +380,15 @@ const SalesRegisterTab = ({ branchId }) => {
                 <KpiTile label="Balance Due" value={fmt(totals.total_balance)} icon={<AlertCircle size={18} />} color="red" />
             </div>
 
-            {loading ? <LoadingSpinner /> : (
+            {loading ? <LoadingSpinner /> : fetchError ? (
+                <NoInternetState
+                    variant="inline"
+                    title="Failed to load sales register"
+                    message="Could not fetch sales data. Check your connection."
+                    actionLabel="Retry"
+                    onRetry={fetchData}
+                />
+            ) : (
                 <div className="acc-card">
                     <div className="acc-table-wrap">
                         <table className="acc-table">
@@ -407,6 +445,7 @@ const PurchaseRegisterTab = ({ branchId }) => {
     const [rows, setRows] = useState([]);
     const [totals, setTotals] = useState({});
     const [loading, setLoading] = useState(true);
+    const [fetchError, setFetchError] = useState(false);
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [search, setSearch] = useState('');
@@ -419,6 +458,7 @@ const PurchaseRegisterTab = ({ branchId }) => {
 
     const fetchData = useCallback(async () => {
         setLoading(true);
+        setFetchError(false);
         try {
             const params = new URLSearchParams({ page, limit: 30, startDate, endDate });
             if (branchId) params.append('branch_id', branchId);
@@ -427,7 +467,7 @@ const PurchaseRegisterTab = ({ branchId }) => {
             setRows(res.data.data || []);
             setTotals(res.data.totals || {});
             setTotalPages(res.data.totalPages || 1);
-        } catch { setRows([]); }
+        } catch { setRows([]); setFetchError(true); }
         finally { setLoading(false); }
     }, [page, startDate, endDate, branchId, search]);
 
@@ -473,7 +513,15 @@ const PurchaseRegisterTab = ({ branchId }) => {
                 <KpiTile label="Est. Input GST" value={fmt(totals.total_estimated_gst)} icon={<IndianRupee size={18} />} color="amber" />
             </div>
 
-            {loading ? <LoadingSpinner /> : (
+            {loading ? <LoadingSpinner /> : fetchError ? (
+                <NoInternetState
+                    variant="inline"
+                    title="Failed to load purchase register"
+                    message="Could not fetch purchase data. Check your connection."
+                    actionLabel="Retry"
+                    onRetry={fetchData}
+                />
+            ) : (
                 <div className="acc-card">
                     <div className="acc-table-wrap">
                         <table className="acc-table">
@@ -593,7 +641,15 @@ const GSTReportTab = ({ branchId }) => {
     for (let y = now.getFullYear(); y >= now.getFullYear() - 3; y--) years.push(y);
 
     if (loading) return <LoadingSpinner />;
-    if (!data) return <EmptyState text="Failed to load GST report" />;
+    if (!data) return (
+        <NoInternetState
+            variant="inline"
+            title="Failed to load GST report"
+            message="Could not fetch GST report data. Check your connection."
+            actionLabel="Retry"
+            onRetry={fetchData}
+        />
+    );
 
     const { gstr1, gstr3b } = data;
 

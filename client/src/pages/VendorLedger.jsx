@@ -6,6 +6,7 @@ import { ArrowLeft, FileText, CreditCard, AlertTriangle } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
 import { serverToday } from '../services/serverTime';
 import toast from 'react-hot-toast';
+import Loading from '../components/ui/Loading';
 import './VendorLedger.css';
 
 const VendorLedger = () => {
@@ -79,6 +80,20 @@ const VendorLedger = () => {
   const totalCredit = ledger.reduce((s, r) => s + r.credit, 0);
   const lastBalance = ledger.length > 0 ? ledger[ledger.length - 1].balance : openingBalance;
 
+  if (loading && !vendor) {
+    return (
+      <div className="vl-page">
+        <div className="vl-header">
+          <button className="vl-back-btn" onClick={() => navigate('/dashboard/vendors?view=list')}>
+            <ArrowLeft size={18} /> Back to Vendors
+          </button>
+          <h1 className="vl-title">Vendor Ledger</h1>
+        </div>
+        <Loading type="ledger" count={8} />
+      </div>
+    );
+  }
+
   return (
     <div className="vl-page">
       <div className="vl-header">
@@ -148,7 +163,15 @@ const VendorLedger = () => {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={5} style={{ textAlign: 'center', padding: '40px', color: 'var(--muted)' }}>Loading...</td></tr>
+              Array.from({ length: 6 }).map((_, i) => (
+                <tr key={i}>
+                  {Array.from({ length: 5 }).map((_, ci) => (
+                    <td key={ci} style={{ padding: '12px 14px' }}>
+                      <div className="loading-shimmer" style={{ height: 14, width: ci === 1 ? '80%' : '60%', margin: '0 auto' }} />
+                    </td>
+                  ))}
+                </tr>
+              ))
             ) : ledger.length === 0 ? (
               <tr><td colSpan={5} style={{ textAlign: 'center', padding: '40px', color: 'var(--muted)' }}>No transactions found</td></tr>
             ) : ledger.map((row, idx) => {

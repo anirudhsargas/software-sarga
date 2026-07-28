@@ -8,6 +8,7 @@ import {
 import localDb from '../../services/localDb';
 import { fmt, fmtDate, thisMonth } from './constants';
 import PageContainer from '../../components/ui/PageContainer';
+import Loading from '../../components/ui/Loading';
 
 const CHART_COLORS = ['var(--error)', 'var(--warning)', 'var(--accent-2)', 'var(--success)', 'var(--accent)', 'var(--destructive)', 'var(--accent)', 'var(--warning)'];
 
@@ -68,7 +69,7 @@ const DashboardTab = ({ branches, onPayment }) => {
     );
   }
 
-  if (loading) return <div className="em-loading"><Loader2 className="spin" size={20} /> Loading dashboard...</div>;
+  if (loading) return <Loading type="page" count={4} text="Loading dashboard..." />;
 
   const d = dashboard;
   const prevMonthTotal = d.monthly_trend?.length >= 2 ? d.monthly_trend[d.monthly_trend.length - 2]?.total : null;

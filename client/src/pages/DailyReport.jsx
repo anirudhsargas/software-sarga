@@ -20,6 +20,7 @@ import SkeletonLoader from '../components/SkeletonLoader';
 import BranchSelect from '../components/ui/BranchSelect';
 import './DailyReport.css';
 import PageContainer from '../components/ui/PageContainer';
+import NoInternetState from '../components/NoInternetState';
 import OpeningSetupModal from '../components/OpeningSetupModal';
 
 const TABS = [
@@ -1432,12 +1433,13 @@ const DailyReport = () => {
 
         if (tabErrors.Laser) {
             return (
-                <div className="panel dr-error machine-error">
-                    <div className="dr-empty__icon machine-error-icon"><Monitor size={22} /></div>
-                    <p className="machine-error-title">Connection Error</p>
-                    <p className="machine-error-message">{tabErrors.Laser}</p>
-                    <button className="btn btn-ghost btn-sm mt-12" onClick={() => loadTabData('Laser')}>Try Again</button>
-                </div>
+                <NoInternetState
+                    variant="inline"
+                    title="Connection Error"
+                    message={tabErrors.Laser}
+                    actionLabel="Retry"
+                    onRetry={() => loadTabData('Laser')}
+                />
             );
         }
 
@@ -1652,21 +1654,34 @@ const DailyReport = () => {
         );
     };
 
-    const OffsetTab = () => (
-        <div className="stack-md">
-            <UnifiedCashbookHeader bookType="Offset" summary={offsetData.summary} liveCounts={liveCounts?.offset} />
-            <div className="panel">
-                <h2 className="panel-title panel-title--badge">
-                    <FileText size={16} />
-                    Transactions
-                    <span className="badge panel-title-badge">{offsetData.entries?.length || 0}</span>
-                </h2>
-                <CashbookAddRow bookType="Offset" />
-                <EntryTable entries={offsetData.entries} type="offset" />
+    const OffsetTab = () => {
+        if (tabErrors.Offset) {
+            return (
+                <NoInternetState
+                    variant="inline"
+                    title="Failed to load Offset data"
+                    message={tabErrors.Offset}
+                    actionLabel="Retry"
+                    onRetry={() => loadTabData('Offset')}
+                />
+            );
+        }
+        return (
+            <div className="stack-md">
+                <UnifiedCashbookHeader bookType="Offset" summary={offsetData.summary} liveCounts={liveCounts?.offset} />
+                <div className="panel">
+                    <h2 className="panel-title panel-title--badge">
+                        <FileText size={16} />
+                        Transactions
+                        <span className="badge panel-title-badge">{offsetData.entries?.length || 0}</span>
+                    </h2>
+                    <CashbookAddRow bookType="Offset" />
+                    <EntryTable entries={offsetData.entries} type="offset" />
+                </div>
+                <CreditList bookKey="Offset" credits={creditTransactions} liveEntries={offsetData.entries} />
             </div>
-            <CreditList bookKey="Offset" credits={creditTransactions} liveEntries={offsetData.entries} />
-        </div>
-    );
+        );
+    };
 
     const LaserTab = () => (
         <div className="stack-md">
@@ -1685,24 +1700,37 @@ const DailyReport = () => {
         </div>
     );
 
-    const OtherTab = () => (
-        <div className="stack-md">
-            <UnifiedCashbookHeader bookType="Other" summary={otherData.summary} liveCounts={liveCounts?.other} />
-            <div className="panel">
-                <h2 className="panel-title panel-title--badge">
-                    <Package size={16} />
-                    Other Products
-                    <span className="badge panel-title-badge">{otherData.entries?.length || 0}</span>
-                </h2>
-                <p className="other-panel-description">
-                    Mementos, Photo Frames, Gifts & other non-printing products
-                </p>
-                <CashbookAddRow bookType="Other" />
-                <EntryTable entries={otherData.entries} type="other" />
+    const OtherTab = () => {
+        if (tabErrors.Other) {
+            return (
+                <NoInternetState
+                    variant="inline"
+                    title="Failed to load Other data"
+                    message={tabErrors.Other}
+                    actionLabel="Retry"
+                    onRetry={() => loadTabData('Other')}
+                />
+            );
+        }
+        return (
+            <div className="stack-md">
+                <UnifiedCashbookHeader bookType="Other" summary={otherData.summary} liveCounts={liveCounts?.other} />
+                <div className="panel">
+                    <h2 className="panel-title panel-title--badge">
+                        <Package size={16} />
+                        Other Products
+                        <span className="badge panel-title-badge">{otherData.entries?.length || 0}</span>
+                    </h2>
+                    <p className="other-panel-description">
+                        Mementos, Photo Frames, Gifts & other non-printing products
+                    </p>
+                    <CashbookAddRow bookType="Other" />
+                    <EntryTable entries={otherData.entries} type="other" />
+                </div>
+                <CreditList bookKey="Other" credits={otherCredits} liveEntries={otherData.entries} />
             </div>
-            <CreditList bookKey="Other" credits={otherCredits} liveEntries={otherData.entries} />
-        </div>
-    );
+        );
+    };
 
     // ═══════════════════ RENDER ═══════════════════
 

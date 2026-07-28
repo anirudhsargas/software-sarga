@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Upload, X, Loader2, AlertCircle, CheckCircle, Plus, Trash2, Camera, Image as ImageIcon, ChevronRight, ArrowLeft, Search, Package, FileText, Eye, Receipt, Clock } from 'lucide-react';
+import { Upload, X, Loader2, AlertCircle, CheckCircle, Plus, Trash2, Camera, Image as ImageIcon, ChevronRight, ArrowLeft, Search, Package, FileText, Eye, Clock } from 'lucide-react';
 import api, { imgUrl } from '../../services/api';
 import toast from 'react-hot-toast';
 import { onSocketEvent, getSocket } from '../../services/socketClient';
@@ -431,8 +431,7 @@ const BillExtractionReview = ({ onClose, onSuccess, onError, stayOnSave = false,
   const [fullBillDocId, setFullBillDocId] = useState(null);
 
   // Recent customer payment bills states
-  const [recentCustomerBills, setRecentCustomerBills] = useState([]);
-  const [recentCustomerBillsLoading, setRecentCustomerBillsLoading] = useState(false);
+
 
   // Inline Vendor Modal states
   const [showVendorModal, setShowVendorModal] = useState(false);
@@ -503,23 +502,9 @@ const BillExtractionReview = ({ onClose, onSuccess, onError, stayOnSave = false,
     }
   }, []);
 
-  const fetchRecentCustomerBills = useCallback(async () => {
-    setRecentCustomerBillsLoading(true);
-    try {
-      const res = await api.get('/customer-payments', { params: { limit: 10, page: 1 } });
-      const data = res.data?.data || res.data || [];
-      setRecentCustomerBills(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error('Failed to fetch recent customer bills in BillExtractionReview:', err);
-    } finally {
-      setRecentCustomerBillsLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
     fetchRecentBills();
-    fetchRecentCustomerBills();
-  }, [fetchRecentBills, fetchRecentCustomerBills]);
+  }, [fetchRecentBills]);
 
   // Fetch branches for consumables mode
   useEffect(() => {
@@ -951,7 +936,6 @@ const BillExtractionReview = ({ onClose, onSuccess, onError, stayOnSave = false,
       if (stayOnSave) {
         handleRetry();
         fetchRecentBills();
-        fetchRecentCustomerBills();
       } else {
         onSuccess?.();
       }
@@ -962,7 +946,7 @@ const BillExtractionReview = ({ onClose, onSuccess, onError, stayOnSave = false,
     } finally {
       setSaving(false);
     }
-  }, [form, pages, itemMatches, productOverrides, onSuccess, onError, stayOnSave, handleRetry, fetchRecentBills, fetchRecentCustomerBills]);
+  }, [form, pages, itemMatches, productOverrides, onSuccess, onError, stayOnSave, handleRetry, fetchRecentBills]);
 
   const handleConsumablesConfirm = useCallback(async () => {
     if (!form.vendor_name.trim() && !selectedVendorId) {
@@ -1271,64 +1255,6 @@ const BillExtractionReview = ({ onClose, onSuccess, onError, stayOnSave = false,
                         </td>
                       </tr>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-
-        {stayOnSave && (
-          <div className="extraction-recent-section" style={{ marginTop: '32px', borderTop: '1px solid var(--border)', paddingTop: '24px' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Receipt size={18} /> Recent Customer Payments
-            </h3>
-            {recentCustomerBillsLoading ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)', fontSize: '14px', padding: '12px' }}>
-                <Loader2 className="spin" size={16} /> Loading recent customer payments...
-              </div>
-            ) : recentCustomerBills.length === 0 ? (
-              <div style={{ padding: '24px', textAlign: 'center', border: '1px dashed var(--border)', borderRadius: '8px', color: 'var(--text-secondary)', fontSize: '14px' }}>
-                No recent customer payments found.
-              </div>
-            ) : (
-              <div className="extraction-items-table-wrapper" style={{ overflowX: 'auto' }}>
-                <table className="extraction-items-table">
-                  <thead>
-                    <tr>
-                      <th style={{ width: 100 }}>Date</th>
-                      <th>Customer</th>
-                      <th style={{ width: 100 }}>Method</th>
-                      <th style={{ width: 90 }}>Status</th>
-                      <th style={{ width: 110, textAlign: 'right' }}>Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentCustomerBills.map((p) => {
-                      const paid = isNaN(Number(p.advance_paid)) ? 0 : Number(p.advance_paid);
-                      const vStatus = p.payment_method === 'Cash' ? 'N/A' : (p.verification_status || 'Pending');
-                      return (
-                        <tr key={p.id}>
-                          <td style={{ whiteSpace: 'nowrap', fontSize: '13px' }}>{fmtDate(p.payment_date)}</td>
-                          <td style={{ wordBreak: 'break-word', fontWeight: 500, fontSize: '13px' }}>{p.customer_name || 'Walk-in'}</td>
-                          <td style={{ fontSize: '13px' }}>{p.payment_method || '—'}</td>
-                          <td style={{ fontSize: '13px' }}>
-                            {vStatus === 'N/A' ? (
-                              <span style={{ color: 'var(--text-muted)' }}>—</span>
-                            ) : vStatus === 'Verified' ? (
-                              <span style={{ color: 'var(--success)', fontWeight: 600 }}>Verified</span>
-                            ) : vStatus === 'Rejected' ? (
-                              <span style={{ color: 'var(--destructive)', fontWeight: 600 }}>Rejected</span>
-                            ) : (
-                              <span style={{ color: 'var(--warning)', fontWeight: 600 }}>Pending</span>
-                            )}
-                          </td>
-                          <td style={{ textAlign: 'right', fontWeight: 600, fontSize: '13px' }}>
-                            ₹{paid.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </td>
-                        </tr>
-                      );
-                    })}
                   </tbody>
                 </table>
               </div>

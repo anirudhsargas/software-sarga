@@ -1,5 +1,4 @@
 import axios from 'axios';
-import toast from 'react-hot-toast';
 import { syncManager } from './syncWorkerManager';
 import auth from './auth';
 
@@ -227,9 +226,9 @@ api.interceptors.response.use(
         if (error.response?.status === 401) {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
-            // Avoid redirect loop if already on login page
-            if (window.location.pathname !== '/login') {
-                window.location.href = '/login';
+            // Avoid redirect loop if already on login or session-expired page
+            if (window.location.pathname !== '/login' && window.location.pathname !== '/session-expired') {
+                window.location.href = '/session-expired';
             }
             return Promise.reject(error);
         }
