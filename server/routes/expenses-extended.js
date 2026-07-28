@@ -336,8 +336,7 @@ async function syncLineItemsToInventory({ lineItems, vendorName }) {
 
       await pool.query(
         `UPDATE sarga_inventory
-         SET quantity = quantity + ?,
-           category = COALESCE(category, ?),
+         SET category = COALESCE(category, ?),
              unit = COALESCE(?, unit),
              hsn = COALESCE(?, hsn),
              gst_rate = CASE WHEN ? > 0 THEN ? ELSE gst_rate END,
@@ -354,7 +353,6 @@ async function syncLineItemsToInventory({ lineItems, vendorName }) {
              END
          WHERE id = ?`,
         [
-          Number(quantity) || 0,
           inferredCategory,
           unit || null,
           hsn_sac,
@@ -393,12 +391,11 @@ async function syncLineItemsToInventory({ lineItems, vendorName }) {
     const [insertRes] = await pool.query(
       `INSERT INTO sarga_inventory
        (name, sku, category, unit, quantity, reorder_level, cost_price, sell_price, hsn, discount, gst_rate, source_code, model_name, size_code, item_type, vendor_name)
-       VALUES (?, ?, NULL, ?, ?, 0, ?, ?, ?, 0, ?, ?, ?, ?, 'Retail', ?)`,
+       VALUES (?, ?, NULL, ?, 0, 0, ?, ?, ?, 0, ?, ?, ?, ?, 'Retail', ?)`,
       [
         item_name,
         custom_sku || null,
         unit || 'pcs',
-        Number(quantity) || 0,
         derivedRate,
         Number(sell_price) || 0,
         hsn_sac,
@@ -1944,11 +1941,27 @@ router.post('/bills-documents/upload', authenticateToken, authorizeRoles('Admin'
             const qty = Number(lineItem?.quantity) || 0;
             if (qty > 0) {
               try {
+                const [bsBefore] = await pool.query(
+                  'SELECT quantity FROM sarga_branch_stock WHERE inventory_item_id = ? AND branch_id = ?',
+                  [item.inventoryId, targetBranchId]
+                );
+                const qtyBefore = Number(bsBefore[0]?.quantity || 0);
                 await pool.query(
                   `INSERT INTO sarga_branch_stock (inventory_item_id, branch_id, quantity)
                    VALUES (?, ?, ?)
                    ON DUPLICATE KEY UPDATE quantity = quantity + VALUES(quantity), updated_at = CURRENT_TIMESTAMP`,
                   [item.inventoryId, targetBranchId, qty]
+                );
+                // Recalculate global inventory quantity from branch stock sum
+                await pool.query(
+                  `UPDATE sarga_inventory i SET quantity = (SELECT COALESCE(SUM(quantity), 0) FROM sarga_branch_stock WHERE inventory_item_id = i.id) WHERE id = ?`,
+                  [item.inventoryId]
+                );
+                // Log movement
+                await pool.query(
+                  `INSERT INTO sarga_inventory_movement_log (inventory_item_id, branch_id, movement_type, quantity_change, quantity_before, quantity_after, reference_type, reference_id, notes, created_by)
+                   VALUES (?, ?, 'Purchase', ?, ?, ?, 'bill_upload', ?, 'Stock added from bill upload', ?)`,
+                  [item.inventoryId, targetBranchId, qty, qtyBefore, qtyBefore + qty, result.insertId, req.user.id]
                 );
               } catch (bsErr) {
                 console.error('Branch stock upsert failed for item', item.inventoryId, bsErr.message);
@@ -2117,10 +2130,39 @@ router.delete('/bills-documents/:id', authenticateToken, authorizeRoles('Admin',
           for (const item of vbItems) {
             if (!item.inventory_item_id) continue;
             touchedInventoryIds.push(item.inventory_item_id);
-            await pool.query(
-              'UPDATE sarga_inventory SET quantity = GREATEST(COALESCE(quantity, 0) - ?, 0) WHERE id = ?',
-              [Number(item.quantity) || 0, item.inventory_item_id]
-            );
+            const invId = item.inventory_item_id;
+            const qty = Number(item.quantity) || 0;
+
+            // Revert branch-level stock first, then recalc global
+            const branchId = document.branch_id || req.user?.branch_id;
+            if (branchId) {
+              const [bsBefore] = await pool.query(
+                'SELECT quantity FROM sarga_branch_stock WHERE inventory_item_id = ? AND branch_id = ?',
+                [invId, branchId]
+              );
+              const qtyBefore = Number(bsBefore[0]?.quantity || 0);
+              await pool.query(
+                'UPDATE sarga_branch_stock SET quantity = GREATEST(quantity - ?, 0) WHERE inventory_item_id = ? AND branch_id = ?',
+                [qty, invId, branchId]
+              );
+              // Recalculate global inventory quantity from branch stock sum
+              await pool.query(
+                `UPDATE sarga_inventory i SET quantity = (SELECT COALESCE(SUM(quantity), 0) FROM sarga_branch_stock WHERE inventory_item_id = i.id) WHERE id = ?`,
+                [invId]
+              );
+              // Log movement
+              await pool.query(
+                `INSERT INTO sarga_inventory_movement_log (inventory_item_id, branch_id, movement_type, quantity_change, quantity_before, quantity_after, reference_type, reference_id, created_by)
+                 VALUES (?, ?, 'Adjustment', ?, ?, GREATEST(?, 0), 'bill_delete', ?, ?)`,
+                [invId, branchId, -qty, qtyBefore, qtyBefore - qty, id, req.user.id]
+              );
+            } else {
+              // Fallback: no branch context — deduct from global directly
+              await pool.query(
+                'UPDATE sarga_inventory SET quantity = GREATEST(COALESCE(quantity, 0) - ?, 0) WHERE id = ?',
+                [qty, invId]
+              );
+            }
           }
 
           await pool.query('DELETE FROM sarga_vendor_bill_items WHERE bill_id = ?', [vb.id]);
@@ -2319,12 +2361,42 @@ router.post('/bills-documents/:id/link-product', authenticateToken, authorizeRol
       [product_id, quantity, unit_price, id]
     );
 
-    // If add_to_inventory is true, increment inventory stock directly
+    // If add_to_inventory is true, add to branch stock and recalc global quantity
     if (add_to_inventory && product_id) {
-      await pool.query(
-        `UPDATE sarga_inventory SET quantity = quantity + ? WHERE id = ?`,
-        [Number(quantity) || 0, product_id]
-      );
+      const qty = Number(quantity) || 0;
+      // Fetch the bill's branch to assign stock to the correct branch
+      const [docRows] = await pool.query('SELECT branch_id FROM sarga_bills_documents WHERE id = ?', [id]);
+      const branchId = docRows[0]?.branch_id || req.user?.branch_id;
+      if (branchId) {
+        const [bsBefore] = await pool.query(
+          'SELECT quantity FROM sarga_branch_stock WHERE inventory_item_id = ? AND branch_id = ?',
+          [product_id, branchId]
+        );
+        const qtyBefore = Number(bsBefore[0]?.quantity || 0);
+        await pool.query(
+          `INSERT INTO sarga_branch_stock (inventory_item_id, branch_id, quantity)
+           VALUES (?, ?, ?)
+           ON DUPLICATE KEY UPDATE quantity = quantity + ?, updated_at = CURRENT_TIMESTAMP`,
+          [product_id, branchId, qty, qty]
+        );
+        // Recalculate global inventory quantity from branch stock sum
+        await pool.query(
+          `UPDATE sarga_inventory i SET quantity = (SELECT COALESCE(SUM(quantity), 0) FROM sarga_branch_stock WHERE inventory_item_id = i.id) WHERE id = ?`,
+          [product_id]
+        );
+        // Log movement
+        await pool.query(
+          `INSERT INTO sarga_inventory_movement_log (inventory_item_id, branch_id, movement_type, quantity_change, quantity_before, quantity_after, reference_type, reference_id, created_by)
+           VALUES (?, ?, 'Purchase', ?, ?, ?, 'bill_link', ?, ?)`,
+          [product_id, branchId, qty, qtyBefore, qtyBefore + qty, id, req.user.id]
+        );
+      } else {
+        // Fallback: no branch context — update global directly
+        await pool.query(
+          `UPDATE sarga_inventory SET quantity = quantity + ? WHERE id = ?`,
+          [qty, product_id]
+        );
+      }
     }
 
     res.json({ success: true });

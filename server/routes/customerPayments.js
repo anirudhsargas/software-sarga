@@ -610,10 +610,43 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
             for (const line of order_lines) {
                 if (line.is_inventory_item && line.inventory_item_id) {
                     const qty = Number(line.quantity) || 1;
+                    const invId = line.inventory_item_id;
+
+                    // Decrement global reserved quantity
                     await connection.query(
-                        "UPDATE sarga_inventory SET quantity = GREATEST(quantity - ?, 0), reserved_quantity = GREATEST(COALESCE(reserved_quantity,0) - ?, 0) WHERE id = ?",
-                        [qty, qty, line.inventory_item_id]
+                        "UPDATE sarga_inventory SET reserved_quantity = GREATEST(COALESCE(reserved_quantity,0) - ?, 0) WHERE id = ?",
+                        [qty, invId]
                     );
+
+                    if (branchId) {
+                        // Deduct from branch-level stock
+                        const [bsBefore] = await connection.query(
+                            'SELECT quantity FROM sarga_branch_stock WHERE inventory_item_id = ? AND branch_id = ?',
+                            [invId, branchId]
+                        );
+                        const qtyBefore = Number(bsBefore[0]?.quantity || 0);
+                        await connection.query(
+                            'UPDATE sarga_branch_stock SET quantity = GREATEST(quantity - ?, 0) WHERE inventory_item_id = ? AND branch_id = ?',
+                            [qty, invId, branchId]
+                        );
+                        // Recalculate global inventory quantity from branch stock sum
+                        await connection.query(
+                            `UPDATE sarga_inventory i SET quantity = (SELECT COALESCE(SUM(quantity), 0) FROM sarga_branch_stock WHERE inventory_item_id = i.id) WHERE id = ?`,
+                            [invId]
+                        );
+                        // Log movement
+                        await connection.query(
+                            `INSERT INTO sarga_inventory_movement_log (inventory_item_id, branch_id, movement_type, quantity_change, quantity_before, quantity_after, reference_type, reference_id, created_by)
+                             VALUES (?, ?, 'Consumption', ?, ?, GREATEST(?, 0), 'customer_payment', ?, ?)`,
+                            [invId, branchId, -qty, qtyBefore, qtyBefore - qty, paymentId, req.user.id]
+                        );
+                    } else {
+                        // Fallback: no branch context — deduct from global directly
+                        await connection.query(
+                            "UPDATE sarga_inventory SET quantity = GREATEST(quantity - ?, 0) WHERE id = ?",
+                            [qty, invId]
+                        );
+                    }
                 }
             }
         }

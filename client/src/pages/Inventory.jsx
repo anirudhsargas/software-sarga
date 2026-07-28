@@ -460,7 +460,7 @@ const Inventory = () => {
     [items]);
 
     const inventoryValue = useMemo(() =>
-        items.reduce((sum, i) => sum + (Number(i.quantity) * Number(i.cost_price || 0)), 0),
+        items.reduce((sum, i) => sum + (Number(i.quantity) * Number(i.sell_price || 0)), 0),
     [items]);
 
     const filteredProducts = useMemo(() => {
@@ -1090,7 +1090,7 @@ const Inventory = () => {
                     <div className="inv-kpi-icon"><IndianRupee size={16} /></div>
                     <div className="inv-kpi-info">
                         <span className="inv-kpi-value">₹{inventoryValue.toLocaleString()}</span>
-                        <span className="inv-kpi-label">Inventory Value</span>
+                        <span className="inv-kpi-label">Retail Value</span>
                     </div>
                 </div>
                 <div className="inv-kpi-card">
@@ -1369,7 +1369,6 @@ const Inventory = () => {
                                     <th>Item</th>
                                     <th>Category</th>
                                     <th>Stock</th>
-                                    {!isFrontOffice && <th>Cost</th>}
                                     <th>Price</th>
                                     <th>Status</th>
                                     <th className="th-actions">Actions</th>
@@ -1378,7 +1377,7 @@ const Inventory = () => {
                             <tbody>
                                 {loading ? (
                                     <tr>
-                                        <td colSpan={isFrontOffice ? 7 : 8} style={{ padding: 0 }}>
+                                        <td colSpan={7} style={{ padding: 0 }}>
                                             <div className="inv-skeleton">
                                                 {[1, 2, 3, 4, 5].map(i => (
                                                     <div key={i} className="inv-skeleton-row">
@@ -1397,7 +1396,7 @@ const Inventory = () => {
                                     </tr>
                                 ) : items.length === 0 ? (
                                     <tr>
-                                        <td colSpan={isFrontOffice ? 7 : 8}>
+                                        <td colSpan={7}>
                                             <div className="inv-empty">
                                                 <Package size={48} className="inv-empty-icon" />
                                                 <div className="inv-empty-text">No inventory items found</div>
@@ -1466,11 +1465,6 @@ const Inventory = () => {
                                                         )}
                                                     </div>
                                                 </td>
-                                                {!isFrontOffice && (
-                                                    <td data-label="Cost">
-                                                        <span className="text-sm text-muted">₹{Number(item.cost_price).toFixed(2)}</span>
-                                                    </td>
-                                                )}
                                                 <td data-label="Price">
                                                     <span className="text-sm font-semibold">₹{Number(item.sell_price || 0).toFixed(2)}</span>
                                                 </td>
@@ -1638,7 +1632,6 @@ const Inventory = () => {
                                         <button className="inv-action-btn" onClick={() => openStockRequestModal(item)} title="Request from Another Branch"><ArrowLeftRight size={14} /></button>
                                     </div>
                                     <div style={{ fontSize: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
-                                        {!isFrontOffice && <span style={{ color: 'var(--muted)' }}>₹{Number(item.cost_price || 0).toFixed(2)}</span>}
                                         <span style={{ fontWeight: 600, color: 'var(--accent-2)' }}>₹{Number(item.sell_price || 0).toFixed(2)}</span>
                                     </div>
                                 </div>
@@ -3680,13 +3673,6 @@ const Inventory = () => {
                                     </div>
                                     {!isFrontOffice && (
                                         <div className="panel panel--tight" style={{ textAlign: 'center', padding: '12px 8px' }}>
-                                            <IndianRupee size={18} className="text-primary mb-4" />
-                                            <div style={{ fontSize: '1.3rem', fontWeight: 700 }}>₹{Number(detailItem.cost_price).toFixed(2)}</div>
-                                            <div className="text-xs muted">Cost Price</div>
-                                        </div>
-                                    )}
-                                    {!isFrontOffice && (
-                                        <div className="panel panel--tight" style={{ textAlign: 'center', padding: '12px 8px' }}>
                                             <BarChart3 size={18} className="text-primary mb-4" />
                                             <div style={{ fontSize: '1.3rem', fontWeight: 700 }}>₹{detailItem.stock_value}</div>
                                             <div className="text-xs muted">Stock Value</div>
@@ -3712,12 +3698,6 @@ const Inventory = () => {
                                 <div className="panel panel--tight mb-16" style={{ background: 'var(--surface-alt)' }}>
                                     <h3 className="text-sm font-medium mb-12" style={{ fontWeight: 600 }}>{isFrontOffice ? 'Pricing' : 'Pricing & Tax'}</h3>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 24px' }}>
-                                        {!isFrontOffice && (
-                                            <div className="row justify-between">
-                                                <span className="text-sm muted">Cost Price</span>
-                                                <span className="text-sm" style={{ fontWeight: 500 }}>₹{Number(detailItem.cost_price).toFixed(2)}</span>
-                                            </div>
-                                        )}
                                         {detailItem.item_type !== 'Consumable' && (
                                             <div className="row justify-between">
                                                 <span className="text-sm muted">Retail Price</span>
@@ -3830,7 +3810,6 @@ const Inventory = () => {
                                                     <tr>
                                                         <th>Date</th>
                                                         <th>Qty Received</th>
-                                                        <th>Cost</th>
                                                         <th>Days Gap</th>
                                                     </tr>
                                                 </thead>
@@ -3839,7 +3818,6 @@ const Inventory = () => {
                                                         <tr key={i}>
                                                             <td>{new Date(r.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })}</td>
                                                             <td>{r.quantity_received}</td>
-                                                            <td>₹{Number(r.cost_price).toFixed(2)}</td>
                                                             <td>{r.days_since_last_reorder != null ? `${r.days_since_last_reorder}d` : '-'}</td>
                                                         </tr>
                                                     ))}
