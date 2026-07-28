@@ -291,7 +291,7 @@ const Summary = () => {
               <div className="alert-banner__content">
                 <strong>{stats.monitoring_stats.active_alerts} active fraud alerts</strong> — requires immediate attention
               </div>
-              <button className="btn btn-sm btn-error" onClick={() => navigate('/dashboard/ai-monitoring')}>Review</button>
+              <button className="btn btn-sm btn-danger" onClick={() => navigate('/dashboard/ai-monitoring')}>Review</button>
             </div>
           )}
 

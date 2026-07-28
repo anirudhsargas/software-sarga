@@ -772,7 +772,7 @@ const Inventory = () => {
             return;
         }
         if (printableIds.length !== selectedIds.length) {
-            toast.warning('Paper items were excluded from the print selection');
+            toast('Paper items were excluded from the print selection', { icon: '⚠️' });
         }
 
         const initialQtys = {};

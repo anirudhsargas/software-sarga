@@ -2,7 +2,7 @@ import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useDebounce } from '../hooks/useDebounce';
 import { useNavigate } from 'react-router-dom';
-import { Users, Search, Phone, User, Loader2, Plus, X, Edit2, Trash2, Filter, Mail, MapPin, ChevronDown, SlidersHorizontal, RefreshCw, Download, Columns, LayoutGrid, List, ChevronRight, UserPlus, Briefcase, Clock, Check, FileText, FileSpreadsheet, Eye, EyeOff } from 'lucide-react';
+import { Users, Search, Phone, User, Loader2, Plus, X, Edit2, Trash2, Filter, Mail, MapPin, ChevronDown, SlidersHorizontal, Download, Columns, LayoutGrid, List, ChevronRight, UserPlus, Briefcase, Clock, Check, FileText, FileSpreadsheet, Eye, EyeOff } from 'lucide-react';
 import auth from '../services/auth';
 import api from '../services/api';
 import localDb from '../services/localDb';
@@ -639,6 +639,7 @@ const Customers = () => {
 
     const [searchFocused, setSearchFocused] = useState(false);
     const [showExportMenu, setShowExportMenu] = useState(false);
+    const [exportFilter, setExportFilter] = useState('');
     const exportRef = useRef(null);
     const [showColumnsMenu, setShowColumnsMenu] = useState(false);
     const columnsRef = useRef(null);
@@ -675,18 +676,30 @@ const Customers = () => {
         return () => window.removeEventListener('mousedown', handleClickOutside);
     }, [showExportMenu]);
 
-    const fetchAllCustomersForExport = async () => {
-        const res = await api.get('/customers?export=1');
+    const fetchAllCustomersForExport = async (filterType) => {
+        const params = { export: 1 };
+        if (filterType) params.filter = filterType;
+        const res = await api.get('/customers', { params });
         return Array.isArray(res.data) ? res.data : (res.data?.data || customers);
     };
 
+    const getExportTitle = () => {
+        switch (exportFilter) {
+            case 'due': return 'Customers with Due';
+            case 'has_orders': return 'Customers with Orders';
+            case 'new': return 'New Added Customers';
+            default: return 'All Customers';
+        }
+    };
+
     const exportToPDF = async () => {
-        const allCustomers = await fetchAllCustomersForExport();
+        const allCustomers = await fetchAllCustomersForExport(exportFilter);
         const [{ default: jsPDF }, autotable] = await Promise.all([
             import('jspdf'),
             import('jspdf-autotable'),
         ]);
         const doc = new jsPDF();
+        const title = getExportTitle();
         const tableColumn = ['Name', 'Type', 'Phone', 'Email', 'GST', 'Address', 'Outstanding', 'Last Order'];
         const tableRows = allCustomers.map(c => [
             c.name || '',
@@ -699,7 +712,7 @@ const Customers = () => {
             c.last_order_date ? new Date(c.last_order_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Never'
         ]);
         doc.setFontSize(16);
-        doc.text('Customer List', 14, 15);
+        doc.text(title, 14, 15);
         doc.setFontSize(10);
         doc.text(`Generated: ${new Date().toLocaleString('en-IN')}`, 14, 22);
         doc.autoTable({
@@ -710,12 +723,13 @@ const Customers = () => {
             headStyles: { fillColor: [79, 70, 229], fontSize: 8, fontStyle: 'bold' },
             alternateRowStyles: { fillColor: [245, 245, 250] }
         });
-        doc.save('customers.pdf');
+        doc.save(`${exportFilter || 'all'}-customers.pdf`);
         setShowExportMenu(false);
     };
 
     const exportToExcel = async () => {
-        const allCustomers = await fetchAllCustomersForExport();
+        const allCustomers = await fetchAllCustomersForExport(exportFilter);
+        const title = getExportTitle();
         const headers = ['Name', 'Type', 'Phone', 'Email', 'GST', 'Address', 'Outstanding', 'Last Order'];
         const rows = allCustomers.map(c => [
             c.name || '',
@@ -727,14 +741,14 @@ const Customers = () => {
             Number(c.outstanding_balance || 0),
             c.last_order_date ? new Date(c.last_order_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Never'
         ]);
-        const csvContent = [headers, ...rows]
+        const csvContent = [['Filter: ' + title], headers, ...rows]
             .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
             .join('\n');
         const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'customers.csv';
+        a.download = `${exportFilter || 'all'}-customers.csv`;
         a.click();
         URL.revokeObjectURL(url);
         setShowExportMenu(false);
@@ -922,6 +936,26 @@ const Customers = () => {
                         </button>
                         {showExportMenu && (
                             <div className="export-dropdown-menu">
+                                <div className="export-filter-group">
+                                    {[
+                                        { value: '', label: 'All Customers' },
+                                        { value: 'due', label: 'With Due' },
+                                        { value: 'has_orders', label: 'With Orders' },
+                                        { value: 'new', label: 'New Added' },
+                                    ].map(opt => (
+                                        <label key={opt.value} className={`export-filter-option ${exportFilter === opt.value ? 'active' : ''}`}>
+                                            <input
+                                                type="radio"
+                                                name="exportFilter"
+                                                value={opt.value}
+                                                checked={exportFilter === opt.value}
+                                                onChange={() => setExportFilter(opt.value)}
+                                            />
+                                            <span>{opt.label}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                                <div className="export-dropdown-divider" />
                                 <button className="export-dropdown-item" onClick={exportToPDF}>
                                     <FileText size={14} /> Export as PDF
                                 </button>
@@ -953,9 +987,6 @@ const Customers = () => {
                             </div>
                         )}
                     </div>
-                    <button className="toolbar-btn toolbar-btn--icon" title="Refresh" onClick={() => fetchCustomers(page)}>
-                        <RefreshCw size={14} />
-                    </button>
                 </div>
             </div>
 

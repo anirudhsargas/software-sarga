@@ -271,6 +271,7 @@ const AIMonitoring = () => {
             )}
 
             <style>{`
+                .ai-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-16); }
                 @media (max-width: 900px) {
                     .ai-grid--sidebar { grid-template-columns: 1fr !important; }
                 }

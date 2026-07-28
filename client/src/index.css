@@ -1904,6 +1904,7 @@ textarea.input-field:disabled {
   animation: spin 1s linear infinite;
 }
 
+.animate-spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .suspense-loader {
@@ -1977,7 +1978,6 @@ textarea.input-field:disabled {
   justify-content: center;
   text-align: center;
   padding: var(--space-32) var(--space-24);
-  max-height: 240px;
   min-height: 160px;
 }
 
@@ -2307,6 +2307,7 @@ textarea.input-field:disabled {
 .flex-center-y { display: flex; align-items: center; }
 .justify-between { justify-content: space-between; }
 .justify-end { justify-content: flex-end; }
+.justify-center { justify-content: center; }
 .items-center { align-items: center; }
 .items-start { align-items: flex-start; }
 .gap-xs { gap: var(--space-4); }
@@ -2331,9 +2332,11 @@ textarea.input-field:disabled {
 .text-heading { color: var(--text-heading); }
 .text-muted { color: var(--text-muted); }
 .text-disabled { color: var(--text-disabled); }
+.text-xs { font-size: var(--text-xs); }
 .text-accent { color: var(--accent); }
 .text-danger { color: var(--error); }
 .text-success { color: var(--success); }
+.font-medium { font-weight: 500; }
 .font-semibold { font-weight: 600; }
 .font-bold { font-weight: 700; }
 .muted { color: var(--muted); }
@@ -2347,6 +2350,7 @@ textarea.input-field:disabled {
 .mb-xs { margin-bottom: var(--space-4); }
 .mb-sm { margin-bottom: var(--space-8); }
 .mb-md { margin-bottom: var(--space-16); }
+.mb-20 { margin-bottom: var(--space-20); }
 .mb-lg { margin-bottom: var(--space-24); }
 .mb-xl { margin-bottom: var(--space-32); }
 .mr-xs { margin-right: var(--space-4); }

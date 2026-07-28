@@ -255,8 +255,7 @@ export default defineConfig({
     cssCodeSplit: true,
     minify: true,
     sourcemap: false,
-    // Set chunk size warning limit to 500
-    chunkSizeWarningLimit: 500,
+    chunkSizeWarningLimit: 1000,
     // Emit module preload polyfill
     modulePreload: {
       polyfill: false
