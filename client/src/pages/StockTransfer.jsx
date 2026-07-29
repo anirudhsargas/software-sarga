@@ -153,6 +153,7 @@ const StockTransfer = () => {
             setQuantity('');
             setNotes('');
             setActiveTab('requests');
+            fetchInitialData();
         } catch (err) {
             toast.error(err.response?.data?.message || 'Operation failed');
         } finally {
@@ -166,6 +167,8 @@ const StockTransfer = () => {
             await api.put(`/stock-requests/${id}/approve`, { action: 'approve' });
             toast.success('Request approved');
             fetchAllData();
+            fetchInitialData();
+            if (selectedItem) fetchBranchAvailability(selectedItem.id);
         } catch (e) { toast.error(e.response?.data?.message || 'Failed to approve'); }
     }
 
@@ -174,6 +177,8 @@ const StockTransfer = () => {
             await api.put(`/stock-requests/${id}/approve`, { action: 'reject' });
             toast.success('Request rejected');
             fetchAllData();
+            fetchInitialData();
+            if (selectedItem) fetchBranchAvailability(selectedItem.id);
         } catch { toast.error('Failed to reject'); }
     }
 
@@ -182,6 +187,8 @@ const StockTransfer = () => {
             await api.put(`/stock-requests/${id}/send`);
             toast.success('Goods dispatched. Source stock updated.');
             fetchAllData();
+            fetchInitialData();
+            if (selectedItem) fetchBranchAvailability(selectedItem.id);
         } catch (e) { toast.error(e.response?.data?.message || 'Failed to send goods'); }
     }
 
@@ -190,13 +197,25 @@ const StockTransfer = () => {
             await api.put(`/stock-requests/${id}/receive`);
             toast.success('Goods received. Destination stock updated.');
             fetchAllData();
+            fetchInitialData();
+            if (selectedItem) fetchBranchAvailability(selectedItem.id);
         } catch (e) { toast.error(e.response?.data?.message || 'Failed to receive goods'); }
     }
 
     if (loading) return <div className="panel flex-center" style={{ minHeight: 400 }}><Loader2 className="animate-spin" size={32} /></div>;
 
-    const inboundReqs = requests.filter(r => String(r.to_branch_id) === String(myBranchId));
-    const outboundReqs = requests.filter(r => String(r.from_branch_id) === String(myBranchId));
+    const inboundReqs = requests.filter(r => {
+        if (myBranchId) {
+            return String(r.to_branch_id) === String(myBranchId);
+        }
+        return isAdmin;
+    });
+    const outboundReqs = requests.filter(r => {
+        if (myBranchId) {
+            return String(r.from_branch_id) === String(myBranchId);
+        }
+        return false;
+    });
 
     const getStatusBadge = (status) => {
         let color = 'var(--muted)';
@@ -426,7 +445,15 @@ const StockTransfer = () => {
                                                             <Truck size={14} /> Send Goods
                                                         </button>
                                                     )}
-                                                    {req.status === 'Sent' && <span className="text-xs muted">Waiting for delivery confirmation...</span>}
+                                                    {req.status === 'Sent' && (
+                                                        (isAdmin || String(req.from_branch_id) === String(myBranchId)) ? (
+                                                            <button className="btn btn-xs btn-success btn-with-icon" onClick={() => receiveStock(req.id)}>
+                                                                <CheckSquare size={14} /> Confirm Receipt
+                                                            </button>
+                                                        ) : (
+                                                            <span className="text-xs muted">Waiting for delivery confirmation...</span>
+                                                        )
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>

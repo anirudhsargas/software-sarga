@@ -217,6 +217,7 @@ const Inventory = () => {
     useEffect(() => {
         fetchHierarchy();
         fetchBranches();
+        fetchStockRequests();
     }, []);
 
     useEffect(() => {
@@ -420,6 +421,7 @@ const Inventory = () => {
             })));
             toast.success(`${requests.length} stock request${requests.length > 1 ? 's' : ''} submitted`);
             setShowStockRequestModal(false);
+            fetchStockRequests();
         } catch (err) {
             toast.error(err.response?.data?.message || 'Failed to submit request');
         } finally {
@@ -445,6 +447,9 @@ const Inventory = () => {
             const labels = { approve: 'Approved', reject: 'Rejected', send: 'Sent', receive: 'Received' };
             toast.success(`Request ${labels[action]}`);
             fetchStockRequests();
+            if (['send', 'receive'].includes(action)) {
+                fetchInventory();
+            }
         } catch (err) {
             toast.error(err.response?.data?.message || 'Action failed');
         }
