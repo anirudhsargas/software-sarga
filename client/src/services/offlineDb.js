@@ -8,11 +8,18 @@ const DB_VERSION = 6;
 let dbInstance = null;
 let dbPromise = null;
 
+const DB_OPEN_TIMEOUT = 8000;
+
 function openDb() {
     if (dbPromise) return dbPromise;
 
     dbPromise = new Promise((resolve, reject) => {
         const req = indexedDB.open(DB_NAME, DB_VERSION);
+
+        const timeoutId = setTimeout(() => {
+            dbPromise = null;
+            reject(new Error('IndexedDB open timed out after ' + DB_OPEN_TIMEOUT + 'ms'));
+        }, DB_OPEN_TIMEOUT);
 
         req.onupgradeneeded = (e) => {
             const db = e.target.result;
@@ -139,10 +146,12 @@ function openDb() {
         };
 
         req.onblocked = () => {
+            clearTimeout(timeoutId);
             console.warn('[OfflineDB] Upgrade blocked by another tab. Please close other tabs.');
         };
 
         req.onsuccess = () => {
+            clearTimeout(timeoutId);
             dbInstance = req.result;
             dbInstance.onversionchange = () => {
                 // Close local handle so future openDb() calls will recreate the connection.
@@ -165,6 +174,7 @@ function openDb() {
         };
 
         req.onerror = () => {
+            clearTimeout(timeoutId);
             dbPromise = null;
             reject(req.error);
         };

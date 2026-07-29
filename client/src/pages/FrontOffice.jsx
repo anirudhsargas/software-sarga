@@ -105,7 +105,10 @@ const FrontOffice = () => {
       const fresh = await api.get('/front-office/dashboard');
       const serverData = fresh.data;
       try {
-        const pendingBills = await localDb.getJobs();
+        const pendingBills = await Promise.race([
+          localDb.getJobs(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('localDb.getJobs timed out')), 5000))
+        ]);
         const localBills = pendingBills.filter(j => j._isLocal && j.syncStatus === 'pending');
         const today = new Date().toDateString();
         const todayLocalBills = localBills.filter(j =>
@@ -185,11 +188,15 @@ const FrontOffice = () => {
           prevData = prevRes.data;
         } catch { /* ignore */ }
 
-        if (relevantBooks.length > 0 || myMachines.length > 0) {
+        const unenteredMachines = myMachines.filter(m => !machineHasReading[m.id]);
+        const needsBalances = relevantBooks.length > 0 && !anyEntered && !anyLocked;
+        const needsMachines = unenteredMachines.length > 0;
+
+        if (needsBalances || needsMachines) {
           setPrevClosing({ Offset: prevData.Offset || 0, Laser: prevData.Laser || 0, Other: prevData.Other || 0 });
-          setPromptMachines(myMachines.map(m => ({
+          setPromptMachines(unenteredMachines.map(m => ({
             id: m.id, machine_name: m.machine_name, location: m.location,
-            opening_count: machineHasReading[m.id] ? '' : (prevData.machines?.[m.id] !== undefined ? String(prevData.machines[m.id]) : ''),
+            opening_count: prevData.machines?.[m.id] !== undefined ? String(prevData.machines[m.id]) : '',
             error: null
           })));
           const newBalances = {};
@@ -229,7 +236,10 @@ const FrontOffice = () => {
       const d = res.data;
       let serverJobs = d.data || [];
       try {
-        const pendingBills = await localDb.getJobs({ status: 'pending' });
+        const pendingBills = await Promise.race([
+          localDb.getJobs({ status: 'pending' }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('localDb.getJobs timed out')), 5000))
+        ]);
         const localJobs = pendingBills.filter(j => j._isLocal && j.syncStatus === 'pending');
         const allJobs = [...localJobs, ...serverJobs].sort((a, b) =>
           new Date(b.created_at) - new Date(a.created_at)
