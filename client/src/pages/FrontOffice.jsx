@@ -634,9 +634,7 @@ const FrontOffice = () => {
         {/* ── Quick Actions ── */}
         <DashboardQuickActions />
 
-        {/* ── KPI Cards ── */}
         <div className="fo-kpi-grid">
-            <>
               {/* Fix 3: role=group + aria-label groups value+label for screen readers */}
               <div className="fo-kpi fo-kpi--blue">
                 <div className="fo-kpi__icon" aria-hidden="true"><ShoppingBag size={16} /></div>
@@ -694,9 +692,7 @@ const FrontOffice = () => {
                   <span className="fo-kpi__label">Avg Processing</span>
                 </div>
               </div>
-            </>
-          )}
-        </div>
+            </div>
 
         {/* ── Tabs ── */}
         <div className="fo-tabs">
