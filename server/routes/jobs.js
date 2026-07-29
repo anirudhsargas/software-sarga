@@ -1482,11 +1482,11 @@ router.get('/jobs/:id', authenticateToken, async (req, res) => {
         const isPrivileged = reqNormalizedRole === 'Admin' || reqNormalizedRole === 'Accountant';
         if (!isPrivileged) {
             const { branchId: activeBranchId } = await branchFilter(req);
-            const [assignments] = await pool.query(
+            const [branchAssignments] = await pool.query(
                 'SELECT branch_id FROM staff_branch_assignments WHERE staff_id = ?',
                 [req.user.id]
             );
-            const allowedBranchIds = assignments.map(a => String(a.branch_id));
+            const allowedBranchIds = branchAssignments.map(a => String(a.branch_id));
             if (activeBranchId) allowedBranchIds.push(String(activeBranchId));
             if (req.user.branch_id) allowedBranchIds.push(String(req.user.branch_id));
 
