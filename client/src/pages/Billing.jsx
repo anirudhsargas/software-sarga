@@ -1682,15 +1682,12 @@ const Billing = () => {
                   </div>
 
                   {totalPages > 1 && (
-                    <div style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      padding: '6px 4px', fontSize: 12, color: 'var(--muted)'
-                    }}>
-                      <span>
+                    <div className="billing-pagination">
+                      <span className="billing-pagination__info">
                         {(safePage - 1) * CATALOG_PAGE_SIZE + 1}–{Math.min(safePage * CATALOG_PAGE_SIZE, totalProducts)} of {totalProducts} products
                       </span>
-                      <div style={{ display: 'flex', gap: 4 }}>
-                        <button className="btn btn-ghost btn-xs" disabled={safePage <= 1} onClick={() => setCatalogPage(p => Math.max(1, p - 1))} aria-label="Previous page">‹ Prev</button>
+                      <div className="billing-pagination__pages">
+                        <button className="billing-pagination__btn" disabled={safePage <= 1} onClick={() => setCatalogPage(p => Math.max(1, p - 1))} aria-label="Previous page">‹ Prev</button>
                         {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
                           let pageNum;
                           if (totalPages <= 7) { pageNum = i + 1; }
@@ -1698,12 +1695,12 @@ const Billing = () => {
                           else if (safePage >= totalPages - 3) { pageNum = totalPages - 6 + i; }
                           else { pageNum = safePage - 3 + i; }
                           return (
-                            <button key={pageNum} className={`btn btn-xs ${pageNum === safePage ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setCatalogPage(pageNum)} aria-label={`Page ${pageNum}`} aria-current={pageNum === safePage ? 'page' : undefined}>
+                            <button key={pageNum} className={`billing-pagination__btn ${pageNum === safePage ? 'active' : ''}`} onClick={() => setCatalogPage(pageNum)} aria-label={`Page ${pageNum}`} aria-current={pageNum === safePage ? 'page' : undefined}>
                               {pageNum}
                             </button>
                           );
                         })}
-                        <button className="btn btn-ghost btn-xs" disabled={safePage >= totalPages} onClick={() => setCatalogPage(p => Math.min(totalPages, p + 1))} aria-label="Next page">Next ›</button>
+                        <button className="billing-pagination__btn" disabled={safePage >= totalPages} onClick={() => setCatalogPage(p => Math.min(totalPages, p + 1))} aria-label="Next page">Next ›</button>
                       </div>
                     </div>
                   )}
@@ -1764,8 +1761,7 @@ const Billing = () => {
                                     step="0.01"
                                     min="0"
                                     onChange={(e) => updateLine(line.id, 'customPaperRate', Number(e.target.value) || 0)}
-                                    className="billing-input-sm"
-                                    style={{ width: '60px', padding: '2px 4px', fontSize: '11px', height: '22px', border: '1px solid var(--border)', borderRadius: '4px' }}
+                                    className="billing-paper-rate-input"
                                     aria-label="Custom paper rate"
                                   />
                                 </div>
@@ -1831,12 +1827,12 @@ const Billing = () => {
                       <td>
                         <input type="number" value={line.unit_price} onChange={e => updateLine(line.id, 'unit_price', Number(e.target.value) || 0)} className="billing-input-num" aria-label="Unit price" />
                       </td>
-                      <td className="font-bold">₹{Number(line.total_amount).toLocaleString()}</td>
+                      <td className="font-bold" style={{ fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.01em' }}>₹{Number(line.total_amount).toLocaleString()}</td>
                       <td style={{ whiteSpace: 'nowrap' }}>
-                        <div style={{ display: 'flex', gap: '4px', alignItems: 'center', justifyContent: 'flex-end' }}>
-                          <button className="btn btn-ghost btn-icon btn-xs" onClick={() => setDetailProduct(line._product || { id: line.product_id, name: line.product_name, mrp: line.unit_price })} title="View details"><Eye size={12} aria-hidden="true" /></button>
-                          <button className="btn btn-ghost btn-icon btn-xs" onClick={() => duplicateLine(line)} title="Duplicate"><Copy size={12} aria-hidden="true" /></button>
-                          <button className="btn btn-ghost btn-icon btn-xs text-error" onClick={() => handleRemoveWithUndo(line)} title="Remove"><Trash2 size={12} aria-hidden="true" /></button>
+                        <div className="billing-row-actions">
+                          <button className="btn btn-ghost btn-icon btn-xs" onClick={() => setDetailProduct(line._product || { id: line.product_id, name: line.product_name, mrp: line.unit_price })} title="View details"><Eye size={14} aria-hidden="true" /></button>
+                          <button className="btn btn-ghost btn-icon btn-xs" onClick={() => duplicateLine(line)} title="Duplicate"><Copy size={14} aria-hidden="true" /></button>
+                          <button className="btn btn-ghost btn-icon btn-xs text-error" onClick={() => handleRemoveWithUndo(line)} title="Remove"><Trash2 size={14} aria-hidden="true" /></button>
                         </div>
                       </td>
                     </tr>
@@ -1859,7 +1855,7 @@ const Billing = () => {
                 {/* Discount controls */}
                 <div className="billing-discount-row">
                   <span className="text-xs muted">Discount <span style={{ fontSize: 10, color: 'var(--muted)' }}>(max {maxDiscountPct}%)</span></span>
-                  <div className="row gap-xs">
+                  <div className="row gap-xs items-center">
                     {discountMode === 'percent' ? (
                       <input
                         type="number"
@@ -1877,7 +1873,6 @@ const Billing = () => {
                         className="billing-input-sm"
                         min="0"
                         max={maxDiscountPct}
-                        style={{ flex: 1 }}
                       />
                     ) : (
                       <input
@@ -1901,11 +1896,12 @@ const Billing = () => {
                         }}
                         className="billing-input-sm"
                         min="0"
-                        style={{ flex: 1 }}
                       />
                     )}
-                    <button className={`btn btn-xs ${discountMode === 'percent' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => { setDiscountMode('percent'); setDiscountPercent(0); setDiscountInputAmount(0); setDiscountError(''); }}>%</button>
-                    <button className={`btn btn-xs ${discountMode === 'amount' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => { setDiscountMode('amount'); setDiscountPercent(0); setDiscountInputAmount(0); setDiscountError(''); }}>₹</button>
+                    <div className="billing-discount-toggle">
+                      <button type="button" className={`billing-discount-toggle__btn ${discountMode === 'percent' ? 'active' : ''}`} onClick={() => { setDiscountMode('percent'); setDiscountPercent(0); setDiscountInputAmount(0); setDiscountError(''); }}>%</button>
+                      <button type="button" className={`billing-discount-toggle__btn ${discountMode === 'amount' ? 'active' : ''}`} onClick={() => { setDiscountMode('amount'); setDiscountPercent(0); setDiscountInputAmount(0); setDiscountError(''); }}>₹</button>
+                    </div>
                   </div>
                 </div>
                 {discountError && (
