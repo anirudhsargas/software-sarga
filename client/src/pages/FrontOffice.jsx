@@ -185,23 +185,17 @@ const FrontOffice = () => {
           prevData = prevRes.data;
         } catch { /* ignore */ }
 
-        const unenteredMachines = myMachines.filter(m => !machineHasReading[m.id]);
-        const needsBalances = relevantBooks.length > 0 && !anyEntered && !anyLocked;
-        const needsMachines = unenteredMachines.length > 0;
-
-        if (needsBalances || needsMachines) {
+        if (relevantBooks.length > 0 || myMachines.length > 0) {
           setPrevClosing({ Offset: prevData.Offset || 0, Laser: prevData.Laser || 0, Other: prevData.Other || 0 });
-          setPromptMachines(unenteredMachines.map(m => ({
+          setPromptMachines(myMachines.map(m => ({
             id: m.id, machine_name: m.machine_name, location: m.location,
-            opening_count: prevData.machines?.[m.id] !== undefined ? String(prevData.machines[m.id]) : '',
+            opening_count: machineHasReading[m.id] ? '' : (prevData.machines?.[m.id] !== undefined ? String(prevData.machines[m.id]) : ''),
             error: null
           })));
           const newBalances = {};
-          if (needsBalances) {
-            relevantBooks.forEach(b => {
-              newBalances[b] = prevData[b] > 0 ? String(prevData[b]) : '';
-            });
-          }
+          relevantBooks.forEach(b => {
+            newBalances[b] = prevData[b] > 0 ? String(prevData[b]) : '';
+          });
           setPromptBalances(newBalances);
           setShowOpeningPrompt(true);
         }
@@ -479,6 +473,69 @@ const FrontOffice = () => {
     return <ServerError onRetry={() => loadDashboard()} message={error} />;
   }
 
+  if (loading) {
+    return (
+      <>
+      <PageContainer>
+        <div className="fo-dashboard">
+          <div className="fo-header">
+            <div className="fo-header__left">
+              <div className="skeleton-box" style={{ height: 28, width: 180, borderRadius: 8, marginBottom: 8 }}></div>
+              <div className="skeleton-box" style={{ height: 14, width: 200, borderRadius: 6 }}></div>
+            </div>
+            <div className="fo-header__actions">
+              <div className="skeleton-box" style={{ width: 36, height: 36, borderRadius: 8 }}></div>
+            </div>
+          </div>
+
+          <div className="fo-toolbar-sticky">
+            <div className="fo-search-bar" style={{ pointerEvents: 'none' }}>
+              <div className="fo-search-input-wrap">
+                <div style={{ flex: 1, height: 38, display: 'flex', alignItems: 'center', padding: '0 36px' }}>
+                  <div className="skeleton-box" style={{ height: 14, width: '60%', borderRadius: 6 }}></div>
+                </div>
+              </div>
+            </div>
+            <div className="skeleton-box" style={{ height: 40, width: 150, borderRadius: 10 }}></div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="skeleton-box" style={{ flex: 1, height: 56, borderRadius: 10 }}></div>
+            ))}
+          </div>
+
+          <div className="fo-kpi-grid">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="fo-kpi" style={{ border: 'none', background: 'transparent' }}>
+                <div className="skeleton-box" style={{ width: 40, height: 40, borderRadius: 10, marginBottom: 10 }}></div>
+                <div className="fo-kpi__body">
+                  <div className="skeleton-box" style={{ height: 24, width: '60%', borderRadius: 6, marginBottom: 6 }}></div>
+                  <div className="skeleton-box" style={{ height: 12, width: '80%', borderRadius: 6 }}></div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="skeleton-box" style={{ height: 42, width: '100%', borderRadius: 10, marginBottom: 20 }}></div>
+
+          <div className="skeleton-box" style={{ height: 300, width: '100%', borderRadius: 12 }}></div>
+        </div>
+      </PageContainer>
+      {showOpeningPrompt && (
+        <OpeningSetupModal
+          balances={promptBalances}
+          machines={promptMachines}
+          prevClosing={prevClosing}
+          branchName={user?.branch_name}
+          onSave={() => { setShowOpeningPrompt(false); loadDashboard(); }}
+          onSkip={() => setShowOpeningPrompt(false)}
+        />
+      )}
+      </>
+    );
+  }
+
   return (
     <>
     <PageContainer>
@@ -579,9 +636,6 @@ const FrontOffice = () => {
 
         {/* ── KPI Cards ── */}
         <div className="fo-kpi-grid">
-          {loading ? (
-            <SkeletonLoader type="cards" count={8} />
-          ) : (
             <>
               {/* Fix 3: role=group + aria-label groups value+label for screen readers */}
               <div className="fo-kpi fo-kpi--blue">

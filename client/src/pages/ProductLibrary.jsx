@@ -6,7 +6,7 @@ import useAuth from '../hooks/useAuth';
 import auth from '../services/auth';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-import { Plus, Trash2, ChevronRight, ChevronDown, Package, Layers, Grid, Save, X, PlusCircle, ArrowUp, ArrowDown, RotateCcw, Edit2, GripVertical, Copy, Eye, EyeOff, Upload, Image as ImageIcon, ChevronLeft, Search, Filter, Link as LinkIcon, ExternalLink, Loader2, ArrowRight, Clock, Check, FileText } from 'lucide-react';
+import { Plus, Trash2, ChevronRight, ChevronDown, Package, Layers, Grid, Save, X, PlusCircle, ArrowUp, ArrowDown, RotateCcw, Edit2, GripVertical, Copy, Eye, EyeOff, Upload, Image as ImageIcon, ChevronLeft, Search, Filter, Link as LinkIcon, ExternalLink, Loader2, ArrowRight, Clock, Check, FileText, Minus } from 'lucide-react';
 import { isTouchDevice } from '../services/utils';
 import { useConfirm } from '../contexts/ConfirmContext';
 import {
@@ -147,6 +147,14 @@ const ProductLibrary = () => {
     const [showVendorModal, setShowVendorModal] = useState(false);
     const [vendorNameForModal, setVendorNameForModal] = useState('');
     const [showCatalogueModal, setShowCatalogueModal] = useState(false);
+
+    // Papers tab
+    const [activePaperTab, setActivePaperTab] = useState(false);
+    const [paperTypes, setPaperTypes] = useState([]);
+    const [paperTypesLoading, setPaperTypesLoading] = useState(false);
+    const [paperStockMap, setPaperStockMap] = useState({});
+    const [showPaperModal, setShowPaperModal] = useState(false);
+    const [newPaper, setNewPaper] = useState({ category: 'OFFSET', size_name: '', width_mm: '', height_mm: '', gsm: '', brand: '' });
 
     const [showAdvancedInventory, setShowAdvancedInventory] = useState(false);
     const [originalProduct, setOriginalProduct] = useState(null);
@@ -653,6 +661,51 @@ const ProductLibrary = () => {
         setEditId(null);
         setSaveLoading(false);
         setImageRequestSubmitting(false);
+    };
+
+    const fetchPaperTypes = useCallback(async () => {
+        setPaperTypesLoading(true);
+        try {
+            const [typesRes, stockRes] = await Promise.all([
+                api.get('/paperInventory/types'),
+                api.get('/paperInventory/stock')
+            ]);
+            const types = Array.isArray(typesRes.data) ? typesRes.data : [];
+            const stockMap = {};
+            (Array.isArray(stockRes.data) ? stockRes.data : []).forEach(s => {
+                if (!stockMap[s.paper_type_id]) stockMap[s.paper_type_id] = [];
+                stockMap[s.paper_type_id].push(s);
+            });
+            setPaperStockMap(stockMap);
+            setPaperTypes(types);
+        } catch (err) {
+            console.error('Failed to fetch paper types:', err);
+        } finally {
+            setPaperTypesLoading(false);
+        }
+    }, []);
+
+    const handleAddPaper = async (e) => {
+        e.preventDefault();
+        setSaveLoading(true);
+        try {
+            await api.post('/paperInventory/types', {
+                category: newPaper.category,
+                size_name: newPaper.size_name,
+                width_mm: Number(newPaper.width_mm) || null,
+                height_mm: Number(newPaper.height_mm) || null,
+                gsm: Number(newPaper.gsm) || null,
+                brand: newPaper.brand || null
+            });
+            toast.success('Paper type added');
+            setShowPaperModal(false);
+            setNewPaper({ category: 'OFFSET', size_name: '', width_mm: '', height_mm: '', gsm: '', brand: '' });
+            fetchPaperTypes();
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Failed to add paper type');
+        } finally {
+            setSaveLoading(false);
+        }
     };
 
     const validateCategoryName = (name, excludeId) => {
@@ -1589,7 +1642,225 @@ const ProductLibrary = () => {
                 </nav>
             </header>
 
-            {/* Search & Filter bar — only for products view */}
+            {/* Tab bar */}
+            <div style={{ display: 'flex', gap: 2, marginBottom: 8, borderBottom: '1px solid var(--border)', paddingBottom: 0 }}>
+                <button
+                    onClick={() => { setActivePaperTab(false); }}
+                    style={{
+                        padding: '10px 20px', border: 'none', background: 'none',
+                        cursor: 'pointer', fontSize: 14, fontWeight: activePaperTab ? 500 : 700,
+                        color: activePaperTab ? 'var(--text-muted)' : 'var(--text)',
+                        borderBottom: activePaperTab ? '2px solid transparent' : '2px solid var(--accent)',
+                        transition: 'all 0.15s'
+                    }}
+                >
+                    <Package size={15} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+                    Products
+                </button>
+                <button
+                    onClick={() => { setActivePaperTab(true); fetchPaperTypes(); }}
+                    style={{
+                        padding: '10px 20px', border: 'none', background: 'none',
+                        cursor: 'pointer', fontSize: 14, fontWeight: activePaperTab ? 700 : 500,
+                        color: activePaperTab ? 'var(--text)' : 'var(--text-muted)',
+                        borderBottom: activePaperTab ? '2px solid var(--accent)' : '2px solid transparent',
+                        transition: 'all 0.15s'
+                    }}
+                >
+                    <FileText size={15} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+                    Papers
+                </button>
+            </div>
+
+            {activePaperTab ? (
+                <div>
+                    {/* Papers Header */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, marginTop: 8 }}>
+                        <div>
+                            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Paper Types</h2>
+                            <p className="muted text-sm" style={{ margin: '2px 0 0' }}>Manage paper stock and add new paper types.</p>
+                        </div>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                            <button
+                                className="btn btn-primary"
+                                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+                                onClick={() => { setNewPaper({ category: 'OFFSET', size_name: '', width_mm: '', height_mm: '', gsm: '', brand: '' }); setShowPaperModal(true); }}
+                            >
+                                <Plus size={16} /> Add Paper
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Paper Types Grid */}
+                    {paperTypesLoading ? (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+                            {[1,2,3,4].map(i => (
+                                <div key={i} className="card" style={{ padding: 16, borderRadius: 10, border: '1px solid var(--border)' }}>
+                                    <div className="skeleton" style={{ height: 20, width: '60%', borderRadius: 4, marginBottom: 12 }} />
+                                    <div className="skeleton" style={{ height: 14, width: '40%', borderRadius: 4, marginBottom: 8 }} />
+                                    <div className="skeleton" style={{ height: 14, width: '50%', borderRadius: 4 }} />
+                                </div>
+                            ))}
+                        </div>
+                    ) : paperTypes.length === 0 ? (
+                        <div className="inv-empty" style={{ padding: 60, textAlign: 'center' }}>
+                            <Layers size={48} style={{ color: 'var(--text-muted)', marginBottom: 12 }} />
+                            <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 4 }}>No paper types found</div>
+                            <p className="muted text-sm">Add your first paper type to start tracking paper inventory.</p>
+                        </div>
+                    ) : (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+                            {paperTypes.map(pt => {
+                                const stocks = paperStockMap[pt.id] || [];
+                                const totalSheets = stocks.reduce((sum, s) => sum + Number(s.current_sheets || 0), 0);
+                                return (
+                                    <div key={pt.id} className="card" style={{
+                                        padding: 16, borderRadius: 10,
+                                        border: '1px solid var(--border)',
+                                        display: 'flex', flexDirection: 'column', gap: 8
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                                            <div>
+                                                <div style={{ fontWeight: 600, fontSize: 15 }}>{pt.size_name || 'Unnamed'}</div>
+                                                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                                                    {pt.category} {pt.gsm ? `• ${pt.gsm} GSM` : ''} {pt.brand ? `• ${pt.brand}` : ''}
+                                                </div>
+                                            </div>
+                                            <span className={`badge badge--sm ${pt.category === 'LASER' ? 'badge--info' : 'badge--warning'}`}>
+                                                {pt.category}
+                                            </span>
+                                        </div>
+                                        {pt.width_mm && pt.height_mm && (
+                                            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                                                {pt.width_mm} × {pt.height_mm} mm
+                                            </div>
+                                        )}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                                            <Layers size={14} style={{ color: 'var(--text-muted)' }} />
+                                            <span style={{ fontWeight: 600, fontSize: 14 }}>
+                                                {totalSheets.toLocaleString()} sheets
+                                            </span>
+                                            {stocks.length > 0 && (
+                                                <span className="text-xs muted">across {stocks.length} branch{stocks.length > 1 ? 'es' : ''}</span>
+                                            )}
+                                        </div>
+                                        <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+                                            <button
+                                                className="btn btn-ghost btn-sm"
+                                                style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center' }}
+                                                onClick={() => navigate('/dashboard/paper/inward', { state: { paper_type_id: pt.id } })}
+                                            >
+                                                <Plus size={13} /> Inward
+                                            </button>
+                                            <button
+                                                className="btn btn-ghost btn-sm"
+                                                style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center' }}
+                                                onClick={() => navigate('/dashboard/paper/outward', { state: { paper_type_id: pt.id } })}
+                                            >
+                                                <Minus size={13} /> Outward
+                                            </button>
+                                            <button
+                                                className="btn btn-primary btn-sm"
+                                                style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+                                                onClick={() => navigate('/dashboard/paper/stock', { state: { paper_type_id: pt.id } })}
+                                                title="Manage Stock"
+                                            >
+                                                <ArrowRight size={13} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+
+                    {/* Add Paper Modal */}
+                    {showPaperModal && (
+                        <div className="modal-backdrop">
+                            <div className="modal" style={{ maxWidth: '480px' }}>
+                                <div className="modal-header">
+                                    <h2 className="modal-title">Add Paper Type</h2>
+                                    <button className="modal-close modal-close--static" onClick={() => { setShowPaperModal(false); }}><X size={20} /></button>
+                                </div>
+                                <form onSubmit={handleAddPaper} className="stack-md" style={{ padding: 24 }}>
+                                    <div>
+                                        <label className="label">Category</label>
+                                        <select
+                                            className="input-field"
+                                            value={newPaper.category}
+                                            onChange={e => setNewPaper({ ...newPaper, category: e.target.value })}
+                                            required
+                                        >
+                                            <option value="OFFSET">Offset</option>
+                                            <option value="LASER">Laser</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="label">Size Name</label>
+                                        <input
+                                            className="input-field"
+                                            placeholder="e.g. A4, A3, 25×36"
+                                            value={newPaper.size_name}
+                                            onChange={e => setNewPaper({ ...newPaper, size_name: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                        <div>
+                                            <label className="label">Width (mm)</label>
+                                            <input
+                                                type="number"
+                                                className="input-field"
+                                                placeholder="e.g. 210"
+                                                value={newPaper.width_mm}
+                                                onChange={e => setNewPaper({ ...newPaper, width_mm: e.target.value })}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="label">Height (mm)</label>
+                                            <input
+                                                type="number"
+                                                className="input-field"
+                                                placeholder="e.g. 297"
+                                                value={newPaper.height_mm}
+                                                onChange={e => setNewPaper({ ...newPaper, height_mm: e.target.value })}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                        <div>
+                                            <label className="label">GSM</label>
+                                            <input
+                                                type="number"
+                                                className="input-field"
+                                                placeholder="e.g. 80"
+                                                value={newPaper.gsm}
+                                                onChange={e => setNewPaper({ ...newPaper, gsm: e.target.value })}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="label">Brand</label>
+                                            <input
+                                                className="input-field"
+                                                placeholder="e.g. JK Copier"
+                                                value={newPaper.brand}
+                                                onChange={e => setNewPaper({ ...newPaper, brand: e.target.value })}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="modal-footer" style={{ padding: '16px 0 0', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                                        <button type="button" className="btn btn-ghost" onClick={() => setShowPaperModal(false)} disabled={saveLoading}>Cancel</button>
+                                        <button type="submit" className="btn btn-primary" disabled={saveLoading}>
+                                            {saveLoading ? <Loader2 size={15} className="spin" /> : null}
+                                            {saveLoading ? 'Adding...' : 'Add Paper'}
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            ) : (<>
             {viewInfo.type === 'subcategory' && (
                 <div style={{
                     display: 'flex',
@@ -3069,8 +3340,8 @@ onClick={() => { setProductSearch(''); setFilterVendor('all'); setFilterCalcType
                                                                         moveSlabFocus(idx, 4, e.key === 'ArrowUp' ? -1 : 1);
                                                                     }
                                                         }}
-                                                                 />
-                                                            </div>
+                                                                  />
+                                                             </div>
                                                         )}
                                                     </>
                                                 )}
@@ -3402,6 +3673,8 @@ onClick={() => { setProductSearch(''); setFilterVendor('all'); setFilterCalcType
                 hierarchy={hierarchy}
                 selectedIds={selectedProductIds}
             />
+        </>
+        )}
         </PageContainer>
     );
 };

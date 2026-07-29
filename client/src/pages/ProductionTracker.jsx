@@ -4,7 +4,7 @@ import {
     Loader2, Building2, Search, AlertTriangle, Clock,
     ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ArrowRight, Zap,
     CheckCircle2, Timer, Package, Palette, Printer, Scissors,
-    Layers, BookOpen, Settings, RefreshCw, User, Calendar
+    Layers, BookOpen, User, Calendar
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
@@ -242,7 +242,6 @@ const JobCard = React.memo(({ job, onNavigate, stageColor, index = 0 }) => {
     const priColor = PRIORITY_COLORS[job.priority] || PRIORITY_COLORS.Medium;
     const balance = Number(job.balance_amount) || 0;
     const total = Number(job.total_amount) || 0;
-    const paid = total - balance;
     const isFullyPaid = balance <= 0;
 
     const stageHours = Number(job.hours_in_stage) || 0;
