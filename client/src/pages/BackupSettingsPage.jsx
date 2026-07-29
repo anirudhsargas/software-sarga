@@ -16,7 +16,7 @@ const BackupSettingsPage = () => {
 
   // State variables
   const [health, setHealth] = useState({ status: 'checking', latency: 0 });
-  const [status, setStatus] = useState({ enabled: true, lockStatus: false, syncTimes: {}, sheetId: '' });
+  const [status, setStatus] = useState({ enabled: true, lockStatus: false, syncTimes: {}, sheetId: '', jobs: [] });
   const [metrics, setMetrics] = useState({
     backup_jobs_running: 0,
     backup_rows_per_second: 0,
@@ -455,6 +455,28 @@ const BackupSettingsPage = () => {
           </div>
         )}
 
+        {/* Quick Actions Bar */}
+        <div style={{ display: 'flex', gap: '0.75rem', margin: '0.75rem 0' }}>
+          <button
+            className="btn btn-primary"
+            onClick={handleIncrementalSync}
+            disabled={activeJobId !== null || runningRestore}
+            style={{ justifyContent: 'center', gap: '8px', flex: 1 }}
+          >
+            <Play size={16} />
+            Run Backup Now
+          </button>
+          <button
+            className="btn btn-secondary"
+            onClick={handleFullSync}
+            disabled={activeJobId !== null || runningRestore}
+            style={{ justifyContent: 'center', gap: '8px', flex: 1 }}
+          >
+            <RefreshCw size={16} />
+            Full Snapshot Rebuild
+          </button>
+        </div>
+
         {/* Central Operations panels grid */}
         <div className="backup-grid">
           
@@ -468,24 +490,6 @@ const BackupSettingsPage = () => {
               Queue background synchronization worker jobs. These are processed asynchronously without blocking web API latency.
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: 'auto' }}>
-              <button 
-                className="btn btn-primary" 
-                onClick={handleIncrementalSync} 
-                disabled={!isBackupActive || activeJobId !== null || runningRestore || health.status !== 'healthy'}
-                style={{ justifyContent: 'center', gap: '8px' }}
-              >
-                <Play size={16} />
-                Queue Incremental Sync
-              </button>
-              <button 
-                className="btn btn-secondary" 
-                onClick={handleFullSync} 
-                disabled={!isBackupActive || activeJobId !== null || runningRestore || health.status !== 'healthy'}
-                style={{ justifyContent: 'center', gap: '8px' }}
-              >
-                <RefreshCw size={16} />
-                Queue Full Snapshot Rebuild
-              </button>
               <button 
                 className="btn btn-secondary" 
                 onClick={handleVerifyIntegrity} 
@@ -814,13 +818,59 @@ const BackupSettingsPage = () => {
             <h3 className="backup-card-title" style={{ fontSize: '1rem' }}>Console Diagnostics</h3>
           </div>
           <div className="console-box">
-            <div className="console-line">[System] Initializing backup operations client...</div>
-            <div className="console-line">[System] lock_persistence checks enabled on sarga_backup_lock table.</div>
-            <div className="console-line">[System] queue_export workers polling sarga_backup_jobs table.</div>
-            <div className="console-line">[System] Connected to sheet service account: avnadmin (Aiven Cloud Platform)</div>
-            {history.slice(0, 5).map((log, idx) => (
+            <div className="console-line">[System] Backup System initialized</div>
+            {loading.health ? (
+              <div className="console-line" style={{ color: '#f59e0b' }}>[System] Checking credentials...</div>
+            ) : health.status === 'credentials_missing' ? (
+              <div className="console-line" style={{ color: '#ef4444' }}>
+                [System] Credentials: NOT CONFIGURED — Add GOOGLE_SERVICE_ACCOUNT to env
+              </div>
+            ) : health.status === 'credentials_invalid' ? (
+              <div className="console-line" style={{ color: '#ef4444' }}>
+                [System] Credentials: INVALID — {health.message}
+              </div>
+            ) : health.status === 'sheet_id_missing' ? (
+              <div className="console-line" style={{ color: '#ef4444' }}>
+                [System] Sheet ID: GOOGLE_SHEET_ID not configured
+              </div>
+            ) : health.status === 'sheet_not_shared' ? (
+              <div className="console-line" style={{ color: '#ef4444' }}>
+                [System] Sheet: Not accessible — {health.message}
+              </div>
+            ) : health.serviceAccount ? (
+              <div className="console-line" style={{ color: '#10b981' }}>
+                [System] Credentials: CONFIGURED — Service Account: {health.serviceAccount}
+              </div>
+            ) : health.status === 'healthy' ? (
+              <div className="console-line" style={{ color: '#10b981' }}>
+                [System] Credentials: CONFIGURED
+              </div>
+            ) : null}
+            {health.sheetTitle ? (
+              <div className="console-line" style={{ color: '#10b981' }}>
+                [System] Sheet: &quot;{health.sheetTitle}&quot; (latency: {health.latency}ms)
+              </div>
+            ) : null}
+            {health.status === 'healthy' && health.latency ? (
+              <div className="console-line" style={{ color: '#10b981' }}>
+                [System] API Latency: {health.latency}ms
+              </div>
+            ) : null}
+            {health.status === 'api_error' && health.message ? (
+              <div className="console-line" style={{ color: '#ef4444' }}>
+                [System] API Error: {health.message}
+              </div>
+            ) : null}
+            <div className="console-line">
+              [System] Last backup: {status.jobs && status.jobs.length > 0
+                ? status.jobs[0].status === 'completed'
+                  ? `${new Date(status.jobs[0].completed_at).toLocaleString()} (completed, ${status.jobs[0].rows_written} rows)`
+                  : `${new Date(status.jobs[0].started_at).toLocaleString()} (${status.jobs[0].status})`
+                : 'Never'}
+            </div>
+            {history.slice(0, 3).map((log, idx) => (
               <div className="console-line" key={idx} style={{ color: log.status === 'failed' ? '#ef4444' : '#10b981' }}>
-                [{new Date(log.created_at).toLocaleTimeString()}] Sync {log.sync_type.toUpperCase()} completed with status {log.status.toUpperCase()} ({log.rows_synced} rows in {log.latency_ms}ms). Checksum: {log.checksum_hash ? log.checksum_hash.slice(0, 16) : 'N/A'}
+                [{new Date(log.created_at).toLocaleTimeString()}] Sync {log.sync_type.toUpperCase()} completed with status {log.status.toUpperCase()} ({log.rows_synced} rows in {log.latency_ms}ms)
               </div>
             ))}
           </div>

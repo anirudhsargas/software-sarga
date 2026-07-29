@@ -25,9 +25,19 @@ function AuditDashboard() {
         setError(null)
         try {
             const params = new URLSearchParams()
+            const today = new Date().toISOString().slice(0, 10)
             if (timeRange === 'today') {
-                const today = new Date().toISOString().slice(0, 10)
                 params.set('date_from', today)
+                params.set('date_to', today)
+            } else if (timeRange === 'week') {
+                const weekAgo = new Date()
+                weekAgo.setDate(weekAgo.getDate() - 7)
+                params.set('date_from', weekAgo.toISOString().slice(0, 10))
+                params.set('date_to', today)
+            } else if (timeRange === 'month') {
+                const monthAgo = new Date()
+                monthAgo.setDate(monthAgo.getDate() - 30)
+                params.set('date_from', monthAgo.toISOString().slice(0, 10))
                 params.set('date_to', today)
             }
 

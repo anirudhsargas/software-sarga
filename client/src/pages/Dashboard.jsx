@@ -64,6 +64,7 @@ const OrderPredictions = lazyWithRetry(() => import('./OrderPredictions'));
 const SalesPrediction = lazyWithRetry(() => import('./SalesPrediction'));
 const ProductionTracker = lazyWithRetry(() => import('./ProductionTracker'));
 const PlateManagement = lazyWithRetry(() => import('./PlateManagement'));
+const PlatePlanner = lazyWithRetry(() => import('./PlatePlanner'));
 const StockVerification = lazyWithRetry(() => import('./StockVerification'));
 const StockPlanning = lazyWithRetry(() => import('./StockPlanning'));
 const OtherStaffDashboard = lazyWithRetry(() => import('./OtherStaffDashboard'));
@@ -85,6 +86,8 @@ const PaperOutward = lazyWithRetry(() => import('./PaperOutward'));
 const PaperMovementHistory = lazyWithRetry(() => import('./PaperMovementHistory'));
 const PaperAlerts = lazyWithRetry(() => import('./PaperAlerts'));
 const PaperTransfer = lazyWithRetry(() => import('./PaperTransfer'));
+const CutTransfer = lazyWithRetry(() => import('./CutTransfer'));
+const PendingTransfers = lazyWithRetry(() => import('./PendingTransfers'));
 const Quotes = lazyWithRetry(() => import('./Quotes'));
 const ScanItem = lazyWithRetry(() => import('./ScanItem'));
 const SettingsPage = lazyWithRetry(() => import('./SettingsPage'));
@@ -634,7 +637,8 @@ const Dashboard = () => {
         { key: 'scanner', name: 'Scan Item', icon: Camera, path: '/dashboard/inventory/scan', roles: ['Admin', 'Front Office', 'Accountant'], group: 'inventory' },
         // Production
         { key: 'operations', name: 'Product Library', icon: Grid, path: '/dashboard/products', roles: ['Admin', 'Front Office', 'Designer', 'Accountant'], group: 'production' },
-        { key: 'operations', name: 'Plate Planning', icon: Layers, path: '/dashboard/plates', roles: ['Designer', 'Admin'], group: 'production' },
+        { key: 'operations', name: 'Plate Planner', icon: Calculator, path: '/dashboard/plate-planner', roles: ['Designer', 'Admin', 'Front Office'], group: 'production' },
+        { key: 'operations', name: 'Plate Ganging', icon: Layers, path: '/dashboard/plates', roles: ['Designer', 'Admin'], group: 'production' },
         { key: 'operations', name: 'Machine Management', icon: Settings, path: '/dashboard/machines', roles: ['Admin', 'Front Office'], group: 'production' },
         { key: 'operations', name: 'Production Tracker', icon: Layers, path: '/dashboard/production-tracker', roles: ['Admin', 'Front Office'], group: 'production' },
         { key: 'operations', name: 'Paper Layout', icon: Layers, path: '/dashboard/paper-layout', roles: ['Front Office', 'Designer'], group: 'production' },
@@ -1276,6 +1280,7 @@ const Dashboard = () => {
                             <Route path="reports" element={<ProtectedSubRoute roles={['Admin', 'Accountant']}><Reports /></ProtectedSubRoute>} />
                             <Route path="accounts" element={<ProtectedSubRoute roles={['Accountant', 'Admin']}><RequiresConnection feature="Accounts & GST"><Accounts /></RequiresConnection></ProtectedSubRoute>} />
                             <Route path="plates" element={<ProtectedSubRoute roles={['Designer', 'Admin']}><PlateManagement /></ProtectedSubRoute>} />
+                            <Route path="plate-planner" element={<ProtectedSubRoute roles={['Designer', 'Admin', 'Front Office']}><PlatePlanner /></ProtectedSubRoute>} />
                             <Route path="order-predictions" element={<ProtectedSubRoute roles={['Admin', 'Accountant']}><RequiresConnection feature="Order Predictions"><OrderPredictions /></RequiresConnection></ProtectedSubRoute>} />
                             <Route path="predictions" element={<ProtectedSubRoute roles={['Admin', 'Accountant']}><RequiresConnection feature="Sales Prediction"><SalesPrediction /></RequiresConnection></ProtectedSubRoute>} />
                             <Route path="production-tracker" element={<ProtectedSubRoute roles={['Admin', 'Front Office']}><RequiresConnection feature="Production Tracker"><ProductionTracker /></RequiresConnection></ProtectedSubRoute>} />
@@ -1293,6 +1298,8 @@ const Dashboard = () => {
                             <Route path="paper/movements" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><PaperMovementHistory /></ProtectedSubRoute>} />
                             <Route path="paper/alerts" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><PaperAlerts /></ProtectedSubRoute>} />
                             <Route path="paper/transfer" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><PaperTransfer /></ProtectedSubRoute>} />
+                            <Route path="paper/cut" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><CutTransfer /></ProtectedSubRoute>} />
+                            <Route path="paper/pending-transfers" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><PendingTransfers /></ProtectedSubRoute>} />
                             <Route path="inventory/consumables" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><ConsumablesManagement /></ProtectedSubRoute>} />
                             <Route path="recurring-invoices" element={<ProtectedSubRoute roles={['Admin', 'Accountant']}><RecurringInvoices /></ProtectedSubRoute>} />
                             <Route path="settings" element={<ProtectedSubRoute roles={['Admin']}><SettingsPage /></ProtectedSubRoute>} />
@@ -1749,12 +1756,26 @@ const Dashboard = () => {
                                     <div className="scan-result-stat__value scan-result-stat__value--price">₹{inventoryScanResult.mrp}</div>
                                 </div>
                                 <div className="scan-result-stat">
-                                    <div className="muted scan-result-stat__label">Qty Available</div>
+                                    <div className="muted scan-result-stat__label">Total Stock</div>
                                     <div className={`scan-result-stat__value ${inventoryScanResult.quantity <= (inventoryScanResult.reorder_level || 0) ? 'scan-result-stat__value--error' : 'scan-result-stat__value--success'}`}>
                                         {inventoryScanResult.quantity} {inventoryScanResult.unit || ''}
                                     </div>
                                 </div>
                             </div>
+
+                            {inventoryScanResult.branch_stocks && inventoryScanResult.branch_stocks.length > 0 && (
+                                <div className="scan-result-branch-stocks">
+                                    <div className="muted scan-result-stat__label" style={{ marginBottom: 6 }}>Stock by Branch</div>
+                                    {inventoryScanResult.branch_stocks.map(bs => (
+                                        <div key={bs.branch_id} className="scan-result-branch-row">
+                                            <span className="scan-result-branch-name">{bs.branch_name}</span>
+                                            <span className={`scan-result-branch-qty ${Number(bs.quantity) <= 0 ? 'scan-result-stat__value--error' : ''}`}>
+                                                {Number(bs.quantity).toLocaleString()} {inventoryScanResult.unit || ''}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                             {inventoryScanResult.hsn && (
                                 <div className="scan-result-hsn">
                                     <span className="muted">HSN: <strong>{inventoryScanResult.hsn}</strong></span>

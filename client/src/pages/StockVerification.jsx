@@ -1,9 +1,9 @@
 import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect } from 'react';
 import useAuth from '../hooks/useAuth';
-import api from '../services/api';
+import api, { imgUrl } from '../services/api';
 import { useConfirm } from '../contexts/ConfirmContext';
-import { Save, CheckCircle, Search, Calendar, FileText, AlertTriangle } from 'lucide-react';
+import { Save, CheckCircle, Search, Calendar, FileText, AlertTriangle, Camera, Trash2, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import './StockVerification.css';
 import PageContainer from '../components/ui/PageContainer';
@@ -125,6 +125,45 @@ const StockVerification = () => {
     const paginatedItems = filteredItems.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
     const isCompleted = verification?.status === 'Completed';
+
+    const [previewImage, setPreviewImage] = useState(null);
+
+    const handleImageUpload = async (itemId, file) => {
+        if (!verification?.id) {
+            toast.error('Save a draft first before uploading images.');
+            return;
+        }
+        if (isCompleted) return;
+
+        const formData = new FormData();
+        formData.append('image', file);
+
+        try {
+            const res = await api.post(`/stock-verification/${verification.id}/items/${itemId}/image`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            setItems(prev => prev.map(item =>
+                item.inventory_item_id === itemId ? { ...item, image: res.data.image } : item
+            ));
+            toast.success('Image uploaded');
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Failed to upload image');
+        }
+    };
+
+    const handleImageDelete = async (itemId) => {
+        if (!verification?.id || isCompleted) return;
+
+        try {
+            await api.delete(`/stock-verification/${verification.id}/items/${itemId}/image`);
+            setItems(prev => prev.map(item =>
+                item.inventory_item_id === itemId ? { ...item, image: null } : item
+            ));
+            toast.success('Image removed');
+        } catch (err) {
+            toast.error('Failed to remove image');
+        }
+    };
 
     return (
         <PageContainer>
@@ -256,6 +295,7 @@ const StockVerification = () => {
                                         <th className="sv-table-th--qty">Physical Qty</th>
                                         <th className="sv-table-th--right">Variance</th>
                                         <th>Notes</th>
+                                        <th className="sv-table-th--image">Image</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -301,11 +341,50 @@ const StockVerification = () => {
                                                         placeholder="Notes..."
                                                     />
                                                 </td>
+                                                <td>
+                                                    <div className="sv-image-cell">
+                                                        {item.image ? (
+                                                            <div className="sv-image-preview">
+                                                                <img
+                                                                    src={imgUrl(`/uploads/${item.image}`)}
+                                                                    alt="Product"
+                                                                    className="sv-image-thumb"
+                                                                    onClick={() => setPreviewImage(imgUrl(`/uploads/${item.image}`))}
+                                                                />
+                                                                {!isCompleted && (
+                                                                    <button
+                                                                        className="sv-image-delete-btn"
+                                                                        onClick={() => handleImageDelete(item.inventory_item_id)}
+                                                                        title="Remove image"
+                                                                    >
+                                                                        <Trash2 size={12} />
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            !isCompleted && (
+                                                                <label className="sv-image-upload-label">
+                                                                    <Camera size={16} />
+                                                                    <input
+                                                                        type="file"
+                                                                        accept="image/*"
+                                                                        className="sv-image-input"
+                                                                        onChange={(e) => {
+                                                                            const file = e.target.files?.[0];
+                                                                            if (file) handleImageUpload(item.inventory_item_id, file);
+                                                                            e.target.value = '';
+                                                                        }}
+                                                                    />
+                                                                </label>
+                                                            )
+                                                        )}
+                                                    </div>
+                                                </td>
                                             </tr>
                                         )
                                     }) : (
                                         <tr>
-                                            <td colSpan="6" className="empty-state">No inventory items found.</td>
+                                            <td colSpan="7" className="empty-state">No inventory items found.</td>
                                         </tr>
                                     )}
                                 </tbody>
@@ -341,6 +420,17 @@ const StockVerification = () => {
                             </div>
                         </div>
                     )}
+                </div>
+            )}
+            {/* Image Preview Modal */}
+            {previewImage && (
+                <div className="modal-backdrop sv-image-modal" onClick={() => setPreviewImage(null)}>
+                    <div className="sv-image-modal-content" onClick={e => e.stopPropagation()}>
+                        <button className="sv-image-modal-close" onClick={() => setPreviewImage(null)}>
+                            <X size={20} />
+                        </button>
+                        <img src={previewImage} alt="Product preview" className="sv-image-modal-img" />
+                    </div>
                 </div>
             )}
         </PageContainer>

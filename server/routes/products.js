@@ -1470,6 +1470,54 @@ module.exports = (upload, removeUploadFile) => {
         }
     });
 
+        // Staff submits a product update request (with product_id in body, used by ProductRequests.jsx)
+        router.post('/products/update-requests', authenticateToken, authorizeRoles('Designer', 'Front Office', 'Accountant'), async (req, res) => {
+            const productId = Number(req.body.product_id);
+            const requestedBy = req.user?.id;
+
+            if (!Number.isFinite(productId) || productId <= 0) {
+                return res.status(400).json({ message: 'Invalid or missing product_id' });
+            }
+
+            let proposedData = req.body.proposed_data || {};
+            if (typeof proposedData === 'string') proposedData = JSON.parse(proposedData);
+
+            try {
+                const [productRows] = await pool.query('SELECT * FROM sarga_products WHERE id = ? LIMIT 1', [productId]);
+                const product = productRows[0];
+                if (!product) return res.status(404).json({ message: 'Product not found' });
+
+                const [pendingRows] = await pool.query(`SELECT id FROM sarga_product_update_requests WHERE product_id = ? AND status = 'pending' LIMIT 1`, [productId]);
+                if (pendingRows.length > 0) return res.status(409).json({ message: 'An update request is already pending for this product.' });
+
+                const currentData = {
+                    name: product.name,
+                    product_code: product.product_code,
+                    company_name: product.company_name,
+                    size: product.size,
+                    calculation_type: product.calculation_type,
+                    description: product.description,
+                    sell_price: product.sell_price,
+                    cost_price: product.cost_price,
+                };
+
+                const [insertResult] = await pool.query(
+                    `INSERT INTO sarga_product_update_requests (product_id, current_data, proposed_data, requested_by, status)
+                     VALUES (?, ?, ?, ?, 'pending')`,
+                    [productId, JSON.stringify(currentData), JSON.stringify(proposedData), requestedBy]
+                );
+
+                auditLog(req.user.id, 'PRODUCT_UPDATE_REQUEST_CREATE', `Submitted product update request for product #${productId}`, {
+                    entity_type: 'product', entity_id: productId, request_id: insertResult.insertId
+                });
+
+                return res.status(201).json({ message: 'Product update request submitted for admin approval.', request_id: insertResult.insertId, product_id: productId, status: 'pending' });
+            } catch (err) {
+                console.error('Create product update request error:', err);
+                return res.status(500).json({ message: 'Database error' });
+            }
+        });
+
         // Staff submits a full product update request for admin approval
         router.post('/products/:id/update-requests', authenticateToken, authorizeRoles('Designer', 'Front Office', 'Accountant'), upload.single('image'), async (req, res) => {
             const productId = Number(req.params.id);

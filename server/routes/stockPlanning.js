@@ -254,4 +254,136 @@ router.post('/approve-purchase-list',
     }
 );
 
+// ── Normal / Manual Stock Planning (reorder frequency, consumption-based) ──
+
+router.get('/normal-summary',
+    authenticateToken,
+    authorizeRoles('Admin', 'Front Office', 'Accountant'),
+    async (req, res) => {
+        try {
+            const branchId = req.query.branch_id || null;
+            const days = parseInt(req.query.days) || 90;
+
+            // 1. Get all inventory items with current stock
+            let inventoryQuery = `
+                SELECT i.id, i.name, i.category, i.unit, i.quantity AS current_stock,
+                       i.reorder_level, i.min_stock
+                FROM sarga_inventory i
+                WHERE i.is_active = 1
+            `;
+            const params = [];
+            if (branchId) {
+                inventoryQuery = `
+                    SELECT i.id, i.name, i.category, i.unit,
+                           COALESCE(bs.quantity, 0) AS current_stock,
+                           i.reorder_level, i.min_stock
+                    FROM sarga_inventory i
+                    LEFT JOIN sarga_branch_stock bs ON bs.inventory_item_id = i.id AND bs.branch_id = ?
+                    WHERE i.is_active = 1
+                `;
+                params.push(branchId);
+            }
+            const [items] = await pool.query(inventoryQuery, params);
+
+            // 2. Get reorder counts per inventory item from purchase orders
+            const [reorderData] = await pool.query(`
+                SELECT poi.inventory_item_id, COUNT(DISTINCT poi.purchase_order_id) AS reorder_count,
+                       MAX(po.created_at) AS last_reorder_date
+                FROM sarga_purchase_order_items poi
+                JOIN sarga_purchase_orders po ON po.id = poi.purchase_order_id
+                WHERE po.status IN ('approved', 'ordered', 'received')
+                  AND po.created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+                GROUP BY poi.inventory_item_id
+            `, [days]);
+            const reorderMap = {};
+            for (const r of reorderData) {
+                reorderMap[r.inventory_item_id] = {
+                    reorder_count: r.reorder_count,
+                    last_reorder_date: r.last_reorder_date,
+                };
+            }
+
+            // 3. Get consumption data from movement log
+            const [consumptionData] = await pool.query(`
+                SELECT inventory_item_id,
+                       SUM(CASE WHEN movement_type = 'Consumption' THEN ABS(quantity_change) ELSE 0 END) AS total_consumed,
+                       COUNT(CASE WHEN movement_type = 'Consumption' THEN 1 END) AS consumption_events,
+                       MAX(CASE WHEN movement_type = 'Consumption' THEN created_at END) AS last_consumption_date
+                FROM sarga_inventory_movement_log
+                WHERE created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+                GROUP BY inventory_item_id
+            `, [days]);
+            const consumptionMap = {};
+            for (const c of consumptionData) {
+                consumptionMap[c.inventory_item_id] = {
+                    total_consumed: parseFloat(c.total_consumed) || 0,
+                    consumption_events: c.consumption_events || 0,
+                    last_consumption_date: c.last_consumption_date,
+                };
+            }
+
+            // 4. Build summary
+            const summary = items.map(item => {
+                const id = item.id;
+                const reorder = reorderMap[id] || { reorder_count: 0, last_reorder_date: null };
+                const consumption = consumptionMap[id] || { total_consumed: 0, consumption_events: 0, last_consumption_date: null };
+                const currentStock = parseFloat(item.current_stock) || 0;
+                const months = Math.max(days / 30, 1);
+                const avgMonthlyConsumption = consumption.total_consumed / months;
+                const avgDailyConsumption = consumption.total_consumed / Math.max(days, 1);
+                const daysToStockout = avgDailyConsumption > 0 ? Math.floor(currentStock / avgDailyConsumption) : 99999;
+
+                // Suggested reorder: enough for 45 days based on avg consumption
+                const suggestedReorderQty = avgDailyConsumption > 0
+                    ? Math.ceil(Math.max(avgDailyConsumption * 45 - currentStock, avgDailyConsumption * 15))
+                    : Math.ceil(Math.max(item.reorder_level || 10, currentStock * 0.5));
+
+                const reorderLevel = item.reorder_level || 0;
+                let status = 'ok';
+                if (currentStock <= 0) status = 'critical';
+                else if (currentStock <= reorderLevel) status = 'low';
+                else if (daysToStockout < 7) status = 'low';
+                else if (daysToStockout < 14 && daysToStockout > 0) status = 'low';
+
+                return {
+                    material_id: id,
+                    name: item.name,
+                    category: item.category || 'General',
+                    unit: item.unit || 'pcs',
+                    current_stock: currentStock,
+                    reorder_level: reorderLevel,
+                    min_stock: item.min_stock || 0,
+                    reorder_count: reorder.reorder_count,
+                    last_reorder_date: reorder.last_reorder_date,
+                    total_consumed: consumption.total_consumed,
+                    consumption_events: consumption.consumption_events,
+                    avg_monthly_consumption: parseFloat(avgMonthlyConsumption.toFixed(2)),
+                    avg_daily_consumption: parseFloat(avgDailyConsumption.toFixed(2)),
+                    days_to_stockout: daysToStockout,
+                    suggested_reorder_qty: Math.max(suggestedReorderQty, 1),
+                    last_consumption_date: consumption.last_consumption_date,
+                    status,
+                };
+            });
+
+            // Sort by status (critical first) then by days_to_stockout
+            summary.sort((a, b) => {
+                const order = { critical: 0, low: 1, ok: 2 };
+                const diff = (order[a.status] || 2) - (order[b.status] || 2);
+                if (diff !== 0) return diff;
+                return (a.days_to_stockout || 99999) - (b.days_to_stockout || 99999);
+            });
+
+            res.json({
+                summary,
+                generated_at: new Date().toISOString(),
+                analysis_period_days: days,
+            });
+        } catch (err) {
+            console.error('[StockPlanning] normal-summary error:', err.message);
+            res.status(500).json({ error: 'Failed to generate normal stock summary' });
+        }
+    }
+);
+
 module.exports = router;

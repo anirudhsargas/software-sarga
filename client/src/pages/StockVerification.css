@@ -283,3 +283,119 @@
   min-height: 40px;
   font-weight: 600;
 }
+
+/* Image column */
+.sv-table-th--image {
+  width: 60px;
+  text-align: center;
+}
+
+.sv-image-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+}
+
+.sv-image-preview {
+  position: relative;
+  display: inline-flex;
+}
+
+.sv-image-thumb {
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: var(--radius-sm, 4px);
+  cursor: pointer;
+  border: 1px solid var(--border);
+  transition: opacity 0.15s;
+}
+
+.sv-image-thumb:hover {
+  opacity: 0.8;
+}
+
+.sv-image-delete-btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  background: var(--error, #e53e3e);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.sv-image-preview:hover .sv-image-delete-btn {
+  opacity: 1;
+}
+
+.sv-image-upload-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm, 4px);
+  border: 1px dashed var(--border);
+  cursor: pointer;
+  color: var(--muted);
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.sv-image-upload-label:hover {
+  color: var(--text);
+  border-color: var(--text-muted);
+}
+
+.sv-image-input {
+  display: none;
+}
+
+/* Image preview modal */
+.sv-image-modal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.sv-image-modal-content {
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+  background: #000;
+  border-radius: var(--radius-md, 8px);
+  overflow: hidden;
+}
+
+.sv-image-modal-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0,0,0,0.6);
+  border: none;
+  color: #fff;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.sv-image-modal-img {
+  max-width: 90vw;
+  max-height: 90vh;
+  display: block;
+}

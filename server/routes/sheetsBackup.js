@@ -20,6 +20,21 @@ router.post('/run', authenticateToken, authorizeRoles('Admin'), async (req, res)
   }
 });
 
+// POST /api/backup/run-now — unauthenticated trigger via X-Run-Secret header for external/curl testing
+router.post('/run-now', async (req, res) => {
+  const secret = req.headers['x-run-secret'];
+  if (process.env.BACKUP_RUN_SECRET && secret !== process.env.BACKUP_RUN_SECRET) {
+    return res.status(401).json({ success: false, error: 'Invalid or missing X-Run-Secret header' });
+  }
+  try {
+    const result = await runBackup('manual');
+    res.json({ success: true, ...result });
+  } catch (err) {
+    console.error('[backup] run-now failed:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // POST /api/backup/full — full snapshot rebuild manual trigger (Admin only)
 router.post('/full', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
   try {
@@ -126,13 +141,11 @@ router.get('/history', authenticateToken, authorizeRoles('Admin'), async (req, r
 // GET /api/backup/health — service account connection health check
 router.get('/health', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
   try {
-    const isConfigured = (!!process.env.GOOGLE_SA_KEY || !!process.env.GOOGLE_SERVICE_ACCOUNT || !!process.env.GOOGLE_SERVICE_ACCOUNT_BASE64) && !!process.env.GOOGLE_SHEET_ID;
-    res.json({
-      status: isConfigured ? 'healthy' : 'unhealthy',
-      latency: isConfigured ? 50 : 0
-    });
+    const { checkGoogleConnection } = require('../services/googleSheetsService');
+    const result = await checkGoogleConnection();
+    res.json(result);
   } catch (err) {
-    res.status(500).json({ status: 'unhealthy', error: err.message, latency: 0 });
+    res.status(500).json({ status: 'api_error', error: err.message });
   }
 });
 
@@ -236,5 +249,29 @@ cron.schedule('30 18 * * *', async () => {
     console.error('[backup] Scheduled backup failed:', err);
   }
 });
+
+// Run on startup if last backup is stale (older than 24h) or never ran
+async function runOnStartIfNeeded() {
+  try {
+    const [rows] = await db.execute(
+      `SELECT completed_at FROM sarga_backup_jobs WHERE status = 'completed' ORDER BY completed_at DESC LIMIT 1`
+    );
+    const needsRun = rows.length === 0 || !rows[0].completed_at ||
+      (Date.now() - new Date(rows[0].completed_at).getTime()) > 24 * 60 * 60 * 1000;
+
+    if (needsRun) {
+      console.log('[backup] Last backup is stale or never ran — triggering immediate run...');
+      const result = await runBackup('cron');
+      console.log('[backup] Startup backup completed:', result);
+    } else {
+      console.log('[backup] Skipping startup run — last backup is recent enough.');
+    }
+  } catch (err) {
+    console.error('[backup] Startup backup failed (non-fatal):', err.message);
+  }
+}
+
+// Delay 15s to let DB pool warm up, then check
+setTimeout(runOnStartIfNeeded, 15_000);
 
 module.exports = router;

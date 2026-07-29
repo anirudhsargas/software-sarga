@@ -1,0 +1,157 @@
+/* ══════════════════════════════════════════════════
+   CCTV ATTENDANCE PAGE
+   ══════════════════════════════════════════════════ */
+
+/* ── Page Header ─────────────────────────────────── */
+.cctv-att-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-16);
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.cctv-att-header-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.cctv-att-header-actions { display: flex; gap: 8px; align-items: center; }
+.cctv-att-header-updated {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* ── Branch Tabs + Date Picker ──────────────────── */
+.cctv-att-filters {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.cctv-att-branch-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--surface-2);
+  border-radius: 12px;
+  padding: 4px;
+}
+.cctv-att-branch-tab {
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: all .15s;
+  color: var(--muted);
+  background: transparent;
+}
+.cctv-att-branch-tab:hover { color: var(--text); }
+.cctv-att-branch-tab--active {
+  background: var(--primary);
+  color: var(--on-accent);
+}
+.cctv-att-date-input {
+  width: 160px;
+}
+
+/* ── Stats Grid ─────────────────────────────────── */
+.cctv-att-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.cctv-att-stat-card { }
+.cctv-att-stat-card--present { border-left: 3px solid var(--success); }
+.cctv-att-stat-card--present .stat-value { color: var(--success); }
+.cctv-att-stat-card--absent { border-left: 3px solid var(--error); }
+.cctv-att-stat-card--absent .stat-value { color: var(--error); }
+.cctv-att-stat-card--alert {
+  border-left: 3px solid var(--warning);
+  background: var(--warning-bg);
+}
+.cctv-att-stat-card--alert .stat-value { color: var(--warning); }
+.cctv-att-stat-card--discrepancy {
+  border-left: 3px solid var(--warning);
+  background: var(--secondary);
+}
+.cctv-att-stat-card--discrepancy .stat-value { color: var(--destructive); }
+
+/* ── Attendance Table ───────────────────────────── */
+.cctv-att-table-wrap { padding: 0; }
+.cctv-att-staff-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.cctv-att-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.cctv-att-staff-name { font-weight: 500; }
+.cctv-att-staff-branch {
+  font-size: 11px;
+  color: var(--muted);
+}
+.cctv-att-time {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.cctv-att-time-icon { color: var(--muted); }
+.cctv-att-discrepancy-badge {
+  font-size: 11px;
+  background: var(--secondary);
+  color: var(--destructive);
+  border: 1px solid var(--warning);
+  border-radius: 4px;
+  padding: 1px 5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.cctv-att-row--alert { background: var(--error-bg); }
+
+/* ── Manual Entry Modal ─────────────────────────── */
+.cctv-att-manual-modal { max-width: 400px; }
+.cctv-att-manual-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.cctv-att-warning-banner {
+  margin-top: 6px;
+  padding: 6px 10px;
+  background: var(--warning-bg);
+  border: 1px solid var(--warning);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--warning);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.cctv-att-source-label {
+  font-size: 12px;
+  color: var(--muted);
+  padding: 4px 0;
+}
+.cctv-att-modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 8px;
+}

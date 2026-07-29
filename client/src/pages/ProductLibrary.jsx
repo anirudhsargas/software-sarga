@@ -1580,66 +1580,94 @@ const ProductLibrary = () => {
                         </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        {canManageHierarchy && (
-                            <button className="btn btn-ghost" style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }} onClick={handleResetUsage}>
-                                <RotateCcw size={15} /> Reset Usage Order
-                            </button>
-                        )}
-                        {viewInfo.type === 'root' && canManageHierarchy && (
-                            <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }} onClick={() => { setIsEditing(false); setNewCatName(''); setShowCatModal(true); }}>
-                                <Plus size={16} /> New Category
-                            </button>
-                        )}
-                        {viewInfo.type === 'category' && (
+                        {!activePaperTab && (
                             <>
-                                {isPrivileged && (
-                                    <button className="btn btn-ghost" style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }} onClick={() => { setSelectedCatId(viewInfo.parent.id); setIsEditing(false); resetProductForm(); setSelectedSubId(viewInfo.items[0]?.id || null); setShowProdModal(true); }}>
-                                        <Plus size={16} /> New Product
+                                {canManageHierarchy && (
+                                    <button className="btn btn-ghost" style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }} onClick={handleResetUsage}>
+                                        <RotateCcw size={15} /> Reset Usage Order
                                     </button>
                                 )}
-                                {canManageHierarchy && (
-                                    <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }} onClick={() => { setSelectedCatId(viewInfo.parent.id); setIsEditing(false); setNewSubName(''); setShowSubModal(true); }}>
-                                        <Plus size={16} /> New Sub-category
+                                {viewInfo.type === 'root' && canManageHierarchy && (
+                                    <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }} onClick={() => { setIsEditing(false); setNewCatName(''); setShowCatModal(true); }}>
+                                        <Plus size={16} /> New Category
+                                    </button>
+                                )}
+                                {viewInfo.type === 'category' && (
+                                    <>
+                                        {isPrivileged && (
+                                            <button className="btn btn-ghost" style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }} onClick={() => { setSelectedCatId(viewInfo.parent.id); setIsEditing(false); resetProductForm(); setSelectedSubId(viewInfo.items[0]?.id || null); setShowProdModal(true); }}>
+                                                <Plus size={16} /> New Product
+                                            </button>
+                                        )}
+                                        {canManageHierarchy && (
+                                            <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }} onClick={() => { setSelectedCatId(viewInfo.parent.id); setIsEditing(false); setNewSubName(''); setShowSubModal(true); }}>
+                                                <Plus size={16} /> New Sub-category
+                                            </button>
+                                        )}
+                                    </>
+                                )}
+                                {viewInfo.type === 'subcategory' && isPrivileged && (
+                                    <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }} onClick={() => { setSelectedCatId(viewInfo.grandParent?.id || null); setSelectedSubId(viewInfo.parent.id); setIsEditing(false); resetProductForm(); setShowProdModal(true); }}>
+                                        <Plus size={16} /> New Product
                                     </button>
                                 )}
                             </>
                         )}
-                        {viewInfo.type === 'subcategory' && isPrivileged && (
-                            <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }} onClick={() => { setSelectedCatId(viewInfo.grandParent?.id || null); setSelectedSubId(viewInfo.parent.id); setIsEditing(false); resetProductForm(); setShowProdModal(true); }}>
-                                <Plus size={16} /> New Product
+                        {activePaperTab && (
+                            <button
+                                className="btn btn-primary"
+                                style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}
+                                onClick={() => { setNewPaper({ category: 'OFFSET', size_name: '', width_mm: '', height_mm: '', gsm: '', brand: '' }); setShowPaperModal(true); }}
+                            >
+                                <Plus size={16} /> Add Paper
                             </button>
                         )}
                     </div>
                 </div>
 
                 {/* Breadcrumbs */}
-                <nav className="breadcrumbs row gap-xs items-center text-sm py-8">
-                    <span
-                        className={`breadcrumb-item pointer ${viewPath.length === 0 ? 'font-bold text-accent' : 'muted hover-text-accent'}`}
-                        onClick={() => navigateBack(-1)}
-                    >
-                        Library
-                    </span>
-                    {viewPath.length > 0 && (
-                        <>
-                            <ChevronRight size={14} className="muted" />
-                            <span
-                                className={`breadcrumb-item pointer ${viewPath.length === 1 ? 'font-bold text-accent' : 'muted hover-text-accent'}`}
-                                onClick={() => navigateBack(0)}
-                            >
-                                {hierarchy.find(c => c.id === viewPath[0])?.name || 'Category'}
-                            </span>
-                        </>
-                    )}
-                    {viewPath.length > 1 && (
-                        <>
-                            <ChevronRight size={14} className="muted" />
-                            <span className="breadcrumb-item font-bold text-accent">
-                                {hierarchy.find(c => c.id === viewPath[0])?.subcategories.find(s => s.id === viewPath[1])?.name || 'Sub-category'}
-                            </span>
-                        </>
-                    )}
-                </nav>
+                {!activePaperTab ? (
+                    <nav className="breadcrumbs row gap-xs items-center text-sm py-8">
+                        <span
+                            className={`breadcrumb-item pointer ${viewPath.length === 0 ? 'font-bold text-accent' : 'muted hover-text-accent'}`}
+                            onClick={() => navigateBack(-1)}
+                        >
+                            Library
+                        </span>
+                        {viewPath.length > 0 && (
+                            <>
+                                <ChevronRight size={14} className="muted" />
+                                <span
+                                    className={`breadcrumb-item pointer ${viewPath.length === 1 ? 'font-bold text-accent' : 'muted hover-text-accent'}`}
+                                    onClick={() => navigateBack(0)}
+                                >
+                                    {hierarchy.find(c => c.id === viewPath[0])?.name || 'Category'}
+                                </span>
+                            </>
+                        )}
+                        {viewPath.length > 1 && (
+                            <>
+                                <ChevronRight size={14} className="muted" />
+                                <span className="breadcrumb-item font-bold text-accent">
+                                    {hierarchy.find(c => c.id === viewPath[0])?.subcategories.find(s => s.id === viewPath[1])?.name || 'Sub-category'}
+                                </span>
+                            </>
+                        )}
+                    </nav>
+                ) : (
+                    <nav className="breadcrumbs row gap-xs items-center text-sm py-8">
+                        <span
+                            className="breadcrumb-item pointer muted hover-text-accent"
+                            onClick={() => { setActivePaperTab(false); }}
+                        >
+                            Library
+                        </span>
+                        <ChevronRight size={14} className="muted" />
+                        <span className="breadcrumb-item font-bold text-accent">
+                            Papers
+                        </span>
+                    </nav>
+                )}
             </header>
 
             {/* Tab bar */}
@@ -1679,15 +1707,6 @@ const ProductLibrary = () => {
                         <div>
                             <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Paper Types</h2>
                             <p className="muted text-sm" style={{ margin: '2px 0 0' }}>Manage paper stock and add new paper types.</p>
-                        </div>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                            <button
-                                className="btn btn-primary"
-                                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-                                onClick={() => { setNewPaper({ category: 'OFFSET', size_name: '', width_mm: '', height_mm: '', gsm: '', brand: '' }); setShowPaperModal(true); }}
-                            >
-                                <Plus size={16} /> Add Paper
-                            </button>
                         </div>
                     </div>
 

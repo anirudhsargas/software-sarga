@@ -497,6 +497,32 @@ const validate = (schema, property = 'body') => (req, res, next) => {
     }
 };
 
+// ---- Cutting & Transfer ----
+const cuttingJobSchema = z.object({
+    branch_id: z.preprocess(Number, z.number().int().positive()),
+    paper_type_id: z.preprocess(Number, z.number().int().positive()),
+    source_size_id: z.preprocess(Number, z.number().int().positive()),
+    source_qty_sheets: z.preprocess(Number, z.number().positive('Source qty must be positive')),
+    wastage_qty_sheets: z.preprocess((v) => (v === '' || v === null || v === undefined ? 0 : Number(v)), z.number().min(0)).default(0),
+    outputs: z.array(z.object({
+        output_size_id: z.preprocess(Number, z.number().int().positive()),
+        output_qty_sheets: z.preprocess(Number, z.number().positive('Output qty must be positive'))
+    })).min(1, 'At least one output is required'),
+    notes: z.string().max(255).optional().nullable()
+});
+
+const stockTransferSchema = z.object({
+    from_branch_id: z.preprocess(Number, z.number().int().positive()),
+    to_branch_id: z.preprocess(Number, z.number().int().positive()),
+    paper_type_id: z.preprocess(Number, z.number().int().positive()),
+    size_id: z.preprocess(Number, z.number().int().positive()),
+    qty_dispatched: z.preprocess(Number, z.number().positive('Quantity must be positive'))
+});
+
+const stockTransferReceiveSchema = z.object({
+    qty_received: z.preprocess(Number, z.number().positive('Received quantity must be positive'))
+});
+
 module.exports = {
     validate,
     branchSchema,
@@ -535,5 +561,8 @@ module.exports = {
     addProductSubcategorySchema,
     addProductSchema,
     addWebsiteInquirySchema,
-    addWebsiteReviewSchema
+    addWebsiteReviewSchema,
+    cuttingJobSchema,
+    stockTransferSchema,
+    stockTransferReceiveSchema
 };

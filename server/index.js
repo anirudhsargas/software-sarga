@@ -421,7 +421,9 @@ app.use([
     '/api/inventory',
     '/api/products',
     '/api/paperInventory',
-    '/api/consumablesInventory'
+    '/api/consumablesInventory',
+    '/api/cutting-jobs',
+    '/api/stock-transfers'
 ], migrationGuard);
 
 // Server time endpoint (tamper-proof date/time for clients)
@@ -464,6 +466,7 @@ registerRoute('products', '/api', () => require('./routes/products')(upload, rem
 registerRoute('paperInventory', '/api/paperInventory', () => require('./routes/paperInventory'));
 registerRoute('consumablesInventory', '/api', () => require('./routes/consumablesInventory'));
 registerRoute('inventory', '/api', () => require('./routes/inventory'));
+registerRoute('cuttingTransfers', '/api', () => require('./routes/cuttingTransfers'));
 // Dev helper routes (only load when not in production)
 // Dev helper routes (temporary - allow local UI testing without auth)
 try {
@@ -514,6 +517,7 @@ registerRoute('productionTracker', '/api/production-tracker', () => require('./r
 
 // Upsell suggestions API
 registerRoute('upsell', '/api', () => require('./routes/upsell'));
+registerRoute('imposition', '/api', () => require('./routes/imposition'));
 
 // Anomaly detection (calls Python ML service)
 registerRoute('anomalies', '/api/ai', () => require('./routes/anomalies'));

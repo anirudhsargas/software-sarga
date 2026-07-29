@@ -23,6 +23,7 @@ const StockTransfer = () => {
     const [activeTab, setActiveTab] = useState('new'); // 'new' | 'history' | 'requests'
     const [transferMode, setTransferMode] = useState(isAdmin ? 'direct' : 'request');
     const [loading, setLoading] = useState(false);
+    const [tabLoading, setTabLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     
     // Master data
@@ -63,14 +64,17 @@ const StockTransfer = () => {
     }
 
     const fetchAllData = async () => {
+        setTabLoading(true);
         try {
             const res = await api.get('/stock-requests'); 
             const data = res.data || [];
             setHistory(data);
-            // Requests tab only shows non-finalized ones
             setRequests(data.filter(r => r.status !== 'Received' && r.status !== 'Rejected'));
         } catch (err) {
             console.error('Data fetch failed', err);
+            toast.error('Failed to load requests');
+        } finally {
+            setTabLoading(false);
         }
     };
 
@@ -377,6 +381,11 @@ const StockTransfer = () => {
                     </div>
                 </div>
             ) : activeTab === 'requests' ? (
+                tabLoading ? (
+                    <div className="panel flex-center" style={{ minHeight: 300 }}>
+                        <Loader2 className="animate-spin" size={28} />
+                    </div>
+                ) : (
                 <div className="stack-lg fade-in">
                     {/* Inbound Section */}
                     <div className="panel stack-md panel--left-border-primary">
@@ -467,7 +476,8 @@ const StockTransfer = () => {
                         </div>
                     </div>
                 </div>
-            ) : (
+                    )
+                ) : (
                 <div className="panel stack-md fade-in">
                     <h3>Movement History (Finalized)</h3>
                     <div className="table-scroll">

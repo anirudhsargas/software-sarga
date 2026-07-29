@@ -407,6 +407,34 @@ const initDb = async () => {
       appliedMigrations.add(migrateGstBillProcessingName);
     }
 
+    // Create cutting_jobs, cutting_job_outputs, stock_transfers tables for paper cutting & inter-branch transfer tracking
+    const migrateCuttingTransfersName = '2026_07_29_cutting_transfers.sql';
+    if (!appliedMigrations.has(migrateCuttingTransfersName)) {
+      const sqlPath = path.join(__dirname, 'migrations', migrateCuttingTransfersName);
+      const sql = fs.readFileSync(sqlPath, 'utf8');
+      const statements = sql
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .split('\n')
+        .filter(line => {
+          const trimmed = line.trim();
+          return !trimmed.startsWith('--') && !trimmed.startsWith('#');
+        })
+        .join('\n')
+        .split(';')
+        .map(s => s.trim())
+        .filter(s => s.length > 0);
+      for (const stmt of statements) {
+        try {
+          await connection.query(stmt);
+        } catch (e) {
+          const ignoredCodes = ['ER_TABLE_EXISTS_ERROR', 'ER_DUP_KEYNAME', 'ER_DUP_FIELDNAME', 'ER_CANT_DROP_FIELD_OR_KEY', 'ER_BAD_FIELD_ERROR'];
+          if (!ignoredCodes.includes(e.code)) throw e;
+        }
+      }
+      await connection.query('INSERT IGNORE INTO schema_migrations (migration_name) VALUES (?)', [migrateCuttingTransfersName]);
+      appliedMigrations.add(migrateCuttingTransfersName);
+    }
+
     await connection.query(
       'INSERT INTO schema_version (name, hash, applied_at, duration_ms, status) VALUES (?, ?, NOW(), ?, ?) ON DUPLICATE KEY UPDATE hash = VALUES(hash), applied_at = VALUES(applied_at), duration_ms = VALUES(duration_ms), status = VALUES(status)',
       [BOOTSTRAP_SCHEMA_NAME, CURRENT_SCHEMA_VERSION, Math.round(Number(process.hrtime.bigint() - startedAt) / 1e6), 'applied']

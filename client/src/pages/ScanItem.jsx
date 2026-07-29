@@ -1096,6 +1096,20 @@ const ScanItem = () => {
                                         <strong>{lookupResult.reorder_level} {lookupResult.unit || 'pcs'}</strong>
                                     </div>
                                 )}
+
+                                {lookupResult.branch_stocks && lookupResult.branch_stocks.length > 0 && (
+                                    <div className="si-branch-stocks">
+                                        <div className="si-branch-stocks-title">Stock by Branch</div>
+                                        {lookupResult.branch_stocks.map(bs => (
+                                            <div key={bs.branch_id} className="si-branch-stock-row">
+                                                <span className="si-branch-stock-name">{bs.branch_name}</span>
+                                                <span className={`si-branch-stock-qty ${Number(bs.quantity) <= 0 ? 'si-branch-stock-qty--empty' : ''}`}>
+                                                    {Number(bs.quantity).toLocaleString()} {lookupResult.unit || 'pcs'}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Extra Metadata */}

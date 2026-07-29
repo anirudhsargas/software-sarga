@@ -583,7 +583,16 @@ router.get('/inventory/by-sku/:sku', authenticateToken, authorizeRoles('Admin', 
         const calculatedMrp = (costPrice + gstAmount) * 2;
         const finalMrp = (item.mrp != null ? Number(item.mrp) : sellPrice) || calculatedMrp || 0;
 
-        res.json({ ...item, scanned_code: normalized, mrp: finalMrp % 1 === 0 ? finalMrp.toFixed(0) : finalMrp.toFixed(2) });
+        // Get branch stock for all branches
+        const [branchStocks] = await pool.query(
+            `SELECT b.id AS branch_id, b.name AS branch_name, b.short_name AS branch_short_name, COALESCE(bs.quantity, 0) AS quantity
+             FROM sarga_branches b
+             LEFT JOIN sarga_branch_stock bs ON bs.branch_id = b.id AND bs.inventory_item_id = ?
+             ORDER BY b.name`,
+            [item.id]
+        );
+
+        res.json({ ...item, scanned_code: normalized, mrp: finalMrp % 1 === 0 ? finalMrp.toFixed(0) : finalMrp.toFixed(2), branch_stocks: branchStocks });
     } catch (_err) {
         res.status(500).json({ message: 'Database error' });
     }

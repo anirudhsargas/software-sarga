@@ -6,8 +6,8 @@ const { getUserBranchId, auditLog, asyncHandler } = require('../helpers');
 const REQUEST_QUERY = `
     SELECT sr.*,
            i.name AS item_name, i.sku AS item_sku,
-           b_from.name AS from_branch_name,
-           b_to.name AS to_branch_name,
+           b_from.name AS from_branch_name, b_from.short_name AS from_branch_short_name,
+           b_to.name AS to_branch_name, b_to.short_name AS to_branch_short_name,
            s_created.name AS created_by_name,
            s_resolved.name AS resolved_by_name,
            s_sent.name AS sent_by_name,

@@ -1,9 +1,32 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { auditLog } = require('../helpers');
 const { paginate } = require('../helpers/pagination');
+
+const uploadsDir = path.join(__dirname, '..', 'uploads');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+
+const verificationUpload = multer({
+    storage: multer.diskStorage({
+        destination: uploadsDir,
+        filename: (req, file, cb) => {
+            const ext = path.extname(file.originalname) || '.jpg';
+            cb(null, `sv-${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`);
+        }
+    }),
+    limits: { fileSize: 10 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        const allowed = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
+        const ext = path.extname(file.originalname).toLowerCase();
+        if (allowed.includes(ext)) return cb(null, true);
+        cb(new Error('Only image files (jpg, jpeg, png, webp, gif) are allowed.'));
+    }
+});
 
 // Ensure that only Admin or Accountant can access these endpoints
 const allowedRoles = ['Admin', 'Accountant'];
@@ -44,6 +67,7 @@ router.get('/:month', authenticateToken, authorizeRoles(...allowedRoles), async 
                     COALESCE(vi.system_quantity, bs.quantity, 0) AS system_quantity,
                     vi.physical_quantity,
                     vi.notes,
+                    vi.image,
                     i.name, i.sku, i.category, i.unit, i.cost_price
                  FROM sarga_inventory i
                  LEFT JOIN sarga_branch_stock bs
@@ -252,6 +276,75 @@ router.get('/history/list', authenticateToken, authorizeRoles(...allowedRoles), 
     } catch (err) {
         console.error('Stock verification get history error:', err);
         res.status(500).json({ message: 'Error fetching history.' });
+    }
+});
+
+// POST /stock-verification/:id/items/:itemId/image
+// Upload an image for a specific verification item
+router.post('/:id/items/:itemId/image', authenticateToken, authorizeRoles(...allowedRoles), (req, res, next) => {
+    verificationUpload.single('image')(req, res, (err) => {
+        if (err) return res.status(400).json({ message: err.message });
+        next();
+    });
+}, async (req, res) => {
+    try {
+        const { id, itemId } = req.params;
+
+        const [[verification]] = await pool.query(
+            'SELECT id FROM sarga_stock_verifications WHERE id = ?', [id]
+        );
+        if (!verification) return res.status(404).json({ message: 'Verification not found.' });
+
+        const [[item]] = await pool.query(
+            'SELECT id, image FROM sarga_stock_verification_items WHERE id = ? AND verification_id = ?',
+            [itemId, id]
+        );
+        if (!item) return res.status(404).json({ message: 'Verification item not found.' });
+
+        // Delete old image if exists
+        if (item.image) {
+            const oldPath = path.join(uploadsDir, item.image);
+            if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+        }
+
+        const filename = req.file.filename;
+        await pool.query(
+            'UPDATE sarga_stock_verification_items SET image = ? WHERE id = ?',
+            [filename, itemId]
+        );
+
+        res.json({ image: filename });
+    } catch (err) {
+        console.error('Image upload error:', err);
+        res.status(500).json({ message: 'Failed to upload image.' });
+    }
+});
+
+// DELETE /stock-verification/:id/items/:itemId/image
+// Remove the image from a verification item
+router.delete('/:id/items/:itemId/image', authenticateToken, authorizeRoles(...allowedRoles), async (req, res) => {
+    try {
+        const { id, itemId } = req.params;
+
+        const [[item]] = await pool.query(
+            'SELECT id, image FROM sarga_stock_verification_items WHERE id = ? AND verification_id = ?',
+            [itemId, id]
+        );
+        if (!item) return res.status(404).json({ message: 'Verification item not found.' });
+
+        if (item.image) {
+            const filePath = path.join(uploadsDir, item.image);
+            if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+            await pool.query(
+                'UPDATE sarga_stock_verification_items SET image = ? WHERE id = ?',
+                [null, itemId]
+            );
+        }
+
+        res.json({ message: 'Image removed.' });
+    } catch (err) {
+        console.error('Image delete error:', err);
+        res.status(500).json({ message: 'Failed to delete image.' });
     }
 });
 

@@ -167,7 +167,7 @@ const CameraCapture = ({ onCapture, onClose }) => {
 
   const overlay = {
     position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-    zIndex: 'var(--z-overlay)', backgroundColor: 'var(--shadow-sm)',
+    zIndex: 'var(--z-overlay)', backgroundColor: 'rgba(0,0,0,0.85)',
     display: 'flex', flexDirection: 'column'
   };
 
@@ -179,9 +179,10 @@ const CameraCapture = ({ onCapture, onClose }) => {
   };
 
   const headerBtn = {
-    background: 'transparent', border: 'none', color: 'var(--card)',
-    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
-    fontSize: '14px', padding: '8px 12px', borderRadius: '8px'
+    background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)',
+    color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center',
+    gap: '6px', fontSize: '14px', padding: '8px 14px', borderRadius: '8px',
+    fontWeight: 600
   };
 
   const toolBtn = (active) => ({
@@ -200,8 +201,8 @@ const CameraCapture = ({ onCapture, onClose }) => {
   return (
     <div style={overlay}>
       <div style={header}>
-        <button onClick={onClose} style={headerBtn}>
-          <X size={20} aria-hidden="true" /> Exit
+        <button onClick={onClose} style={headerBtn} aria-label="Close camera">
+          <X size={20} aria-hidden="true" /> Close
         </button>
         <span style={{ color: 'var(--card)', fontSize: '16px', fontWeight: 600 }}>Capture Bill</span>
         <div style={{ display: 'flex', gap: '8px' }}>

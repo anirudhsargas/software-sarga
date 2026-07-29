@@ -54,6 +54,7 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
   const [manualConnectionId, setManualConnectionId] = useState('');
   const [utilityConnections, setUtilityConnections] = useState([]);
   const [connectionsLoading, setConnectionsLoading] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState('unpaid');
   const fileInputRef = useRef(null);
 
   // Vendor autocomplete state
@@ -101,11 +102,16 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
     setHighlightedVendorIdx(-1);
   }, [finalForm.vendor_name, vendors]);
 
-  // Fetch active vendors for vendor selector
+  // Fetch active vendors and utility connections for selectors
   useEffect(() => {
     api.get('/vendors').then(res => {
       const data = res.data?.data || res.data || [];
       setVendors(Array.isArray(data) ? data : []);
+    }).catch(() => {});
+
+    api.get('/utility-connections').then(res => {
+      const data = res.data?.rows || res.data || [];
+      setUtilityConnections(Array.isArray(data) ? data : []);
     }).catch(() => {});
 
     // Read pre-selected vendor from URL params
@@ -503,10 +509,14 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
         category_suggestions: [
           {
             related_tab: (() => {
+              if (ocrResult.detectedType === 'utility') return 'utilities';
               const tabMap = {
                 'Printing Materials': 'vendors',
                 'Office Supplies': 'office',
                 'Electricity': 'utilities',
+                'Internet / Broadband': 'utilities',
+                'Phone': 'utilities',
+                'Water': 'utilities',
                 'Fuel': 'transport',
                 'Transport': 'transport',
                 'Maintenance': 'misc',
@@ -529,22 +539,34 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
       const billTax = Number(mockResponseData.extracted_data?.tax || 0);
       const billSubtotal = Number(mockResponseData.extracted_data?.subtotal || 0);
       const fallbackGstPct = (billTax > 0 && billSubtotal > 0)
-        ? Math.round((billTax / billSubtotal) * 100)
-        : 0;
+         ? Math.round((billTax / billSubtotal) * 100)
+         : 0;
       setEditableItems(buildEditableItems(extractedItems, fallbackGstPct));
       setStep('suggestions');
 
+      const isUtil = mockResponseData.category_suggestions?.[0]?.related_tab === 'utilities' || ocrResult.detectedType === 'utility';
+
       setFinalForm(prev => ({
         ...prev,
-        document_type: mockResponseData.extracted_data.detected_type || 'Invoice',
-        vendor_name: mockResponseData.extracted_data.vendor_name || '',
+        document_type: isUtil ? 'Utility Bill' : (mockResponseData.extracted_data.detected_type || 'Invoice'),
+        vendor_name: isUtil && ocrResult.matchedConnection ? (ocrResult.matchedConnection.provider || ocrResult.matchedConnection.label) : (mockResponseData.extracted_data.vendor_name || ''),
         bill_number: mockResponseData.extracted_data.bill_number || '',
         bill_date: mockResponseData.extracted_data.bill_date || '',
         amount: mockResponseData.extracted_data.amount || '',
         vendor_contact: mockResponseData.extracted_data.vendor_contact || '',
-        related_tab: defaultRelatedTab || mockResponseData.category_suggestions?.[0]?.related_tab || '',
+        related_tab: defaultRelatedTab || (isUtil ? 'utilities' : (mockResponseData.category_suggestions?.[0]?.related_tab || '')),
         gst_category: gst?.gst_category || ''
       }));
+
+      if (ocrResult.matchedConnection) {
+        setMatchedConnection(ocrResult.matchedConnection);
+        setManualConnectionId(String(ocrResult.matchedConnection.id));
+        setStockBranchId(String(ocrResult.matchedConnection.branch_id));
+        setPaymentStatus('unpaid');
+      } else {
+        setMatchedConnection(null);
+        setManualConnectionId('');
+      }
 
       fetchHierarchyOptions(mockResponseData.extracted_data.vendor_name || '');
 
@@ -846,6 +868,25 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
           });
         } else {
           throw uploadErr;
+        }
+      }
+
+      // If it is a paid utility bill, record the utility payment in the database
+      if (finalForm.related_tab === 'utilities' && paymentStatus === 'paid') {
+        try {
+          const utilityPayload = {
+            utility_type: matchedConnection ? matchedConnection.utility_type : 'Electricity',
+            amount: Number(finalForm.amount),
+            bill_number: finalForm.bill_number || null,
+            bill_date: finalForm.bill_date || new Date().toISOString().split('T')[0],
+            description: finalForm.description || `Utility bill payment for connection ${matchedConnection?.connection_id || ''}`,
+            connection_id: matchedConnection ? matchedConnection.connection_id : null,
+            connection_record_id: matchedConnection ? matchedConnection.id : null,
+            branch_id: matchedConnection ? matchedConnection.branch_id : (stockBranchId || auth.getUser()?.branch_id)
+          };
+          await api.post('/utility-bills', utilityPayload);
+        } catch (utilErr) {
+          console.warn('Failed to record utility bill/payment:', utilErr);
         }
       }
 
@@ -1158,6 +1199,56 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
               />
             </div>
 
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '16px' }}>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', background: 'var(--surface-1, #f1f5f9)', border: '1px solid var(--border)', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', color: 'var(--text-secondary)' }}
+                onClick={() => {
+                  const mockResponseData = {
+                    success: true,
+                    extracted_data: {
+                      detected_type: 'Utility Bill',
+                      vendor_name: '',
+                      bill_number: '',
+                      bill_date: new Date().toISOString().split('T')[0],
+                      amount: '',
+                      vendor_contact: '',
+                      raw_text: '',
+                      items: [],
+                      vendor_gstin: ''
+                    },
+                    confidence: 1.0,
+                    gst_analysis: null,
+                    category_suggestions: [
+                      {
+                        related_tab: 'utilities',
+                        score: 1.0
+                      }
+                    ]
+                  };
+                  setExtractedData(mockResponseData);
+                  setStep('suggestions');
+                  setFinalForm({
+                    document_type: 'Utility Bill',
+                    vendor_name: '',
+                    vendor_contact: '',
+                    bill_number: '',
+                    bill_date: new Date().toISOString().split('T')[0],
+                    amount: '',
+                    description: '',
+                    related_tab: 'utilities',
+                    gst_category: ''
+                  });
+                  setMatchedConnection(null);
+                  setManualConnectionId('');
+                  setPaymentStatus('unpaid');
+                }}
+              >
+                ✍️ Enter Bill Details Manually
+              </button>
+            </div>
+
             {files.length > 0 && (
               <div className="file-queue">
                 <h4>Files ready ({files.length})</h4>
@@ -1349,6 +1440,53 @@ const SmartBillUpload = ({ onClose, onSuccess, onError, defaultDocumentType, def
                     onChange={(e) => setFinalForm(prev => ({ ...prev, document_type: e.target.value }))}
                   />
                 </div>
+                {finalForm.related_tab === 'utilities' && (
+                  <>
+                    <div className="data-item">
+                      <label>Utility Connection</label>
+                      <select
+                        value={manualConnectionId}
+                        onChange={e => {
+                          const connId = e.target.value;
+                          setManualConnectionId(connId);
+                          const conn = utilityConnections.find(c => String(c.id) === String(connId));
+                          if (conn) {
+                            setMatchedConnection(conn);
+                            setStockBranchId(String(conn.branch_id));
+                            setFinalForm(prev => ({
+                              ...prev,
+                              vendor_name: conn.provider || conn.label || prev.vendor_name,
+                            }));
+                          }
+                        }}
+                        style={{ marginTop: '4px', width: '100%' }}
+                      >
+                        <option value="">-- Select Connection --</option>
+                        {utilityConnections.map(c => (
+                          <option key={c.id} value={c.id}>
+                            {c.label || c.connection_id} ({c.utility_type}) — {c.branch_name || 'Common'}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="data-item">
+                      <label>Payment Status</label>
+                      <select
+                        value={paymentStatus}
+                        onChange={e => setPaymentStatus(e.target.value)}
+                        style={{ marginTop: '4px', width: '100%' }}
+                      >
+                        <option value="unpaid">Just Uploaded (Unpaid)</option>
+                        <option value="paid">Paid</option>
+                      </select>
+                    </div>
+                  </>
+                )}
+                {matchedConnection && (
+                  <div className="matched-connection-badge" style={{ gridColumn: '1 / -1', background: 'var(--surface-2, #f8f9fa)', border: '1px dashed var(--accent)', borderRadius: '6px', padding: '10px 14px', marginTop: '8px', fontSize: '13px', color: 'var(--text)' }}>
+                    💡 <strong>Auto-classified:</strong> Connection <strong>{matchedConnection.label || matchedConnection.connection_id}</strong> is assigned to branch <strong>{matchedConnection.branch_name || 'Common'}</strong>.
+                  </div>
+                )}
               </div>
             </div>
 

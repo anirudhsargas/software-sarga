@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { 
     Package, AlertTriangle, TrendingUp, 
     Search, MapPin, Layers, RefreshCcw, Plus, Minus, History, Repeat, ShoppingCart, X,
-    IndianRupee, FileText, Tag, Eye
+    IndianRupee, FileText, Tag, Eye, Scissors, Truck
 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../services/api';
@@ -305,8 +305,14 @@ const PaperStockDashboard = () => {
                         <button className="btn btn-ghost btn-sm" onClick={() => navigate('/dashboard/paper/outward')}>
                             <Minus size={14} /> Outward Stock
                         </button>
+                        <button className="btn btn-ghost btn-sm" onClick={() => navigate('/dashboard/paper/cut')}>
+                            <Scissors size={14} /> Cut & Transfer
+                        </button>
                         <button className="btn btn-ghost btn-sm" onClick={() => navigate('/dashboard/paper/transfer')}>
                             <Repeat size={14} /> Transfer
+                        </button>
+                        <button className="btn btn-ghost btn-sm" onClick={() => navigate('/dashboard/paper/pending-transfers')}>
+                            <Truck size={14} /> Pending Transfers
                         </button>
                         <Link to="/dashboard/paper/movements" className="btn btn-ghost btn-sm">
                             <History size={14} /> History

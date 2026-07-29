@@ -39,6 +39,11 @@
 .modal--profile, .modal--profile-panel { max-width: 660px; width: 95%; }
 .modal--scan-loading { max-width: 300px; width: 90%; text-align: center; }
 .modal--scan-result { max-width: 400px; width: 90%; }
+.scan-result-branch-stocks { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 4px; }
+.scan-result-branch-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: var(--text-sm); }
+.scan-result-branch-name { color: var(--muted); }
+.scan-result-branch-qty { font-weight: 600; }
+.scan-result-branch-qty.scan-result-stat__value--error { color: var(--error); }
 .modal--blog { max-width: 1100px; width: 95%; height: 90vh; display: flex; flex-direction: column; }
 .modal--narrow { max-width: 400px; }
 .modal--customer { max-width: 520px; }

@@ -4,7 +4,7 @@ import {
     Loader2, Building2, Search, AlertTriangle, Clock,
     ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ArrowRight, Zap,
     CheckCircle2, Timer, Package, Palette, Printer, Scissors,
-    Layers, BookOpen, User, Calendar
+    Layers, BookOpen, User, Calendar, Settings, RefreshCw
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';

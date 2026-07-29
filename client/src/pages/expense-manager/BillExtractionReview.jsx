@@ -1453,19 +1453,36 @@ const BillExtractionReview = ({ onClose, onSuccess, onError, stayOnSave = false,
     );
   }
 
+  const total_amount = Number(form.total_amount) || 0;
+  const subtotal_val = Number(form.subtotal) || 0;
+  const tax_val = Number(form.tax_amount) || 0;
+
   return (
     <div className="extraction-review">
+      {/* ── Header ── */}
       <div className="extraction-review-header">
-        <h2>{pages.length > 0 ? 'Review Extracted Data' : 'Enter Bill Details'}</h2>
-        {pages.length > 0 ? (
-          <div className="extraction-badge">
-            <SparklesIcon /> AI-extracted, please verify
+        <div className="er-header-row">
+          <div className="er-header-left">
+            <h2>{pages.length > 0 ? 'Review Extracted Data' : 'Enter Bill Details'}</h2>
+            <p className="er-header-sub">Verify the extracted information before saving</p>
           </div>
-        ) : (
-          <div className="extraction-badge-manual">
-            Manual Entry
+          <div className="er-header-right">
+            {pages.length > 0 ? (
+              <div className="extraction-badge">
+                <SparklesIcon /> AI-extracted
+              </div>
+            ) : (
+              <div className="extraction-badge-manual">
+                Manual Entry
+              </div>
+            )}
+            {onClose && (
+              <button className="er-close-btn" onClick={onClose} title="Close">
+                <X size={18} />
+              </button>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
       {error && (
@@ -1475,260 +1492,315 @@ const BillExtractionReview = ({ onClose, onSuccess, onError, stayOnSave = false,
         </div>
       )}
 
-      <div className="extraction-form-grid">
-        <div className="extraction-field">
-          <label>Vendor Name</label>
-          <VendorSearchCell
-            vendorName={form.vendor_name}
-            vendorMatch={vendorMatch}
-            selectedVendorId={selectedVendorId}
-            onSelect={handleVendorSelect}
-            onChange={(val) => { setSelectedVendorId(''); updateField('vendor_name', val); }}
-            onAddVendor={(name) => {
-              setVendorModalInitialName(name);
-              setShowVendorModal(true);
-            }}
-          />
-
+      {/* ── Summary Card ── */}
+      {form.vendor_name && (
+        <div className="er-summary-card">
+          <div className="er-summary-vendor">
+            <div className="er-summary-vendor-icon">
+              <Package size={18} />
+            </div>
+            <div className="er-summary-vendor-info">
+              <span className="er-summary-vendor-label">Vendor</span>
+              <span className="er-summary-vendor-name">{form.vendor_name}</span>
+              {form.gst_number && <span className="er-summary-vendor-gst">GST: {form.gst_number}</span>}
+            </div>
+          </div>
+          <div className="er-summary-divider" />
+          <div className="er-summary-meta">
+            {form.bill_number && (
+              <div className="er-summary-meta-item">
+                <span className="er-summary-meta-label">Bill #</span>
+                <span className="er-summary-meta-value">{form.bill_number}</span>
+              </div>
+            )}
+            {form.bill_date && (
+              <div className="er-summary-meta-item">
+                <span className="er-summary-meta-label">Date</span>
+                <span className="er-summary-meta-value">{new Date(form.bill_date + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+              </div>
+            )}
+          </div>
+          <div className="er-summary-divider" />
+          <div className="er-summary-total">
+            <span className="er-summary-total-label">Total Amount</span>
+            <span className={`er-summary-total-value ${total_amount > 0 ? 'er-summary-total-value--highlight' : ''}`}>
+              ₹{total_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            </span>
+          </div>
         </div>
+      )}
 
-        <div className="extraction-field">
-          <label>Bill Number</label>
-          <input
-            type="text"
-            value={form.bill_number}
-            onChange={e => updateField('bill_number', e.target.value)}
-            placeholder="Bill number"
-          />
+      {/* ── Bill Details Card ── */}
+      <div className="er-card">
+        <div className="er-card-header">
+          <FileText size={15} />
+          <span>Bill Details</span>
         </div>
+        <div className="er-card-body">
+          <div className="er-field-grid">
+            <div className="er-field">
+              <label>Vendor Name</label>
+              <VendorSearchCell
+                vendorName={form.vendor_name}
+                vendorMatch={vendorMatch}
+                selectedVendorId={selectedVendorId}
+                onSelect={handleVendorSelect}
+                onChange={(val) => { setSelectedVendorId(''); updateField('vendor_name', val); }}
+                onAddVendor={(name) => {
+                  setVendorModalInitialName(name);
+                  setShowVendorModal(true);
+                }}
+              />
+            </div>
 
-        <div className="extraction-field">
-          <label>Bill Date</label>
-          <input
-            type="date"
-            value={form.bill_date}
-            onChange={e => updateField('bill_date', e.target.value)}
-          />
-        </div>
+            <div className="er-field">
+              <label>Bill Number</label>
+              <input
+                type="text"
+                value={form.bill_number}
+                onChange={e => updateField('bill_number', e.target.value)}
+                placeholder="e.g. INV-001"
+              />
+            </div>
 
-        <div className="extraction-field">
-          <label>GST Number</label>
-          <input
-            type="text"
-            value={form.gst_number}
-            onChange={e => updateField('gst_number', e.target.value)}
-            placeholder="GSTIN (if applicable)"
-          />
+            <div className="er-field">
+              <label>Bill Date</label>
+              <input
+                type="date"
+                value={form.bill_date}
+                onChange={e => updateField('bill_date', e.target.value)}
+              />
+            </div>
+
+            <div className="er-field">
+              <label>GST Number</label>
+              <input
+                type="text"
+                value={form.gst_number}
+                onChange={e => updateField('gst_number', e.target.value)}
+                placeholder="22AAAAA0000A1Z5"
+              />
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="extraction-section-divider">
-        <h3>Line Items</h3>
-        <button className="btn btn-sm btn-outline" onClick={addItem}>
-          <Plus size={14} /> Add Item
-        </button>
-      </div>
-
-      <div className="extraction-items-table-wrapper">
-        <table className="extraction-items-table">
-          <thead>
-            <tr>
-              <th>Item Name</th>
-              <th>HSN/SAC</th>
-              <th>Quantity</th>
-              <th>Rate</th>
-              <th>Amount</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {form.items.map((item, i) => (
-              <tr key={i}>
-                <td style={{ position: 'relative' }}>
-                  <input
-                    type="text"
-                    value={item.description}
-                    onChange={e => {
-                      updateItem(i, 'description', e.target.value);
-                      setProductSearchFocusedRow(i);
-                    }}
-                    onFocus={() => setProductSearchFocusedRow(i)}
-                    onBlur={() => setTimeout(() => setProductSearchFocusedRow(null), 200)}
-                    onKeyDown={(e) => {
-                      const suggestions = getProductSuggestions(item.description);
-                      if (e.key === 'ArrowDown' && suggestions.length) {
-                        e.preventDefault();
-                        setProductSuggestionsMap(prev => ({
-                          ...prev,
-                          [i]: { ...prev[i], highlight: Math.min((prev[i]?.highlight ?? -1) + 1, suggestions.length - 1) }
-                        }));
-                      } else if (e.key === 'ArrowUp' && suggestions.length) {
-                        e.preventDefault();
-                        setProductSuggestionsMap(prev => ({
-                          ...prev,
-                          [i]: { ...prev[i], highlight: Math.max((prev[i]?.highlight ?? -1) - 1, -1) }
-                        }));
-                      } else if (e.key === 'Enter' && suggestions.length && (productSuggestionsMap[i]?.highlight ?? -1) >= 0) {
-                        e.preventDefault();
-                        const sel = suggestions[productSuggestionsMap[i].highlight];
-                        handleSelectProduct(i, sel);
-                        setProductSuggestionsMap(prev => ({ ...prev, [i]: undefined }));
-                        setProductSearchFocusedRow(null);
-                      } else if (e.key === 'Escape') {
-                        setProductSuggestionsMap(prev => ({ ...prev, [i]: undefined }));
-                        setProductSearchFocusedRow(null);
-                      }
-                    }}
-                    placeholder="Item name"
-                    autoComplete="off"
-                  />
-                  {productSearchFocusedRow === i && getProductSuggestions(item.description).length > 0 && (
-                    <div className="sb-autocomplete-dropdown sb-product-dropdown">
-                      {getProductSuggestions(item.description).map((p, pIdx) => (
-                        <div
-                          key={p.id || pIdx}
-                          className={`sb-autocomplete-item ${pIdx === (productSuggestionsMap[i]?.highlight ?? -1) ? 'sb-autocomplete-item--active' : ''}`}
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            handleSelectProduct(i, p);
-                            setProductSuggestionsMap(prev => ({ ...prev, [i]: undefined }));
-                            setProductSearchFocusedRow(null);
+      {/* ── Line Items Card ── */}
+      <div className="er-card">
+        <div className="er-card-header">
+          <div className="er-card-header-left">
+            <Package size={15} />
+            <span>Line Items</span>
+            <span className="er-item-count">{form.items.length} item{form.items.length !== 1 ? 's' : ''}</span>
+          </div>
+          <button className="btn btn-sm btn-outline" onClick={addItem}>
+            <Plus size={14} /> Add Item
+          </button>
+        </div>
+        <div className="er-card-body er-card-body--no-pad">
+          <div className="er-items-table-wrapper">
+            <table className="er-items-table">
+              <thead>
+                <tr>
+                  <th className="er-col-item">Item Name</th>
+                  <th className="er-col-hsn">HSN/SAC</th>
+                  <th className="er-col-num">Qty</th>
+                  <th className="er-col-num">Rate</th>
+                  <th className="er-col-num">Amount</th>
+                  <th className="er-col-action"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {form.items.map((item, i) => (
+                  <tr key={i}>
+                    <td className="er-cell-item">
+                      <div className="er-item-input-wrap">
+                        <input
+                          type="text"
+                          value={item.description}
+                          onChange={e => {
+                            updateItem(i, 'description', e.target.value);
+                            setProductSearchFocusedRow(i);
                           }}
-                          onMouseEnter={() => setProductSuggestionsMap(prev => ({
-                            ...prev,
-                            [i]: { ...prev[i], highlight: pIdx }
-                          }))}
-                        >
-                          <span className="sb-autocomplete-item-name">{p.name}</span>
-                          <span className="sb-autocomplete-item-sub">
-                            {p.product_code ? `Code: ${p.product_code}` : ''}
-                            {p.product_code && p.sell_price ? ' · ' : ''}
-                            {p.sell_price ? `Price: ₹${Number(p.sell_price).toFixed(2)}` : ''}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </td>
-                <td>
-                  <input
-                    type="text"
-                    value={item.hsn_sac}
-                    onChange={e => updateItem(i, 'hsn_sac', e.target.value)}
-                    placeholder="HSN/SAC"
-                  />
-                </td>
-                <td>
-                  <input
-                    type="number"
-                    step="any"
-                    min="0"
-                    value={item.quantity}
-                    onChange={e => updateItem(i, 'quantity', e.target.value)}
-                    placeholder="Qty"
-                  />
-                </td>
-                <td>
-                  <input
-                    type="number"
-                    step="any"
-                    min="0"
-                    value={item.rate}
-                    onChange={e => updateItem(i, 'rate', e.target.value)}
-                    placeholder="Rate"
-                  />
-                </td>
-                <td>
-                  <input
-                    type="number"
-                    step="any"
-                    min="0"
-                    value={item.amount}
-                    onChange={e => updateItem(i, 'amount', e.target.value)}
-                    placeholder="Amount"
-                  />
-                </td>
-                <td>
-                  {form.items.length > 1 && (
-                    <button className="extraction-icon-btn" onClick={() => removeItem(i)} title="Remove item">
-                      <Trash2 size={16} />
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="extraction-totals-grid">
-        <div className="extraction-field">
-          <label>Subtotal</label>
-          <input
-            type="number"
-            step="any"
-            min="0"
-            value={form.subtotal}
-            onChange={e => {
-              const sub = Number(e.target.value) || 0;
-              const tax = Number(form.tax_amount) || 0;
-              setForm(prev => ({
-                ...prev,
-                subtotal: e.target.value,
-                total_amount: String(Number((sub + tax).toFixed(2)))
-              }));
-            }}
-            placeholder="0.00"
-          />
-        </div>
-        <div className="extraction-field">
-          <label>Tax Amount</label>
-          <input
-            type="number"
-            step="any"
-            min="0"
-            value={form.tax_amount}
-            onChange={e => {
-              const tax = Number(e.target.value) || 0;
-              const sub = Number(form.subtotal) || 0;
-              setForm(prev => ({
-                ...prev,
-                tax_amount: e.target.value,
-                total_amount: String(Number((sub + tax).toFixed(2)))
-              }));
-            }}
-            placeholder="0.00"
-          />
-        </div>
-        <div className="extraction-field extraction-field-highlight">
-          <label>Total Amount</label>
-          <input
-            type="number"
-            step="any"
-            min="0"
-            value={form.total_amount}
-            onChange={e => updateField('total_amount', e.target.value)}
-            placeholder="0.00"
-          />
-          {pages.length > 0 && <span className="extraction-field-note">Manually verify — AI may misread</span>}
+                          onFocus={() => setProductSearchFocusedRow(i)}
+                          onBlur={() => setTimeout(() => setProductSearchFocusedRow(null), 200)}
+                          onKeyDown={(e) => {
+                            const suggestions = getProductSuggestions(item.description);
+                            if (e.key === 'ArrowDown' && suggestions.length) {
+                              e.preventDefault();
+                              setProductSuggestionsMap(prev => ({
+                                ...prev,
+                                [i]: { ...prev[i], highlight: Math.min((prev[i]?.highlight ?? -1) + 1, suggestions.length - 1) }
+                              }));
+                            } else if (e.key === 'ArrowUp' && suggestions.length) {
+                              e.preventDefault();
+                              setProductSuggestionsMap(prev => ({
+                                ...prev,
+                                [i]: { ...prev[i], highlight: Math.max((prev[i]?.highlight ?? -1) - 1, -1) }
+                              }));
+                            } else if (e.key === 'Enter' && suggestions.length && (productSuggestionsMap[i]?.highlight ?? -1) >= 0) {
+                              e.preventDefault();
+                              const sel = suggestions[productSuggestionsMap[i].highlight];
+                              handleSelectProduct(i, sel);
+                              setProductSuggestionsMap(prev => ({ ...prev, [i]: undefined }));
+                              setProductSearchFocusedRow(null);
+                            } else if (e.key === 'Escape') {
+                              setProductSuggestionsMap(prev => ({ ...prev, [i]: undefined }));
+                              setProductSearchFocusedRow(null);
+                            }
+                          }}
+                          placeholder="Search or type item name..."
+                          autoComplete="off"
+                        />
+                        {productSearchFocusedRow === i && getProductSuggestions(item.description).length > 0 && (
+                          <div className="sb-autocomplete-dropdown sb-product-dropdown">
+                            {getProductSuggestions(item.description).map((p, pIdx) => (
+                              <div
+                                key={p.id || pIdx}
+                                className={`sb-autocomplete-item ${pIdx === (productSuggestionsMap[i]?.highlight ?? -1) ? 'sb-autocomplete-item--active' : ''}`}
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  handleSelectProduct(i, p);
+                                  setProductSuggestionsMap(prev => ({ ...prev, [i]: undefined }));
+                                  setProductSearchFocusedRow(null);
+                                }}
+                                onMouseEnter={() => setProductSuggestionsMap(prev => ({
+                                  ...prev,
+                                  [i]: { ...prev[i], highlight: pIdx }
+                                }))}
+                              >
+                                <span className="sb-autocomplete-item-name">{p.name}</span>
+                                <span className="sb-autocomplete-item-sub">
+                                  {p.product_code ? `Code: ${p.product_code}` : ''}
+                                  {p.product_code && p.sell_price ? ' · ' : ''}
+                                  {p.sell_price ? `Price: ₹${Number(p.sell_price).toFixed(2)}` : ''}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="er-cell-hsn">
+                      <input
+                        type="text"
+                        value={item.hsn_sac}
+                        onChange={e => updateItem(i, 'hsn_sac', e.target.value)}
+                        placeholder="HSN"
+                      />
+                    </td>
+                    <td className="er-cell-num">
+                      <input
+                        type="number"
+                        step="any"
+                        min="0"
+                        value={item.quantity}
+                        onChange={e => updateItem(i, 'quantity', e.target.value)}
+                        placeholder="0"
+                      />
+                    </td>
+                    <td className="er-cell-num">
+                      <input
+                        type="number"
+                        step="any"
+                        min="0"
+                        value={item.rate}
+                        onChange={e => updateItem(i, 'rate', e.target.value)}
+                        placeholder="0.00"
+                      />
+                    </td>
+                    <td className="er-cell-num er-cell-amount">
+                      <input
+                        type="number"
+                        step="any"
+                        min="0"
+                        value={item.amount}
+                        onChange={e => updateItem(i, 'amount', e.target.value)}
+                        placeholder="0.00"
+                      />
+                    </td>
+                    <td className="er-cell-action">
+                      {form.items.length > 1 && (
+                        <button className="er-icon-btn er-icon-btn--danger" onClick={() => removeItem(i)} title="Remove item">
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
-      <div className="extraction-actions extraction-actions-bottom">
+      {/* ── Totals Card ── */}
+      <div className="er-card er-card--totals">
+        <div className="er-card-header">
+          <span>Bill Summary</span>
+        </div>
+        <div className="er-card-body">
+          <div className="er-totals-grid">
+            <div className="er-total-row">
+              <span className="er-total-label">Subtotal</span>
+              <span className="er-total-value">₹{(subtotal_val).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+            </div>
+            <div className="er-total-row">
+              <span className="er-total-label">Tax Amount</span>
+              <div className="er-total-input-wrap">
+                <span className="er-total-currency">₹</span>
+                <input
+                  type="number"
+                  step="any"
+                  min="0"
+                  value={form.tax_amount}
+                  onChange={e => {
+                    const tax = Number(e.target.value) || 0;
+                    setForm(prev => ({
+                      ...prev,
+                      tax_amount: e.target.value,
+                      total_amount: String(Number((subtotal_val + tax).toFixed(2)))
+                    }));
+                  }}
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+            <div className="er-total-divider" />
+            <div className="er-total-row er-total-row--grand">
+              <span className="er-total-label er-total-label--grand">Total Amount</span>
+              <div className="er-total-input-wrap er-total-input-wrap--grand">
+                <span className="er-total-currency er-total-currency--grand">₹</span>
+                <input
+                  type="number"
+                  step="any"
+                  min="0"
+                  value={form.total_amount}
+                  onChange={e => updateField('total_amount', e.target.value)}
+                  placeholder="0.00"
+                />
+                {pages.length > 0 && <span className="er-total-note">Verify — AI may misread</span>}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Actions ── */}
+      <div className="er-actions">
         <button className="btn btn-outline" onClick={handleRetry}>
           {pages.length > 0 ? 'Upload Different Bill' : 'Go Back'}
         </button>
         {isConsumables ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
+          <div className="er-actions-right">
             {consumablesConfirmError && (
               <div className="extraction-error-banner" style={{ marginBottom: 0 }}>
                 <AlertCircle size={14} /><span>{consumablesConfirmError}</span>
               </div>
             )}
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div className="er-actions-consumables">
               <select
-                className="extraction-field-select"
-                style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8 }}
+                className="er-field-select"
                 value={consumablesBillMeta.branch_id}
                 onChange={e => setConsumablesBillMeta(prev => ({ ...prev, branch_id: e.target.value }))}
               >
@@ -1736,8 +1808,7 @@ const BillExtractionReview = ({ onClose, onSuccess, onError, stayOnSave = false,
               </select>
               <input
                 type="date"
-                style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)' }}
-                placeholder="Due date"
+                className="er-field-date"
                 value={consumablesBillMeta.due_date}
                 onChange={e => setConsumablesBillMeta(prev => ({ ...prev, due_date: e.target.value }))}
               />

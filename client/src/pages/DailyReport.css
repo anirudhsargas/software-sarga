@@ -1120,11 +1120,11 @@
 /* ── Premium Tab Bar Segmented Control ── */
 .dr-tab-bar {
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
   padding: 5px;
   background: var(--surface-2);
   border-radius: var(--radius-xl);
-  overflow-x: auto;
   border: 1px solid var(--surface-3);
   margin-bottom: 24px;
   position: relative;

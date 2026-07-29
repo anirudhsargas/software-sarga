@@ -227,4 +227,61 @@ async function runBackup(db, triggeredBy = 'cron') {
   };
 }
 
-module.exports = { runBackup };
+async function checkGoogleConnection() {
+  const keyString = process.env.GOOGLE_SA_KEY || process.env.GOOGLE_SERVICE_ACCOUNT;
+  const fallback = !keyString && process.env.GOOGLE_SERVICE_ACCOUNT_BASE64
+    ? Buffer.from(process.env.GOOGLE_SERVICE_ACCOUNT_BASE64, 'base64').toString('utf8')
+    : null;
+  const resolved = keyString || fallback;
+
+  if (!resolved) {
+    return { status: 'credentials_missing', message: 'Google Service Account Key is not set (GOOGLE_SA_KEY, GOOGLE_SERVICE_ACCOUNT, or GOOGLE_SERVICE_ACCOUNT_BASE64)' };
+  }
+
+  let key;
+  try {
+    key = JSON.parse(resolved);
+  } catch (e) {
+    return { status: 'credentials_invalid', message: 'Service account JSON is malformed: ' + e.message };
+  }
+
+  if (!process.env.GOOGLE_SHEET_ID) {
+    return { status: 'sheet_id_missing', message: 'GOOGLE_SHEET_ID is not set' };
+  }
+
+  try {
+    const auth = new google.auth.GoogleAuth({
+      credentials: key,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets']
+    });
+    const sheetsApi = google.sheets({ version: 'v4', auth });
+    const start = Date.now();
+    const meta = await sheetsApi.spreadsheets.get({
+      spreadsheetId: process.env.GOOGLE_SHEET_ID,
+      fields: 'properties.title'
+    });
+    const latency = Date.now() - start;
+    return {
+      status: 'healthy',
+      serviceAccount: key.client_email || 'unknown',
+      sheetTitle: meta.data.properties.title,
+      latency
+    };
+  } catch (err) {
+    if (err.code === 403 || err.code === 404) {
+      return {
+        status: 'sheet_not_shared',
+        message: `Sheet "${process.env.GOOGLE_SHEET_ID}" is not accessible. Ensure it is shared with Editor access to ${key.client_email}.`,
+        serviceAccount: key.client_email,
+        error: err.message
+      };
+    }
+    return {
+      status: 'api_error',
+      message: 'Google Sheets API error: ' + err.message,
+      error: err.message
+    };
+  }
+}
+
+module.exports = { runBackup, checkGoogleConnection };

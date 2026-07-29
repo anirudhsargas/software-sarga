@@ -214,7 +214,7 @@ router.post('/change-requests/:id/review', auth.authenticate, auth.authorizeRole
                     `UPDATE sarga_machine_readings
                       SET opening_count = ?
                      WHERE machine_id = ? AND reading_date = ?`,
-                    [newOpening, newOpening, request.machine_id, request.report_date]
+                    [newOpening, request.machine_id, request.report_date]
                 );
             }
 

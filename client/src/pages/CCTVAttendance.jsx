@@ -1,12 +1,13 @@
 import { useSEO } from '../hooks/useSEO';
 import React, { useEffect, useState, useCallback } from 'react';
-import { Camera, Loader2, Plus, X, User, Clock, RefreshCw } from 'lucide-react';
+import { Camera, Loader2, Plus, X, User, Clock, RefreshCw, AlertTriangle } from 'lucide-react';
 import api from '../services/api';
 import SecureImage from '../components/SecureImage';
 import toast from 'react-hot-toast';
-
 import BranchSelect from '../components/ui/BranchSelect';
 import PageContainer from '../components/ui/PageContainer';
+import './CCTVAttendance.css';
+
 const BRANCHES = [
   { value: 'perambra', label: 'Perambra' },
   { value: 'meppayur_main', label: 'Meppayur Main' },
@@ -97,7 +98,7 @@ const CCTVAttendance = () => {
         const { data } = await api.get('staff?all=true&limit=200');
         setStaffList(data.data || data || []);
       } catch {
-        // Silently fail — modal will show empty dropdown
+        // Silently fail
       }
     };
     fetchStaff();
@@ -144,13 +145,13 @@ const CCTVAttendance = () => {
   return (
     <PageContainer>
       {/* Page Header */}
-      <div className="page-header">
-        <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div className="cctv-att-header">
+        <h1 className="cctv-att-header-title">
           <Camera size={22} /> CCTV Attendance
         </h1>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div className="cctv-att-header-actions">
           {lastRefresh && (
-            <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+            <span className="cctv-att-header-updated">
               Updated {formatTime(lastRefresh)}
             </span>
           )}
@@ -164,13 +165,12 @@ const CCTVAttendance = () => {
       </div>
 
       {/* Branch Tabs + Date Picker */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-        <div style={{ display: 'flex', gap: 4, background: 'var(--surface-2)', borderRadius: 12, padding: 4 }}>
+      <div className="cctv-att-filters">
+        <div className="cctv-att-branch-tabs">
           {BRANCHES.map(b => (
             <button
               key={b.value}
-              className={`btn ${branch === b.value ? 'btn-primary' : 'btn-ghost'}`}
-              style={{ padding: '8px 16px', borderRadius: 8, fontSize: 13 }}
+              className={`cctv-att-branch-tab${branch === b.value ? ' cctv-att-branch-tab--active' : ''}`}
               onClick={() => setBranch(b.value)}
             >
               {b.label}
@@ -181,35 +181,34 @@ const CCTVAttendance = () => {
           type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
-          className="input"
-          style={{ width: 160 }}
+          className="input cctv-att-date-input"
         />
       </div>
 
       {/* Summary Stats */}
       {summary && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 20 }}>
-          <div className="stat-card">
+        <div className="cctv-att-stats">
+          <div className="stat-card cctv-att-stat-card">
             <div className="stat-value">{summary.total_staff}</div>
             <div className="stat-label">Total Staff</div>
           </div>
-          <div className="stat-card" style={{ borderLeft: '3px solid var(--success)' }}>
-            <div className="stat-value" style={{ color: 'var(--success)' }}>{summary.present}</div>
+          <div className="stat-card cctv-att-stat-card--present">
+            <div className="stat-value">{summary.present}</div>
             <div className="stat-label">Present</div>
           </div>
-          <div className="stat-card" style={{ borderLeft: '3px solid var(--error)' }}>
-            <div className="stat-value" style={{ color: 'var(--error)' }}>{summary.absent}</div>
+          <div className="stat-card cctv-att-stat-card--absent">
+            <div className="stat-value">{summary.absent}</div>
             <div className="stat-label">Absent</div>
           </div>
           {summary.alert_count > 0 && (
-            <div className="stat-card" style={{ borderLeft: '3px solid var(--warning)', background: 'var(--warning-bg)' }}>
-              <div className="stat-value" style={{ color: 'var(--warning)' }}>{summary.alert_count}</div>
+            <div className="stat-card cctv-att-stat-card--alert">
+              <div className="stat-value">{summary.alert_count}</div>
               <div className="stat-label">Not Arrived (Alert)</div>
             </div>
           )}
           {summary.discrepancy_count > 0 && (
-            <div className="stat-card" style={{ borderLeft: '3px solid var(--warning)', background: 'var(--secondary)' }}>
-              <div className="stat-value" style={{ color: 'var(--destructive)' }}>{summary.discrepancy_count}</div>
+            <div className="stat-card cctv-att-stat-card--discrepancy">
+              <div className="stat-value">{summary.discrepancy_count}</div>
               <div className="stat-label">Time Discrepancies</div>
             </div>
           )}
@@ -217,7 +216,7 @@ const CCTVAttendance = () => {
       )}
 
       {/* Attendance Table */}
-      <div className="card p-16">
+      <div className="card cctv-att-table-wrap">
         <div className="table-scroll">
           <table className="table">
             <thead>
@@ -249,29 +248,28 @@ const CCTVAttendance = () => {
                   const statusBadge = STATUS_BADGES[s.status] || { className: 'badge', label: s.status };
                   const entrySrc = s.entry_source ? SOURCE_BADGES[s.entry_source] : null;
                   return (
-                    <tr key={s.staff_id} style={s.absent_alert ? { background: 'var(--destructive)' } : undefined}>
+                    <tr key={s.staff_id} className={s.absent_alert ? 'cctv-att-row--alert' : ''}>
                       <td>
-                        <div className="row gap-sm" style={{ alignItems: 'center' }}>
-                          <div className="user-avatar avatar-sm">
+                        <div className="cctv-att-staff-cell">
+                          <div className="cctv-att-avatar">
                             {s.image_url ? <SecureImage src={s.image_url} alt={s.name} className="avatar-img" width={34} height={34} /> : <User size={16} />}
                           </div>
                           <div>
-                            <span className="user-name">{s.name}</span>
+                            <span className="cctv-att-staff-name">{s.name}</span>
                             {s.branch_name && (
-                              <div style={{ fontSize: 11, color: 'var(--muted)' }}>{s.branch_name}</div>
+                              <div className="cctv-att-staff-branch">{s.branch_name}</div>
                             )}
                           </div>
                         </div>
                       </td>
                       <td>
                         {s.entry_time ? (
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
-                            <Clock size={13} style={{ color: 'var(--muted)' }} />
+                          <span className="cctv-att-time">
+                            <Clock size={13} className="cctv-att-time-icon" />
                             {formatTime(s.entry_time)}
                             {s.entry_discrepancy !== null && s.entry_discrepancy > 30 && (
-                              <span title={`Recorded ${s.entry_discrepancy} min after actual submission`}
-                                style={{ fontSize: 11, background: 'var(--secondary)', color: 'var(--destructive)', border: '1px solid var(--warning)', borderRadius: 4, padding: '1px 5px', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                                ⚠ {s.entry_discrepancy}m gap
+                              <span title={`Recorded ${s.entry_discrepancy} min after actual submission`} className="cctv-att-discrepancy-badge">
+                                <AlertTriangle size={10} /> {s.entry_discrepancy}m gap
                               </span>
                             )}
                           </span>
@@ -279,13 +277,12 @@ const CCTVAttendance = () => {
                       </td>
                       <td>
                         {s.exit_time ? (
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
-                            <Clock size={13} style={{ color: 'var(--muted)' }} />
+                          <span className="cctv-att-time">
+                            <Clock size={13} className="cctv-att-time-icon" />
                             {formatTime(s.exit_time)}
                             {s.exit_discrepancy !== null && s.exit_discrepancy > 30 && (
-                              <span title={`Recorded ${s.exit_discrepancy} min after actual submission`}
-                                style={{ fontSize: 11, background: 'var(--secondary)', color: 'var(--destructive)', border: '1px solid var(--warning)', borderRadius: 4, padding: '1px 5px', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                                ⚠ {s.exit_discrepancy}m gap
+                              <span title={`Recorded ${s.exit_discrepancy} min after actual submission`} className="cctv-att-discrepancy-badge">
+                                <AlertTriangle size={10} /> {s.exit_discrepancy}m gap
                               </span>
                             )}
                           </span>
@@ -296,7 +293,7 @@ const CCTVAttendance = () => {
                       </td>
                       <td>
                         <span className={statusBadge.className}>
-                          {s.absent_alert ? '⚠ ' : ''}{statusBadge.label}
+                          {s.absent_alert ? <AlertTriangle size={12} style={{ display: 'inline', marginRight: 2 }} /> : ''}{statusBadge.label}
                         </span>
                       </td>
                       <td style={{ color: 'var(--muted)', fontSize: 13 }}>{s.event_count}</td>
@@ -312,11 +309,11 @@ const CCTVAttendance = () => {
       {/* Manual Entry Modal */}
       {showManual && (
         <div className="modal-backdrop">
-          <div className="modal modal--narrow">
+          <div className="modal cctv-att-manual-modal">
             <button className="modal-close" onClick={() => setShowManual(false)} title="Close">
               <X size={20} />
             </button>
-            <h2 className="section-title mb-16" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <h2 className="section-title cctv-att-manual-title">
               <Plus size={18} /> Manual Attendance Entry
             </h2>
             <form onSubmit={handleManualSubmit} className="stack-md">
@@ -374,27 +371,17 @@ const CCTVAttendance = () => {
                   Current time: <strong>{currentTimeOnOpen}</strong>
                 </div>
                 {getTimeDiffMinutes() > 30 && (
-                  <div style={{
-                    marginTop: 6,
-                    padding: '6px 10px',
-                    background: 'var(--warning-bg, #fff7e0)',
-                    border: '1px solid var(--warning, #f59e0b)',
-                    borderRadius: 6,
-                    fontSize: 12,
-                    color: 'var(--warning, #b45309)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                  }}>
-                    ⚠ Entered time differs from current time by{' '}
+                  <div className="cctv-att-warning-banner">
+                    <AlertTriangle size={14} />
+                    Entered time differs from current time by{' '}
                     <strong>{getTimeDiffMinutes()} min</strong>. This will be flagged for admin review.
                   </div>
                 )}
               </div>
-              <div style={{ fontSize: 12, color: 'var(--muted)', padding: '4px 0' }}>
+              <div className="cctv-att-source-label">
                 Source: <span className="badge">Manual</span>
               </div>
-              <div className="row gap-sm" style={{ justifyContent: 'flex-end', marginTop: 8 }}>
+              <div className="cctv-att-modal-actions">
                 <button type="button" className="btn btn-ghost" onClick={() => setShowManual(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={manualSaving}>
                   {manualSaving ? <><Loader2 size={14} className="animate-spin" /> Saving...</> : 'Record Attendance'}

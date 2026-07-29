@@ -52,8 +52,8 @@ const ProductRequests = () => {
     const [requestNotes, setRequestNotes] = useState('');
 
     useEffect(() => {
-        fetchRequests();
-    }, [page, limit]);
+        fetchRequests(filterStatus);
+    }, [page, limit, filterStatus]);
 
     useEffect(() => {
         if (!showNewRequest) {
@@ -81,11 +81,10 @@ const ProductRequests = () => {
         return () => clearTimeout(timer);
     }, [productSearch, showNewRequest]);
 
-    const fetchRequests = async (status) => {
+    const fetchRequests = async (status = 'all') => {
         setLoading(true);
         try {
-            const params = { page, limit };
-            if (status) params.status = status;
+            const params = { page, limit, status };
             const res = await api.get('/products/update-requests', { params });
             setRequests(Array.isArray(res.data) ? res.data : res.data?.data || []);
         } catch (err) {

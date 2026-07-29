@@ -163,7 +163,19 @@ router.get('/audit/stats', authenticateToken, authorizeRoles('Admin'), asyncHand
     if (branch_id) { conditions.push('a.branch_id = ?'); params.push(branch_id); }
 
     const where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
-    const today = new Date().toISOString().slice(0, 10);
+
+    // Build stat conditions with fallback to today
+    const statConditions = [];
+    const statParams = [];
+    if (date_from) { statConditions.push('a.timestamp >= ?'); statParams.push(date_from); }
+    if (date_to) { statConditions.push('a.timestamp <= ?'); statParams.push(date_to + ' 23:59:59'); }
+    if (!date_from && !date_to) {
+        const todayStr = new Date().toISOString().slice(0, 10);
+        statConditions.push('a.timestamp >= ?'); statParams.push(todayStr);
+        statConditions.push('a.timestamp <= ?'); statParams.push(todayStr + ' 23:59:59');
+    }
+    if (branch_id) { statConditions.push('a.branch_id = ?'); statParams.push(branch_id); }
+    const statWhere = statConditions.length > 0 ? 'WHERE ' + statConditions.join(' AND ') : '';
 
     const [
         [totalToday],
@@ -179,20 +191,20 @@ router.get('/audit/stats', authenticateToken, authorizeRoles('Admin'), asyncHand
         [branchActivity],
         [errorOps],
     ] = await Promise.all([
-        safeAuditQuery(`SELECT COUNT(*) as count FROM sarga_enterprise_audit a WHERE DATE(a.created_at) = ? ${branch_id ? 'AND a.branch_id = ?' : ''}`,
-            branch_id ? [today, branch_id] : [today], [[{ count: 0 }]]),
-        safeAuditQuery(`SELECT COUNT(*) as count FROM sarga_enterprise_audit a WHERE a.action_type = 'Login' AND DATE(a.created_at) = ? ${branch_id ? 'AND a.branch_id = ?' : ''}`,
-            branch_id ? [today, branch_id] : [today], [[{ count: 0 }]]),
-        safeAuditQuery(`SELECT COUNT(*) as count FROM sarga_enterprise_audit a WHERE a.success = 0 AND a.action_type = 'Login' AND DATE(a.created_at) = ? ${branch_id ? 'AND a.branch_id = ?' : ''}`,
-            branch_id ? [today, branch_id] : [today], [[{ count: 0 }]]),
-        safeAuditQuery(`SELECT COUNT(*) as count FROM sarga_enterprise_audit a WHERE a.action_type = 'Create' AND DATE(a.created_at) = ? ${branch_id ? 'AND a.branch_id = ?' : ''}`,
-            branch_id ? [today, branch_id] : [today], [[{ count: 0 }]]),
-        safeAuditQuery(`SELECT COUNT(*) as count FROM sarga_enterprise_audit a WHERE a.action_type = 'Update' AND DATE(a.created_at) = ? ${branch_id ? 'AND a.branch_id = ?' : ''}`,
-            branch_id ? [today, branch_id] : [today], [[{ count: 0 }]]),
-        safeAuditQuery(`SELECT COUNT(*) as count FROM sarga_enterprise_audit a WHERE a.action_type = 'Delete' AND DATE(a.created_at) = ? ${branch_id ? 'AND a.branch_id = ?' : ''}`,
-            branch_id ? [today, branch_id] : [today], [[{ count: 0 }]]),
-        safeAuditQuery(`SELECT COUNT(*) as count FROM sarga_enterprise_audit a WHERE a.action_type IN ('Approve','Reject') AND DATE(a.created_at) = ? ${branch_id ? 'AND a.branch_id = ?' : ''}`,
-            branch_id ? [today, branch_id] : [today], [[{ count: 0 }]]),
+        safeAuditQuery(`SELECT COUNT(*) as count FROM sarga_enterprise_audit a ${statWhere}`,
+            statParams, [[{ count: 0 }]]),
+        safeAuditQuery(`SELECT COUNT(*) as count FROM sarga_enterprise_audit a ${statWhere} AND a.action_type = 'Login'`,
+            statParams, [[{ count: 0 }]]),
+        safeAuditQuery(`SELECT COUNT(*) as count FROM sarga_enterprise_audit a ${statWhere} AND a.success = 0 AND a.action_type = 'Login'`,
+            statParams, [[{ count: 0 }]]),
+        safeAuditQuery(`SELECT COUNT(*) as count FROM sarga_enterprise_audit a ${statWhere} AND a.action_type = 'Create'`,
+            statParams, [[{ count: 0 }]]),
+        safeAuditQuery(`SELECT COUNT(*) as count FROM sarga_enterprise_audit a ${statWhere} AND a.action_type = 'Update'`,
+            statParams, [[{ count: 0 }]]),
+        safeAuditQuery(`SELECT COUNT(*) as count FROM sarga_enterprise_audit a ${statWhere} AND a.action_type = 'Delete'`,
+            statParams, [[{ count: 0 }]]),
+        safeAuditQuery(`SELECT COUNT(*) as count FROM sarga_enterprise_audit a ${statWhere} AND a.action_type IN ('Approve','Reject')`,
+            statParams, [[{ count: 0 }]]),
         safeAuditQuery(`SELECT a.module, COUNT(*) as count FROM sarga_enterprise_audit a ${where} GROUP BY a.module ORDER BY count DESC LIMIT 10`,
             params, [[{ module: 'N/A', count: 0 }]]),
         safeAuditQuery(`SELECT a.user_id_internal, a.username, a.employee_name, COUNT(*) as count FROM sarga_enterprise_audit a ${where} GROUP BY a.user_id_internal, a.username, a.employee_name ORDER BY count DESC LIMIT 10`,
