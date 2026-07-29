@@ -1474,6 +1474,9 @@ module.exports = (upload, removeUploadFile) => {
         router.post('/products/update-requests', authenticateToken, authorizeRoles('Designer', 'Front Office', 'Accountant'), async (req, res) => {
             const productId = Number(req.body.product_id);
             const requestedBy = req.user?.id;
+            const priority = ['Low', 'Medium', 'High', 'Urgent'].includes(req.body.priority) ? req.body.priority : 'Medium';
+            const notes = req.body.notes || null;
+            const status = String(req.body.status || 'Pending').toLowerCase() === 'draft' ? 'draft' : 'pending';
 
             if (!Number.isFinite(productId) || productId <= 0) {
                 return res.status(400).json({ message: 'Invalid or missing product_id' });
@@ -1487,8 +1490,10 @@ module.exports = (upload, removeUploadFile) => {
                 const product = productRows[0];
                 if (!product) return res.status(404).json({ message: 'Product not found' });
 
-                const [pendingRows] = await pool.query(`SELECT id FROM sarga_product_update_requests WHERE product_id = ? AND status = 'pending' LIMIT 1`, [productId]);
-                if (pendingRows.length > 0) return res.status(409).json({ message: 'An update request is already pending for this product.' });
+                if (status === 'pending') {
+                    const [pendingRows] = await pool.query(`SELECT id FROM sarga_product_update_requests WHERE product_id = ? AND status = 'pending' LIMIT 1`, [productId]);
+                    if (pendingRows.length > 0) return res.status(409).json({ message: 'An update request is already pending for this product.' });
+                }
 
                 const currentData = {
                     name: product.name,
@@ -1502,16 +1507,16 @@ module.exports = (upload, removeUploadFile) => {
                 };
 
                 const [insertResult] = await pool.query(
-                    `INSERT INTO sarga_product_update_requests (product_id, current_data, proposed_data, requested_by, status)
-                     VALUES (?, ?, ?, ?, 'pending')`,
-                    [productId, JSON.stringify(currentData), JSON.stringify(proposedData), requestedBy]
+                    `INSERT INTO sarga_product_update_requests (product_id, current_data, proposed_data, requested_by, status, request_type, priority, notes)
+                     VALUES (?, ?, ?, ?, ?, 'edit', ?, ?)`,
+                    [productId, JSON.stringify(currentData), JSON.stringify(proposedData), requestedBy, status, priority, notes]
                 );
 
                 auditLog(req.user.id, 'PRODUCT_UPDATE_REQUEST_CREATE', `Submitted product update request for product #${productId}`, {
                     entity_type: 'product', entity_id: productId, request_id: insertResult.insertId
                 });
 
-                return res.status(201).json({ message: 'Product update request submitted for admin approval.', request_id: insertResult.insertId, product_id: productId, status: 'pending' });
+                return res.status(201).json({ message: 'Product update request submitted for admin approval.', request_id: insertResult.insertId, product_id: productId, status });
             } catch (err) {
                 console.error('Create product update request error:', err);
                 return res.status(500).json({ message: 'Database error' });
@@ -1522,6 +1527,9 @@ module.exports = (upload, removeUploadFile) => {
         router.post('/products/:id/update-requests', authenticateToken, authorizeRoles('Designer', 'Front Office', 'Accountant'), upload.single('image'), async (req, res) => {
             const productId = Number(req.params.id);
             const requestedBy = req.user?.id;
+            const priority = ['Low', 'Medium', 'High', 'Urgent'].includes(req.body.priority) ? req.body.priority : 'Medium';
+            const notes = req.body.notes || null;
+            const status = String(req.body.status || 'Pending').toLowerCase() === 'draft' ? 'draft' : 'pending';
 
             if (!Number.isFinite(productId) || productId <= 0) {
                 return res.status(400).json({ message: 'Invalid product id' });
@@ -1587,8 +1595,10 @@ module.exports = (upload, removeUploadFile) => {
                     }
                 }
 
-                const [pendingRows] = await pool.query(`SELECT id FROM sarga_product_update_requests WHERE product_id = ? AND status = 'pending' LIMIT 1`, [productId]);
-                if (pendingRows.length > 0) return res.status(409).json({ message: 'An update request is already pending for this product.' });
+                if (status === 'pending') {
+                    const [pendingRows] = await pool.query(`SELECT id FROM sarga_product_update_requests WHERE product_id = ? AND status = 'pending' LIMIT 1`, [productId]);
+                    if (pendingRows.length > 0) return res.status(409).json({ message: 'An update request is already pending for this product.' });
+                }
 
                 // Fetch current slabs/extras/links in parallel
                 const [[slabs], [extras], [links]] = await Promise.all([
@@ -1600,16 +1610,16 @@ module.exports = (upload, removeUploadFile) => {
                 const currentData = Object.assign({}, product, { slabs, extras, links });
 
                 const [insertResult] = await pool.query(
-                    `INSERT INTO sarga_product_update_requests (product_id, current_data, proposed_data, requested_by, status)
-                     VALUES (?, ?, ?, ?, 'pending')`,
-                    [productId, JSON.stringify(currentData), JSON.stringify(proposedData), requestedBy]
+                    `INSERT INTO sarga_product_update_requests (product_id, current_data, proposed_data, requested_by, status, request_type, priority, notes)
+                     VALUES (?, ?, ?, ?, ?, 'edit', ?, ?)`,
+                    [productId, JSON.stringify(currentData), JSON.stringify(proposedData), requestedBy, status, priority, notes]
                 );
 
                 auditLog(req.user.id, 'PRODUCT_UPDATE_REQUEST_CREATE', `Submitted product update request for product #${productId}`, {
                     entity_type: 'product', entity_id: productId, request_id: insertResult.insertId
                 });
 
-                return res.status(201).json({ message: 'Product update request submitted for admin approval.', request_id: insertResult.insertId, product_id: productId, status: 'pending' });
+                return res.status(201).json({ message: 'Product update request submitted for admin approval.', request_id: insertResult.insertId, product_id: productId, status });
             } catch (err) {
                 console.error('Create product update request error:', err);
                 return res.status(500).json({ message: 'Database error' });
@@ -1638,6 +1648,9 @@ module.exports = (upload, removeUploadFile) => {
                         r.proposed_data,
                         r.requested_by,
                         r.status,
+                        r.request_type,
+                        r.priority,
+                        r.notes,
                         r.admin_note,
                         r.requested_at,
                         r.reviewed_by,
@@ -1647,7 +1660,7 @@ module.exports = (upload, removeUploadFile) => {
                         req_staff.name AS requested_by_name,
                         rev_staff.name AS reviewed_by_name
                      FROM sarga_product_update_requests r
-                     JOIN sarga_products p ON p.id = r.product_id
+                     LEFT JOIN sarga_products p ON p.id = r.product_id
                      LEFT JOIN sarga_staff req_staff ON req_staff.id = r.requested_by
                      LEFT JOIN sarga_staff rev_staff ON rev_staff.id = r.reviewed_by
                      ${whereSql}
@@ -1663,6 +1676,9 @@ module.exports = (upload, removeUploadFile) => {
                     requested_by: r.requested_by,
                     requested_by_name: r.requested_by_name,
                     status: r.status,
+                    request_type: r.request_type,
+                    priority: r.priority,
+                    notes: r.notes,
                     requested_at: r.requested_at,
                     reviewed_by: r.reviewed_by,
                     reviewed_by_name: r.reviewed_by_name,

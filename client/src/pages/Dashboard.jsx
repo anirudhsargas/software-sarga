@@ -64,7 +64,6 @@ const OrderPredictions = lazyWithRetry(() => import('./OrderPredictions'));
 const SalesPrediction = lazyWithRetry(() => import('./SalesPrediction'));
 const ProductionTracker = lazyWithRetry(() => import('./ProductionTracker'));
 const PlateManagement = lazyWithRetry(() => import('./PlateManagement'));
-const PlatePlanner = lazyWithRetry(() => import('./PlatePlanner'));
 const StockVerification = lazyWithRetry(() => import('./StockVerification'));
 const StockPlanning = lazyWithRetry(() => import('./StockPlanning'));
 const OtherStaffDashboard = lazyWithRetry(() => import('./OtherStaffDashboard'));
@@ -637,8 +636,6 @@ const Dashboard = () => {
         { key: 'scanner', name: 'Scan Item', icon: Camera, path: '/dashboard/inventory/scan', roles: ['Admin', 'Front Office', 'Accountant'], group: 'inventory' },
         // Production
         { key: 'operations', name: 'Product Library', icon: Grid, path: '/dashboard/products', roles: ['Admin', 'Front Office', 'Designer', 'Accountant'], group: 'production' },
-        { key: 'operations', name: 'Plate Planner', icon: Calculator, path: '/dashboard/plate-planner', roles: ['Designer', 'Admin', 'Front Office'], group: 'production' },
-        { key: 'operations', name: 'Plate Ganging', icon: Layers, path: '/dashboard/plates', roles: ['Designer', 'Admin'], group: 'production' },
         { key: 'operations', name: 'Machine Management', icon: Settings, path: '/dashboard/machines', roles: ['Admin', 'Front Office'], group: 'production' },
         { key: 'operations', name: 'Production Tracker', icon: Layers, path: '/dashboard/production-tracker', roles: ['Admin', 'Front Office'], group: 'production' },
         { key: 'operations', name: 'Paper Layout', icon: Layers, path: '/dashboard/paper-layout', roles: ['Front Office', 'Designer'], group: 'production' },
@@ -1280,7 +1277,6 @@ const Dashboard = () => {
                             <Route path="reports" element={<ProtectedSubRoute roles={['Admin', 'Accountant']}><Reports /></ProtectedSubRoute>} />
                             <Route path="accounts" element={<ProtectedSubRoute roles={['Accountant', 'Admin']}><RequiresConnection feature="Accounts & GST"><Accounts /></RequiresConnection></ProtectedSubRoute>} />
                             <Route path="plates" element={<ProtectedSubRoute roles={['Designer', 'Admin']}><PlateManagement /></ProtectedSubRoute>} />
-                            <Route path="plate-planner" element={<ProtectedSubRoute roles={['Designer', 'Admin', 'Front Office']}><PlatePlanner /></ProtectedSubRoute>} />
                             <Route path="order-predictions" element={<ProtectedSubRoute roles={['Admin', 'Accountant']}><RequiresConnection feature="Order Predictions"><OrderPredictions /></RequiresConnection></ProtectedSubRoute>} />
                             <Route path="predictions" element={<ProtectedSubRoute roles={['Admin', 'Accountant']}><RequiresConnection feature="Sales Prediction"><SalesPrediction /></RequiresConnection></ProtectedSubRoute>} />
                             <Route path="production-tracker" element={<ProtectedSubRoute roles={['Admin', 'Front Office']}><RequiresConnection feature="Production Tracker"><ProductionTracker /></RequiresConnection></ProtectedSubRoute>} />

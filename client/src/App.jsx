@@ -35,6 +35,7 @@ import UpdateNotification from './components/UpdateNotification';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import TooltipProvider from './components/ui/TooltipProvider';
 import GlobalKeyboardShortcuts from './components/GlobalKeyboardShortcuts';
+import KeyboardShortcutsHelp from './components/KeyboardShortcutsHelp';
 
 const PublicLayout = lazyWithRetry(() => import('./pages/public/PublicLayout'));
 const HomePage = lazyWithRetry(() => import('./pages/public/HomePage'));
@@ -294,6 +295,7 @@ function App() {
           <TooltipProvider>
           <RouteChangeHandler />
           <GlobalKeyboardShortcuts />
+          <KeyboardShortcutsHelp />
           <a href="#main-content" className="skip-link">Skip to main content</a>
           <SyncStatusBar />
           <UpdateNotification />

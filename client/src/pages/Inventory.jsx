@@ -635,7 +635,10 @@ const Inventory = () => {
                 setShowAddModal(false);
                 setNewItem(emptyItem);
                 setShowPrintModal(true);
-                // fetchInventory() will be called after modal closes via generatePDF()
+                // Ensure allPrintItems is populated for Add Items panel
+                api.get('/inventory', { params: { no_pagination: '1' } })
+                    .then(res => { const d = res.data; setAllPrintItems(Array.isArray(d) ? d : (d?.data || [])); })
+                    .catch(() => {});
                 return;
             }
 
@@ -817,6 +820,9 @@ const Inventory = () => {
         setShowAddItems(false);
         setAddItemSearch('');
         setShowPrintModal(true);
+        api.get('/inventory', { params: { no_pagination: '1' } })
+            .then(res => { const d = res.data; setAllPrintItems(Array.isArray(d) ? d : (d?.data || [])); })
+            .catch(() => {});
     };
 
     const openSelectPrintModal = async () => {
@@ -2999,7 +3005,7 @@ const Inventory = () => {
                                             </button>
                                         </div>
                                         <div style={{ maxHeight: 200, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-                                            {items
+                                            {(allPrintItems.length ? allPrintItems : items)
                                                 .filter(i => !printItemIds.includes(i.id) && !isPaperCategory(i.category))
                                                 .filter(i => !addItemSearch || i.name?.toLowerCase().includes(addItemSearch.toLowerCase()) || i.sku?.toLowerCase().includes(addItemSearch.toLowerCase()))
                                                 .slice(0, 50)
@@ -3032,8 +3038,8 @@ const Inventory = () => {
                                                         {item.sku && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{item.sku}</span>}
                                                     </button>
                                                 ))}
-                                            {items.filter(i => !printItemIds.includes(i.id) && !isPaperCategory(i.category)).filter(i => !addItemSearch || i.name?.toLowerCase().includes(addItemSearch.toLowerCase()) || i.sku?.toLowerCase().includes(addItemSearch.toLowerCase())).length === 0 && (
-                                                <div style={{ padding: 'var(--space-12)', textAlign: 'center', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>No more items available</div>
+                                            {(allPrintItems.length ? allPrintItems : items).filter(i => !printItemIds.includes(i.id) && !isPaperCategory(i.category)).filter(i => !addItemSearch || i.name?.toLowerCase().includes(addItemSearch.toLowerCase()) || i.sku?.toLowerCase().includes(addItemSearch.toLowerCase())).length === 0 && (
+                                                <div style={{ padding: 'var(--space-12)', textAlign: 'center', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{allPrintItemsLoading ? 'Loading...' : 'No more items available'}</div>
                                             )}
                                         </div>
                                     </div>

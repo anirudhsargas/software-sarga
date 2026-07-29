@@ -8,11 +8,13 @@ import PageContainer from '../components/ui/PageContainer';
 import useAuth from '../hooks/useAuth';
 
 const STATUS_CONFIG = {
-    Draft: { color: 'var(--text-muted)', bg: 'var(--surface-2)', label: 'Draft', icon: FileText },
-    Pending: { color: 'var(--warning)', bg: 'var(--warning-bg)', label: 'Pending', icon: Clock },
-    Approved: { color: 'var(--success)', bg: 'var(--success-bg)', label: 'Approved', icon: Check },
-    Rejected: { color: 'var(--error)', bg: 'var(--error-bg)', label: 'Rejected', icon: X },
+    draft: { color: 'var(--text-muted)', bg: 'var(--surface-2)', label: 'Draft', icon: FileText },
+    pending: { color: 'var(--warning)', bg: 'var(--warning-bg)', label: 'Pending', icon: Clock },
+    approved: { color: 'var(--success)', bg: 'var(--success-bg)', label: 'Approved', icon: Check },
+    rejected: { color: 'var(--error)', bg: 'var(--error-bg)', label: 'Rejected', icon: X },
 };
+
+const FILTER_TABS = ['all', 'draft', 'pending', 'approved', 'rejected'];
 
 const FIELDS = [
     { key: 'name', label: 'Name' },
@@ -24,8 +26,6 @@ const FIELDS = [
     { key: 'sell_price', label: 'Sell Price' },
     { key: 'cost_price', label: 'Cost Price' },
 ];
-
-const FILTER_TABS = ['all', 'Draft', 'Pending', 'Approved', 'Rejected'];
 
 const ProductRequests = () => {
     useSEO('Product Requests');
@@ -50,6 +50,7 @@ const ProductRequests = () => {
     const [searching, setSearching] = useState(false);
     const [requestPriority, setRequestPriority] = useState('Medium');
     const [requestNotes, setRequestNotes] = useState('');
+    const [filterStatus, setFilterStatus] = useState('all');
 
     useEffect(() => {
         fetchRequests(filterStatus);
@@ -170,8 +171,6 @@ const ProductRequests = () => {
         return FIELDS.filter(f => String(proposedChanges[f.key] || '') !== String(selectedProduct[f.key] || ''));
     }, [selectedProduct, proposedChanges]);
 
-    const [filterStatus, setFilterStatus] = useState('all');
-
     const filteredRequests = useMemo(() =>
         requests.filter(r => filterStatus === 'all' || r.status === filterStatus),
         [requests, filterStatus]
@@ -242,10 +241,10 @@ const ProductRequests = () => {
                     {filteredRequests.length === 0 ? (
                         <div className="p-32 text-center">
                             <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--surface-2)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
-                                {filterStatus === 'Pending' ? <Clock size={28} style={{ opacity: 0.3 }} /> :
-                                 filterStatus === 'Approved' ? <Check size={28} style={{ opacity: 0.3 }} /> :
-                                 filterStatus === 'Rejected' ? <X size={28} style={{ opacity: 0.3 }} /> :
-                                 filterStatus === 'Draft' ? <FileText size={28} style={{ opacity: 0.3 }} /> :
+                                    {filterStatus === 'pending' ? <Clock size={28} style={{ opacity: 0.3 }} /> :
+                                     filterStatus === 'approved' ? <Check size={28} style={{ opacity: 0.3 }} /> :
+                                     filterStatus === 'rejected' ? <X size={28} style={{ opacity: 0.3 }} /> :
+                                     filterStatus === 'draft' ? <FileText size={28} style={{ opacity: 0.3 }} /> :
                                  <FileText size={28} style={{ opacity: 0.3 }} />}
                             </div>
                             <div style={{ fontWeight: 600, marginBottom: 4 }}>
@@ -275,7 +274,7 @@ const ProductRequests = () => {
                                 </thead>
                                 <tbody>
                                     {filteredRequests.map(r => {
-                                        const sc = STATUS_CONFIG[r.status] || STATUS_CONFIG.Draft;
+                                        const sc = STATUS_CONFIG[r.status] || STATUS_CONFIG.draft;
                                         const StatusIcon = sc.icon;
                                         return (
                                             <tr key={r.id} className="table-row-hover">
@@ -349,7 +348,7 @@ const ProductRequests = () => {
                             </div>
                             <div className="row gap-sm items-center">
                                 {(() => {
-                                    const sc = STATUS_CONFIG[selected.status] || STATUS_CONFIG.Draft;
+                                    const sc = STATUS_CONFIG[selected.status] || STATUS_CONFIG.draft;
                                     const Si = sc.icon;
                                     return (
                                         <span className="badge row gap-4" style={{ background: sc.bg, color: sc.color, fontWeight: 600, display: 'inline-flex', alignItems: 'center' }}>

@@ -61,7 +61,7 @@ const BackupSettingsPage = () => {
       const { data } = await api.get('/backup/health');
       setHealth(data);
     } catch (err) {
-      setHealth({ status: 'unhealthy', error: err.response?.data?.message || err.message, latency: 0 });
+      setHealth({ status: 'unhealthy', error: err.response?.data?.error || err.response?.data?.message || err.message, latency: 0 });
     } finally {
       setLoading(prev => ({ ...prev, health: false }));
     }
@@ -163,7 +163,7 @@ const BackupSettingsPage = () => {
         pollJobStatus(data.jobId);
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to queue backup');
+      toast.error(err.response?.data?.error || err.response?.data?.message || 'Failed to queue backup');
     }
   };
 
@@ -185,7 +185,7 @@ const BackupSettingsPage = () => {
         pollJobStatus(data.jobId);
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to queue rebuild snapshot');
+      toast.error(err.response?.data?.error || err.response?.data?.message || 'Failed to queue rebuild snapshot');
     }
   };
 
