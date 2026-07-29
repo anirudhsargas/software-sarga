@@ -421,10 +421,11 @@ router.get('/jobs', authenticateToken, async (req, res) => {
                     params.push(qBranch);
                 }
             } else {
-                // Non-privileged (Front Office): ignore qBranch, always filter by req.user.branch_id
+                // Non-privileged (Front Office): ignore qBranch, filter by dynamically resolved branchId from branchFilter
                 where += ' AND j.branch_id = ?';
-                params.push(req.user.branch_id);
+                params.push(branchId || req.user.branch_id);
             }
+        }
 
             // Tabs / Filters
             if (tab === 'active') {
@@ -1481,8 +1482,19 @@ router.get('/jobs/:id', authenticateToken, async (req, res) => {
         // Branch validation: non-privileged users cannot access other branches' jobs
         const reqNormalizedRole = normalizeRole(req.user.role);
         const isPrivileged = reqNormalizedRole === 'Admin' || reqNormalizedRole === 'Accountant';
-        if (!isPrivileged && String(job.branch_id) !== String(req.user.branch_id)) {
-            return res.status(403).json({ message: 'Branch access denied. You do not have permission to view jobs from this branch.' });
+        if (!isPrivileged) {
+            const { branchId: activeBranchId } = await branchFilter(req);
+            const [assignments] = await pool.query(
+                'SELECT branch_id FROM staff_branch_assignments WHERE staff_id = ?',
+                [req.user.id]
+            );
+            const allowedBranchIds = assignments.map(a => String(a.branch_id));
+            if (activeBranchId) allowedBranchIds.push(String(activeBranchId));
+            if (req.user.branch_id) allowedBranchIds.push(String(req.user.branch_id));
+
+            if (!allowedBranchIds.includes(String(job.branch_id))) {
+                return res.status(403).json({ message: 'Branch access denied. You do not have permission to view jobs from this branch.' });
+            }
         }
 
         // Staff assignments
@@ -1576,8 +1588,19 @@ router.put('/jobs/:id', authenticateToken, async (req, res) => {
         // Branch validation: non-privileged users cannot access other branches' jobs
         const reqNormalizedRole = normalizeRole(req.user.role);
         const isPrivileged = reqNormalizedRole === 'Admin' || reqNormalizedRole === 'Accountant';
-        if (!isPrivileged && String(currentJob.branch_id) !== String(req.user.branch_id)) {
-            return res.status(403).json({ message: 'Branch access denied. You do not have permission to modify jobs from other branches.' });
+        if (!isPrivileged) {
+            const { branchId: activeBranchId } = await branchFilter(req);
+            const [assignments] = await pool.query(
+                'SELECT branch_id FROM staff_branch_assignments WHERE staff_id = ?',
+                [req.user.id]
+            );
+            const allowedBranchIds = assignments.map(a => String(a.branch_id));
+            if (activeBranchId) allowedBranchIds.push(String(activeBranchId));
+            if (req.user.branch_id) allowedBranchIds.push(String(req.user.branch_id));
+
+            if (!allowedBranchIds.includes(String(currentJob.branch_id))) {
+                return res.status(403).json({ message: 'Branch access denied. You do not have permission to modify jobs from other branches.' });
+            }
         }
 
         // Prevent non-privileged roles from silently modifying the branch_id
