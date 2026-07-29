@@ -8,6 +8,7 @@ import {
     Image, Calendar, Truck, Globe, Layout, Menu, Database, Award, Lock, Monitor, Sun, Moon, Calculator
 } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
+import SidebarThemeToggle from '../components/SidebarThemeToggle';
 import api, {} from '../services/api';
 import RequiresConnection from '../components/RequiresConnection';
 const ImageCropModal = lazyWithRetry(() => import('../components/ImageCropModal'));
@@ -1104,6 +1105,7 @@ const Dashboard = () => {
                 </nav>
 
                 <div className="sidebar-footer">
+                    <SidebarThemeToggle collapsed={sidebarCollapsed} />
                     <div className="user-profile" onClick={() => setShowProfilePanel(true)} role="button" tabIndex={0} aria-label="User profile" onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowProfilePanel(true); } }}>
                         <div className="user-avatar">
                             {user?.image_url ? (

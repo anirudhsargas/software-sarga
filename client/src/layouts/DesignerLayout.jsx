@@ -8,6 +8,7 @@ import auth from '../services/auth';
 import useAuth from '../hooks/useAuth';
 import { useBranches } from '../contexts/BranchContext';
 import BranchSelect from '../components/ui/BranchSelect';
+import SidebarThemeToggle from '../components/SidebarThemeToggle';
 import '../styles/designer-dashboard.css';
 
 const NAV_ITEMS = [
@@ -178,6 +179,7 @@ const DesignerLayout = () => {
 
         {/* Footer */}
         <div className="designer-sidebar__footer">
+          <SidebarThemeToggle />
           <NavLink
             to="/staff-settings"
             id="nav-settings"

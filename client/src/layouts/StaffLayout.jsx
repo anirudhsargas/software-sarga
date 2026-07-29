@@ -5,6 +5,7 @@ import auth from '../services/auth';
 import useAuth from '../hooks/useAuth';
 import { useBranches } from '../contexts/BranchContext';
 import BranchSelect from '../components/ui/BranchSelect';
+import SidebarThemeToggle from '../components/SidebarThemeToggle';
 import '../styles/dashboard-redesign.css';
 
 const StaffLayout = () => {
@@ -138,6 +139,7 @@ const StaffLayout = () => {
                 </nav>
 
                 <div className="sidebar-footer">
+                    <SidebarThemeToggle />
                     <NavLink to="/staff-settings" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`} onClick={closeSidebar}>
                         <div className="nav-item-inner">
                             <Settings size={20} />

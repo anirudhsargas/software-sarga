@@ -7,6 +7,7 @@ import {
   ChevronLeft, ChevronRight, DollarSign, UserCheck, Camera, Clock, Wallet, Grid
 } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
+import SidebarThemeToggle from '../SidebarThemeToggle';
 import './AccountantSidebar.css';
 
 const LINKS = [
@@ -80,6 +81,9 @@ export default function AccountantSidebar({ isOpen, onClose }) {
           </NavLink>
         ))}
       </nav>
+      <div style={{ marginTop: 'auto', borderTop: collapsed ? 'none' : '1px solid var(--border)' }}>
+        <SidebarThemeToggle collapsed={collapsed} />
+      </div>
     </aside>
   );
 }
