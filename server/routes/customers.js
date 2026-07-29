@@ -79,7 +79,7 @@ router.get('/customers', authenticateToken, authorizeRoles('Admin', 'Accountant'
         if (exportMode === '1') {
             let filterWhere = '';
             if (exportFilter === 'due') {
-                filterWhere = "AND (SELECT COALESCE(SUM(GREATEST(total_amount - advance_paid, 0)), 0) FROM sarga_jobs WHERE customer_id = sarga_customers.id) > 0";
+                filterWhere = "AND (SELECT COALESCE(SUM(balance_amount), 0) FROM sarga_jobs WHERE customer_id = sarga_customers.id AND status != 'Cancelled') > 0";
             } else if (exportFilter === 'has_orders') {
                 filterWhere = "AND EXISTS (SELECT 1 FROM sarga_jobs WHERE customer_id = sarga_customers.id)";
             } else if (exportFilter === 'new') {
@@ -87,7 +87,7 @@ router.get('/customers', authenticateToken, authorizeRoles('Admin', 'Accountant'
             }
             const [rows] = await pool.query(`
                 SELECT id, mobile, name, type, email, gst, address, branch_id, client_type, internal_branch, created_at, updated_at,
-                       (SELECT COALESCE(SUM(GREATEST(total_amount - advance_paid, 0)), 0) FROM sarga_jobs WHERE customer_id = sarga_customers.id) AS outstanding_balance,
+                       (SELECT COALESCE(SUM(balance_amount), 0) FROM sarga_jobs WHERE customer_id = sarga_customers.id AND status != 'Cancelled') AS outstanding_balance,
                        (SELECT MAX(created_at) FROM sarga_jobs WHERE customer_id = sarga_customers.id) AS last_order_date
                 ${baseFrom} ${filterWhere}
                 ORDER BY (client_type = 'internal') DESC, name ASC
@@ -98,7 +98,7 @@ router.get('/customers', authenticateToken, authorizeRoles('Admin', 'Accountant'
         const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, params);
         const [rows] = await pool.query(`
             SELECT id, mobile, name, type, email, gst, address, branch_id, client_type, internal_branch, created_at, updated_at,
-                   (SELECT COALESCE(SUM(GREATEST(total_amount - advance_paid, 0)), 0) FROM sarga_jobs WHERE customer_id = sarga_customers.id) AS outstanding_balance,
+                   (SELECT COALESCE(SUM(balance_amount), 0) FROM sarga_jobs WHERE customer_id = sarga_customers.id AND status != 'Cancelled') AS outstanding_balance,
                    (SELECT MAX(created_at) FROM sarga_jobs WHERE customer_id = sarga_customers.id) AS last_order_date
             ${baseFrom}
             ORDER BY (client_type = 'internal') DESC, name ASC
@@ -227,7 +227,7 @@ router.get('/customers/:id/dashboard', authenticateToken, authorizeRoles('Admin'
 
         // 2. All jobs for this customer
         const [jobs] = await pool.query(`
-            SELECT j.id, j.job_number, j.job_name, j.total_amount, j.advance_paid, j.status, j.created_at, j.payment_id, b.name as branch_name
+            SELECT j.id, j.job_number, j.job_name, j.total_amount, j.advance_paid, j.balance_amount, j.status, j.created_at, j.payment_id, b.name as branch_name
             FROM sarga_jobs j
             LEFT JOIN sarga_branches b ON j.branch_id = b.id
             WHERE j.customer_id = ?
@@ -276,10 +276,8 @@ router.get('/customers/:id/dashboard', authenticateToken, authorizeRoles('Admin'
         const totalBilled = jobs.reduce((s, j) => s + Number(j.total_amount || 0), 0);
         const totalPaid = jobs.reduce((s, j) => s + Number(j.advance_paid || 0), 0);
         const outstandingBalance = jobs.reduce((s, j) => {
-            const total = Number(j.total_amount || 0);
-            const advance = Number(j.advance_paid || 0);
-            const bal = Math.max(total - advance, 0);
-            return s + (bal < 1 ? 0 : bal);
+            if (j.status === 'Cancelled') return s;
+            return s + (Number(j.balance_amount) || 0);
         }, 0);
         const lastPaymentDate = payments.length > 0 ? payments[0].payment_date : null;
 

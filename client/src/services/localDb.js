@@ -1142,6 +1142,7 @@ export async function createBill(billData, matterFiles = []) {
             customer_mobile: billData.customerMobile || billData.customer_mobile || null,
             total_amount: billData.totalAmount != null ? billData.totalAmount : (billData.total_amount != null ? billData.total_amount : 0),
             net_amount: billData.netAmount != null ? billData.netAmount : (billData.net_amount != null ? billData.net_amount : 0),
+            bill_amount: billData.bill_amount != null ? billData.bill_amount : (billData.billAmount != null ? billData.billAmount : (billData.total_amount != null ? billData.total_amount : 0)),
             sgst_amount: billData.sgstAmount != null ? billData.sgstAmount : (billData.sgst_amount != null ? billData.sgst_amount : 0),
             cgst_amount: billData.cgstAmount != null ? billData.cgstAmount : (billData.cgst_amount != null ? billData.cgst_amount : 0),
             discount_percent: billData.discountPercent || billData.discount_percent || null,
@@ -1443,7 +1444,7 @@ export async function createCustomer(customerData) {
 
     const existingServerId = customerData.serverId ?? existingMatch?.serverId ?? (!isTemporaryCustomerId(customerData.id) ? customerData.id : null) ?? (!isTemporaryCustomerId(existingMatch?.id) ? existingMatch?.id : null);
     const localId = existingMatch?.id ?? (customerData.id && isTemporaryCustomerId(customerData.id) ? customerData.id : generateLocalId('CUST'));
-    const record = {
+    let record = {
         ...existingMatch,
         ...customerData,
         id: localId,
@@ -1456,7 +1457,7 @@ export async function createCustomer(customerData) {
     await offlineDb.putRecord('customers', record);
     await removeDuplicateCustomerCopies(record.id, normalizedMobile, existingServerId);
 
-    tryServer(async () => {
+    await tryServer(async () => {
         const payload = {
             mobile: normalizedMobile,
             name: customerData.name,
@@ -1474,6 +1475,7 @@ export async function createCustomer(customerData) {
                 await offlineDb.delete('customers', record.id);
             }
             await removeDuplicateCustomerCopies(updatedRecord.id, normalizedMobile, existingServerId);
+            record = updatedRecord;
             return;
         }
 
@@ -1485,6 +1487,7 @@ export async function createCustomer(customerData) {
                 await offlineDb.delete('customers', record.id);
             }
             await removeDuplicateCustomerCopies(updatedRecord.id, normalizedMobile, res.data.id);
+            record = updatedRecord;
         }
     });
 

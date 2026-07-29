@@ -1,0 +1,93 @@
+- generic [ref=f9e2]:
+  - button "Keyboard Shortcuts" [ref=f9e8] [cursor=pointer]
+  - link "Skip to main content" [ref=f9e11] [cursor=pointer]:
+    - /url: "#main-content"
+  - button "Syncing" [ref=f9e12]
+  - main [ref=f9e16]:
+    - generic [ref=f9e17]:
+      - link "Skip to main content" [ref=f9e18] [cursor=pointer]:
+        - /url: "#main-content"
+      - navigation "Sidebar navigation" [ref=f9e19]:
+        - generic [ref=f9e20]:
+          - generic [ref=f9e21]:
+            - img "Sarga" [ref=f9e22]
+            - generic [ref=f9e23]: SARGA
+          - button "Collapse sidebar" [ref=f9e24] [cursor=pointer]
+        - navigation [ref=f9e27]:
+          - link "Front Office" [ref=f9e28] [cursor=pointer]:
+            - /url: /dashboard
+          - button "Sales" [ref=f9e34] [cursor=pointer]
+          - button "Inventory" [ref=f9e43] [cursor=pointer]
+          - button "Production" [ref=f9e53] [cursor=pointer]
+          - link "Internal Transfers" [ref=f9e60] [cursor=pointer]:
+            - /url: /dashboard/internal-transactions
+          - button "Accounts" [ref=f9e66] [cursor=pointer]
+          - button "Website" [ref=f9e75] [cursor=pointer]
+          - link "Staff Management" [ref=f9e83] [cursor=pointer]:
+            - /url: /dashboard/staff
+        - generic [ref=f9e91]:
+          - button "User profile" [ref=f9e92] [cursor=pointer]:
+            - img "Divya" [ref=f9e95]
+            - generic [ref=f9e96]:
+              - generic [ref=f9e97]: Divya
+              - generic [ref=f9e98]: Front Office
+          - button "Logout" [ref=f9e99] [cursor=pointer]
+      - main [ref=f9e104]:
+        - generic [ref=f9e105]:
+          - generic [ref=f9e106]:
+            - button "Toggle navigation menu" [ref=f9e107] [cursor=pointer]
+            - generic [ref=f9e109]: Dashboard
+          - button "Search" [ref=f9e113] [cursor=pointer]:
+            - generic [ref=f9e117]:
+              - text: Search...
+              - generic [ref=f9e118]: ⌘K
+          - generic [ref=f9e119]:
+            - generic "Branch is restricted for your role" [ref=f9e125]:
+              - generic [ref=f9e126]:
+                - text: "Branch:"
+                - strong [ref=f9e127]: MEPPAYUR
+            - button "0 notifications" [ref=f9e128] [cursor=pointer]
+            - button "Open profile panel" [ref=f9e131] [cursor=pointer]:
+              - img "Divya" [ref=f9e134]
+        - generic [ref=f9e135]:
+          - generic [ref=f9e136]: AI features temporarily unavailable
+          - generic [ref=f9e173]:
+            - button "Close" [ref=f9e174] [cursor=pointer]
+            - generic [ref=f9e185]:
+              - heading "Opening Setup" [level=2] [ref=f9e186]
+              - paragraph [ref=f9e187]: Branch • Wed, 29 Jul
+            - generic [ref=f9e188]:
+              - generic [ref=f9e189]:
+                - heading "Cash Opening" [level=3] [ref=f9e196]
+                - generic [ref=f9e197]:
+                  - generic [ref=f9e198]:
+                    - generic [ref=f9e199]: Offset
+                    - generic [ref=f9e202]:
+                      - generic [ref=f9e203]: ₹
+                      - textbox "0.00" [ref=f9e204]
+                    - generic [ref=f9e205]:
+                      - button "₹500" [ref=f9e206] [cursor=pointer]
+                      - button "₹1,000" [ref=f9e207] [cursor=pointer]
+                      - button "₹5,000" [ref=f9e208] [cursor=pointer]
+                  - generic [ref=f9e209]:
+                    - generic [ref=f9e210]: Laser
+                    - generic [ref=f9e213]:
+                      - generic [ref=f9e214]: ₹
+                      - textbox "0.00" [ref=f9e215]
+                    - generic [ref=f9e216]:
+                      - button "₹500" [ref=f9e217] [cursor=pointer]
+                      - button "₹1,000" [ref=f9e218] [cursor=pointer]
+                      - button "₹5,000" [ref=f9e219] [cursor=pointer]
+              - generic [ref=f9e220]:
+                - generic [ref=f9e221]:
+                  - generic [ref=f9e222]: ⚙
+                  - heading "Machine Readings" [level=3] [ref=f9e225]
+                - generic [ref=f9e226]:
+                  - generic [ref=f9e227]:
+                    - generic [ref=f9e228]: Konica Minolta 4065
+                    - generic [ref=f9e229]: "Prev: —"
+                    - textbox "Counter" [ref=f9e230]
+                  - generic [ref=f9e231]:
+                    - generic [ref=f9e232]: Konica Minolta bizhub C 558
+                    - generic [ref=f9e233]: "Prev: —"
+                    - textbox "Counter" [ref=f9e234]

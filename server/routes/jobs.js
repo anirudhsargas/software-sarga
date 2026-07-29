@@ -481,7 +481,7 @@ router.get('/jobs', authenticateToken, async (req, res) => {
             WHERE 1=1 ${where}`;
 
         const countQuery = `SELECT COUNT(*) as total ${baseFrom}`;
-        const [[{ total }]] = await pool.query(countQuery, params);
+        const [[{ total }]] = await pool.query(countQuery, [...myStatusParams, ...params]);
 
         const dataQuery = `
             SELECT ${JOB_LIST_COL_MINIMAL}, COALESCE(c.name, 'Walk-in') as customer_name, c.mobile as customer_mobile, c.type as customer_type, b.name as branch_name${isStaff ? ', jsa.status as my_assignment_status' : ''}

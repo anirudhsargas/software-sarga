@@ -322,10 +322,10 @@ const SimpleNavItem = React.memo(({ item, closeSidebar, pendingRequestsCount }) 
 const sidebarGroupDefs = [
     { key: 'main', label: null, icon: Grid },
     { key: 'sales', label: 'Sales', icon: TrendingUp },
+    { key: 'accounts', label: 'Accounts', icon: Receipt },
     { key: 'inventory', label: 'Inventory', icon: Package },
     { key: 'production', label: 'Production', icon: Zap },
     { key: 'branch-ops', label: 'Branch Operations', icon: Building2 },
-    { key: 'accounts', label: 'Accounts', icon: Receipt },
     { key: 'website', label: 'Website', icon: Globe },
     { key: 'admin', label: 'Administration', icon: ShieldAlert },
 ];

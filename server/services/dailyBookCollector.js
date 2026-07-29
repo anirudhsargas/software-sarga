@@ -51,7 +51,7 @@ async function fetchDailyBookData(startDateStr, endDateStr, branchId = null) {
     // Here we can fetch jobs/invoices with pending balances. For a daily summary, we can aggregate.
     // Simplifying: we'll aggregate total advance_paid vs total_amount from jobs created today
     const [jobs] = await pool.query(
-        `SELECT id, job_number, total_amount, advance_paid, payment_status, branch_id, created_at
+        `SELECT id, job_number, total_amount, advance_paid, balance_amount, payment_status, branch_id, created_at
          FROM sarga_jobs
          WHERE created_at BETWEEN ? AND ? ${branchFilter}`,
         params
@@ -147,7 +147,7 @@ async function fetchDailyBookData(startDateStr, endDateStr, branchId = null) {
         totalExpenses: expenses.reduce((sum, e) => sum + Number(e.amount), 0),
         totalPaymentsReceived: cashIn + upiIn,
         totalPurchases: purchases.reduce((sum, p) => sum + Number(p.total_amount), 0),
-        outstandingJobs: jobs.reduce((sum, j) => sum + (Number(j.total_amount) - Number(j.advance_paid)), 0),
+        outstandingJobs: jobs.reduce((sum, j) => sum + Number(j.balance_amount || 0), 0),
         refundsTotal: refunds.reduce((sum, r) => sum + Number(r.amount), 0),
         shortcutBillingTotal: shortcutBilling.reduce((sum, s) => sum + Number(s.total_amount), 0)
     };

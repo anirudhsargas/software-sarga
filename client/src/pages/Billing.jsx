@@ -338,6 +338,36 @@ const Billing = () => {
     }).catch(() => {});
   }, []);
 
+  // Re-associate _product when hierarchy or orderLines load
+  useEffect(() => {
+    if (!hierarchy || hierarchy.length === 0 || orderLines.length === 0) return;
+    let updated = false;
+    const nextLines = orderLines.map(line => {
+      if (line._product) return line;
+      let foundProd = null;
+      for (const cat of hierarchy) {
+        for (const sub of cat.subcategories || []) {
+          for (const prod of sub.products || []) {
+            if (prod.id === line.product_id) {
+              foundProd = prod;
+              break;
+            }
+          }
+          if (foundProd) break;
+        }
+        if (foundProd) break;
+      }
+      if (foundProd) {
+        updated = true;
+        return { ...line, _product: foundProd };
+      }
+      return line;
+    });
+    if (updated) {
+      setOrderLines(nextLines);
+    }
+  }, [hierarchy, orderLines]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Restore draft from localStorage on mount (before prefill effects so they can override) ──
   useEffect(() => {
     try {
@@ -638,17 +668,26 @@ const Billing = () => {
     setOrderLines(prev => prev.map(l => {
       if (l.id !== id) return l;
       const updated = { ...l, [field]: value };
-      if (field === 'quantity') {
-        const newQty = Math.max(1, Number(value) || 1);
-        updated.quantity = newQty;
-        const calcType = l._product?.calculation_type || l.calculation_type;
+      
+      const calcType = l._product?.calculation_type || l.calculation_type;
+      
+      if (field === 'quantity' || field === 'customPaperRate' || field === 'is_double_side') {
+        const newQty = field === 'quantity' ? Math.max(1, Number(value) || 1) : (Number(l.quantity) || 1);
+        if (field === 'quantity') updated.quantity = newQty;
+        
+        const paperRate = field === 'customPaperRate' ? (Number(value) || 0) : (Number(l.customPaperRate) || 0);
+        if (field === 'customPaperRate') updated.customPaperRate = paperRate;
+        
+        const doubleSide = field === 'is_double_side' ? !!value : !!l.is_double_side;
+        if (field === 'is_double_side') updated.is_double_side = doubleSide;
+
         if (l._product && (calcType === 'Slab' || calcType === 'Range')) {
           const priceResult = calculateProductPrice({
             product: l._product,
             quantity: newQty,
             extras: l.applied_extras || [],
-            currentPaperRate: l.customPaperRate || 0,
-            isDoubleSide: l.is_double_side || false,
+            currentPaperRate: paperRate,
+            isDoubleSide: doubleSide,
           });
           if (priceResult) {
             updated.unit_price = priceResult.unit_price;
@@ -676,8 +715,15 @@ const Billing = () => {
     }
 
     const derivedBookType = bookTypeFromCategory(catName);
+    const defaultPaperRate = product.has_paper_rate ? (Number(product.paper_rate) || 0) : 0;
 
-    const priceResult = calculateProductPrice({ product, quantity, extras });
+    const priceResult = calculateProductPrice({
+      product,
+      quantity,
+      extras,
+      currentPaperRate: defaultPaperRate,
+      isDoubleSide: false
+    });
     const unitPrice = priceResult ? priceResult.unit_price : resolveProductUnitPrice(product, quantity);
     const totalAmount = priceResult ? priceResult.total_amount : quantity * unitPrice;
 
@@ -691,7 +737,7 @@ const Billing = () => {
       total_amount: totalAmount,
       calculation_type: product.calculation_type || 'Normal',
       applied_extras: extras,
-      customPaperRate: 0,
+      customPaperRate: defaultPaperRate,
       is_double_side: false,
       description: '',
       category: catId || '',
@@ -846,6 +892,7 @@ const Billing = () => {
         customer_name: form.name.trim() || 'Walk-in Customer',
         customer_mobile: form.mobile || null,
         customer_type: isWalkIn ? 'Walk-in' : (form.type || 'Retail'),
+        bill_amount: totals.subtotal,
         total_amount: totals.gross,
         net_amount: totals.gross,
         sgst_amount: 0,
@@ -1686,7 +1733,81 @@ const Billing = () => {
                       <td>
                         <div className="billing-product-cell">
                           <div className="billing-product-cell__name">{line.product_name}</div>
-                          {line.book_type && <span className="badge badge--sm">{line.book_type}</span>}
+                          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center', marginTop: '4px' }}>
+                            {line.book_type && <span className="badge badge--sm">{line.book_type}</span>}
+                            {line._product?.has_paper_rate ? (
+                              <span className="badge badge--sm" style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.2)' }}>
+                                Paper Rate: ₹{line.customPaperRate}
+                              </span>
+                            ) : null}
+                            {line.is_double_side ? (
+                              <span className="badge badge--sm" style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                                Double Side
+                              </span>
+                            ) : null}
+                            {line.machine_id ? (
+                              <span className="badge badge--sm" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                                {_machines.find(m => m.id === line.machine_id)?.machine_name || 'Machine'}
+                              </span>
+                            ) : null}
+                          </div>
+                          
+                          {/* Inline options for custom paper rate and double side */}
+                          {(line._product?.has_paper_rate || line._product?.has_double_side_rate) && (
+                            <div className="row gap-sm items-center mt-8" style={{ background: 'var(--surface-2, rgba(255,255,255,0.03))', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--border)', maxWidth: 'fit-content' }}>
+                              {line._product?.has_paper_rate && (
+                                <div className="row items-center gap-xxs">
+                                  <span style={{ fontSize: '11px', color: 'var(--text-muted, #aaa)' }}>Paper Rate:</span>
+                                  <input
+                                    type="number"
+                                    value={line.customPaperRate}
+                                    step="0.01"
+                                    min="0"
+                                    onChange={(e) => updateLine(line.id, 'customPaperRate', Number(e.target.value) || 0)}
+                                    className="billing-input-sm"
+                                    style={{ width: '60px', padding: '2px 4px', fontSize: '11px', height: '22px', border: '1px solid var(--border)', borderRadius: '4px' }}
+                                    aria-label="Custom paper rate"
+                                  />
+                                </div>
+                              )}
+                              {line._product?.has_double_side_rate && (
+                                <div className="row items-center gap-xxs" style={{ marginLeft: line._product?.has_paper_rate ? '8px' : '0' }}>
+                                  <label style={{ fontSize: '11px', color: 'var(--text-muted, #aaa)', display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer', margin: 0 }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={!!line.is_double_side}
+                                      onChange={(e) => updateLine(line.id, 'is_double_side', e.target.checked)}
+                                      style={{ cursor: 'pointer', width: '13px', height: '13px' }}
+                                    />
+                                    Double Side
+                                  </label>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Machine selection for Laser / Photocopy category */}
+                          {line.book_type === 'Laser' && (
+                            <div className="row items-center gap-xxs mt-8" style={{ background: 'var(--surface-2, rgba(255,255,255,0.03))', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--border)', maxWidth: 'fit-content' }}>
+                              <span style={{ fontSize: '11px', color: 'var(--text-muted, #aaa)', marginRight: '4px' }}>Machine:</span>
+                              <select
+                                value={line.machine_id || ''}
+                                onChange={(e) => updateLine(line.id, 'machine_id', e.target.value ? Number(e.target.value) : null)}
+                                className="billing-input-sm"
+                                style={{ padding: '2px 4px', fontSize: '11px', height: '22px', border: '1px solid var(--border)', borderRadius: '4px', background: 'var(--bg)', cursor: 'pointer', outline: 'none' }}
+                                aria-label="Select photocopy machine"
+                              >
+                                <option value="">-- Select Machine --</option>
+                                {_machines
+                                  .filter((m) => m.is_active && (m.book_type === 'Laser' || m.machine_type === 'Digital'))
+                                  .map((m) => (
+                                    <option key={m.id} value={m.id}>
+                                      {m.machine_name}
+                                    </option>
+                                  ))}
+                              </select>
+                            </div>
+                          )}
                         </div>
                       </td>
                       <td>
@@ -2008,6 +2129,40 @@ const Billing = () => {
                   <input type="text" placeholder="e.g. Art Card, Maplitho" value={line.paper_preference || ''}
                     onChange={e => updateLine(line.id, 'paper_preference', e.target.value)} />
                 </div>
+                {line._product?.has_paper_rate && (
+                  <div className="billing-summary-details__field">
+                    <label>Paper Rate (Add-on)</label>
+                    <input type="number" step="0.01" min="0" value={line.customPaperRate}
+                      onChange={e => updateLine(line.id, 'customPaperRate', Number(e.target.value) || 0)} />
+                  </div>
+                )}
+                {line._product?.has_double_side_rate && (
+                  <div className="billing-summary-details__field" style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingTop: '12px' }}>
+                    <input type="checkbox" id={`ds-${line.id}`} checked={!!line.is_double_side}
+                      onChange={e => updateLine(line.id, 'is_double_side', e.target.checked)} style={{ cursor: 'pointer', width: '16px', height: '16px' }} />
+                    <label htmlFor={`ds-${line.id}`} style={{ cursor: 'pointer', margin: 0, fontSize: '0.8rem' }}>Double Side</label>
+                  </div>
+                )}
+                {line.book_type === 'Laser' && (
+                  <div className="billing-summary-details__field">
+                    <label>Machine (for count)</label>
+                    <select
+                      value={line.machine_id || ''}
+                      onChange={e => updateLine(line.id, 'machine_id', e.target.value ? Number(e.target.value) : null)}
+                      style={{ cursor: 'pointer', padding: '4px 8px', fontSize: '0.8rem', height: '32px', width: '100%', border: '1px solid var(--border)', borderRadius: '6px', background: 'var(--bg)', outline: 'none' }}
+                      aria-label="Select machine for count"
+                    >
+                      <option value="">-- Select Machine --</option>
+                      {_machines
+                        .filter((m) => m.is_active && (m.book_type === 'Laser' || m.machine_type === 'Digital'))
+                        .map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.machine_name}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                )}
                 <div className="billing-summary-details__field">
                   <label>Numbering From</label>
                   <input type="text" inputMode="numeric" placeholder="From" value={line.numbering_from || ''}

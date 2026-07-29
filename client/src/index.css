@@ -174,7 +174,7 @@ body[data-theme="light"] {
   --surface-hover: #f0f0f0;
   --surface-blur: rgba(255, 255, 255, 0.75);
   --card-bg: var(--card);
-  --glass-bg: rgba(10, 10, 10, 0.8);
+  --glass-bg: rgba(255, 255, 255, 0.85);
 
   --text: var(--text-secondary);
   --text-rgb: 64, 64, 64;
