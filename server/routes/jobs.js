@@ -425,8 +425,6 @@ router.get('/jobs', authenticateToken, async (req, res) => {
                 where += ' AND j.branch_id = ?';
                 params.push(branchId || req.user.branch_id);
             }
-        }
-
             // Tabs / Filters
             if (tab === 'active') {
                 where += " AND j.status NOT IN ('Delivered', 'Completed', 'Cancelled')";
