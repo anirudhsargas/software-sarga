@@ -39,6 +39,7 @@ const StockTransfer = () => {
     const [quantity, setQuantity] = useState('');
     const [notes, setNotes] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
+    const [isFocused, setIsFocused] = useState(false);
 
     // Availability data
     const [branchStockMap, setBranchStockMap] = useState({});
@@ -104,7 +105,7 @@ const StockTransfer = () => {
     }
 
     const filteredInventory = useMemo(() => {
-        if (!searchQuery) return [];
+        if (!searchQuery) return inventory.slice(0, 10);
         return inventory.filter(item => 
             item.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
             (item.sku && item.sku.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -290,26 +291,28 @@ const StockTransfer = () => {
                                     placeholder="Search by name or SKU..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
+                                    onFocus={() => setIsFocused(true)}
+                                    onBlur={() => setTimeout(() => setIsFocused(false), 200)}
                                 />
                                 <Search size={20} className="search-input-icon" />
-                            </div>
 
-                            {searchQuery && !selectedItem && (
-                                <div className="panel stack-xs panel--dropdown">
-                                    {filteredInventory.length === 0 ? (
-                                        <div className="empty-state">No items found</div>
-                                    ) : filteredInventory.map(item => (
-                                        <div role="button" tabIndex={0} key={item.id} 
-                                            className="dropdown-item"
-                                            onClick={() => { setSelectedItem(item); setSearchQuery(item.name); }}
-                                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedItem(item); setSearchQuery(item.name); } }}
-                                        >
-                                            <div className="dropdown-item__name">{item.name}</div>
-                                            <div className="dropdown-item__meta">SKU: {item.sku || 'N/A'} • Global: {item.quantity} {item.unit}</div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                                {(isFocused || searchQuery) && !selectedItem && (
+                                    <div className="panel stack-xs panel--dropdown" style={{ position: 'absolute', width: '100%', zIndex: 100, marginTop: '4px', top: '100%', left: 0 }}>
+                                        {filteredInventory.length === 0 ? (
+                                            <div className="empty-state">No items found</div>
+                                        ) : filteredInventory.map(item => (
+                                            <div role="button" tabIndex={0} key={item.id} 
+                                                className="dropdown-item"
+                                                onClick={() => { setSelectedItem(item); setSearchQuery(item.name); setIsFocused(false); }}
+                                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedItem(item); setSearchQuery(item.name); setIsFocused(false); } }}
+                                            >
+                                                <div className="dropdown-item__name">{item.name}</div>
+                                                <div className="dropdown-item__meta">SKU: {item.sku || 'N/A'} • Global: {item.quantity} {item.unit}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
 
                             {selectedItem && (
                                 <div className="stack-md fade-in">
