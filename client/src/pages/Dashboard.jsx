@@ -5,7 +5,7 @@ import { Routes, Route, NavLink, useNavigate, Navigate, useParams, useLocation }
 import {
     Users, ClipboardList, Box, ShieldAlert, Shield, Receipt, LogOut, Grid, UserSquare, Building2, ChevronLeft, ChevronRight, Settings, BookOpen, Loader2, Store, BarChart3,
     Brain, Search, FileCheck, Layers, Zap, TrendingUp, Camera, X, Sparkles, ScanLine, Package, Tag, Clock, FileText, MessageSquare, Star, Upload,
-    Image, Calendar, Truck, Globe, Layout, Menu, Database, Award, Lock, Monitor, Sun, Moon
+    Image, Calendar, Truck, Globe, Layout, Menu, Database, Award, Lock, Monitor, Sun, Moon, Calculator
 } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 import api, {} from '../services/api';
