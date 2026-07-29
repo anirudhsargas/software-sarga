@@ -93,7 +93,20 @@ router.post('/types', authenticateToken, authorizeRoles('Admin', 'Accountant', '
             INSERT INTO paper_types (category, size_name, width_mm, height_mm, gsm, brand)
             VALUES (?, ?, ?, ?, ?, ?)
         `, [category, size_name, width_mm, height_mm, gsm, brand]);
-        res.status(201).json({ id: result.insertId, message: 'Paper type added successfully' });
+        const newPaperTypeId = result.insertId;
+
+        // Auto-initialize paper_stock_summary with 0 current_sheets for all active branches
+        try {
+            const [branches] = await pool.query('SELECT id FROM branches WHERE is_active = 1 UNION SELECT id FROM sarga_branches WHERE is_active = 1');
+            if (branches.length > 0) {
+                const values = branches.map(b => [newPaperTypeId, b.id, 0, 0]);
+                await pool.query('INSERT IGNORE INTO paper_stock_summary (paper_type_id, branch_id, current_sheets, reorder_level) VALUES ?', [values]);
+            }
+        } catch (initErr) {
+            console.error('Failed to auto-init paper_stock_summary for branches:', initErr);
+        }
+
+        res.status(201).json({ id: newPaperTypeId, message: 'Paper type added successfully' });
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
@@ -102,28 +115,36 @@ router.post('/types', authenticateToken, authorizeRoles('Admin', 'Accountant', '
 // 3. GET /stock - Get current stock summary
 router.get('/stock', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
-        const { branch_id, category } = req.query;
+        const { branch_id, category, search } = req.query;
         let query = `
-            SELECT s.*, t.category, t.size_name, t.width_mm, t.height_mm, t.gsm, t.brand,
-                   t.current_rate_id, rh.rate as current_rate, rh.unit_type as current_rate_unit,
-                   COALESCE(sb.name, b.name) as branch_name
-                FROM paper_stock_summary s
-                JOIN paper_types t ON s.paper_type_id = t.id
-                LEFT JOIN paper_rate_history rh ON t.current_rate_id = rh.id
-                LEFT JOIN branches b ON s.branch_id = b.id
-                LEFT JOIN sarga_branches sb ON s.branch_id = sb.id
-                WHERE 1=1
+            SELECT 
+                t.id as paper_type_id,
+                COALESCE(s.branch_id, ?) as branch_id,
+                COALESCE(s.current_sheets, 0) as current_sheets,
+                COALESCE(s.reorder_level, 0) as reorder_level,
+                t.category, t.size_name, t.width_mm, t.height_mm, t.gsm, t.brand,
+                t.current_rate_id, rh.rate as current_rate, rh.unit_type as current_rate_unit,
+                COALESCE(sb.name, b.name, 'Main Branch') as branch_name
+            FROM paper_types t
+            LEFT JOIN paper_stock_summary s ON s.paper_type_id = t.id ${branch_id ? 'AND s.branch_id = ?' : ''}
+            LEFT JOIN paper_rate_history rh ON t.current_rate_id = rh.id
+            LEFT JOIN branches b ON s.branch_id = b.id
+            LEFT JOIN sarga_branches sb ON s.branch_id = sb.id
+            WHERE t.is_active = 1
         `;
-        const params = [];
+        const params = [branch_id || 1];
+        if (branch_id) params.push(branch_id);
 
-        if (branch_id) {
-            query += ' AND s.branch_id = ?';
-            params.push(branch_id);
-        }
         if (category) {
             query += ' AND t.category = ?';
             params.push(category);
         }
+        if (search) {
+            query += ' AND (t.size_name LIKE ? OR t.brand LIKE ?)';
+            params.push(`%${search}%`, `%${search}%`);
+        }
+
+        query += ' ORDER BY t.category, t.size_name, t.gsm';
 
         const [rows] = await pool.query(query, params);
         res.json(rows);

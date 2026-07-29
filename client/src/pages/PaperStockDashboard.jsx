@@ -38,6 +38,11 @@ const PaperStockDashboard = () => {
     const [showAddRateModal, setShowAddRateModal] = useState(false);
     const [newRate, setNewRate] = useState({ rate: '', effective_date: new Date().toISOString().split('T')[0], unit_type: 'Reams', supplier_name: '', notes: '' });
 
+    // Add paper type modal
+    const [showAddPaperModal, setShowAddPaperModal] = useState(false);
+    const [newPaper, setNewPaper] = useState({ category: 'OFFSET', size_name: '', width_mm: '', height_mm: '', gsm: '', brand: '' });
+    const [addingPaper, setAddingPaper] = useState(false);
+
     useEffect(() => {
         let isMounted = true;
         const fetchTabCounts = async () => {
@@ -117,6 +122,29 @@ const PaperStockDashboard = () => {
             setRateHistory(ratesRes.data || []);
         } catch (err) {
             toast.error(err.response?.data?.message || 'Failed to add rate');
+        }
+    };
+
+    const handleAddPaper = async (e) => {
+        e.preventDefault();
+        setAddingPaper(true);
+        try {
+            await api.post('/paperInventory/types', {
+                category: newPaper.category,
+                size_name: newPaper.size_name,
+                width_mm: Number(newPaper.width_mm) || null,
+                height_mm: Number(newPaper.height_mm) || null,
+                gsm: Number(newPaper.gsm) || null,
+                brand: newPaper.brand || null
+            });
+            toast.success('Paper type added successfully');
+            setShowAddPaperModal(false);
+            setNewPaper({ category: 'OFFSET', size_name: '', width_mm: '', height_mm: '', gsm: '', brand: '' });
+            fetchStock();
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Failed to add paper type');
+        } finally {
+            setAddingPaper(false);
         }
     };
 
@@ -234,9 +262,14 @@ const PaperStockDashboard = () => {
                             </button>
                         )}
                     </div>
-                    <button className="btn btn-primary" onClick={() => navigate('/dashboard/paper/inward')}>
-                        <Plus size={18} /> Inward Stock
-                    </button>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                        <button className="btn btn-secondary" onClick={() => setShowAddPaperModal(true)}>
+                            <Plus size={16} /> Add Paper Type
+                        </button>
+                        <button className="btn btn-primary" onClick={() => navigate('/dashboard/paper/inward')}>
+                            <Plus size={18} /> Inward Stock
+                        </button>
+                    </div>
                 </div>
 
                 <div className="inv-toolbar-row justify-between wrap gap-sm">
@@ -313,16 +346,19 @@ const PaperStockDashboard = () => {
                                     </tr>
                                 ) : (
                                     stock.map(item => {
-                                        const isLow = Number(item.current_sheets) < Number(item.reorder_level);
+                                        const currentSheets = Number(item.current_sheets || 0);
+                                        const reorderLevel = Number(item.reorder_level || 0);
+                                        const isZero = currentSheets === 0;
+                                        const isLow = !isZero && reorderLevel > 0 && currentSheets < reorderLevel;
                                         let unitEquivalent = '-';
                                         if (item.category === 'LASER') {
-                                            const reams = Math.floor(item.current_sheets / 500);
-                                            const extra = item.current_sheets % 500;
+                                            const reams = Math.floor(currentSheets / 500);
+                                            const extra = currentSheets % 500;
                                             unitEquivalent = `${reams} Reams ${extra > 0 ? `+ ${extra} Sh` : ''}`;
                                         }
 
                                         return (
-                                            <tr key={`${item.paper_type_id}-${item.branch_id}`} onClick={() => handleOpenDetail(item)} style={{ cursor: 'pointer' }}>
+                                            <tr key={`${item.paper_type_id}-${item.branch_id || 0}`} onClick={() => handleOpenDetail(item)} style={{ cursor: 'pointer' }}>
                                                 <td>
                                                     <div className="font-bold">{item.size_name}</div>
                                                     <div className="text-xs muted">{item.gsm ? `${item.gsm} GSM` : ''} {item.brand ? `• ${item.brand}` : ''}</div>
@@ -330,7 +366,7 @@ const PaperStockDashboard = () => {
                                                 <td>
                                                     <div className="row items-center gap-xs">
                                                         <MapPin size={14} className="muted" />
-                                                        {item.branch_name}
+                                                        {item.branch_name || 'Main Branch'}
                                                     </div>
                                                 </td>
                                                 <td>
@@ -339,14 +375,14 @@ const PaperStockDashboard = () => {
                                                     </span>
                                                 </td>
                                                 <td>
-                                                    <div style={{ fontSize: '14px', fontWeight: 700, color: isLow ? 'var(--error)' : 'inherit' }}>
-                                                        {Number(item.current_sheets).toLocaleString()} <span className="text-xs font-normal muted">Sheets</span>
+                                                    <div style={{ fontSize: '14px', fontWeight: 700, color: isZero ? 'var(--text-muted)' : (isLow ? 'var(--error)' : 'inherit') }}>
+                                                        {currentSheets.toLocaleString()} <span className="text-xs font-normal muted">Sheets</span>
                                                     </div>
                                                 </td>
                                                 <td className="muted text-sm">{unitEquivalent}</td>
                                                 <td>
-                                                    <span className={`inv-pill ${isLow ? 'inv-pill--low' : 'inv-pill--ok'}`}>
-                                                        {isLow ? 'Low Stock' : 'Good'}
+                                                    <span className={`inv-pill ${isZero ? 'inv-pill--low' : (isLow ? 'inv-pill--low' : 'inv-pill--ok')}`} style={{ opacity: isZero ? 0.7 : 1 }}>
+                                                        {isZero ? 'No Stock' : (isLow ? 'Low Stock' : 'Good')}
                                                     </span>
                                                 </td>
                                                 <td style={{ textAlign: 'right' }}>
@@ -528,6 +564,93 @@ const PaperStockDashboard = () => {
                                 <button type="button" className="btn btn-primary" onClick={handleAddRate}>Save Rate</button>
                             </div>
                         </div>
+                    </div>
+                </div>
+            )}
+            {/* Add Paper Type Modal */}
+            {showAddPaperModal && (
+                <div className="modal-backdrop">
+                    <div className="modal" style={{ maxWidth: '480px' }}>
+                        <div className="modal-header">
+                            <h2 className="section-title">Add Paper Type</h2>
+                            <button className="modal-close" onClick={() => setShowAddPaperModal(false)}><X size={20} /></button>
+                        </div>
+                        <form onSubmit={handleAddPaper} className="stack-md" style={{ padding: 16 }}>
+                            <div>
+                                <label className="label">Category *</label>
+                                <select
+                                    className="input-field"
+                                    value={newPaper.category}
+                                    onChange={e => setNewPaper({ ...newPaper, category: e.target.value })}
+                                >
+                                    <option value="OFFSET">OFFSET</option>
+                                    <option value="LASER">LASER</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="label">Size / Name *</label>
+                                <input
+                                    className="input-field"
+                                    required
+                                    placeholder="e.g. A4, A3, 12x18, 23x36, Royal"
+                                    value={newPaper.size_name}
+                                    onChange={e => setNewPaper({ ...newPaper, size_name: e.target.value })}
+                                />
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                <div>
+                                    <label className="label">Width (mm)</label>
+                                    <input
+                                        type="number"
+                                        className="input-field"
+                                        placeholder="e.g. 210"
+                                        value={newPaper.width_mm}
+                                        onChange={e => setNewPaper({ ...newPaper, width_mm: e.target.value })}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="label">Height (mm)</label>
+                                    <input
+                                        type="number"
+                                        className="input-field"
+                                        placeholder="e.g. 297"
+                                        value={newPaper.height_mm}
+                                        onChange={e => setNewPaper({ ...newPaper, height_mm: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                <div>
+                                    <label className="label">GSM</label>
+                                    <input
+                                        type="number"
+                                        className="input-field"
+                                        placeholder="e.g. 300, 130, 80"
+                                        value={newPaper.gsm}
+                                        onChange={e => setNewPaper({ ...newPaper, gsm: e.target.value })}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="label">Brand / Mill</label>
+                                    <input
+                                        className="input-field"
+                                        placeholder="e.g. Century, BILT"
+                                        value={newPaper.brand}
+                                        onChange={e => setNewPaper({ ...newPaper, brand: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="row justify-end gap-sm" style={{ marginTop: 12 }}>
+                                <button type="button" className="btn btn-ghost" onClick={() => setShowAddPaperModal(false)} disabled={addingPaper}>Cancel</button>
+                                <button type="submit" className="btn btn-primary" disabled={addingPaper}>
+                                    {addingPaper ? 'Adding...' : 'Add Paper Type'}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}
