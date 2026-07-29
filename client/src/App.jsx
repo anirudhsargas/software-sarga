@@ -158,13 +158,13 @@ const ConnectingScreen = () => (
 class RouteErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, error: null };
   }
-  static getDerivedStateFromError() {
-    return { hasError: true };
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
   }
   handleRetry = () => {
-    this.setState({ hasError: false });
+    this.setState({ hasError: false, error: null });
     window.location.reload();
   };
   render() {
@@ -178,6 +178,16 @@ class RouteErrorBoundary extends React.Component {
           <p style={{ margin: 0, fontSize: 14, color: 'var(--muted, #6c757d)' }}>
             A new version may have been deployed. Please reload.
           </p>
+          {this.state.error && (
+            <pre style={{
+              textAlign: 'left', background: '#f8d7da', color: '#721c24', padding: '16px',
+              borderRadius: '4px', maxWidth: '600px', overflowX: 'auto', fontSize: '12px',
+              fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all',
+              marginTop: '10px', border: '1px solid #f5c6cb'
+            }}>
+              {this.state.error.stack || this.state.error.toString()}
+            </pre>
+          )}
           <button onClick={this.handleRetry} className="btn btn-primary">
             Reload
           </button>
