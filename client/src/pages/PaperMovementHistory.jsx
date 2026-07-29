@@ -19,6 +19,7 @@ const PaperMovementHistory = () => {
     const [branches, setBranches] = useState([]);
     const [filters, setFilters] = useState({
         branch_id: '',
+        category: '',
         movement_type: '',
         limit: 50,
         offset: 0
@@ -84,6 +85,16 @@ const PaperMovementHistory = () => {
                         <option value="">All Branches</option>
                         {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                     </BranchSelect>
+                    <select 
+                        className="input-field" 
+                        style={{ width: 160 }}
+                        value={filters.category}
+                        onChange={(e) => setFilters({...filters, category: e.target.value})}
+                    >
+                        <option value="">All Categories</option>
+                        <option value="LASER">Laser</option>
+                        <option value="OFFSET">Offset</option>
+                    </select>
                     <select 
                         className="input-field" 
                         style={{ width: 160 }}

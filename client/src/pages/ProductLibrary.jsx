@@ -1726,8 +1726,8 @@ const ProductLibrary = () => {
                                                     {pt.category} {pt.gsm ? `• ${pt.gsm} GSM` : ''} {pt.brand ? `• ${pt.brand}` : ''}
                                                 </div>
                                             </div>
-                                            <span className={`badge badge--sm ${pt.category === 'LASER' ? 'badge--info' : 'badge--warning'}`}>
-                                                {pt.category}
+                                            <span className={`badge badge--sm ${pt.category === 'LASER' ? 'badge--info' : (pt.category === 'BOTH' ? 'badge--success' : 'badge--warning')}`}>
+                                                {pt.category === 'BOTH' ? 'LASER & OFFSET' : pt.category}
                                             </span>
                                         </div>
                                         {pt.width_mm && pt.height_mm && (
@@ -1793,6 +1793,7 @@ const ProductLibrary = () => {
                                         >
                                             <option value="OFFSET">Offset</option>
                                             <option value="LASER">Laser</option>
+                                            <option value="BOTH">Both (Laser & Offset)</option>
                                         </select>
                                     </div>
                                     <div>

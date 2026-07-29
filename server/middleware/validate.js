@@ -160,7 +160,7 @@ const paperInventorySchema = z.object({
 
 // New Paper Inventory Module Schemas
 const addPaperTypeSchema = z.object({
-    category: z.enum(['LASER', 'OFFSET']),
+    category: z.enum(['LASER', 'OFFSET', 'BOTH']),
     size_name: requiredString('Size name'),
     width_mm: positiveDecimal,
     height_mm: positiveDecimal,

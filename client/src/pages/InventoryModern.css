@@ -339,7 +339,7 @@
 .inv-table-scroll {
   overflow-x: auto;
   overflow-y: auto;
-  max-height: calc(100vh - 380px);
+  max-height: calc(100vh - 250px);
 }
 
 .inv-table {

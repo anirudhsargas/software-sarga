@@ -291,6 +291,7 @@ const PaperStockDashboard = () => {
                                 <option value="">All Categories</option>
                                 <option value="LASER">Laser</option>
                                 <option value="OFFSET">Offset</option>
+                                <option value="BOTH">Laser & Offset (Both)</option>
                             </select>
                         </div>
                         {(filters.branch_id || filters.category || filters.search) && (
@@ -351,7 +352,7 @@ const PaperStockDashboard = () => {
                                         const isZero = currentSheets === 0;
                                         const isLow = !isZero && reorderLevel > 0 && currentSheets < reorderLevel;
                                         let unitEquivalent = '-';
-                                        if (item.category === 'LASER') {
+                                        if (item.category === 'LASER' || item.category === 'BOTH') {
                                             const reams = Math.floor(currentSheets / 500);
                                             const extra = currentSheets % 500;
                                             unitEquivalent = `${reams} Reams ${extra > 0 ? `+ ${extra} Sh` : ''}`;
@@ -370,8 +371,8 @@ const PaperStockDashboard = () => {
                                                     </div>
                                                 </td>
                                                 <td>
-                                                    <span className={`inv-pill ${item.category === 'LASER' ? 'inv-pill--ok' : 'inv-pill--low'}`} style={{ textTransform: 'uppercase' }}>
-                                                        {item.category}
+                                                    <span className={`inv-pill ${item.category === 'LASER' ? 'inv-pill--ok' : (item.category === 'BOTH' ? 'inv-pill--info' : 'inv-pill--low')}`} style={{ textTransform: 'uppercase' }}>
+                                                        {item.category === 'BOTH' ? 'LASER & OFFSET' : item.category}
                                                     </span>
                                                 </td>
                                                 <td>
@@ -585,6 +586,7 @@ const PaperStockDashboard = () => {
                                 >
                                     <option value="OFFSET">OFFSET</option>
                                     <option value="LASER">LASER</option>
+                                    <option value="BOTH">BOTH (LASER & OFFSET)</option>
                                 </select>
                             </div>
 

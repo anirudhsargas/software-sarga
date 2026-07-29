@@ -69,7 +69,7 @@ router.get('/types', authenticateToken, authorizeRoles('Admin', 'Accountant', 'F
         const params = [];
 
         if (category) {
-            query += ' AND t.category = ?';
+            query += ' AND (t.category = ? OR t.category = \'BOTH\')';
             params.push(category);
         }
         if (search) {
@@ -136,7 +136,7 @@ router.get('/stock', authenticateToken, authorizeRoles('Admin', 'Accountant', 'F
         if (branch_id) params.push(branch_id);
 
         if (category) {
-            query += ' AND t.category = ?';
+            query += ' AND (t.category = ? OR t.category = \'BOTH\')';
             params.push(category);
         }
         if (search) {
@@ -327,7 +327,7 @@ router.post('/transfer', authenticateToken, authorizeRoles('Admin', 'Accountant'
 // 7. GET /movements - History of stock movements
 router.get('/movements', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
-        const { paper_type_id, branch_id, movement_type, limit = 50, offset = 0 } = req.query;
+        const { paper_type_id, branch_id, category, movement_type, limit = 50, offset = 0 } = req.query;
         let query = `
             SELECT m.*, t.size_name, t.gsm, t.category, COALESCE(sb.name, b.name) as branch_name, s.name as staff_name, j.job_number
             FROM paper_stock_movements m
@@ -347,6 +347,10 @@ router.get('/movements', authenticateToken, authorizeRoles('Admin', 'Accountant'
         if (branch_id) {
             query += ' AND m.branch_id = ?';
             params.push(branch_id);
+        }
+        if (category) {
+            query += ' AND t.category = ?';
+            params.push(category);
         }
         if (movement_type) {
             query += ' AND m.movement_type = ?';

@@ -20,6 +20,7 @@ const PaperOutward = () => {
     const [branches, setBranches] = useState([]);
     const [jobs, setJobs] = useState([]);
     const [stockSummary, setStockSummary] = useState([]);
+    const [categoryFilter, setCategoryFilter] = useState('');
     
     const [formData, setFormData] = useState({
         paper_type_id: location.state?.paper_type_id || '',
@@ -108,7 +109,19 @@ const PaperOutward = () => {
 
                     <div className="grid grid--2 gap-md">
                         <div className="span-2">
-                            <label className="label">Select Paper Type *</label>
+                            <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                                <label className="label" style={{ flex: 1 }}>Select Paper Type *</label>
+                                <select
+                                    className="input-field"
+                                    style={{ width: 140 }}
+                                    value={categoryFilter}
+                                    onChange={(e) => { setCategoryFilter(e.target.value); setFormData({...formData, paper_type_id: ''}); }}
+                                >
+                                    <option value="">All Categories</option>
+                                    <option value="LASER">Laser</option>
+                                    <option value="OFFSET">Offset</option>
+                                </select>
+                            </div>
                             <select 
                                 className="input-field" 
                                 required
@@ -116,7 +129,9 @@ const PaperOutward = () => {
                                 onChange={(e) => setFormData({...formData, paper_type_id: e.target.value})}
                             >
                                 <option value="">-- Select Paper Type --</option>
-                                {paperTypes.map(t => (
+                                {paperTypes
+                                    .filter(t => !categoryFilter || t.category === categoryFilter)
+                                    .map(t => (
                                     <option key={t.id} value={t.id}>
                                         [{t.category}] {t.size_name} {t.gsm ? `${t.gsm} GSM` : ''} {t.brand ? `• ${t.brand}` : ''}
                                     </option>
