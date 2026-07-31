@@ -170,12 +170,26 @@ const ScannerModal = ({ isOpen, onClose, onScan }) => {
                 });
         };
 
-        startCamera();
+        startCamera().catch((err) => {
+            console.warn('[ScannerModal] startCamera failed:', err);
+            if (!mountedRef.current) return;
+            const name = err?.name || '';
+            setCameraError(`Camera unavailable (${name || 'UnknownError'}: ${String(err?.message || err || 'No details available')}). Use "Upload Photo" instead.`);
+            isStartedRef.current = false;
+            scannerRef.current = null;
+        });
 
         return () => {
             cancelled = true;
             if (qr) {
-                qr.stop().catch(() => {});
+                try {
+                    qr.stop().catch(() => {});
+                } catch {
+                    // html5-qrcode stop() throws synchronously (a raw string) when the
+                    // scanner is not in a running/paused state, e.g. during the start
+                    // transition or after a scan has already stopped it. Never let that
+                    // escape to an error boundary.
+                }
             }
         };
     }, [isOpen, mode]); // eslint-disable-line react-hooks/exhaustive-deps

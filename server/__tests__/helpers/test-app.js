@@ -104,8 +104,6 @@ function createTestApp() {
   app.use('/api', require('../../routes/auditInvoice'));
   app.use('/api', require('../../routes/accounts'));
   app.use('/api/job-priority', require('../../routes/jobPriority'));
-  app.use('/api/ai/sales-prediction', require('../../routes/salesPrediction'));
-  app.use('/api/ai/order-predictions', require('../../routes/orderPredictions'));
   app.use('/api/production-tracker', require('../../routes/productionTracker'));
   app.use('/api', require('../../routes/upsell'));
   app.use('/api/ai', require('../../routes/anomalies'));
@@ -113,10 +111,8 @@ function createTestApp() {
   app.use('/api/ai', require('../../routes/insights'));
   app.use('/api/ai', require('../../routes/seasonal'));
   app.use('/api/ai/stock-planning', require('../../routes/stockPlanning'));
-  app.use('/api/ai/order-forecast', require('../../routes/orderForecast'));
   app.use('/api/ai', require('../../routes/aiUpsell'));
   app.use('/api/ai/turnaround', require('../../routes/aiTurnaround'));
-  app.use('/api/ai/categorize-expense', require('../../routes/expenseCategorizer'));
   app.use('/api/cctv', require('../../routes/cctvAttendance'));
   app.use('/api/cctv', require('../../routes/cctvCameras')(upload, () => {}));
   app.use('/api', require('../../routes/quotes'));

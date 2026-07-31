@@ -619,31 +619,6 @@ describe('Analytics Endpoints', () => {
       expect(res.body).toHaveProperty('insights');
     }
   });
-
-  test('GET /api/ai/sales-prediction returns prediction shape', async () => {
-    mockQuery('FROM sarga_jobs', (() => {
-      // Return monthly aggregated data
-      const now = new Date();
-      const rows = [];
-      for (let i = 0; i < 6; i++) {
-        rows.push({
-          year: now.getFullYear(),
-          month: now.getMonth() - i,
-          total: 10000 + i * 1000,
-        });
-      }
-      return [rows];
-    })());
-    mockQuery('sarga_ai_cache', [[]]);
-    const res = await request(app)
-      .get('/api/ai/sales-prediction')
-      .set('Authorization', `Bearer ${adminToken}`);
-    expect([200, 500]).toContain(res.status);
-    if (res.status === 200) {
-      expect(res.body).toHaveProperty('predicted');
-      expect(res.body).toHaveProperty('confidence');
-    }
-  });
 });
 
 /* ════════════════════════════════════════════════════════════════════════

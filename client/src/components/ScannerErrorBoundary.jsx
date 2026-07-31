@@ -25,7 +25,7 @@ export default class ScannerErrorBoundary extends React.Component {
                             The scanner encountered an unexpected error. Please try again or use a different device.
                         </p>
                         <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16, padding: 8, background: 'var(--bg-2)', borderRadius: 6, fontFamily: 'monospace', wordBreak: 'break-all' }}>
-                            {this.state.error?.message || 'Unknown error'}
+                            {String(this.state.error?.message || this.state.error) || 'Unknown error'}
                         </div>
                         <button className="btn btn-primary btn--full" onClick={this.props.onClose}>
                             Close

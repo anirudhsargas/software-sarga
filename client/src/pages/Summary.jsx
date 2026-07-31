@@ -11,12 +11,9 @@ import DrillDownModal from '../components/DrillDownModal';
 
 import { lazyWithRetry } from '../utils/errorUtils';
 
-const OrderForecastWidget = lazyWithRetry(() => import('../components/OrderForecastWidget'));
-
 import BranchSelect from '../components/ui/BranchSelect';
 import PageContainer from '../components/ui/PageContainer';
 const AIMonitoring = lazyWithRetry(() => import('./AIMonitoring'));
-const OrderPredictions = lazyWithRetry(() => import('./OrderPredictions'));
 
 // Cache variable outside component for immediate render on revisit
 let cachedStats = null;
@@ -127,7 +124,6 @@ const Summary = () => {
   const tabs = useMemo(() => [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
     { id: 'ai-monitoring', label: 'AI Monitoring', icon: ShieldAlert },
-    { id: 'order-predictions', label: 'Predictions', icon: Sparkles },
   ], []);
 
   if (error && !stats) {
@@ -399,24 +395,12 @@ const Summary = () => {
             </div>
           </div>
 
-          {/* ROW 5: Order Forecast */}
-          <LazyViewport minHeight="300px" fallback={<div className="summary-section" style={{ height: 300, background: 'var(--border)', borderRadius: 10, animation: 'pulse 1.5s infinite' }} />}>
-            <Suspense fallback={<div className="summary-section" style={{ height: 300, background: 'var(--border)', borderRadius: 10, animation: 'pulse 1.5s infinite' }} />}>
-              <OrderForecastWidget branchId={selectedBranchId} />
-            </Suspense>
-          </LazyViewport>
         </>
       )}
 
       {activeTab === 'ai-monitoring' && (
         <Suspense fallback={<div className="suspense-loader"><Loader2 className="animate-spin" size={24} /></div>}>
           <AIMonitoring />
-        </Suspense>
-      )}
-
-      {activeTab === 'order-predictions' && (
-        <Suspense fallback={<div className="suspense-loader"><Loader2 className="animate-spin" size={24} /></div>}>
-          <OrderPredictions />
         </Suspense>
       )}
 

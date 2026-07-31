@@ -446,8 +446,6 @@ app.get('/api/server-time', (req, res, next) => {
 }));
 
 registerRoute('auth', '/api', () => require('./routes/auth')(upload));
-const mlCheck = require('./middleware/mlCheck');
-registerRoute('chatbot middleware', '/api/chatbot', () => mlCheck);
 registerRoute('chatbot', '/api/chatbot', () => require('./routes/chatbot'));
 registerRoute('branches', '/api', () => require('./routes/branches'));
 registerRoute('payments', '/api', () => require('./routes/payments'));
@@ -502,7 +500,6 @@ registerRoute('backup', '/api', () => require('./routes/backup'));
 const sheetsBackupRoutes = registerRoute('sheetsBackup', '/api/backup', () => require('./routes/sheetsBackup'));
 
 // AI Features Routes
-app.use('/api/ai', mlCheck);
 registerRoute('aiMonitoring', '/api/ai/monitoring', () => require('./routes/aiMonitoring'));
 registerRoute('aiSearch', '/api/ai', () => require('./routes/aiSearch'));
 registerRoute('designCheck', '/api/ai', () => require('./routes/designCheck'));
@@ -511,8 +508,6 @@ registerRoute('search', '/api', () => require('./routes/search'));
 registerRoute('auditInvoice', '/api', () => require('./routes/auditInvoice'));
 registerRoute('accounts', '/api', () => require('./routes/accounts'));
 registerRoute('jobPriority', '/api/job-priority', () => require('./routes/jobPriority'));
-registerRoute('salesPrediction', '/api/ai/sales-prediction', () => require('./routes/salesPrediction'));
-registerRoute('orderPredictions', '/api/ai/order-predictions', () => require('./routes/orderPredictions'));
 registerRoute('productionTracker', '/api/production-tracker', () => require('./routes/productionTracker'));
 
 // Upsell suggestions API
@@ -534,17 +529,11 @@ registerRoute('seasonal', '/api/ai', () => require('./routes/seasonal'));
 // Stock planning (calls Python ML service)
 registerRoute('stockPlanning', '/api/ai/stock-planning', () => require('./routes/stockPlanning'));
 
-// Order forecast (calls Python ML service)
-registerRoute('orderForecast', '/api/ai/order-forecast', () => require('./routes/orderForecast'));
-
 // AI upsell suggestions (calls Python ML service — Apriori)
 registerRoute('aiUpsell', '/api/ai', () => require('./routes/aiUpsell'));
 
 // AI turnaround time prediction (calls Python ML service — GBR)
 registerRoute('aiTurnaround', '/api/ai/turnaround', () => require('./routes/aiTurnaround'));
-
-// AI expense categorizer (calls Python ML service — TF-IDF + NB/LR)
-registerRoute('expenseCategorizer', '/api/ai/categorize-expense', () => require('./routes/expenseCategorizer'));
 
 // CCTV Attendance System
 registerRoute('cctvAttendance', '/api/cctv', () => require('./routes/cctvAttendance'));

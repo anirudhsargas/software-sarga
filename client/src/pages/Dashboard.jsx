@@ -61,8 +61,6 @@ const DesignChecker = lazyWithRetry(() => import('./DesignChecker'));
 const PaperLayoutGenerator = lazyWithRetry(() => import('./PaperLayoutGenerator'));
 const JobPriority = lazyWithRetry(() => import('./JobPriority'));
 const Accounts = lazyWithRetry(() => import('./Accounts'));
-const OrderPredictions = lazyWithRetry(() => import('./OrderPredictions'));
-const SalesPrediction = lazyWithRetry(() => import('./SalesPrediction'));
 const ProductionTracker = lazyWithRetry(() => import('./ProductionTracker'));
 const PlateManagement = lazyWithRetry(() => import('./PlateManagement'));
 const StockVerification = lazyWithRetry(() => import('./StockVerification'));
@@ -550,12 +548,10 @@ const Dashboard = () => {
             if (label === 'Blog-cms') label = 'Blog CMS';
             if (label === 'Cctv-attendance') label = 'CCTV Attendance';
             if (label === 'Cctv-management') label = 'CCTV Management';
-            if (label === 'Order-predictions') label = 'Order Predictions';
             if (label === 'Daily-report') label = 'Daily Cash Book';
             if (label === 'Payment-verification') label = 'Payment Verification';
             if (label === 'Paper-layout') label = 'Paper Layout';
             if (label === 'Job-priority') label = 'Job Priority';
-            if (label === 'Sales-prediction') label = 'Sales Prediction';
             if (label === 'Production-tracker') label = 'Production Tracker';
             
             const isLast = index === paths.length - 1;
@@ -1242,12 +1238,9 @@ const Dashboard = () => {
                             <Route path="design-check" element={<ProtectedSubRoute roles={['Designer']}><RequiresConnection feature="Design Checker"><DesignChecker /></RequiresConnection></ProtectedSubRoute>} />
                             <Route path="paper-layout" element={<ProtectedSubRoute roles={['Front Office', 'Designer']}><RequiresConnection feature="Paper Layout Generator"><PaperLayoutGenerator /></RequiresConnection></ProtectedSubRoute>} />
                             <Route path="job-priority" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Designer', 'Printer']}><JobPriority /></ProtectedSubRoute>} />
-                            <Route path="sales-prediction" element={<ProtectedSubRoute roles={['Admin', 'Accountant']}><RequiresConnection feature="Sales Prediction"><SalesPrediction /></RequiresConnection></ProtectedSubRoute>} />
                             <Route path="reports" element={<ProtectedSubRoute roles={['Admin', 'Accountant']}><Reports /></ProtectedSubRoute>} />
                             <Route path="accounts" element={<ProtectedSubRoute roles={['Accountant', 'Admin']}><RequiresConnection feature="Accounts & GST"><Accounts /></RequiresConnection></ProtectedSubRoute>} />
                             <Route path="plates" element={<ProtectedSubRoute roles={['Designer', 'Admin']}><PlateManagement /></ProtectedSubRoute>} />
-                            <Route path="order-predictions" element={<ProtectedSubRoute roles={['Admin', 'Accountant']}><RequiresConnection feature="Order Predictions"><OrderPredictions /></RequiresConnection></ProtectedSubRoute>} />
-                            <Route path="predictions" element={<ProtectedSubRoute roles={['Admin', 'Accountant']}><RequiresConnection feature="Sales Prediction"><SalesPrediction /></RequiresConnection></ProtectedSubRoute>} />
                             <Route path="production-tracker" element={<ProtectedSubRoute roles={['Admin', 'Front Office']}><RequiresConnection feature="Production Tracker"><ProductionTracker /></RequiresConnection></ProtectedSubRoute>} />
                             <Route path="coupons" element={<ProtectedSubRoute roles={['Admin']}><CouponManagement /></ProtectedSubRoute>} />
                             <Route path="cctv-attendance" element={<ProtectedSubRoute roles={['Admin']}><CCTVAttendance /></ProtectedSubRoute>} />
