@@ -287,12 +287,13 @@ const Customers = () => {
 
     // Search suggestions for main search (shows inline below search input)
     useEffect(() => {
+        let timer = null;
         if (!searchQuery || searchQuery.length < 2) {
             setSearchSuggestions([]);
             setShowSearchSuggestions(false);
-            return;
+            return () => { if (timer) clearTimeout(timer); };
         }
-        const timer = setTimeout(async () => {
+        timer = setTimeout(async () => {
             try {
                 const params = new URLSearchParams();
                 params.append('search', searchQuery);
@@ -306,7 +307,7 @@ const Customers = () => {
                 setSearchSuggestions([]);
             }
         }, 200);
-        return () => clearTimeout(timer);
+        return () => { if (timer) clearTimeout(timer); };
     }, [searchQuery]);
 
     // Close search suggestions on outside click
@@ -463,7 +464,6 @@ const Customers = () => {
     // Fetch turnaround estimate when product + quantity + branch change
     useEffect(() => {
         setTurnaroundEstimate(null);
-        return () => clearTimeout(timer);
     }, [selectedProduct?.id, jobData.quantity, jobData.branch_id]);
 
     const fetchBranches = async () => {
