@@ -1151,15 +1151,6 @@ const Dashboard = () => {
 
                     <div className={`content-container ${isNavigating ? 'page-enter' : 'page-enter-active'}`} key={location.pathname}>
 
-                    <Suspense fallback={null}>
-                        {['Admin', 'Accountant', 'Front Office'].includes(user?.role) && (
-                            <div className="ai-panels">
-                                <InsightsPanel />
-                                <AnomalyPanel />
-                            </div>
-                        )}
-                    </Suspense>
-
                     <Suspense fallback={<SuspenseFallback />}>
                         <ErrorBoundary>
                         <Routes>
