@@ -405,6 +405,7 @@
   width: 100%;
 }
 
+button.fo-kpi,
 .fo-kpi {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -413,18 +414,27 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  transition: border-color 0.15s, transform 0.15s;
+  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
   min-height: 52px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  width: 100%;
 }
 
 .fo-kpi:hover {
-  border-color: var(--text-muted);
+  border-color: var(--primary, #3b82f6);
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0,0,0,0.08);
 }
 
 .fo-kpi:active {
   transform: scale(0.97);
+}
+
+.fo-kpi:focus-visible {
+  outline: 2px solid var(--primary, #3b82f6);
+  outline-offset: 2px;
 }
 
 .fo-kpi__icon {

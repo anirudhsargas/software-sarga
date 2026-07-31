@@ -1,0 +1,1535 @@
+- generic [ref=f4e2]:
+  - button "Keyboard Shortcuts" [ref=f4e3] [cursor=pointer]
+  - link "Skip to main content" [ref=f4e6] [cursor=pointer]:
+    - /url: "#main-content"
+  - main [ref=f4e7]:
+    - generic [ref=f4e65]:
+      - link "Skip to main content" [ref=f4e66] [cursor=pointer]:
+        - /url: "#main-content"
+      - navigation "Sidebar navigation" [ref=f4e67]:
+        - generic [ref=f4e69]:
+          - img "Sarga" [ref=f4e70]
+          - generic [ref=f4e71]: SARGA
+        - navigation [ref=f4e72]:
+          - link "Summary" [ref=f4e73] [cursor=pointer]:
+            - /url: /dashboard
+          - button "Sales" [ref=f4e79] [cursor=pointer]
+          - button "Accounts" [ref=f4e88] [cursor=pointer]
+          - generic [ref=f4e96]:
+            - button "Inventory" [ref=f4e97] [cursor=pointer]
+            - generic [ref=f4e106]:
+              - link "Inventory" [ref=f4e107] [cursor=pointer]:
+                - /url: /dashboard/inventory
+              - link "Paper Inventory" [ref=f4e113] [cursor=pointer]:
+                - /url: /dashboard/paper/stock
+              - link "Consumables" [ref=f4e119] [cursor=pointer]:
+                - /url: /dashboard/inventory/consumables
+              - link "Stock Transfer" [ref=f4e126] [cursor=pointer]:
+                - /url: /dashboard/stock-transfer
+              - link "Stock Verification" [ref=f4e133] [cursor=pointer]:
+                - /url: /dashboard/stock-verification
+              - link "Stock Planning" [ref=f4e139] [cursor=pointer]:
+                - /url: /dashboard/stock-planning
+              - link "Scan Item" [ref=f4e146] [cursor=pointer]:
+                - /url: /dashboard/inventory/scan
+          - button "Production" [ref=f4e153] [cursor=pointer]
+          - button "Branch Operations" [ref=f4e161] [cursor=pointer]
+          - button "Website" [ref=f4e171] [cursor=pointer]
+          - button "Administration" [ref=f4e180] [cursor=pointer]
+        - generic [ref=f4e187]:
+          - generic [ref=f4e188]:
+            - generic [ref=f4e189]: Appearance
+            - generic [ref=f4e190]:
+              - button "Light" [ref=f4e191] [cursor=pointer]
+              - button "Dark" [ref=f4e199] [cursor=pointer]
+              - button "System" [ref=f4e203] [cursor=pointer]
+          - button "User profile" [ref=f4e207] [cursor=pointer]:
+            - img "Admin" [ref=f4e210]
+            - generic [ref=f4e211]:
+              - generic [ref=f4e212]: Admin
+              - generic [ref=f4e213]: Admin
+          - button "Logout" [ref=f4e214] [cursor=pointer]
+      - main [ref=f4e219]:
+        - generic [ref=f4e220]:
+          - generic [ref=f4e221]:
+            - button "Toggle navigation menu" [ref=f4e222] [cursor=pointer]
+            - generic:
+              - button "Dashboard" [ref=f4e225] [cursor=pointer]
+              - generic [ref=f4e226] [cursor=pointer]:
+                - generic [ref=f4e227]: /
+                - generic [ref=f4e228]: Inventory
+          - generic [ref=f4e229]:
+            - combobox [ref=f4e235] [cursor=pointer]:
+              - option "All Branches"
+              - option "MEPPAYUR" [selected]
+              - option "PERAMBRA"
+            - button "0 notifications" [ref=f4e236] [cursor=pointer]
+            - button "Open profile panel" [ref=f4e239] [cursor=pointer]:
+              - img "Admin" [ref=f4e242]
+        - generic [ref=f4e243]:
+          - generic [ref=f4e244]: AI features temporarily unavailable
+          - generic [ref=f4e246]:
+            - generic [ref=f4e248]:
+              - generic [ref=f4e249]: Inventory System / General
+              - heading "Inventory" [level=1] [ref=f4e250]
+              - paragraph [ref=f4e251]: Manage stock, prices, and reorder levels.
+            - generic [ref=f4e252]:
+              - generic [ref=f4e259] [cursor=pointer]:
+                - generic [ref=f4e260]: General Inventory
+                - generic [ref=f4e261]: 122 Items
+              - generic [ref=f4e268] [cursor=pointer]:
+                - generic [ref=f4e269]: Paper Stock
+                - generic [ref=f4e270]: 16 Types
+              - generic [ref=f4e277] [cursor=pointer]:
+                - generic [ref=f4e278]: Consumables
+                - generic [ref=f4e279]: 0 Items
+            - generic [ref=f4e280]:
+              - generic [ref=f4e287]:
+                - generic [ref=f4e288]: "122"
+                - generic [ref=f4e289]: Total Items
+              - generic [ref=f4e293]:
+                - generic [ref=f4e294]: "50"
+                - generic [ref=f4e295]: Low Stock
+              - generic [ref=f4e301]:
+                - generic [ref=f4e302]: ₹0
+                - generic [ref=f4e303]: Retail Value
+              - generic [ref=f4e309]:
+                - generic [ref=f4e310]: "0"
+                - generic [ref=f4e311]: Pending Requests
+            - generic [ref=f4e312]:
+              - generic [ref=f4e313]:
+                - textbox "Search by name or SKU..." [ref=f4e315]
+                - button "Add Item" [ref=f4e316] [cursor=pointer]
+              - generic [ref=f4e319]:
+                - generic [ref=f4e320]:
+                  - generic [ref=f4e321] [cursor=pointer]:
+                    - generic [ref=f4e322]: Filter by Type
+                    - combobox "Filter by Type" [ref=f4e323]:
+                      - option "All Types" [selected]
+                      - option "Retail"
+                  - generic [ref=f4e324] [cursor=pointer]:
+                    - generic [ref=f4e325]: Filter by Branch
+                    - combobox "Filter by Branch" [ref=f4e326]:
+                      - option "All Branches" [selected]
+                      - option "MEPPAYUR"
+                      - option "PERAMBRA"
+                  - generic [ref=f4e327] [cursor=pointer]:
+                    - generic [ref=f4e328]: Filter by Category
+                    - combobox "Filter by Category" [ref=f4e329]:
+                      - option "All Categories" [selected]
+                      - option "Wooden Memento"
+                      - option "RUBWOOD MEMENTOS"
+                      - option "Acrylic Memento"
+                      - option "Glass Memento"
+                      - option "TROPHY"
+                      - option "ART CARD"
+                      - option "ART PAPER"
+                      - option "MAPILTHO"
+                      - option "STICKER"
+                      - option "LMO"
+                      - option "SPECIAL PAPER"
+                      - option "INVITATION"
+                      - option "NOTICE"
+                      - option "LETTER PAD"
+                      - option "RECIPET"
+                      - option "TOCKEN"
+                      - option "BILLBOOK"
+                      - option "VISITING CARD"
+                      - option "CARD"
+                      - option "PAPER"
+                      - option "MARC"
+                      - option "Normal Frame"
+                      - option "Pouch lamination"
+                      - option "Thermal lamination"
+                      - option "Gum lamination"
+                      - option "SPIRAL"
+                      - option "HARD BINDING"
+                      - option "Pre ink"
+                      - option "PVC CARD"
+                      - option "SHOPPER"
+                      - option "DOUBLE COLOUR"
+                  - generic [ref=f4e330] [cursor=pointer]:
+                    - generic [ref=f4e331]: Filter by Status
+                    - combobox "Filter by Status" [ref=f4e332]:
+                      - option "All Statuses" [selected]
+                      - option "Stock OK"
+                      - option "Low Stock"
+                  - textbox "Vendor..." [ref=f4e334]
+                  - generic [ref=f4e335] [cursor=pointer]:
+                    - generic [ref=f4e336]: Items per page
+                    - combobox "Items per page" [ref=f4e337]:
+                      - option "20 / page"
+                      - option "50 / page" [selected]
+                      - option "100 / page"
+                - generic [ref=f4e338]:
+                  - button "Scan QR / Barcode" [ref=f4e339] [cursor=pointer]
+                  - button "Switch to Grid View" [ref=f4e343] [cursor=pointer]
+                  - button "Print Labels for New Items" [ref=f4e346] [cursor=pointer]
+                  - button "Print Labels" [ref=f4e351] [cursor=pointer]
+                  - button "Image Fallback Settings" [ref=f4e358] [cursor=pointer]
+                  - button "Stock Requests" [ref=f4e362] [cursor=pointer]
+                  - button "Smart Upload" [ref=f4e366] [cursor=pointer]
+            - table [ref=f4e374]:
+              - rowgroup [ref=f4e375]:
+                - row [ref=f4e376]:
+                  - cell [ref=f4e377]:
+                    - button "RED CROWN M RED CROWN M SWT-REDCROWNM" [ref=f4e378] [cursor=pointer]:
+                      - img "RED CROWN M" [ref=f4e381]
+                      - generic [ref=f4e382]:
+                        - generic [ref=f4e383]: RED CROWN M
+                        - generic [ref=f4e384]: SWT-REDCROWNM
+                  - cell "Category Wooden Memento" [ref=f4e385]:
+                    - text: Category
+                    - generic [ref=f4e386]: Wooden Memento
+                  - cell "Stock 0 pcs" [ref=f4e387]:
+                    - text: Stock
+                    - generic [ref=f4e389]:
+                      - generic [ref=f4e390]: "0"
+                      - generic [ref=f4e391]: pcs
+                  - cell "Price ₹250.00" [ref=f4e392]:
+                    - text: Price
+                    - generic [ref=f4e393]: ₹250.00
+                  - cell "Status Low Stock" [ref=f4e394]:
+                    - text: Status
+                    - generic [ref=f4e395]: Low Stock
+                  - cell [ref=f4e396]:
+                    - text: Actions
+                    - generic [ref=f4e397]:
+                      - button "Edit" [ref=f4e398] [cursor=pointer]
+                      - button "Delete" [ref=f4e401] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e405] [cursor=pointer]
+                - row [ref=f4e409]:
+                  - cell [ref=f4e410]:
+                    - button "RED CROWN L RED CROWN L SWT-REDCROWNL" [ref=f4e411] [cursor=pointer]:
+                      - img "RED CROWN L" [ref=f4e414]
+                      - generic [ref=f4e415]:
+                        - generic [ref=f4e416]: RED CROWN L
+                        - generic [ref=f4e417]: SWT-REDCROWNL
+                  - cell "Category Wooden Memento" [ref=f4e418]:
+                    - text: Category
+                    - generic [ref=f4e419]: Wooden Memento
+                  - cell "Stock 0 pcs" [ref=f4e420]:
+                    - text: Stock
+                    - generic [ref=f4e422]:
+                      - generic [ref=f4e423]: "0"
+                      - generic [ref=f4e424]: pcs
+                  - cell "Price ₹350.00" [ref=f4e425]:
+                    - text: Price
+                    - generic [ref=f4e426]: ₹350.00
+                  - cell "Status Low Stock" [ref=f4e427]:
+                    - text: Status
+                    - generic [ref=f4e428]: Low Stock
+                  - cell [ref=f4e429]:
+                    - text: Actions
+                    - generic [ref=f4e430]:
+                      - button "Edit" [ref=f4e431] [cursor=pointer]
+                      - button "Delete" [ref=f4e434] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e438] [cursor=pointer]
+                - row [ref=f4e442]:
+                  - cell [ref=f4e443]:
+                    - button "PMG 2588 PMG 2588 PTM-PMG2588" [ref=f4e444] [cursor=pointer]:
+                      - img "PMG 2588" [ref=f4e447]
+                      - generic [ref=f4e448]:
+                        - generic [ref=f4e449]: PMG 2588
+                        - generic [ref=f4e450]: PTM-PMG2588
+                  - cell "Category Glass Memento" [ref=f4e451]:
+                    - text: Category
+                    - generic [ref=f4e452]: Glass Memento
+                  - cell "Stock 0 pcs" [ref=f4e453]:
+                    - text: Stock
+                    - generic [ref=f4e455]:
+                      - generic [ref=f4e456]: "0"
+                      - generic [ref=f4e457]: pcs
+                  - cell "Price ₹900.00" [ref=f4e458]:
+                    - text: Price
+                    - generic [ref=f4e459]: ₹900.00
+                  - cell "Status Low Stock" [ref=f4e460]:
+                    - text: Status
+                    - generic [ref=f4e461]: Low Stock
+                  - cell [ref=f4e462]:
+                    - text: Actions
+                    - generic [ref=f4e463]:
+                      - button "Edit" [ref=f4e464] [cursor=pointer]
+                      - button "Delete" [ref=f4e467] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e471] [cursor=pointer]
+                - row [ref=f4e475]:
+                  - cell [ref=f4e476]:
+                    - button "KUZHAL ROUND KUZHAL ROUND SWT-KUZHALROUND" [ref=f4e477] [cursor=pointer]:
+                      - img "KUZHAL ROUND" [ref=f4e480]
+                      - generic [ref=f4e481]:
+                        - generic [ref=f4e482]: KUZHAL ROUND
+                        - generic [ref=f4e483]: SWT-KUZHALROUND
+                  - cell "Category Wooden Memento" [ref=f4e484]:
+                    - text: Category
+                    - generic [ref=f4e485]: Wooden Memento
+                  - cell "Stock 0 pcs" [ref=f4e486]:
+                    - text: Stock
+                    - generic [ref=f4e488]:
+                      - generic [ref=f4e489]: "0"
+                      - generic [ref=f4e490]: pcs
+                  - cell "Price ₹1200.00" [ref=f4e491]:
+                    - text: Price
+                    - generic [ref=f4e492]: ₹1200.00
+                  - cell "Status Low Stock" [ref=f4e493]:
+                    - text: Status
+                    - generic [ref=f4e494]: Low Stock
+                  - cell [ref=f4e495]:
+                    - text: Actions
+                    - generic [ref=f4e496]:
+                      - button "Edit" [ref=f4e497] [cursor=pointer]
+                      - button "Delete" [ref=f4e500] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e504] [cursor=pointer]
+                - row [ref=f4e508]:
+                  - cell [ref=f4e509]:
+                    - button "4 KERA 4 KERA SWT-4KERA" [ref=f4e510] [cursor=pointer]:
+                      - img "4 KERA" [ref=f4e513]
+                      - generic [ref=f4e514]:
+                        - generic [ref=f4e515]: 4 KERA
+                        - generic [ref=f4e516]: SWT-4KERA
+                  - cell "Category Wooden Memento" [ref=f4e517]:
+                    - text: Category
+                    - generic [ref=f4e518]: Wooden Memento
+                  - cell "Stock 0 pcs" [ref=f4e519]:
+                    - text: Stock
+                    - generic [ref=f4e521]:
+                      - generic [ref=f4e522]: "0"
+                      - generic [ref=f4e523]: pcs
+                  - cell "Price ₹1600.00" [ref=f4e524]:
+                    - text: Price
+                    - generic [ref=f4e525]: ₹1600.00
+                  - cell "Status Low Stock" [ref=f4e526]:
+                    - text: Status
+                    - generic [ref=f4e527]: Low Stock
+                  - cell [ref=f4e528]:
+                    - text: Actions
+                    - generic [ref=f4e529]:
+                      - button "Edit" [ref=f4e530] [cursor=pointer]
+                      - button "Delete" [ref=f4e533] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e537] [cursor=pointer]
+                - row [ref=f4e541]:
+                  - cell [ref=f4e542]:
+                    - button "BIG FLOWER PEN BIG FLOWER PEN SWT-BIGFLOWERPEN" [ref=f4e543] [cursor=pointer]:
+                      - img "BIG FLOWER PEN" [ref=f4e546]
+                      - generic [ref=f4e547]:
+                        - generic [ref=f4e548]: BIG FLOWER PEN
+                        - generic [ref=f4e549]: SWT-BIGFLOWERPEN
+                  - cell "Category Wooden Memento" [ref=f4e550]:
+                    - text: Category
+                    - generic [ref=f4e551]: Wooden Memento
+                  - cell "Stock 0 pcs" [ref=f4e552]:
+                    - text: Stock
+                    - generic [ref=f4e554]:
+                      - generic [ref=f4e555]: "0"
+                      - generic [ref=f4e556]: pcs
+                  - cell "Price ₹650.00" [ref=f4e557]:
+                    - text: Price
+                    - generic [ref=f4e558]: ₹650.00
+                  - cell "Status Low Stock" [ref=f4e559]:
+                    - text: Status
+                    - generic [ref=f4e560]: Low Stock
+                  - cell [ref=f4e561]:
+                    - text: Actions
+                    - generic [ref=f4e562]:
+                      - button "Edit" [ref=f4e563] [cursor=pointer]
+                      - button "Delete" [ref=f4e566] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e570] [cursor=pointer]
+                - row [ref=f4e574]:
+                  - cell [ref=f4e575]:
+                    - button "PEN VILAMBARAM PEN VILAMBARAM SWT-PENVILAMBARAM" [ref=f4e576] [cursor=pointer]:
+                      - img "PEN VILAMBARAM" [ref=f4e579]
+                      - generic [ref=f4e580]:
+                        - generic [ref=f4e581]: PEN VILAMBARAM
+                        - generic [ref=f4e582]: SWT-PENVILAMBARAM
+                  - cell "Category Wooden Memento" [ref=f4e583]:
+                    - text: Category
+                    - generic [ref=f4e584]: Wooden Memento
+                  - cell "Stock 0 pcs" [ref=f4e585]:
+                    - text: Stock
+                    - generic [ref=f4e587]:
+                      - generic [ref=f4e588]: "0"
+                      - generic [ref=f4e589]: pcs
+                  - cell "Price ₹360.00" [ref=f4e590]:
+                    - text: Price
+                    - generic [ref=f4e591]: ₹360.00
+                  - cell "Status Low Stock" [ref=f4e592]:
+                    - text: Status
+                    - generic [ref=f4e593]: Low Stock
+                  - cell [ref=f4e594]:
+                    - text: Actions
+                    - generic [ref=f4e595]:
+                      - button "Edit" [ref=f4e596] [cursor=pointer]
+                      - button "Delete" [ref=f4e599] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e603] [cursor=pointer]
+                - row [ref=f4e607]:
+                  - cell [ref=f4e608]:
+                    - button "SUN FLOWER SUN FLOWER SWT-SUNFLOWER" [ref=f4e609] [cursor=pointer]:
+                      - img "SUN FLOWER" [ref=f4e612]
+                      - generic [ref=f4e613]:
+                        - generic [ref=f4e614]: SUN FLOWER
+                        - generic [ref=f4e615]: SWT-SUNFLOWER
+                  - cell "Category Wooden Memento" [ref=f4e616]:
+                    - text: Category
+                    - generic [ref=f4e617]: Wooden Memento
+                  - cell "Stock 0 pcs" [ref=f4e618]:
+                    - text: Stock
+                    - generic [ref=f4e620]:
+                      - generic [ref=f4e621]: "0"
+                      - generic [ref=f4e622]: pcs
+                  - cell "Price ₹210.00" [ref=f4e623]:
+                    - text: Price
+                    - generic [ref=f4e624]: ₹210.00
+                  - cell "Status Low Stock" [ref=f4e625]:
+                    - text: Status
+                    - generic [ref=f4e626]: Low Stock
+                  - cell [ref=f4e627]:
+                    - text: Actions
+                    - generic [ref=f4e628]:
+                      - button "Edit" [ref=f4e629] [cursor=pointer]
+                      - button "Delete" [ref=f4e632] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e636] [cursor=pointer]
+                - row [ref=f4e640]:
+                  - cell [ref=f4e641]:
+                    - button "SIDE MAYIL BIG SIDE MAYIL BIG SWT-SIDEMAYILBIG" [ref=f4e642] [cursor=pointer]:
+                      - img "SIDE MAYIL BIG" [ref=f4e645]
+                      - generic [ref=f4e646]:
+                        - generic [ref=f4e647]: SIDE MAYIL BIG
+                        - generic [ref=f4e648]: SWT-SIDEMAYILBIG
+                  - cell "Category Wooden Memento" [ref=f4e649]:
+                    - text: Category
+                    - generic [ref=f4e650]: Wooden Memento
+                  - cell "Stock 0 pcs" [ref=f4e651]:
+                    - text: Stock
+                    - generic [ref=f4e653]:
+                      - generic [ref=f4e654]: "0"
+                      - generic [ref=f4e655]: pcs
+                  - cell "Price ₹200.00" [ref=f4e656]:
+                    - text: Price
+                    - generic [ref=f4e657]: ₹200.00
+                  - cell "Status Low Stock" [ref=f4e658]:
+                    - text: Status
+                    - generic [ref=f4e659]: Low Stock
+                  - cell [ref=f4e660]:
+                    - text: Actions
+                    - generic [ref=f4e661]:
+                      - button "Edit" [ref=f4e662] [cursor=pointer]
+                      - button "Delete" [ref=f4e665] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e669] [cursor=pointer]
+                - row [ref=f4e673]:
+                  - cell [ref=f4e674]:
+                    - button "CONGRATULATIONS CONGRATULATIONS SWT-CONGRATULATIONS" [ref=f4e675] [cursor=pointer]:
+                      - img "CONGRATULATIONS" [ref=f4e678]
+                      - generic [ref=f4e679]:
+                        - generic [ref=f4e680]: CONGRATULATIONS
+                        - generic [ref=f4e681]: SWT-CONGRATULATIONS
+                  - cell "Category Wooden Memento" [ref=f4e682]:
+                    - text: Category
+                    - generic [ref=f4e683]: Wooden Memento
+                  - cell "Stock 0 pcs" [ref=f4e684]:
+                    - text: Stock
+                    - generic [ref=f4e686]:
+                      - generic [ref=f4e687]: "0"
+                      - generic [ref=f4e688]: pcs
+                  - cell "Price ₹650.00" [ref=f4e689]:
+                    - text: Price
+                    - generic [ref=f4e690]: ₹650.00
+                  - cell "Status Low Stock" [ref=f4e691]:
+                    - text: Status
+                    - generic [ref=f4e692]: Low Stock
+                  - cell [ref=f4e693]:
+                    - text: Actions
+                    - generic [ref=f4e694]:
+                      - button "Edit" [ref=f4e695] [cursor=pointer]
+                      - button "Delete" [ref=f4e698] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e702] [cursor=pointer]
+                - row [ref=f4e706]:
+                  - cell [ref=f4e707]:
+                    - button "4x4 FRAME 4x4 FRAME ABC-4X4FRAME" [ref=f4e708] [cursor=pointer]:
+                      - img "4x4 FRAME" [ref=f4e711]
+                      - generic [ref=f4e712]:
+                        - generic [ref=f4e713]: 4x4 FRAME
+                        - generic [ref=f4e714]: ABC-4X4FRAME
+                  - cell "Category Normal Frame" [ref=f4e715]:
+                    - text: Category
+                    - generic [ref=f4e716]: Normal Frame
+                  - cell "Stock 0 pcs" [ref=f4e717]:
+                    - text: Stock
+                    - generic [ref=f4e719]:
+                      - generic [ref=f4e720]: "0"
+                      - generic [ref=f4e721]: pcs
+                  - cell "Price ₹80.00" [ref=f4e722]:
+                    - text: Price
+                    - generic [ref=f4e723]: ₹80.00
+                  - cell "Status Low Stock" [ref=f4e724]:
+                    - text: Status
+                    - generic [ref=f4e725]: Low Stock
+                  - cell [ref=f4e726]:
+                    - text: Actions
+                    - generic [ref=f4e727]:
+                      - button "Edit" [ref=f4e728] [cursor=pointer]
+                      - button "Delete" [ref=f4e731] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e735] [cursor=pointer]
+                - row [ref=f4e739]:
+                  - cell [ref=f4e740]:
+                    - button "A5 FRAME .75 inch A5 FRAME .75 inch ABC-A5FRAME75INCH" [ref=f4e741] [cursor=pointer]:
+                      - img "A5 FRAME .75 inch" [ref=f4e744]
+                      - generic [ref=f4e745]:
+                        - generic [ref=f4e746]: A5 FRAME .75 inch
+                        - generic [ref=f4e747]: ABC-A5FRAME75INCH
+                  - cell "Category Normal Frame" [ref=f4e748]:
+                    - text: Category
+                    - generic [ref=f4e749]: Normal Frame
+                  - cell "Stock 0 pcs" [ref=f4e750]:
+                    - text: Stock
+                    - generic [ref=f4e752]:
+                      - generic [ref=f4e753]: "0"
+                      - generic [ref=f4e754]: pcs
+                  - cell "Price ₹130.00" [ref=f4e755]:
+                    - text: Price
+                    - generic [ref=f4e756]: ₹130.00
+                  - cell "Status Low Stock" [ref=f4e757]:
+                    - text: Status
+                    - generic [ref=f4e758]: Low Stock
+                  - cell [ref=f4e759]:
+                    - text: Actions
+                    - generic [ref=f4e760]:
+                      - button "Edit" [ref=f4e761] [cursor=pointer]
+                      - button "Delete" [ref=f4e764] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e768] [cursor=pointer]
+                - row [ref=f4e772]:
+                  - cell [ref=f4e773]:
+                    - button "A3 FRAME 1 inch A3 FRAME 1 inch ABC-A3FRAME1INCH" [ref=f4e774] [cursor=pointer]:
+                      - img "A3 FRAME 1 inch" [ref=f4e777]
+                      - generic [ref=f4e778]:
+                        - generic [ref=f4e779]: A3 FRAME 1 inch
+                        - generic [ref=f4e780]: ABC-A3FRAME1INCH
+                  - cell "Category Normal Frame" [ref=f4e781]:
+                    - text: Category
+                    - generic [ref=f4e782]: Normal Frame
+                  - cell "Stock 0 pcs" [ref=f4e783]:
+                    - text: Stock
+                    - generic [ref=f4e785]:
+                      - generic [ref=f4e786]: "0"
+                      - generic [ref=f4e787]: pcs
+                  - cell "Price ₹300.00" [ref=f4e788]:
+                    - text: Price
+                    - generic [ref=f4e789]: ₹300.00
+                  - cell "Status Low Stock" [ref=f4e790]:
+                    - text: Status
+                    - generic [ref=f4e791]: Low Stock
+                  - cell [ref=f4e792]:
+                    - text: Actions
+                    - generic [ref=f4e793]:
+                      - button "Edit" [ref=f4e794] [cursor=pointer]
+                      - button "Delete" [ref=f4e797] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e801] [cursor=pointer]
+                - row [ref=f4e805]:
+                  - cell [ref=f4e806]:
+                    - button "A4 FRAME .75 inch A4 FRAME .75 inch ABC-A4FRAME75INCH" [ref=f4e807] [cursor=pointer]:
+                      - img "A4 FRAME .75 inch" [ref=f4e810]
+                      - generic [ref=f4e811]:
+                        - generic [ref=f4e812]: A4 FRAME .75 inch
+                        - generic [ref=f4e813]: ABC-A4FRAME75INCH
+                  - cell "Category Normal Frame" [ref=f4e814]:
+                    - text: Category
+                    - generic [ref=f4e815]: Normal Frame
+                  - cell "Stock 0 pcs" [ref=f4e816]:
+                    - text: Stock
+                    - generic [ref=f4e818]:
+                      - generic [ref=f4e819]: "0"
+                      - generic [ref=f4e820]: pcs
+                  - cell "Price ₹180.00" [ref=f4e821]:
+                    - text: Price
+                    - generic [ref=f4e822]: ₹180.00
+                  - cell "Status Low Stock" [ref=f4e823]:
+                    - text: Status
+                    - generic [ref=f4e824]: Low Stock
+                  - cell [ref=f4e825]:
+                    - text: Actions
+                    - generic [ref=f4e826]:
+                      - button "Edit" [ref=f4e827] [cursor=pointer]
+                      - button "Delete" [ref=f4e830] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e834] [cursor=pointer]
+                - row [ref=f4e838]:
+                  - cell [ref=f4e839]:
+                    - button "A4 FRAME 1 inch A4 FRAME 1 inch ABC-A4FRAME1INCH" [ref=f4e840] [cursor=pointer]:
+                      - img "A4 FRAME 1 inch" [ref=f4e843]
+                      - generic [ref=f4e844]:
+                        - generic [ref=f4e845]: A4 FRAME 1 inch
+                        - generic [ref=f4e846]: ABC-A4FRAME1INCH
+                  - cell "Category Normal Frame" [ref=f4e847]:
+                    - text: Category
+                    - generic [ref=f4e848]: Normal Frame
+                  - cell "Stock 0 pcs" [ref=f4e849]:
+                    - text: Stock
+                    - generic [ref=f4e851]:
+                      - generic [ref=f4e852]: "0"
+                      - generic [ref=f4e853]: pcs
+                  - cell "Price ₹200.00" [ref=f4e854]:
+                    - text: Price
+                    - generic [ref=f4e855]: ₹200.00
+                  - cell "Status Low Stock" [ref=f4e856]:
+                    - text: Status
+                    - generic [ref=f4e857]: Low Stock
+                  - cell [ref=f4e858]:
+                    - text: Actions
+                    - generic [ref=f4e859]:
+                      - button "Edit" [ref=f4e860] [cursor=pointer]
+                      - button "Delete" [ref=f4e863] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e867] [cursor=pointer]
+                - row [ref=f4e871]:
+                  - cell [ref=f4e872]:
+                    - button "PMG 2354 S PTM-PMG2354S" [ref=f4e873] [cursor=pointer]:
+                      - generic [ref=f4e882]:
+                        - generic [ref=f4e883]: PMG 2354 S
+                        - generic [ref=f4e884]: PTM-PMG2354S
+                  - cell "Category Glass Memento" [ref=f4e885]:
+                    - text: Category
+                    - generic [ref=f4e886]: Glass Memento
+                  - cell "Stock 0 pcs" [ref=f4e887]:
+                    - text: Stock
+                    - generic [ref=f4e889]:
+                      - generic [ref=f4e890]: "0"
+                      - generic [ref=f4e891]: pcs
+                  - cell "Price ₹280.00" [ref=f4e892]:
+                    - text: Price
+                    - generic [ref=f4e893]: ₹280.00
+                  - cell "Status Low Stock" [ref=f4e894]:
+                    - text: Status
+                    - generic [ref=f4e895]: Low Stock
+                  - cell [ref=f4e896]:
+                    - text: Actions
+                    - generic [ref=f4e897]:
+                      - button "Edit" [ref=f4e898] [cursor=pointer]
+                      - button "Delete" [ref=f4e901] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e905] [cursor=pointer]
+                - row [ref=f4e909]:
+                  - cell [ref=f4e910]:
+                    - button "PMG2579 S PTM-PMG2579S" [ref=f4e911] [cursor=pointer]:
+                      - generic [ref=f4e920]:
+                        - generic [ref=f4e921]: PMG2579 S
+                        - generic [ref=f4e922]: PTM-PMG2579S
+                  - cell "Category Glass Memento" [ref=f4e923]:
+                    - text: Category
+                    - generic [ref=f4e924]: Glass Memento
+                  - cell "Stock 0 pcs" [ref=f4e925]:
+                    - text: Stock
+                    - generic [ref=f4e927]:
+                      - generic [ref=f4e928]: "0"
+                      - generic [ref=f4e929]: pcs
+                  - cell "Price ₹330.00" [ref=f4e930]:
+                    - text: Price
+                    - generic [ref=f4e931]: ₹330.00
+                  - cell "Status Low Stock" [ref=f4e932]:
+                    - text: Status
+                    - generic [ref=f4e933]: Low Stock
+                  - cell [ref=f4e934]:
+                    - text: Actions
+                    - generic [ref=f4e935]:
+                      - button "Edit" [ref=f4e936] [cursor=pointer]
+                      - button "Delete" [ref=f4e939] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e943] [cursor=pointer]
+                - row [ref=f4e947]:
+                  - cell [ref=f4e948]:
+                    - button "PMG 2579 L PTM-PMG2579L" [ref=f4e949] [cursor=pointer]:
+                      - generic [ref=f4e958]:
+                        - generic [ref=f4e959]: PMG 2579 L
+                        - generic [ref=f4e960]: PTM-PMG2579L
+                  - cell "Category Glass Memento" [ref=f4e961]:
+                    - text: Category
+                    - generic [ref=f4e962]: Glass Memento
+                  - cell "Stock 0 pcs" [ref=f4e963]:
+                    - text: Stock
+                    - generic [ref=f4e965]:
+                      - generic [ref=f4e966]: "0"
+                      - generic [ref=f4e967]: pcs
+                  - cell "Price ₹380.00" [ref=f4e968]:
+                    - text: Price
+                    - generic [ref=f4e969]: ₹380.00
+                  - cell "Status Low Stock" [ref=f4e970]:
+                    - text: Status
+                    - generic [ref=f4e971]: Low Stock
+                  - cell [ref=f4e972]:
+                    - text: Actions
+                    - generic [ref=f4e973]:
+                      - button "Edit" [ref=f4e974] [cursor=pointer]
+                      - button "Delete" [ref=f4e977] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e981] [cursor=pointer]
+                - row [ref=f4e985]:
+                  - cell [ref=f4e986]:
+                    - button "PMG 2581 L PTM-PMG2581L" [ref=f4e987] [cursor=pointer]:
+                      - generic [ref=f4e996]:
+                        - generic [ref=f4e997]: PMG 2581 L
+                        - generic [ref=f4e998]: PTM-PMG2581L
+                  - cell "Category Glass Memento" [ref=f4e999]:
+                    - text: Category
+                    - generic [ref=f4e1000]: Glass Memento
+                  - cell "Stock 0 pcs" [ref=f4e1001]:
+                    - text: Stock
+                    - generic [ref=f4e1003]:
+                      - generic [ref=f4e1004]: "0"
+                      - generic [ref=f4e1005]: pcs
+                  - cell "Price ₹430.00" [ref=f4e1006]:
+                    - text: Price
+                    - generic [ref=f4e1007]: ₹430.00
+                  - cell "Status Low Stock" [ref=f4e1008]:
+                    - text: Status
+                    - generic [ref=f4e1009]: Low Stock
+                  - cell [ref=f4e1010]:
+                    - text: Actions
+                    - generic [ref=f4e1011]:
+                      - button "Edit" [ref=f4e1012] [cursor=pointer]
+                      - button "Delete" [ref=f4e1015] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e1019] [cursor=pointer]
+                - row [ref=f4e1023]:
+                  - cell [ref=f4e1024]:
+                    - button "PMG 2581 S PMG2581S" [ref=f4e1025] [cursor=pointer]:
+                      - generic [ref=f4e1034]:
+                        - generic [ref=f4e1035]: PMG 2581 S
+                        - generic [ref=f4e1036]: PMG2581S
+                  - cell "Category Glass Memento" [ref=f4e1037]:
+                    - text: Category
+                    - generic [ref=f4e1038]: Glass Memento
+                  - cell "Stock 0 pcs" [ref=f4e1039]:
+                    - text: Stock
+                    - generic [ref=f4e1041]:
+                      - generic [ref=f4e1042]: "0"
+                      - generic [ref=f4e1043]: pcs
+                  - cell "Price ₹300.00" [ref=f4e1044]:
+                    - text: Price
+                    - generic [ref=f4e1045]: ₹300.00
+                  - cell "Status Low Stock" [ref=f4e1046]:
+                    - text: Status
+                    - generic [ref=f4e1047]: Low Stock
+                  - cell [ref=f4e1048]:
+                    - text: Actions
+                    - generic [ref=f4e1049]:
+                      - button "Edit" [ref=f4e1050] [cursor=pointer]
+                      - button "Delete" [ref=f4e1053] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e1057] [cursor=pointer]
+                - row [ref=f4e1061]:
+                  - cell [ref=f4e1062]:
+                    - button "PMG 2580 S PTM-PMG2580S" [ref=f4e1063] [cursor=pointer]:
+                      - generic [ref=f4e1072]:
+                        - generic [ref=f4e1073]: PMG 2580 S
+                        - generic [ref=f4e1074]: PTM-PMG2580S
+                  - cell "Category Glass Memento" [ref=f4e1075]:
+                    - text: Category
+                    - generic [ref=f4e1076]: Glass Memento
+                  - cell "Stock 0 pcs" [ref=f4e1077]:
+                    - text: Stock
+                    - generic [ref=f4e1079]:
+                      - generic [ref=f4e1080]: "0"
+                      - generic [ref=f4e1081]: pcs
+                  - cell "Price ₹300.00" [ref=f4e1082]:
+                    - text: Price
+                    - generic [ref=f4e1083]: ₹300.00
+                  - cell "Status Low Stock" [ref=f4e1084]:
+                    - text: Status
+                    - generic [ref=f4e1085]: Low Stock
+                  - cell [ref=f4e1086]:
+                    - text: Actions
+                    - generic [ref=f4e1087]:
+                      - button "Edit" [ref=f4e1088] [cursor=pointer]
+                      - button "Delete" [ref=f4e1091] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e1095] [cursor=pointer]
+                - row [ref=f4e1099]:
+                  - cell [ref=f4e1100]:
+                    - button "PMG 2580 L PTM-PMG2580L" [ref=f4e1101] [cursor=pointer]:
+                      - generic [ref=f4e1110]:
+                        - generic [ref=f4e1111]: PMG 2580 L
+                        - generic [ref=f4e1112]: PTM-PMG2580L
+                  - cell "Category Glass Memento" [ref=f4e1113]:
+                    - text: Category
+                    - generic [ref=f4e1114]: Glass Memento
+                  - cell "Stock 0 pcs" [ref=f4e1115]:
+                    - text: Stock
+                    - generic [ref=f4e1117]:
+                      - generic [ref=f4e1118]: "0"
+                      - generic [ref=f4e1119]: pcs
+                  - cell "Price ₹0.00" [ref=f4e1120]:
+                    - text: Price
+                    - generic [ref=f4e1121]: ₹0.00
+                  - cell "Status Low Stock" [ref=f4e1122]:
+                    - text: Status
+                    - generic [ref=f4e1123]: Low Stock
+                  - cell [ref=f4e1124]:
+                    - text: Actions
+                    - generic [ref=f4e1125]:
+                      - button "Edit" [ref=f4e1126] [cursor=pointer]
+                      - button "Delete" [ref=f4e1129] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e1133] [cursor=pointer]
+                - row [ref=f4e1137]:
+                  - cell [ref=f4e1138]:
+                    - button "EXB 49 EXB 49 PTM-EXB49" [ref=f4e1139] [cursor=pointer]:
+                      - img "EXB 49" [ref=f4e1142]
+                      - generic [ref=f4e1143]:
+                        - generic [ref=f4e1144]: EXB 49
+                        - generic [ref=f4e1145]: PTM-EXB49
+                  - cell "Category Wooden Memento" [ref=f4e1146]:
+                    - text: Category
+                    - generic [ref=f4e1147]: Wooden Memento
+                  - cell "Stock 0 pcs" [ref=f4e1148]:
+                    - text: Stock
+                    - generic [ref=f4e1150]:
+                      - generic [ref=f4e1151]: "0"
+                      - generic [ref=f4e1152]: pcs
+                  - cell "Price ₹0.00" [ref=f4e1153]:
+                    - text: Price
+                    - generic [ref=f4e1154]: ₹0.00
+                  - cell "Status Low Stock" [ref=f4e1155]:
+                    - text: Status
+                    - generic [ref=f4e1156]: Low Stock
+                  - cell [ref=f4e1157]:
+                    - text: Actions
+                    - generic [ref=f4e1158]:
+                      - button "Edit" [ref=f4e1159] [cursor=pointer]
+                      - button "Delete" [ref=f4e1162] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e1166] [cursor=pointer]
+                - row [ref=f4e1170]:
+                  - cell [ref=f4e1171]:
+                    - button "PAM 84 PAM 84 PTM-PAM84" [ref=f4e1172] [cursor=pointer]:
+                      - img "PAM 84" [ref=f4e1175]
+                      - generic [ref=f4e1176]:
+                        - generic [ref=f4e1177]: PAM 84
+                        - generic [ref=f4e1178]: PTM-PAM84
+                  - cell "Category Wooden Memento" [ref=f4e1179]:
+                    - text: Category
+                    - generic [ref=f4e1180]: Wooden Memento
+                  - cell "Stock 0 pcs" [ref=f4e1181]:
+                    - text: Stock
+                    - generic [ref=f4e1183]:
+                      - generic [ref=f4e1184]: "0"
+                      - generic [ref=f4e1185]: pcs
+                  - cell "Price ₹320.00" [ref=f4e1186]:
+                    - text: Price
+                    - generic [ref=f4e1187]: ₹320.00
+                  - cell "Status Low Stock" [ref=f4e1188]:
+                    - text: Status
+                    - generic [ref=f4e1189]: Low Stock
+                  - cell [ref=f4e1190]:
+                    - text: Actions
+                    - generic [ref=f4e1191]:
+                      - button "Edit" [ref=f4e1192] [cursor=pointer]
+                      - button "Delete" [ref=f4e1195] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e1199] [cursor=pointer]
+                - row [ref=f4e1203]:
+                  - cell [ref=f4e1204]:
+                    - button "EXB 42 EXB 42 PTM-EXB42" [ref=f4e1205] [cursor=pointer]:
+                      - img "EXB 42" [ref=f4e1208]
+                      - generic [ref=f4e1209]:
+                        - generic [ref=f4e1210]: EXB 42
+                        - generic [ref=f4e1211]: PTM-EXB42
+                  - cell "Category Wooden Memento" [ref=f4e1212]:
+                    - text: Category
+                    - generic [ref=f4e1213]: Wooden Memento
+                  - cell "Stock 0 pcs" [ref=f4e1214]:
+                    - text: Stock
+                    - generic [ref=f4e1216]:
+                      - generic [ref=f4e1217]: "0"
+                      - generic [ref=f4e1218]: pcs
+                  - cell "Price ₹0.00" [ref=f4e1219]:
+                    - text: Price
+                    - generic [ref=f4e1220]: ₹0.00
+                  - cell "Status Low Stock" [ref=f4e1221]:
+                    - text: Status
+                    - generic [ref=f4e1222]: Low Stock
+                  - cell [ref=f4e1223]:
+                    - text: Actions
+                    - generic [ref=f4e1224]:
+                      - button "Edit" [ref=f4e1225] [cursor=pointer]
+                      - button "Delete" [ref=f4e1228] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e1232] [cursor=pointer]
+                - row [ref=f4e1236]:
+                  - cell [ref=f4e1237]:
+                    - button "EXB 67 EXB 67 PTM-EXB67" [ref=f4e1238] [cursor=pointer]:
+                      - img "EXB 67" [ref=f4e1241]
+                      - generic [ref=f4e1242]:
+                        - generic [ref=f4e1243]: EXB 67
+                        - generic [ref=f4e1244]: PTM-EXB67
+                  - cell "Category Wooden Memento" [ref=f4e1245]:
+                    - text: Category
+                    - generic [ref=f4e1246]: Wooden Memento
+                  - cell "Stock 0 pcs" [ref=f4e1247]:
+                    - text: Stock
+                    - generic [ref=f4e1249]:
+                      - generic [ref=f4e1250]: "0"
+                      - generic [ref=f4e1251]: pcs
+                  - cell "Price ₹500.00" [ref=f4e1252]:
+                    - text: Price
+                    - generic [ref=f4e1253]: ₹500.00
+                  - cell "Status Low Stock" [ref=f4e1254]:
+                    - text: Status
+                    - generic [ref=f4e1255]: Low Stock
+                  - cell [ref=f4e1256]:
+                    - text: Actions
+                    - generic [ref=f4e1257]:
+                      - button "Edit" [ref=f4e1258] [cursor=pointer]
+                      - button "Delete" [ref=f4e1261] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e1265] [cursor=pointer]
+                - row [ref=f4e1269]:
+                  - cell [ref=f4e1270]:
+                    - button "EXB 94 EXB 94 PTM-EXB94" [ref=f4e1271] [cursor=pointer]:
+                      - img "EXB 94" [ref=f4e1274]
+                      - generic [ref=f4e1275]:
+                        - generic [ref=f4e1276]: EXB 94
+                        - generic [ref=f4e1277]: PTM-EXB94
+                  - cell "Category Wooden Memento" [ref=f4e1278]:
+                    - text: Category
+                    - generic [ref=f4e1279]: Wooden Memento
+                  - cell "Stock 0 pcs" [ref=f4e1280]:
+                    - text: Stock
+                    - generic [ref=f4e1282]:
+                      - generic [ref=f4e1283]: "0"
+                      - generic [ref=f4e1284]: pcs
+                  - cell "Price ₹750.00" [ref=f4e1285]:
+                    - text: Price
+                    - generic [ref=f4e1286]: ₹750.00
+                  - cell "Status Low Stock" [ref=f4e1287]:
+                    - text: Status
+                    - generic [ref=f4e1288]: Low Stock
+                  - cell [ref=f4e1289]:
+                    - text: Actions
+                    - generic [ref=f4e1290]:
+                      - button "Edit" [ref=f4e1291] [cursor=pointer]
+                      - button "Delete" [ref=f4e1294] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e1298] [cursor=pointer]
+                - row [ref=f4e1302]:
+                  - cell [ref=f4e1303]:
+                    - button "FC 10 FC 10 PTM-FC10" [ref=f4e1304] [cursor=pointer]:
+                      - img "FC 10" [ref=f4e1307]
+                      - generic [ref=f4e1308]:
+                        - generic [ref=f4e1309]: FC 10
+                        - generic [ref=f4e1310]: PTM-FC10
+                  - cell "Category Wooden Memento" [ref=f4e1311]:
+                    - text: Category
+                    - generic [ref=f4e1312]: Wooden Memento
+                  - cell "Stock 0 pcs" [ref=f4e1313]:
+                    - text: Stock
+                    - generic [ref=f4e1315]:
+                      - generic [ref=f4e1316]: "0"
+                      - generic [ref=f4e1317]: pcs
+                  - cell "Price ₹930.00" [ref=f4e1318]:
+                    - text: Price
+                    - generic [ref=f4e1319]: ₹930.00
+                  - cell "Status Low Stock" [ref=f4e1320]:
+                    - text: Status
+                    - generic [ref=f4e1321]: Low Stock
+                  - cell [ref=f4e1322]:
+                    - text: Actions
+                    - generic [ref=f4e1323]:
+                      - button "Edit" [ref=f4e1324] [cursor=pointer]
+                      - button "Delete" [ref=f4e1327] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e1331] [cursor=pointer]
+                - row [ref=f4e1335]:
+                  - cell [ref=f4e1336]:
+                    - button "PAM 66 PAM 66 PTM-PAM66" [ref=f4e1337] [cursor=pointer]:
+                      - img "PAM 66" [ref=f4e1340]
+                      - generic [ref=f4e1341]:
+                        - generic [ref=f4e1342]: PAM 66
+                        - generic [ref=f4e1343]: PTM-PAM66
+                  - cell "Category Wooden Memento" [ref=f4e1344]:
+                    - text: Category
+                    - generic [ref=f4e1345]: Wooden Memento
+                  - cell "Stock 0 pcs" [ref=f4e1346]:
+                    - text: Stock
+                    - generic [ref=f4e1348]:
+                      - generic [ref=f4e1349]: "0"
+                      - generic [ref=f4e1350]: pcs
+                  - cell "Price ₹260.00" [ref=f4e1351]:
+                    - text: Price
+                    - generic [ref=f4e1352]: ₹260.00
+                  - cell "Status Low Stock" [ref=f4e1353]:
+                    - text: Status
+                    - generic [ref=f4e1354]: Low Stock
+                  - cell [ref=f4e1355]:
+                    - text: Actions
+                    - generic [ref=f4e1356]:
+                      - button "Edit" [ref=f4e1357] [cursor=pointer]
+                      - button "Delete" [ref=f4e1360] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e1364] [cursor=pointer]
+                - row [ref=f4e1368]:
+                  - cell [ref=f4e1369]:
+                    - button "LC 193 LC 193 PTM-LC193" [ref=f4e1370] [cursor=pointer]:
+                      - img "LC 193" [ref=f4e1373]
+                      - generic [ref=f4e1374]:
+                        - generic [ref=f4e1375]: LC 193
+                        - generic [ref=f4e1376]: PTM-LC193
+                  - cell "Category Wooden Memento" [ref=f4e1377]:
+                    - text: Category
+                    - generic [ref=f4e1378]: Wooden Memento
+                  - cell "Stock 0 pcs" [ref=f4e1379]:
+                    - text: Stock
+                    - generic [ref=f4e1381]:
+                      - generic [ref=f4e1382]: "0"
+                      - generic [ref=f4e1383]: pcs
+                  - cell "Price ₹240.00" [ref=f4e1384]:
+                    - text: Price
+                    - generic [ref=f4e1385]: ₹240.00
+                  - cell "Status Low Stock" [ref=f4e1386]:
+                    - text: Status
+                    - generic [ref=f4e1387]: Low Stock
+                  - cell [ref=f4e1388]:
+                    - text: Actions
+                    - generic [ref=f4e1389]:
+                      - button "Edit" [ref=f4e1390] [cursor=pointer]
+                      - button "Delete" [ref=f4e1393] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e1397] [cursor=pointer]
+                - row [ref=f4e1401]:
+                  - cell [ref=f4e1402]:
+                    - button "FC 25 FC 25 PTM-FC25" [ref=f4e1403] [cursor=pointer]:
+                      - img "FC 25" [ref=f4e1406]
+                      - generic [ref=f4e1407]:
+                        - generic [ref=f4e1408]: FC 25
+                        - generic [ref=f4e1409]: PTM-FC25
+                  - cell "Category Wooden Memento" [ref=f4e1410]:
+                    - text: Category
+                    - generic [ref=f4e1411]: Wooden Memento
+                  - cell "Stock 0 pcs" [ref=f4e1412]:
+                    - text: Stock
+                    - generic [ref=f4e1414]:
+                      - generic [ref=f4e1415]: "0"
+                      - generic [ref=f4e1416]: pcs
+                  - cell "Price ₹300.00" [ref=f4e1417]:
+                    - text: Price
+                    - generic [ref=f4e1418]: ₹300.00
+                  - cell "Status Low Stock" [ref=f4e1419]:
+                    - text: Status
+                    - generic [ref=f4e1420]: Low Stock
+                  - cell [ref=f4e1421]:
+                    - text: Actions
+                    - generic [ref=f4e1422]:
+                      - button "Edit" [ref=f4e1423] [cursor=pointer]
+                      - button "Delete" [ref=f4e1426] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e1430] [cursor=pointer]
+                - row [ref=f4e1434]:
+                  - cell [ref=f4e1435]:
+                    - button "FC 22 FC 22 PTM-FC22" [ref=f4e1436] [cursor=pointer]:
+                      - img "FC 22" [ref=f4e1439]
+                      - generic [ref=f4e1440]:
+                        - generic [ref=f4e1441]: FC 22
+                        - generic [ref=f4e1442]: PTM-FC22
+                  - cell "Category Wooden Memento" [ref=f4e1443]:
+                    - text: Category
+                    - generic [ref=f4e1444]: Wooden Memento
+                  - cell "Stock 0 pcs" [ref=f4e1445]:
+                    - text: Stock
+                    - generic [ref=f4e1447]:
+                      - generic [ref=f4e1448]: "0"
+                      - generic [ref=f4e1449]: pcs
+                  - cell "Price ₹360.00" [ref=f4e1450]:
+                    - text: Price
+                    - generic [ref=f4e1451]: ₹360.00
+                  - cell "Status Low Stock" [ref=f4e1452]:
+                    - text: Status
+                    - generic [ref=f4e1453]: Low Stock
+                  - cell [ref=f4e1454]:
+                    - text: Actions
+                    - generic [ref=f4e1455]:
+                      - button "Edit" [ref=f4e1456] [cursor=pointer]
+                      - button "Delete" [ref=f4e1459] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e1463] [cursor=pointer]
+                - row [ref=f4e1467]:
+                  - cell [ref=f4e1468]:
+                    - button "PAM 55 PAM 55 PTM-PAM55" [ref=f4e1469] [cursor=pointer]:
+                      - img "PAM 55" [ref=f4e1472]
+                      - generic [ref=f4e1473]:
+                        - generic [ref=f4e1474]: PAM 55
+                        - generic [ref=f4e1475]: PTM-PAM55
+                  - cell "Category Wooden Memento" [ref=f4e1476]:
+                    - text: Category
+                    - generic [ref=f4e1477]: Wooden Memento
+                  - cell "Stock 0 pcs" [ref=f4e1478]:
+                    - text: Stock
+                    - generic [ref=f4e1480]:
+                      - generic [ref=f4e1481]: "0"
+                      - generic [ref=f4e1482]: pcs
+                  - cell "Price ₹360.00" [ref=f4e1483]:
+                    - text: Price
+                    - generic [ref=f4e1484]: ₹360.00
+                  - cell "Status Low Stock" [ref=f4e1485]:
+                    - text: Status
+                    - generic [ref=f4e1486]: Low Stock
+                  - cell [ref=f4e1487]:
+                    - text: Actions
+                    - generic [ref=f4e1488]:
+                      - button "Edit" [ref=f4e1489] [cursor=pointer]
+                      - button "Delete" [ref=f4e1492] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e1496] [cursor=pointer]
+                - row [ref=f4e1500]:
+                  - cell [ref=f4e1501]:
+                    - button "FC 21 FC 21 PTM-FC21" [ref=f4e1502] [cursor=pointer]:
+                      - img "FC 21" [ref=f4e1505]
+                      - generic [ref=f4e1506]:
+                        - generic [ref=f4e1507]: FC 21
+                        - generic [ref=f4e1508]: PTM-FC21
+                  - cell "Category Wooden Memento" [ref=f4e1509]:
+                    - text: Category
+                    - generic [ref=f4e1510]: Wooden Memento
+                  - cell "Stock 0 pcs" [ref=f4e1511]:
+                    - text: Stock
+                    - generic [ref=f4e1513]:
+                      - generic [ref=f4e1514]: "0"
+                      - generic [ref=f4e1515]: pcs
+                  - cell "Price ₹520.00" [ref=f4e1516]:
+                    - text: Price
+                    - generic [ref=f4e1517]: ₹520.00
+                  - cell "Status Low Stock" [ref=f4e1518]:
+                    - text: Status
+                    - generic [ref=f4e1519]: Low Stock
+                  - cell [ref=f4e1520]:
+                    - text: Actions
+                    - generic [ref=f4e1521]:
+                      - button "Edit" [ref=f4e1522] [cursor=pointer]
+                      - button "Delete" [ref=f4e1525] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e1529] [cursor=pointer]
+                - row [ref=f4e1533]:
+                  - cell [ref=f4e1534]:
+                    - button "EXB 77 EXB 77 PTM-EXB77" [ref=f4e1535] [cursor=pointer]:
+                      - img "EXB 77" [ref=f4e1538]
+                      - generic [ref=f4e1539]:
+                        - generic [ref=f4e1540]: EXB 77
+                        - generic [ref=f4e1541]: PTM-EXB77
+                  - cell "Category Wooden Memento" [ref=f4e1542]:
+                    - text: Category
+                    - generic [ref=f4e1543]: Wooden Memento
+                  - cell "Stock 0 pcs" [ref=f4e1544]:
+                    - text: Stock
+                    - generic [ref=f4e1546]:
+                      - generic [ref=f4e1547]: "0"
+                      - generic [ref=f4e1548]: pcs
+                  - cell "Price ₹1650.00" [ref=f4e1549]:
+                    - text: Price
+                    - generic [ref=f4e1550]: ₹1650.00
+                  - cell "Status Low Stock" [ref=f4e1551]:
+                    - text: Status
+                    - generic [ref=f4e1552]: Low Stock
+                  - cell [ref=f4e1553]:
+                    - text: Actions
+                    - generic [ref=f4e1554]:
+                      - button "Edit" [ref=f4e1555] [cursor=pointer]
+                      - button "Delete" [ref=f4e1558] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e1562] [cursor=pointer]
+                - row [ref=f4e1566]:
+                  - cell [ref=f4e1567]:
+                    - button "EXB 73 EXB 73 PTM-EXB73" [ref=f4e1568] [cursor=pointer]:
+                      - img "EXB 73" [ref=f4e1571]
+                      - generic [ref=f4e1572]:
+                        - generic [ref=f4e1573]: EXB 73
+                        - generic [ref=f4e1574]: PTM-EXB73
+                  - cell "Category Wooden Memento" [ref=f4e1575]:
+                    - text: Category
+                    - generic [ref=f4e1576]: Wooden Memento
+                  - cell "Stock 0 pcs" [ref=f4e1577]:
+                    - text: Stock
+                    - generic [ref=f4e1579]:
+                      - generic [ref=f4e1580]: "0"
+                      - generic [ref=f4e1581]: pcs
+                  - cell "Price ₹1650.00" [ref=f4e1582]:
+                    - text: Price
+                    - generic [ref=f4e1583]: ₹1650.00
+                  - cell "Status Low Stock" [ref=f4e1584]:
+                    - text: Status
+                    - generic [ref=f4e1585]: Low Stock
+                  - cell [ref=f4e1586]:
+                    - text: Actions
+                    - generic [ref=f4e1587]:
+                      - button "Edit" [ref=f4e1588] [cursor=pointer]
+                      - button "Delete" [ref=f4e1591] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e1595] [cursor=pointer]
+                - row [ref=f4e1599]:
+                  - cell [ref=f4e1600]:
+                    - button "REFLECTOR L REFLECTOR L PTM-REFLECTORL-724" [ref=f4e1601] [cursor=pointer]:
+                      - img "REFLECTOR L" [ref=f4e1604]
+                      - generic [ref=f4e1605]:
+                        - generic [ref=f4e1606]: REFLECTOR L
+                        - generic [ref=f4e1607]: PTM-REFLECTORL-724
+                  - cell "Category Wooden Memento" [ref=f4e1608]:
+                    - text: Category
+                    - generic [ref=f4e1609]: Wooden Memento
+                  - cell "Stock 0 pcs" [ref=f4e1610]:
+                    - text: Stock
+                    - generic [ref=f4e1612]:
+                      - generic [ref=f4e1613]: "0"
+                      - generic [ref=f4e1614]: pcs
+                  - cell "Price ₹750.00" [ref=f4e1615]:
+                    - text: Price
+                    - generic [ref=f4e1616]: ₹750.00
+                  - cell "Status Low Stock" [ref=f4e1617]:
+                    - text: Status
+                    - generic [ref=f4e1618]: Low Stock
+                  - cell [ref=f4e1619]:
+                    - text: Actions
+                    - generic [ref=f4e1620]:
+                      - button "Edit" [ref=f4e1621] [cursor=pointer]
+                      - button "Delete" [ref=f4e1624] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e1628] [cursor=pointer]
+                - row [ref=f4e1632]:
+                  - cell [ref=f4e1633]:
+                    - button "PAM 57 PAM 57 PTM-PAM57" [ref=f4e1634] [cursor=pointer]:
+                      - img "PAM 57" [ref=f4e1637]
+                      - generic [ref=f4e1638]:
+                        - generic [ref=f4e1639]: PAM 57
+                        - generic [ref=f4e1640]: PTM-PAM57
+                  - cell "Category Wooden Memento" [ref=f4e1641]:
+                    - text: Category
+                    - generic [ref=f4e1642]: Wooden Memento
+                  - cell "Stock 0 pcs" [ref=f4e1643]:
+                    - text: Stock
+                    - generic [ref=f4e1645]:
+                      - generic [ref=f4e1646]: "0"
+                      - generic [ref=f4e1647]: pcs
+                  - cell "Price ₹870.00" [ref=f4e1648]:
+                    - text: Price
+                    - generic [ref=f4e1649]: ₹870.00
+                  - cell "Status Low Stock" [ref=f4e1650]:
+                    - text: Status
+                    - generic [ref=f4e1651]: Low Stock
+                  - cell [ref=f4e1652]:
+                    - text: Actions
+                    - generic [ref=f4e1653]:
+                      - button "Edit" [ref=f4e1654] [cursor=pointer]
+                      - button "Delete" [ref=f4e1657] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e1661] [cursor=pointer]
+                - row [ref=f4e1665]:
+                  - cell [ref=f4e1666]:
+                    - button "PMG 2010 PMG 2010 PTM-PMG2010-722" [ref=f4e1667] [cursor=pointer]:
+                      - img "PMG 2010" [ref=f4e1670]
+                      - generic [ref=f4e1671]:
+                        - generic [ref=f4e1672]: PMG 2010
+                        - generic [ref=f4e1673]: PTM-PMG2010-722
+                  - cell "Category Glass Memento" [ref=f4e1674]:
+                    - text: Category
+                    - generic [ref=f4e1675]: Glass Memento
+                  - cell "Stock 0 pcs" [ref=f4e1676]:
+                    - text: Stock
+                    - generic [ref=f4e1678]:
+                      - generic [ref=f4e1679]: "0"
+                      - generic [ref=f4e1680]: pcs
+                  - cell "Price ₹500.00" [ref=f4e1681]:
+                    - text: Price
+                    - generic [ref=f4e1682]: ₹500.00
+                  - cell "Status Low Stock" [ref=f4e1683]:
+                    - text: Status
+                    - generic [ref=f4e1684]: Low Stock
+                  - cell [ref=f4e1685]:
+                    - text: Actions
+                    - generic [ref=f4e1686]:
+                      - button "Edit" [ref=f4e1687] [cursor=pointer]
+                      - button "Delete" [ref=f4e1690] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e1694] [cursor=pointer]
+                - row [ref=f4e1698]:
+                  - cell [ref=f4e1699]:
+                    - button "PMG 2046 PMG 2046 PTM-PMG2046-721" [ref=f4e1700] [cursor=pointer]:
+                      - img "PMG 2046" [ref=f4e1703]
+                      - generic [ref=f4e1704]:
+                        - generic [ref=f4e1705]: PMG 2046
+                        - generic [ref=f4e1706]: PTM-PMG2046-721
+                  - cell "Category Glass Memento" [ref=f4e1707]:
+                    - text: Category
+                    - generic [ref=f4e1708]: Glass Memento
+                  - cell "Stock 0 pcs" [ref=f4e1709]:
+                    - text: Stock
+                    - generic [ref=f4e1711]:
+                      - generic [ref=f4e1712]: "0"
+                      - generic [ref=f4e1713]: pcs
+                  - cell "Price ₹450.00" [ref=f4e1714]:
+                    - text: Price
+                    - generic [ref=f4e1715]: ₹450.00
+                  - cell "Status Low Stock" [ref=f4e1716]:
+                    - text: Status
+                    - generic [ref=f4e1717]: Low Stock
+                  - cell [ref=f4e1718]:
+                    - text: Actions
+                    - generic [ref=f4e1719]:
+                      - button "Edit" [ref=f4e1720] [cursor=pointer]
+                      - button "Delete" [ref=f4e1723] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e1727] [cursor=pointer]
+                - row [ref=f4e1731]:
+                  - cell [ref=f4e1732]:
+                    - button "PMG 2044 PMG 2044 PTM-PMG2044-720" [ref=f4e1733] [cursor=pointer]:
+                      - img "PMG 2044" [ref=f4e1736]
+                      - generic [ref=f4e1737]:
+                        - generic [ref=f4e1738]: PMG 2044
+                        - generic [ref=f4e1739]: PTM-PMG2044-720
+                  - cell "Category Glass Memento" [ref=f4e1740]:
+                    - text: Category
+                    - generic [ref=f4e1741]: Glass Memento
+                  - cell "Stock 0 pcs" [ref=f4e1742]:
+                    - text: Stock
+                    - generic [ref=f4e1744]:
+                      - generic [ref=f4e1745]: "0"
+                      - generic [ref=f4e1746]: pcs
+                  - cell "Price ₹500.00" [ref=f4e1747]:
+                    - text: Price
+                    - generic [ref=f4e1748]: ₹500.00
+                  - cell "Status Low Stock" [ref=f4e1749]:
+                    - text: Status
+                    - generic [ref=f4e1750]: Low Stock
+                  - cell [ref=f4e1751]:
+                    - text: Actions
+                    - generic [ref=f4e1752]:
+                      - button "Edit" [ref=f4e1753] [cursor=pointer]
+                      - button "Delete" [ref=f4e1756] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e1760] [cursor=pointer]
+                - row [ref=f4e1764]:
+                  - cell [ref=f4e1765]:
+                    - button "PMG 2580 M PMG 2580 M PTM-PMG2580M" [ref=f4e1766] [cursor=pointer]:
+                      - img "PMG 2580 M" [ref=f4e1769]
+                      - generic [ref=f4e1770]:
+                        - generic [ref=f4e1771]: PMG 2580 M
+                        - generic [ref=f4e1772]: PTM-PMG2580M
+                  - cell "Category Glass Memento" [ref=f4e1773]:
+                    - text: Category
+                    - generic [ref=f4e1774]: Glass Memento
+                  - cell "Stock 0 pcs" [ref=f4e1775]:
+                    - text: Stock
+                    - generic [ref=f4e1777]:
+                      - generic [ref=f4e1778]: "0"
+                      - generic [ref=f4e1779]: pcs
+                  - cell "Price ₹400.00" [ref=f4e1780]:
+                    - text: Price
+                    - generic [ref=f4e1781]: ₹400.00
+                  - cell "Status Low Stock" [ref=f4e1782]:
+                    - text: Status
+                    - generic [ref=f4e1783]: Low Stock
+                  - cell [ref=f4e1784]:
+                    - text: Actions
+                    - generic [ref=f4e1785]:
+                      - button "Edit" [ref=f4e1786] [cursor=pointer]
+                      - button "Delete" [ref=f4e1789] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e1793] [cursor=pointer]
+                - row [ref=f4e1797]:
+                  - cell [ref=f4e1798]:
+                    - button "PMG 2086 PMG 2086 PTM-PMG2086" [ref=f4e1799] [cursor=pointer]:
+                      - img "PMG 2086" [ref=f4e1802]
+                      - generic [ref=f4e1803]:
+                        - generic [ref=f4e1804]: PMG 2086
+                        - generic [ref=f4e1805]: PTM-PMG2086
+                  - cell "Category Glass Memento" [ref=f4e1806]:
+                    - text: Category
+                    - generic [ref=f4e1807]: Glass Memento
+                  - cell "Stock 0 pcs" [ref=f4e1808]:
+                    - text: Stock
+                    - generic [ref=f4e1810]:
+                      - generic [ref=f4e1811]: "0"
+                      - generic [ref=f4e1812]: pcs
+                  - cell "Price ₹300.00" [ref=f4e1813]:
+                    - text: Price
+                    - generic [ref=f4e1814]: ₹300.00
+                  - cell "Status Low Stock" [ref=f4e1815]:
+                    - text: Status
+                    - generic [ref=f4e1816]: Low Stock
+                  - cell [ref=f4e1817]:
+                    - text: Actions
+                    - generic [ref=f4e1818]:
+                      - button "Edit" [ref=f4e1819] [cursor=pointer]
+                      - button "Delete" [ref=f4e1822] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e1826] [cursor=pointer]
+                - row [ref=f4e1830]:
+                  - cell [ref=f4e1831]:
+                    - button "PMG 2027 S PMG 2027 S PTM-PMG2027S" [ref=f4e1832] [cursor=pointer]:
+                      - img "PMG 2027 S" [ref=f4e1835]
+                      - generic [ref=f4e1836]:
+                        - generic [ref=f4e1837]: PMG 2027 S
+                        - generic [ref=f4e1838]: PTM-PMG2027S
+                  - cell "Category Glass Memento" [ref=f4e1839]:
+                    - text: Category
+                    - generic [ref=f4e1840]: Glass Memento
+                  - cell "Stock 0 pcs" [ref=f4e1841]:
+                    - text: Stock
+                    - generic [ref=f4e1843]:
+                      - generic [ref=f4e1844]: "0"
+                      - generic [ref=f4e1845]: pcs
+                  - cell "Price ₹350.00" [ref=f4e1846]:
+                    - text: Price
+                    - generic [ref=f4e1847]: ₹350.00
+                  - cell "Status Low Stock" [ref=f4e1848]:
+                    - text: Status
+                    - generic [ref=f4e1849]: Low Stock
+                  - cell [ref=f4e1850]:
+                    - text: Actions
+                    - generic [ref=f4e1851]:
+                      - button "Edit" [ref=f4e1852] [cursor=pointer]
+                      - button "Delete" [ref=f4e1855] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e1859] [cursor=pointer]
+                - row [ref=f4e1863]:
+                  - cell [ref=f4e1864]:
+                    - button "PMG 2091 PMG 2091 PTM-PMG2091" [ref=f4e1865] [cursor=pointer]:
+                      - img "PMG 2091" [ref=f4e1868]
+                      - generic [ref=f4e1869]:
+                        - generic [ref=f4e1870]: PMG 2091
+                        - generic [ref=f4e1871]: PTM-PMG2091
+                  - cell "Category Glass Memento" [ref=f4e1872]:
+                    - text: Category
+                    - generic [ref=f4e1873]: Glass Memento
+                  - cell "Stock 0 pcs" [ref=f4e1874]:
+                    - text: Stock
+                    - generic [ref=f4e1876]:
+                      - generic [ref=f4e1877]: "0"
+                      - generic [ref=f4e1878]: pcs
+                  - cell "Price ₹300.00" [ref=f4e1879]:
+                    - text: Price
+                    - generic [ref=f4e1880]: ₹300.00
+                  - cell "Status Low Stock" [ref=f4e1881]:
+                    - text: Status
+                    - generic [ref=f4e1882]: Low Stock
+                  - cell [ref=f4e1883]:
+                    - text: Actions
+                    - generic [ref=f4e1884]:
+                      - button "Edit" [ref=f4e1885] [cursor=pointer]
+                      - button "Delete" [ref=f4e1888] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e1892] [cursor=pointer]
+                - row [ref=f4e1896]:
+                  - cell [ref=f4e1897]:
+                    - button "PMG 2122 PMG 2122 PTM-PMG2122" [ref=f4e1898] [cursor=pointer]:
+                      - img "PMG 2122" [ref=f4e1901]
+                      - generic [ref=f4e1902]:
+                        - generic [ref=f4e1903]: PMG 2122
+                        - generic [ref=f4e1904]: PTM-PMG2122
+                  - cell "Category Glass Memento" [ref=f4e1905]:
+                    - text: Category
+                    - generic [ref=f4e1906]: Glass Memento
+                  - cell "Stock 0 pcs" [ref=f4e1907]:
+                    - text: Stock
+                    - generic [ref=f4e1909]:
+                      - generic [ref=f4e1910]: "0"
+                      - generic [ref=f4e1911]: pcs
+                  - cell "Price ₹500.00" [ref=f4e1912]:
+                    - text: Price
+                    - generic [ref=f4e1913]: ₹500.00
+                  - cell "Status Low Stock" [ref=f4e1914]:
+                    - text: Status
+                    - generic [ref=f4e1915]: Low Stock
+                  - cell [ref=f4e1916]:
+                    - text: Actions
+                    - generic [ref=f4e1917]:
+                      - button "Edit" [ref=f4e1918] [cursor=pointer]
+                      - button "Delete" [ref=f4e1921] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e1925] [cursor=pointer]
+                - row [ref=f4e1929]:
+                  - cell [ref=f4e1930]:
+                    - button "PMG 2045 S PMG 2045 S PTM-PMG2045S-714" [ref=f4e1931] [cursor=pointer]:
+                      - img "PMG 2045 S" [ref=f4e1934]
+                      - generic [ref=f4e1935]:
+                        - generic [ref=f4e1936]: PMG 2045 S
+                        - generic [ref=f4e1937]: PTM-PMG2045S-714
+                  - cell "Category Glass Memento" [ref=f4e1938]:
+                    - text: Category
+                    - generic [ref=f4e1939]: Glass Memento
+                  - cell "Stock 0 pcs" [ref=f4e1940]:
+                    - text: Stock
+                    - generic [ref=f4e1942]:
+                      - generic [ref=f4e1943]: "0"
+                      - generic [ref=f4e1944]: pcs
+                  - cell "Price ₹440.00" [ref=f4e1945]:
+                    - text: Price
+                    - generic [ref=f4e1946]: ₹440.00
+                  - cell "Status Low Stock" [ref=f4e1947]:
+                    - text: Status
+                    - generic [ref=f4e1948]: Low Stock
+                  - cell [ref=f4e1949]:
+                    - text: Actions
+                    - generic [ref=f4e1950]:
+                      - button "Edit" [ref=f4e1951] [cursor=pointer]
+                      - button "Delete" [ref=f4e1954] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e1958] [cursor=pointer]
+                - row [ref=f4e1962]:
+                  - cell [ref=f4e1963]:
+                    - button "10 X 8 mark 1 10 X 8 mark 1 10X8MARK1" [ref=f4e1964] [cursor=pointer]:
+                      - img "10 X 8 mark 1" [ref=f4e1967]
+                      - generic [ref=f4e1968]:
+                        - generic [ref=f4e1969]: 10 X 8 mark 1
+                        - generic [ref=f4e1970]: 10X8MARK1
+                  - cell "Category MARC" [ref=f4e1971]:
+                    - text: Category
+                    - generic [ref=f4e1972]: MARC
+                  - cell "Stock 0 pcs" [ref=f4e1973]:
+                    - text: Stock
+                    - generic [ref=f4e1975]:
+                      - generic [ref=f4e1976]: "0"
+                      - generic [ref=f4e1977]: pcs
+                  - cell "Price ₹380.00" [ref=f4e1978]:
+                    - text: Price
+                    - generic [ref=f4e1979]: ₹380.00
+                  - cell "Status Low Stock" [ref=f4e1980]:
+                    - text: Status
+                    - generic [ref=f4e1981]: Low Stock
+                  - cell [ref=f4e1982]:
+                    - text: Actions
+                    - generic [ref=f4e1983]:
+                      - button "Edit" [ref=f4e1984] [cursor=pointer]
+                      - button "Delete" [ref=f4e1987] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e1991] [cursor=pointer]
+                - row [ref=f4e1995]:
+                  - cell [ref=f4e1996]:
+                    - button "W 001 B W 001 B PTM-W001B" [ref=f4e1997] [cursor=pointer]:
+                      - img "W 001 B" [ref=f4e2000]
+                      - generic [ref=f4e2001]:
+                        - generic [ref=f4e2002]: W 001 B
+                        - generic [ref=f4e2003]: PTM-W001B
+                  - cell "Category TROPHY" [ref=f4e2004]:
+                    - text: Category
+                    - generic [ref=f4e2005]: TROPHY
+                  - cell "Stock 0 pcs" [ref=f4e2006]:
+                    - text: Stock
+                    - generic [ref=f4e2008]:
+                      - generic [ref=f4e2009]: "0"
+                      - generic [ref=f4e2010]: pcs
+                  - cell "Price ₹60.00" [ref=f4e2011]:
+                    - text: Price
+                    - generic [ref=f4e2012]: ₹60.00
+                  - cell "Status Low Stock" [ref=f4e2013]:
+                    - text: Status
+                    - generic [ref=f4e2014]: Low Stock
+                  - cell [ref=f4e2015]:
+                    - text: Actions
+                    - generic [ref=f4e2016]:
+                      - button "Edit" [ref=f4e2017] [cursor=pointer]
+                      - button "Delete" [ref=f4e2020] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e2024] [cursor=pointer]
+                - row [ref=f4e2028]:
+                  - cell [ref=f4e2029]:
+                    - button "W 001 A W 001 A PTM-W001A" [ref=f4e2030] [cursor=pointer]:
+                      - img "W 001 A" [ref=f4e2033]
+                      - generic [ref=f4e2034]:
+                        - generic [ref=f4e2035]: W 001 A
+                        - generic [ref=f4e2036]: PTM-W001A
+                  - cell "Category TROPHY" [ref=f4e2037]:
+                    - text: Category
+                    - generic [ref=f4e2038]: TROPHY
+                  - cell "Stock 0 pcs" [ref=f4e2039]:
+                    - text: Stock
+                    - generic [ref=f4e2041]:
+                      - generic [ref=f4e2042]: "0"
+                      - generic [ref=f4e2043]: pcs
+                  - cell "Price ₹90.00" [ref=f4e2044]:
+                    - text: Price
+                    - generic [ref=f4e2045]: ₹90.00
+                  - cell "Status Low Stock" [ref=f4e2046]:
+                    - text: Status
+                    - generic [ref=f4e2047]: Low Stock
+                  - cell [ref=f4e2048]:
+                    - text: Actions
+                    - generic [ref=f4e2049]:
+                      - button "Edit" [ref=f4e2050] [cursor=pointer]
+                      - button "Delete" [ref=f4e2053] [cursor=pointer]
+                      - button "Request from Another Branch" [ref=f4e2057] [cursor=pointer]
+            - navigation "Pagination Navigation" [ref=f4e2061]:
+              - generic [ref=f4e2062]: Showing 1–50 of 122
+              - generic [ref=f4e2063]:
+                - button "First page" [disabled] [ref=f4e2064]
+                - button "Previous page" [disabled] [ref=f4e2068]
+                - button "Page 1" [ref=f4e2071] [cursor=pointer]: "1"
+                - button "Page 2" [ref=f4e2072] [cursor=pointer]: "2"
+                - button "Page 3" [ref=f4e2073] [cursor=pointer]: "3"
+                - button "Next page" [ref=f4e2074] [cursor=pointer]
+                - button "Last page" [ref=f4e2077] [cursor=pointer]
+            - dialog [ref=f4e2081]:
+              - generic [ref=f4e2082]:
+                - generic [ref=f4e2083]:
+                  - heading "Scan QR / Barcode" [level=2] [ref=f4e2088]
+                  - button "Close scanner" [ref=f4e2089] [cursor=pointer]
+                - generic [ref=f4e2093]:
+                  - button "Upload Photo" [ref=f4e2094] [cursor=pointer]
+                  - button "Live Camera" [active] [ref=f4e2098] [cursor=pointer]
+                - paragraph [ref=f4e2105]: Hold the QR code steady — it will be detected automatically.

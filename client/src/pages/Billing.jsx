@@ -154,6 +154,7 @@ const Billing = () => {
   const [_scannerOpen, _setScannerOpen] = useState(false);
   const [scannedPreview, setScannedPreview] = useState(null);
   const [scannedQty, setScannedQty] = useState(1);
+  const [duplicateItemModal, setDuplicateItemModal] = useState(null);
   const [lastBillData, setLastBillData] = useState(null);
   const [showPostBillOptions, setShowPostBillOptions] = useState(false);
   const [assignJobs, setAssignJobs] = useState([]);
@@ -705,12 +706,13 @@ const Billing = () => {
     }));
   }, []);
 
-  const handleAddLineItem = useCallback(async (product, qty = 1, extras = [], catId, subId, catName) => {
+  const handleAddLineItem = useCallback(async (product, qty = 1, extras = [], catId, subId, catName, forceAddNew = false) => {
     const quantity = Number(qty) || 1;
-    const existing = orderLinesRef.current.find(l => l.product_id && l.product_id === product.id);
+    const existing = !forceAddNew ? orderLinesRef.current.find(l => l.product_id && l.product_id === product.id) : null;
     if (existing) {
-      updateLine(existing.id, 'quantity', (Number(existing.quantity) || 0) + quantity);
+      setDuplicateItemModal({ product, qty: quantity, extras, catId, subId, catName, existingLine: existing });
       setProductSearchQuery('');
+      setProductSuggestions([]);
       return;
     }
 
@@ -2706,6 +2708,174 @@ const Billing = () => {
                   Add to Bill
                 </button>
                 <button className="btn btn-ghost btn-sm" onClick={() => setScannedPreview(null)}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Duplicate Item Prompt Modal */}
+      {duplicateItemModal && (
+        <div
+          className="modal-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Item already added options"
+          onClick={() => setDuplicateItemModal(null)}
+          style={{ zIndex: 9999 }}
+        >
+          <div
+            className="modal modal--sm"
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: 440,
+              borderRadius: 16,
+              padding: 24,
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.25), 0 10px 10px -5px rgba(0, 0, 0, 0.15)'
+            }}
+          >
+            <div className="modal__header" style={{ borderBottom: 'none', paddingBottom: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div
+                  style={{
+                    width: 42,
+                    height: 42,
+                    borderRadius: 12,
+                    background: 'rgba(245, 158, 11, 0.12)',
+                    color: '#f59e0b',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0
+                  }}
+                >
+                  <AlertCircle size={22} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: 'var(--text-primary)' }}>
+                    Item Already Added
+                  </h3>
+                  <p style={{ margin: '2px 0 0', fontSize: 13, color: 'var(--text-muted)' }}>
+                    This item is already in your bill.
+                  </p>
+                </div>
+              </div>
+              <button
+                className="modal-close"
+                onClick={() => setDuplicateItemModal(null)}
+                aria-label="Close"
+              >
+                <X size={18} aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="modal__body stack-md" style={{ paddingTop: 16 }}>
+              <div
+                style={{
+                  background: 'var(--surface, #f8fafc)',
+                  borderRadius: 10,
+                  padding: '12px 14px',
+                  border: '1px solid var(--border)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)' }}>
+                    {duplicateItemModal.product?.name || duplicateItemModal.product?.title || 'Selected Item'}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                    Current quantity in bill: <strong>{duplicateItemModal.existingLine?.quantity || 1}</strong>
+                  </div>
+                </div>
+                <span className="badge badge-warning" style={{ fontSize: 11 }}>In Bill</span>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 6 }}>
+                <button
+                  className="btn btn-primary"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    padding: '11px 16px',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    width: '100%',
+                    borderRadius: 8
+                  }}
+                  onClick={() => {
+                    const lineToUpdate = duplicateItemModal.existingLine;
+                    const newQty = (Number(lineToUpdate.quantity) || 0) + (duplicateItemModal.qty || 1);
+                    updateLine(lineToUpdate.id, 'quantity', newQty);
+                    toast.success(`Updated quantity to ${newQty}`);
+                    setDuplicateItemModal(null);
+                  }}
+                >
+                  <Plus size={16} /> Increase Quantity (+{duplicateItemModal.qty || 1})
+                </button>
+
+                <button
+                  className="btn btn-secondary"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    padding: '11px 16px',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    width: '100%',
+                    borderRadius: 8
+                  }}
+                  onClick={() => {
+                    const { product, qty, extras, catId, subId, catName } = duplicateItemModal;
+                    setDuplicateItemModal(null);
+                    handleAddLineItem(product, qty, extras, catId, subId, catName, true);
+                    toast.success('Added as a new separate item');
+                  }}
+                >
+                  <Copy size={16} /> Add Next Item (New Line)
+                </button>
+
+                <button
+                  className="btn btn-outline"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    padding: '11px 16px',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    width: '100%',
+                    borderRadius: 8
+                  }}
+                  onClick={() => {
+                    setDuplicateItemModal(null);
+                    const paymentCard =
+                      document.querySelector('.billing-payment-card') ||
+                      document.querySelector('.billing-summary') ||
+                      document.getElementById('billing-payment-section');
+                    if (paymentCard) {
+                      paymentCard.scrollIntoView({ behavior: 'smooth' });
+                    }
+                  }}
+                >
+                  <CreditCard size={16} /> Proceed to Payment
+                </button>
+              </div>
+
+              <div style={{ textAlign: 'right', marginTop: 4 }}>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => setDuplicateItemModal(null)}
+                  style={{ color: 'var(--text-muted)' }}
+                >
+                  Cancel
+                </button>
               </div>
             </div>
           </div>

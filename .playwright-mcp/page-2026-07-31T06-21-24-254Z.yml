@@ -1,0 +1,5 @@
+- generic [ref=f4e2]:
+  - button "Keyboard Shortcuts" [ref=f4e3] [cursor=pointer]
+  - link "Skip to main content" [ref=f4e6] [cursor=pointer]:
+    - /url: "#main-content"
+  - main [ref=f4e7]

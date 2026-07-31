@@ -23,6 +23,7 @@ import ServerError from '../components/ServerError';
 import DashboardQuickActions from '../components/DashboardQuickActions';
 import OpeningSetupModal from '../components/OpeningSetupModal';
 import PageContainer from '../components/ui/PageContainer';
+import DrillDownModal from '../components/DrillDownModal';
 
 const ACTIVE_TABS = [
   { id: 'all', label: 'All' },
@@ -47,6 +48,8 @@ const FrontOffice = () => {
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [activeTab, setActiveTab] = useState('queue');
   const [activeJobFilter, setActiveJobFilter] = useState('all');
+  const [drilldownMetric, setDrilldownMetric] = useState(null);
+  const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const searchRef = useRef(null);
   const searchTimeout = useRef(null);
 
@@ -645,63 +648,102 @@ const FrontOffice = () => {
         <DashboardQuickActions />
 
         <div className="fo-kpi-grid">
-              {/* Fix 3: role=group + aria-label groups value+label for screen readers */}
-              <div className="fo-kpi fo-kpi--blue">
+              <button
+                type="button"
+                className="fo-kpi fo-kpi--blue fo-kpi--clickable"
+                onClick={() => setDrilldownMetric('todays_jobs')}
+                title="Click to view Orders Today details"
+              >
                 <div className="fo-kpi__icon" aria-hidden="true"><ShoppingBag size={16} /></div>
                 <div className="fo-kpi__body" role="group" aria-label="Orders Today">
                   <span className="fo-kpi__value">{stats?.today_orders ?? 0}</span>
                   <span className="fo-kpi__label">Orders Today</span>
                 </div>
-              </div>
-              <div className="fo-kpi fo-kpi--amber">
+              </button>
+              <button
+                type="button"
+                className="fo-kpi fo-kpi--amber fo-kpi--clickable"
+                onClick={() => setDrilldownMetric('in_progress_jobs')}
+                title="Click to view Active Jobs details"
+              >
                 <div className="fo-kpi__icon" aria-hidden="true"><Clock size={16} /></div>
                 <div className="fo-kpi__body" role="group" aria-label="Active Jobs">
                   <span className="fo-kpi__value">{stats?.in_progress ?? 0}</span>
                   <span className="fo-kpi__label">Active Jobs</span>
                 </div>
-              </div>
-              <div className="fo-kpi fo-kpi--green">
+              </button>
+              <button
+                type="button"
+                className="fo-kpi fo-kpi--green fo-kpi--clickable"
+                onClick={() => setDrilldownMetric('ready_pickup_jobs')}
+                title="Click to view Ready for Pickup details"
+              >
                 <div className="fo-kpi__icon" aria-hidden="true"><CheckCircle2 size={16} /></div>
                 <div className="fo-kpi__body" role="group" aria-label="Ready Pickup">
                   <span className="fo-kpi__value">{stats?.ready_pickup ?? 0}</span>
                   <span className="fo-kpi__label">Ready Pickup</span>
                 </div>
-              </div>
-              <div className="fo-kpi fo-kpi--red">
+              </button>
+              <button
+                type="button"
+                className="fo-kpi fo-kpi--red fo-kpi--clickable"
+                onClick={() => setDrilldownMetric('pending_amount')}
+                title="Click to view Due Collection details"
+              >
                 <div className="fo-kpi__icon" aria-hidden="true"><IndianRupee size={16} /></div>
                 <div className="fo-kpi__body" role="group" aria-label="Due Collection">
                   <span className="fo-kpi__value">{fmt(stats?.total_due)}</span>
                   <span className="fo-kpi__label">Due Collection</span>
                 </div>
-              </div>
-              <div className="fo-kpi fo-kpi--teal">
+              </button>
+              <button
+                type="button"
+                className="fo-kpi fo-kpi--teal fo-kpi--clickable"
+                onClick={() => setDrilldownMetric('todays_collection')}
+                title="Click to view Today Collection details"
+              >
                 <div className="fo-kpi__icon" aria-hidden="true"><TrendingUp size={16} /></div>
                 <div className="fo-kpi__body" role="group" aria-label="Today Collection">
                   <span className="fo-kpi__value">{fmt(stats?.today_collections)}</span>
                   <span className="fo-kpi__label">Today Collection</span>
                 </div>
-              </div>
-              <div className="fo-kpi fo-kpi--purple">
+              </button>
+              <button
+                type="button"
+                className="fo-kpi fo-kpi--purple fo-kpi--clickable"
+                onClick={() => setDrilldownMetric('delivered_today_jobs')}
+                title="Click to view Delivered Today details"
+              >
                 <div className="fo-kpi__icon" aria-hidden="true"><Truck size={16} /></div>
                 <div className="fo-kpi__body" role="group" aria-label="Delivered Today">
                   <span className="fo-kpi__value">{stats?.delivered_today ?? 0}</span>
                   <span className="fo-kpi__label">Delivered Today</span>
                 </div>
-              </div>
-              <div className="fo-kpi fo-kpi--pink">
+              </button>
+              <button
+                type="button"
+                className="fo-kpi fo-kpi--pink fo-kpi--clickable"
+                onClick={() => setDrilldownMetric('pending_approval_jobs')}
+                title="Click to view Pending Approval details"
+              >
                 <div className="fo-kpi__icon" aria-hidden="true"><Timer size={16} /></div>
                 <div className="fo-kpi__body" role="group" aria-label="Pending Approval">
                   <span className="fo-kpi__value">{stats?.pending_approval ?? 0}</span>
                   <span className="fo-kpi__label">Pending Approval</span>
                 </div>
-              </div>
-              <div className="fo-kpi fo-kpi--cyan">
+              </button>
+              <button
+                type="button"
+                className="fo-kpi fo-kpi--cyan fo-kpi--clickable"
+                onClick={() => setDrilldownMetric('avg_processing')}
+                title="Click to view Avg Processing details"
+              >
                 <div className="fo-kpi__icon" aria-hidden="true"><BarChart3 size={16} /></div>
                 <div className="fo-kpi__body" role="group" aria-label="Avg Processing">
                   <span className="fo-kpi__value">{stats?.avg_processing_time ?? '—'}</span>
                   <span className="fo-kpi__label">Avg Processing</span>
                 </div>
-              </div>
+              </button>
             </div>
 
         {/* ── Tabs ── */}
@@ -1176,6 +1218,14 @@ const FrontOffice = () => {
           onSkip={() => setShowOpeningPrompt(false)}
         />
       )}
+
+      <DrillDownModal
+        metric={drilldownMetric}
+        date={todayStr}
+        branchId={user?.branch_id}
+        isOpen={!!drilldownMetric}
+        onClose={() => setDrilldownMetric(null)}
+      />
     </>
   );
 };

@@ -1541,8 +1541,104 @@ router.get('/stats/dashboard/drilldown', authenticateToken, authorizeRoles('Admi
             return res.json(rows);
         }
 
+        case 'ready_pickup_jobs': {
+            const [rows] = await pool.query(`
+                SELECT
+                    j.id AS job_id,
+                    j.job_number,
+                    j.job_name,
+                    j.total_amount,
+                    j.advance_paid,
+                    j.balance_amount,
+                    j.status,
+                    j.payment_status,
+                    j.created_at,
+                    COALESCE(c.id, 0) AS customer_id,
+                    COALESCE(c.name, 'Walk-in') AS customer_name
+                FROM sarga_jobs j
+                LEFT JOIN sarga_customers c ON j.customer_id = c.id
+                WHERE j.status IN ('Completed', 'Ready')
+                  ${branchClause('j')}
+                ORDER BY j.updated_at DESC
+                LIMIT 50
+            `, [...branchParams]);
+            return res.json(rows);
+        }
+
+        case 'delivered_today_jobs': {
+            const [rows] = await pool.query(`
+                SELECT
+                    j.id AS job_id,
+                    j.job_number,
+                    j.job_name,
+                    j.total_amount,
+                    j.advance_paid,
+                    j.balance_amount,
+                    j.status,
+                    j.payment_status,
+                    j.created_at,
+                    COALESCE(c.id, 0) AS customer_id,
+                    COALESCE(c.name, 'Walk-in') AS customer_name
+                FROM sarga_jobs j
+                LEFT JOIN sarga_customers c ON j.customer_id = c.id
+                WHERE j.status = 'Delivered' AND DATE(j.updated_at) = ?
+                  ${branchClause('j')}
+                ORDER BY j.updated_at DESC
+                LIMIT 50
+            `, [targetDate, ...branchParams]);
+            return res.json(rows);
+        }
+
+        case 'pending_approval_jobs': {
+            const [rows] = await pool.query(`
+                SELECT
+                    j.id AS job_id,
+                    j.job_number,
+                    j.job_name,
+                    j.total_amount,
+                    j.advance_paid,
+                    j.balance_amount,
+                    j.status,
+                    j.payment_status,
+                    j.created_at,
+                    COALESCE(c.id, 0) AS customer_id,
+                    COALESCE(c.name, 'Walk-in') AS customer_name
+                FROM sarga_jobs j
+                LEFT JOIN sarga_customers c ON j.customer_id = c.id
+                WHERE j.status = 'Approval Pending'
+                  ${branchClause('j')}
+                ORDER BY j.updated_at DESC
+                LIMIT 50
+            `, [...branchParams]);
+            return res.json(rows);
+        }
+
+        case 'avg_processing': {
+            const [rows] = await pool.query(`
+                SELECT
+                    j.id AS job_id,
+                    j.job_number,
+                    j.job_name,
+                    j.total_amount,
+                    j.advance_paid,
+                    j.balance_amount,
+                    j.status,
+                    j.payment_status,
+                    j.created_at,
+                    COALESCE(c.id, 0) AS customer_id,
+                    COALESCE(c.name, 'Walk-in') AS customer_name
+                FROM sarga_jobs j
+                LEFT JOIN sarga_customers c ON j.customer_id = c.id
+                WHERE j.status NOT IN ('Cancelled')
+                  ${branchClause('j')}
+                ORDER BY j.created_at DESC
+                LIMIT 50
+            `, [...branchParams]);
+            return res.json(rows);
+        }
+
         default:
-            return res.status(400).json({ message: `Unknown metric: ${metric}. Supported: todays_collection, pending_amount, todays_jobs, todays_expenses, in_progress_jobs, low_stock_items, urgent_overdue_jobs` });
+            return res.status(400).json({ message: `Unknown metric: ${metric}. Supported: todays_collection, pending_amount, todays_jobs, todays_expenses, in_progress_jobs, low_stock_items, urgent_overdue_jobs, ready_pickup_jobs, delivered_today_jobs, pending_approval_jobs, avg_processing` });
     }
 }));
 

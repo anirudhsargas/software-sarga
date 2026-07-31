@@ -1,0 +1,30 @@
+- generic [ref=f1e2]:
+  - link "Skip to main content" [ref=f1e3] [cursor=pointer]:
+    - /url: "#main-content"
+  - main [ref=f1e4]:
+    - generic [ref=f1e82]:
+      - generic [ref=f1e83]:
+        - img "Sarga" [ref=f1e85]
+        - heading "SARGA" [level=1] [ref=f1e86]
+        - paragraph [ref=f1e87]: Printing Management System
+      - generic [ref=f1e88]:
+        - heading "Sign In" [level=2] [ref=f1e89]
+        - paragraph [ref=f1e90]: Enter your credentials to access your account
+      - generic [ref=f1e111]: Please enter your User ID / Mobile Number
+      - generic [ref=f1e91]:
+        - generic [ref=f1e92]:
+          - generic [ref=f1e93]: User ID / Mobile Number
+          - textbox "User ID / Mobile Number" [ref=f1e95]
+        - generic [ref=f1e96]:
+          - generic [ref=f1e97]: Password
+          - generic [ref=f1e98]:
+            - textbox "Password" [ref=f1e99]: Admin@123
+            - button [ref=f1e100] [cursor=pointer]
+        - generic [ref=f1e104]:
+          - generic [ref=f1e105] [cursor=pointer]:
+            - checkbox "Remember Me" [ref=f1e106]
+            - generic [ref=f1e107]: Remember Me
+          - link "Forgot Password?" [ref=f1e108] [cursor=pointer]:
+            - /url: /forgot-password
+        - button "Sign In" [active] [ref=f1e109] [cursor=pointer]
+      - generic [ref=f1e110]: © 2025 SARGA Printing Management. All rights reserved.

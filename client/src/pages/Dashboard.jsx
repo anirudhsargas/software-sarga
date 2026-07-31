@@ -4,8 +4,8 @@ import usePolling from '../hooks/usePolling';
 import { Routes, Route, NavLink, useNavigate, Navigate, useParams, useLocation } from 'react-router-dom';
 import {
     Users, ClipboardList, Box, ShieldAlert, Shield, Receipt, LogOut, Grid, UserSquare, Building2, ChevronLeft, ChevronRight, Settings, BookOpen, Loader2, Store, BarChart3,
-    Brain, Search, FileCheck, Layers, Zap, TrendingUp, Camera, X, Sparkles, ScanLine, Package, Tag, Clock, FileText, MessageSquare, Star, Upload,
-    Image, Calendar, Truck, Globe, Layout, Menu, Database, Award, Lock, Monitor, Sun, Moon, Calculator
+    Search, FileCheck, Layers, Zap, TrendingUp, Camera, X, Sparkles, ScanLine, Package, Tag, Clock, FileText, Upload,
+    Layout, Menu, Database, Award, Lock, Monitor, Sun, Moon, Calculator
 } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 import SidebarThemeToggle from '../components/SidebarThemeToggle';
@@ -220,7 +220,7 @@ const DashboardHome = React.memo(() => {
     return <Jobs />;
 });
 
-const SidebarNavItem = React.memo(({ item, closeSidebar, pendingRequestsCount, chatbotUnlabeledCount, onAction }) => {
+const SidebarNavItem = React.memo(({ item, closeSidebar, pendingRequestsCount, onAction }) => {
     if (item.action === 'scanner') {
         return (
             <button
@@ -252,15 +252,12 @@ const SidebarNavItem = React.memo(({ item, closeSidebar, pendingRequestsCount, c
                 {item.name === 'Requests' && pendingRequestsCount > 0 && (
                     <span className="side-badge">{pendingRequestsCount}</span>
                 )}
-                {item.path === '/dashboard/admin/chatbot-training' && chatbotUnlabeledCount > 0 && (
-                    <span className="side-badge">{chatbotUnlabeledCount}</span>
-                )}
             </div>
         </NavLink>
     );
 });
 
-const SidebarGroup = React.memo(({ group, isCollapsed, sidebarCollapsed, toggleGroup, closeSidebar, pendingRequestsCount, chatbotUnlabeledCount, onAction }) => {
+const SidebarGroup = React.memo(({ group, isCollapsed, sidebarCollapsed, toggleGroup, closeSidebar, pendingRequestsCount, onAction }) => {
     const location = useLocation();
     const showLabel = group.label && group.items.length > 1;
     const GroupIcon = group.icon;
@@ -272,7 +269,7 @@ const SidebarGroup = React.memo(({ group, isCollapsed, sidebarCollapsed, toggleG
 
     if (!showLabel) {
         return group.items?.map(item => (
-            <SidebarNavItem key={item.name} item={item} closeSidebar={closeSidebar} pendingRequestsCount={pendingRequestsCount} chatbotUnlabeledCount={chatbotUnlabeledCount} onAction={onAction} />
+            <SidebarNavItem key={item.name} item={item} closeSidebar={closeSidebar} pendingRequestsCount={pendingRequestsCount} onAction={onAction} />
         ));
     }
 
@@ -294,7 +291,7 @@ const SidebarGroup = React.memo(({ group, isCollapsed, sidebarCollapsed, toggleG
             </button>
             <div className="sidebar-group-items" style={{ display: (isCollapsed || sidebarCollapsed) ? 'none' : 'block' }}>
                 {group.items.map(item => (
-                    <SidebarNavItem key={item.name} item={item} closeSidebar={closeSidebar} pendingRequestsCount={pendingRequestsCount} chatbotUnlabeledCount={chatbotUnlabeledCount} onAction={onAction} />
+                    <SidebarNavItem key={item.name} item={item} closeSidebar={closeSidebar} pendingRequestsCount={pendingRequestsCount} onAction={onAction} />
                 ))}
             </div>
         </div>
@@ -327,7 +324,6 @@ const sidebarGroupDefs = [
     { key: 'inventory', label: 'Inventory', icon: Package },
     { key: 'production', label: 'Production', icon: Zap },
     { key: 'branch-ops', label: 'Branch Operations', icon: Building2 },
-    { key: 'website', label: 'Website', icon: Globe },
     { key: 'admin', label: 'Administration', icon: ShieldAlert },
 ];
 
@@ -419,7 +415,6 @@ const Dashboard = () => {
     });
     const [cropState, setCropState] = useState(null);
     const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
-    const [chatbotUnlabeledCount, setChatbotUnlabeledCount] = useState(0);
     const [showInventoryScan, setShowInventoryScan] = useState(false);
     const scannerOpenRef = useRef(false);
     useEffect(() => { scannerOpenRef.current = showInventoryScan; }, [showInventoryScan]);
@@ -664,19 +659,6 @@ const Dashboard = () => {
         { key: 'manage', name: 'Audit Trail', icon: Shield, path: '/dashboard/admin/audit-trail', roles: ['Admin'], group: 'admin' },
         { key: 'manage', name: 'Audit Dashboard', icon: BarChart3, path: '/dashboard/admin/audit-dashboard', roles: ['Admin'], group: 'admin' },
         { key: 'manage', name: 'Google Sheets Backup', icon: Database, path: '/dashboard/backup', roles: ['Admin'], group: 'admin' },
-        // Website Group Items
-        { key: 'manage', name: 'Chatbot Training', icon: Brain, path: '/dashboard/admin/chatbot-training', roles: ['Admin'], group: 'website' },
-        { key: 'manage', name: 'Customer Reviews', icon: Star, path: '/dashboard/admin/reviews', roles: ['Admin'], group: 'website' },
-        { key: 'manage', name: 'Artwork Uploads', icon: Upload, path: '/dashboard/admin/artwork', roles: ['Admin'], group: 'website' },
-        { key: 'manage', name: 'Portfolio', icon: Image, path: '/dashboard/admin/portfolio', roles: ['Admin'], group: 'website' },
-        { key: 'manage', name: 'Promotions', icon: Tag, path: '/dashboard/admin/promotions', roles: ['Admin'], group: 'website' },
-        { key: 'manage', name: 'Pickup Bookings', icon: Calendar, path: '/dashboard/admin/pickup-bookings', roles: ['Admin'], group: 'website' },
-        { key: 'manage', name: 'Delivery Rules', icon: Truck, path: '/dashboard/admin/delivery-rules', roles: ['Admin'], group: 'website' },
-        { key: 'manage', name: 'Translations', icon: Globe, path: '/dashboard/admin/translations', roles: ['Admin'], group: 'website' },
-        { key: 'operations', name: 'Web Inquiries', icon: MessageSquare, path: '/dashboard/web-inquiries', roles: ['Admin', 'Front Office'], group: 'website' },
-        { key: 'operations', name: 'Blog Journal CMS', icon: BookOpen, path: '/dashboard/blog-cms', roles: ['Admin', 'Front Office', 'Designer'], group: 'website' },
-        { key: 'sample_requests', name: 'Sample Requests', icon: FileCheck, path: '/dashboard/sample-requests', roles: ['Admin', 'Front Office', 'Accountant'], group: 'website' },
-        { key: 'design_bookings', name: 'Design Bookings', icon: ClipboardList, path: '/dashboard/design-bookings', roles: ['Admin', 'Front Office', 'Designer'], group: 'website' },
     ], [t]);
 
     const filteredMenu = useMemo(() => {
@@ -740,8 +722,8 @@ const Dashboard = () => {
     const [collapsedGroups, setCollapsedGroups] = useState(() => {
         try {
             const saved = sessionStorage.getItem('sargaSidebarGroups');
-            return saved ? new Set(JSON.parse(saved)) : new Set(['sales', 'inventory', 'production', 'branch-ops', 'accounts', 'admin', 'website']);
-        } catch { return new Set(['manage', 'analytics', 'website']); }
+            return saved ? new Set(JSON.parse(saved)) : new Set(['sales', 'inventory', 'production', 'branch-ops', 'accounts', 'admin']);
+        } catch { return new Set(['manage', 'analytics']); }
     });
 
     const toggleGroup = useCallback((groupKey) => {
@@ -892,20 +874,6 @@ const Dashboard = () => {
         }
     }, [user?.role]);
 
-    const fetchChatbotCounts = useCallback(async () => {
-        if (user?.role !== 'Admin') return;
-        try {
-            const res = await api.get('chatbot/model-status', { skipGlobalErrorHandling: true });
-            const unlabeledCount = res?.data?.unlabeled ?? 0;
-            setChatbotUnlabeledCount(prev => {
-                if (prev === unlabeledCount) return prev;
-                return unlabeledCount;
-            });
-        } catch {
-            // ignore
-        }
-    }, [user?.role]);
-
     useEffect(() => {
         if (!showProfileModal) return;
         setProfileName(user?.name || '');
@@ -922,7 +890,6 @@ const Dashboard = () => {
 
     const isAdminOrAccountant = user?.role === 'Admin' || user?.role === 'Accountant';
     usePolling(fetchPendingCount, 60000, isAdminOrAccountant);
-    usePolling(fetchChatbotCounts, 60000, user?.role === 'Admin');
 
     // Consolidated initial data fetch on mount with parallel requests
     useEffect(() => {
@@ -1094,7 +1061,7 @@ const Dashboard = () => {
                             const showLabel = group.label && group.items.length > 1;
                             const isCollapsed = showLabel && collapsedGroups.has(group.key);
                             return (
-                                <SidebarGroup key={group.key} group={group} isCollapsed={isCollapsed} sidebarCollapsed={sidebarCollapsed} toggleGroup={toggleGroup} closeSidebar={closeSidebar} pendingRequestsCount={pendingRequestsCount} chatbotUnlabeledCount={chatbotUnlabeledCount} onAction={handleNavAction} />
+                                <SidebarGroup key={group.key} group={group} isCollapsed={isCollapsed} sidebarCollapsed={sidebarCollapsed} toggleGroup={toggleGroup} closeSidebar={closeSidebar} pendingRequestsCount={pendingRequestsCount} onAction={handleNavAction} />
                             );
                         })
                     ) : (

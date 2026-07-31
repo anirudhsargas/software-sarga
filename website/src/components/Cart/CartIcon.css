@@ -1,2 +1,0 @@
-.cart-icon { background: transparent; border: none; position: relative; cursor: pointer; }
-.cart-badge { position: absolute; top: -6px; right: -6px; background: var(--error); color: var(--on-accent); border-radius: 999px; padding: 2px 6px; font-size: 12px; }

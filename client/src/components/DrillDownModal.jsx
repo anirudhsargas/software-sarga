@@ -48,6 +48,30 @@ const METRIC_CONFIG = {
     cellKey: ['customer_name', 'job_number', 'total_amount', 'status'],
     hasAmountExpand: true,
   },
+  ready_pickup_jobs: {
+    label: 'Ready for Pickup',
+    cols: ['Customer', 'Work', 'Amount', 'Status'],
+    cellKey: ['customer_name', 'job_number', 'total_amount', 'status'],
+    hasAmountExpand: true,
+  },
+  delivered_today_jobs: {
+    label: 'Delivered Today',
+    cols: ['Customer', 'Work', 'Amount', 'Status'],
+    cellKey: ['customer_name', 'job_number', 'total_amount', 'status'],
+    hasAmountExpand: true,
+  },
+  pending_approval_jobs: {
+    label: 'Pending Approval',
+    cols: ['Customer', 'Work', 'Amount', 'Status'],
+    cellKey: ['customer_name', 'job_number', 'total_amount', 'status'],
+    hasAmountExpand: true,
+  },
+  avg_processing: {
+    label: 'Processing Queue',
+    cols: ['Customer', 'Work', 'Amount', 'Status'],
+    cellKey: ['customer_name', 'job_number', 'total_amount', 'status'],
+    hasAmountExpand: true,
+  },
 };
 
 const PAYMENT_MODE_ICONS = {
@@ -228,7 +252,7 @@ const DetailRow = ({ record, metric, config, onClose }) => {
                 </div>
               </>
             )}
-            {(metric === 'todays_jobs' || metric === 'in_progress_jobs') && (
+            {(metric === 'todays_jobs' || metric === 'in_progress_jobs' || metric === 'urgent_overdue_jobs' || metric === 'ready_pickup_jobs' || metric === 'delivered_today_jobs' || metric === 'pending_approval_jobs' || metric === 'avg_processing') && (
               <>
                 <div className="drilldown-expanded__item">
                   <span className="drilldown-expanded__label">Job Name</span>
