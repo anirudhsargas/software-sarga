@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const axios = require('../helpers/mlAxios');
+const axios = require('axios');
 const { authenticateToken } = require('../middleware/auth');
 const logger = require('../helpers/logger');
 const { pool } = require('../database');

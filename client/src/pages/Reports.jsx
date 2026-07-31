@@ -48,17 +48,9 @@ export default function Reports() {
     const [tooltip, setTooltip] = useState(null);
     const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
-    const fetchSeasonal = useCallback(async (refresh = false) => {
-        setLoading(true);
-        try {
-            const url = refresh ? 'ai/seasonal?refresh=1' : 'ai/seasonal';
-            const res = await api.get(url);
-            setData(res.data);
-        } catch {
-            // keep stale
-        } finally {
-            setLoading(false);
-        }
+    const fetchSeasonal = useCallback(async () => {
+        setLoading(false);
+        setData(null);
     }, []);
 
     useEffect(() => { fetchSeasonal(); }, [fetchSeasonal]);

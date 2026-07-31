@@ -17,8 +17,6 @@ import SectionErrorBoundary from '../components/SectionErrorBoundary';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { useConfirm } from '../contexts/ConfirmContext';
 import { useTheme } from '../theme/ThemeProvider';
-const AnomalyPanel = lazyWithRetry(() => import('../components/AnomalyPanel'));
-const InsightsPanel = lazyWithRetry(() => import('../components/InsightsPanel'));
 const PaperSidePanel = lazyWithRetry(() => import('../components/PaperSidePanel'));
 const SmartSearch = lazyWithRetry(() => import('../components/SmartSearch'));
 import SkeletonLoader from '../components/SkeletonLoader';
@@ -64,7 +62,6 @@ const Accounts = lazyWithRetry(() => import('./Accounts'));
 const ProductionTracker = lazyWithRetry(() => import('./ProductionTracker'));
 const PlateManagement = lazyWithRetry(() => import('./PlateManagement'));
 const StockVerification = lazyWithRetry(() => import('./StockVerification'));
-const StockPlanning = lazyWithRetry(() => import('./StockPlanning'));
 const OtherStaffDashboard = lazyWithRetry(() => import('./OtherStaffDashboard'));
 const PrinterDashboard = lazyWithRetry(() => import('./PrinterDashboard'));
 const DesignerDashboard = lazyWithRetry(() => import('./DesignerDashboard'));
@@ -624,7 +621,6 @@ const Dashboard = () => {
         { key: 'inventory', name: 'Consumables', icon: Package, path: '/dashboard/inventory/consumables', roles: ['Admin', 'Front Office', 'Accountant'], group: 'inventory' },
         { key: 'internal', name: 'Stock Transfer', icon: Package, path: '/dashboard/stock-transfer', roles: ['Admin', 'Accountant', 'Front Office'], group: 'inventory' },
         { key: 'operations', name: 'Stock Verification', icon: Box, path: '/dashboard/stock-verification', roles: ['Accountant', 'Admin'], group: 'inventory' },
-        { key: 'operations', name: 'Stock Planning', icon: Package, path: '/dashboard/stock-planning', roles: ['Admin', 'Front Office', 'Accountant'], group: 'inventory' },
         { key: 'scanner', name: 'Scan Item', icon: Camera, path: '/dashboard/inventory/scan', roles: ['Admin', 'Front Office', 'Accountant'], group: 'inventory' },
         // Production
         { key: 'operations', name: 'Product Library', icon: Grid, path: '/dashboard/products', roles: ['Admin', 'Front Office', 'Designer', 'Accountant'], group: 'production' },
@@ -895,13 +891,6 @@ const Dashboard = () => {
             if (isAdminOrAccountant) {
                 promises.push(fetchPendingCount());
             }
-            if (['Admin', 'Accountant', 'Front Office'].includes(user?.role)) {
-                promises.push(
-                    api.get('ai/anomalies').then(res => {
-                        setAnomalyCount(res?.data?.anomalies?.length || 0);
-                    }).catch(() => {})
-                );
-            }
             await Promise.allSettled(promises);
         };
         initialFetch();
@@ -914,21 +903,9 @@ const Dashboard = () => {
         }
         window.addEventListener('companySettingsUpdated', handleCompanyUpdate);
 
-        // Anomaly polling interval
-        let anomalyInterval;
-        if (['Admin', 'Accountant', 'Front Office'].includes(user?.role)) {
-            anomalyInterval = setInterval(async () => {
-                try {
-                    const res = await api.get('ai/anomalies');
-                    setAnomalyCount(res?.data?.anomalies?.length || 0);
-                } catch { /* ignore */ }
-            }, 5 * 60 * 1000);
-        }
-
         return () => {
             window.removeEventListener('requestReviewed', handleRefresh);
             window.removeEventListener('companySettingsUpdated', handleCompanyUpdate);
-            if (anomalyInterval) clearInterval(anomalyInterval);
         };
     }, [user]);
 
@@ -1223,7 +1200,6 @@ const Dashboard = () => {
                             <Route path="inventory/overview" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><InventoryOverview /></ProtectedSubRoute>} />
                             <Route path="inventory/scan" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><ScanItem /></ProtectedSubRoute>} />
                             <Route path="stock-verification" element={<ProtectedSubRoute roles={['Accountant', 'Admin']}><StockVerification /></ProtectedSubRoute>} />
-                            <Route path="stock-planning" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><RequiresConnection feature="Stock Planning"><StockPlanning /></RequiresConnection></ProtectedSubRoute>} />
                             <Route path="payment-verification" element={<ProtectedSubRoute roles={['Accountant', 'Admin']}><PaymentVerification /></ProtectedSubRoute>} />
                             <Route path="expenses" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><ExpenseManager /></ProtectedSubRoute>} />
                             <Route path="expenses/upload-bills" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><UploadBills /></ProtectedSubRoute>} />

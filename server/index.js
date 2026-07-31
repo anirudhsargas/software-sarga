@@ -514,27 +514,6 @@ registerRoute('productionTracker', '/api/production-tracker', () => require('./r
 registerRoute('upsell', '/api', () => require('./routes/upsell'));
 registerRoute('imposition', '/api', () => require('./routes/imposition'));
 
-// Anomaly detection (calls Python ML service)
-registerRoute('anomalies', '/api/ai', () => require('./routes/anomalies'));
-
-// ML sales forecast (calls Python ML service)
-registerRoute('forecast', '/api/ai/forecast', () => require('./routes/forecast'));
-
-// AI business insights (calls Python ML service)
-registerRoute('insights', '/api/ai', () => require('./routes/insights'));
-
-// Seasonal analysis (calls Python ML service)
-registerRoute('seasonal', '/api/ai', () => require('./routes/seasonal'));
-
-// Stock planning (calls Python ML service)
-registerRoute('stockPlanning', '/api/ai/stock-planning', () => require('./routes/stockPlanning'));
-
-// AI upsell suggestions (calls Python ML service — Apriori)
-registerRoute('aiUpsell', '/api/ai', () => require('./routes/aiUpsell'));
-
-// AI turnaround time prediction (calls Python ML service — GBR)
-registerRoute('aiTurnaround', '/api/ai/turnaround', () => require('./routes/aiTurnaround'));
-
 // CCTV Attendance System
 registerRoute('cctvAttendance', '/api/cctv', () => require('./routes/cctvAttendance'));
 

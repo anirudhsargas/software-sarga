@@ -106,13 +106,6 @@ function createTestApp() {
   app.use('/api/job-priority', require('../../routes/jobPriority'));
   app.use('/api/production-tracker', require('../../routes/productionTracker'));
   app.use('/api', require('../../routes/upsell'));
-  app.use('/api/ai', require('../../routes/anomalies'));
-  app.use('/api/ai/forecast', require('../../routes/forecast'));
-  app.use('/api/ai', require('../../routes/insights'));
-  app.use('/api/ai', require('../../routes/seasonal'));
-  app.use('/api/ai/stock-planning', require('../../routes/stockPlanning'));
-  app.use('/api/ai', require('../../routes/aiUpsell'));
-  app.use('/api/ai/turnaround', require('../../routes/aiTurnaround'));
   app.use('/api/cctv', require('../../routes/cctvAttendance'));
   app.use('/api/cctv', require('../../routes/cctvCameras')(upload, () => {}));
   app.use('/api', require('../../routes/quotes'));

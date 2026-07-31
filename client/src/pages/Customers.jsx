@@ -462,22 +462,7 @@ const Customers = () => {
 
     // Fetch turnaround estimate when product + quantity + branch change
     useEffect(() => {
-        if (!selectedProduct || !jobData.quantity || !jobData.branch_id) {
-            setTurnaroundEstimate(null);
-            return;
-        }
-        const timer = setTimeout(async () => {
-            try {
-                const res = await api.post('/ai/turnaround', {
-                    service_type: selectedProduct.category || selectedProduct.name,
-                    quantity: Number(jobData.quantity),
-                    branch_id: Number(jobData.branch_id),
-                });
-                setTurnaroundEstimate(res.data);
-            } catch {
-                setTurnaroundEstimate(null);
-            }
-        }, 600);
+        setTurnaroundEstimate(null);
         return () => clearTimeout(timer);
     }, [selectedProduct?.id, jobData.quantity, jobData.branch_id]);
 
