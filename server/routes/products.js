@@ -1640,33 +1640,68 @@ module.exports = (upload, removeUploadFile) => {
                     params.push(normalizedStatus);
                 }
 
-                const [rows] = await pool.query(
-                    `SELECT
-                        r.id,
-                        r.product_id,
-                        r.current_data,
-                        r.proposed_data,
-                        r.requested_by,
-                        r.status,
-                        r.request_type,
-                        r.priority,
-                        r.notes,
-                        r.admin_note,
-                        r.requested_at,
-                        r.reviewed_by,
-                        r.reviewed_at,
-                        p.name AS product_name,
-                        p.product_code,
-                        req_staff.name AS requested_by_name,
-                        rev_staff.name AS reviewed_by_name
-                     FROM sarga_product_update_requests r
-                     LEFT JOIN sarga_products p ON p.id = r.product_id
-                     LEFT JOIN sarga_staff req_staff ON req_staff.id = r.requested_by
-                     LEFT JOIN sarga_staff rev_staff ON rev_staff.id = r.reviewed_by
-                     ${whereSql}
-                     ORDER BY r.requested_at DESC, r.id DESC`,
-                    params
-                );
+                let rows = [];
+                try {
+                    [rows] = await pool.query(
+                        `SELECT
+                            r.id,
+                            r.product_id,
+                            r.current_data,
+                            r.proposed_data,
+                            r.requested_by,
+                            r.status,
+                            r.request_type,
+                            r.priority,
+                            r.notes,
+                            r.admin_note,
+                            r.requested_at,
+                            r.reviewed_by,
+                            r.reviewed_at,
+                            p.name AS product_name,
+                            p.product_code,
+                            req_staff.name AS requested_by_name,
+                            rev_staff.name AS reviewed_by_name
+                         FROM sarga_product_update_requests r
+                         LEFT JOIN sarga_products p ON p.id = r.product_id
+                         LEFT JOIN sarga_staff req_staff ON req_staff.id = r.requested_by
+                         LEFT JOIN sarga_staff rev_staff ON rev_staff.id = r.reviewed_by
+                         ${whereSql}
+                         ORDER BY r.requested_at DESC, r.id DESC`,
+                        params
+                    );
+                } catch (err) {
+                    if (err.code === 'ER_BAD_FIELD_ERROR') {
+                        [rows] = await pool.query(
+                            `SELECT
+                                r.id,
+                                r.product_id,
+                                r.current_data,
+                                r.proposed_data,
+                                r.requested_by,
+                                r.status,
+                                r.request_type,
+                                NULL AS priority,
+                                NULL AS notes,
+                                r.admin_note,
+                                r.requested_at,
+                                r.reviewed_by,
+                                r.reviewed_at,
+                                p.name AS product_name,
+                                p.product_code,
+                                req_staff.name AS requested_by_name,
+                                rev_staff.name AS reviewed_by_name
+                             FROM sarga_product_update_requests r
+                             LEFT JOIN sarga_products p ON p.id = r.product_id
+                             LEFT JOIN sarga_staff req_staff ON req_staff.id = r.requested_by
+                             LEFT JOIN sarga_staff rev_staff ON rev_staff.id = r.reviewed_by
+                             ${whereSql}
+                             ORDER BY r.requested_at DESC, r.id DESC`,
+                            params
+                        );
+                    } else {
+                        throw err;
+                    }
+                }
 
                 const safeJsonParse = (val) => {
                     if (!val) return null;

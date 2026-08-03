@@ -161,7 +161,10 @@ async function migrate() {
       }
       await conn.query("ALTER TABLE sarga_jobs MODIFY COLUMN customer_id INT NULL");
       await conn.query("ALTER TABLE sarga_jobs ADD FOREIGN KEY (customer_id) REFERENCES sarga_customers(id) ON DELETE SET NULL");
-    } catch (_e) { /* safe */ }
+    // --- sarga_product_update_requests ---
+    try { await conn.query("ALTER TABLE sarga_product_update_requests ADD COLUMN priority ENUM('Low', 'Medium', 'High', 'Urgent') NOT NULL DEFAULT 'Medium'"); } catch (e) { ignoreDup(e); }
+    try { await conn.query("ALTER TABLE sarga_product_update_requests ADD COLUMN notes TEXT NULL"); } catch (e) { ignoreDup(e); }
+    try { await conn.query("ALTER TABLE sarga_product_update_requests ADD COLUMN request_type ENUM('add', 'edit', 'delete') NOT NULL DEFAULT 'edit'"); } catch (e) { ignoreDup(e); }
 
     console.log('All migrations applied successfully.');
   } finally {
