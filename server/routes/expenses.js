@@ -326,25 +326,31 @@ router.put('/vendor-requests/:id/review', authenticateToken, authorizeRoles('Adm
             // If approved, create the actual vendor/utility; rent/kuri requests are informational
             if (status === 'Approved') {
                 if (['Vendor', 'Utility'].includes(request.request_type)) {
-                    const [vendorResult] = await connection.query(
-                        `INSERT INTO vendors 
-                        (name, type, contact_person, phone, address, gstin, branch_id, category) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-                        [request.name, request.request_type, request.contact_person, request.phone,
-                        request.address, request.gstin, request.branch_id, 'other']
-                    );
-
                     try {
                         await connection.query(
-                            `INSERT IGNORE INTO sarga_vendors
-                            (name, type, contact_person, phone, address, gstin, branch_id)
+                            `INSERT INTO sarga_vendors 
+                            (name, type, contact_person, phone, address, gstin, branch_id) 
                             VALUES (?, ?, ?, ?, ?, ?, ?)`,
                             [request.name, request.request_type, request.contact_person, request.phone,
                             request.address, request.gstin, request.branch_id]
                         );
-                    } catch (_ignored) { /* ignored */ }
+                    } catch (e) {
+                        console.warn('[VendorReview] sarga_vendors insert warning:', e.message);
+                    }
 
-                    await auditLog(req.user.id, 'INSERT', `Approved vendor request #${id} and created ${request.request_type}: ${request.name} (Vendor ID: ${vendorResult.insertId})`);
+                    try {
+                        await connection.query(
+                            `INSERT INTO vendors 
+                            (name, type, contact_person, phone, address, gstin, branch_id, category) 
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                            [request.name, request.request_type, request.contact_person, request.phone,
+                            request.address, request.gstin, request.branch_id, 'other']
+                        );
+                    } catch (e) {
+                        console.warn('[VendorReview] legacy vendors insert warning:', e.message);
+                    }
+
+                    await auditLog(req.user.id, 'INSERT', `Approved vendor request #${id} and created ${request.request_type}: ${request.name}`);
                 } else {
                     await auditLog(req.user.id, 'UPDATE', `Approved ${request.request_type} request #${id}: ${request.name}`);
                 }
@@ -362,7 +368,11 @@ router.put('/vendor-requests/:id/review', authenticateToken, authorizeRoles('Adm
         }
     } catch (err) {
         console.error('PUT /vendor-requests/:id/review error:', err);
-        res.status(500).json({ error: 'Failed to review vendor request' });
+        const sqlMsg = err.sqlMessage || err.message || 'Failed to review vendor request';
+        let field = null;
+        const tooLong = sqlMsg.match(/Data too long for column ['"]?([^'"\s]+)['"]?/i);
+        if (tooLong) field = tooLong[1];
+        res.status(400).json({ message: sqlMsg, field, error: sqlMsg });
     }
 });
 

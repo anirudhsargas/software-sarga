@@ -5,6 +5,33 @@ const { invalidateHierarchyCache } = require('./jobs');
 const { paginate } = require('../helpers/pagination');
 const { uploadBufferToCloudinary, deleteFromCloudinary } = require('../helpers/cloudinaryUpload');
 
+const formatDbError = (err) => {
+    if (!err) return { message: 'Database error', field: null };
+    const sqlMsg = String(err.sqlMessage || err.message || '');
+    let field = null;
+    let message = sqlMsg || 'Database error';
+
+    const tooLongMatch = sqlMsg.match(/Data too long for column ['"]?([^'"\s]+)['"]?/i);
+    if (tooLongMatch) {
+        field = tooLongMatch[1];
+        message = `Data too long for column '${field}'. Maximum allowed length exceeded.`;
+    }
+
+    const dupMatch = sqlMsg.match(/Duplicate entry ['"]?([^'"]+)['"]? for key ['"]?([^'"]+)['"]?/i);
+    if (dupMatch) {
+        field = dupMatch[2];
+        message = `Duplicate entry for column '${field}': ${dupMatch[1]}`;
+    }
+
+    const fkMatch = sqlMsg.match(/FOREIGN KEY \([`"]?([^`"]+)[`"]?\)/i);
+    if (fkMatch) {
+        field = fkMatch[1];
+        message = `Invalid reference for column '${field}'. Linked record does not exist.`;
+    }
+
+    return { message, field };
+};
+
 module.exports = (upload, removeUploadFile) => {
     const router = require('express').Router();
 
@@ -152,7 +179,7 @@ module.exports = (upload, removeUploadFile) => {
             sku = `${catPart}-${String(inventoryId).padStart(4, '0')}`;
         }
 
-        const sourceCode = String(companyCode || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '') || null;
+        const sourceCode = String(companyCode || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 20) || null;
         const sizeCode = String(size || '').trim().toUpperCase() || null;
 
         // Update the inventory item
@@ -2060,7 +2087,8 @@ module.exports = (upload, removeUploadFile) => {
             } catch (err) {
                 await connection.rollback();
                 console.error('Review product update request error:', err);
-                return res.status(500).json({ message: 'Database error' });
+                const dbErr = formatDbError(err);
+                return res.status(400).json({ message: dbErr.message, field: dbErr.field, detail: err.message });
             } finally {
                 connection.release();
             }

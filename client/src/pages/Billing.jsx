@@ -576,7 +576,15 @@ const Billing = () => {
     setExistingCustomer(c);
     setCustomerMatches([]);
     setCustomerSearchQuery('');
-    const resolvedType = c.type || (c.client_type && c.client_type !== 'customer' && c.client_type !== 'internal' ? c.client_type : form.type);
+    const rawType = c.type || c.customer_type || (c.client_type && c.client_type !== 'customer' && c.client_type !== 'internal' ? c.client_type : null) || form.type;
+    let resolvedType = 'Retail';
+    if (rawType) {
+      const lower = String(rawType).trim().toLowerCase();
+      if (lower === 'offset') resolvedType = 'Offset';
+      else if (lower === 'walk-in' || lower === 'walk_in' || lower === 'walkin') resolvedType = 'Walk-in';
+      else if (lower === 'retail') resolvedType = 'Retail';
+      else resolvedType = rawType;
+    }
     setForm(p => ({ ...p, mobile: c.mobile || '', name: c.name || '', type: resolvedType, email: c.email || '', address: c.address || '', gst: c.gstin || c.gst || '' }));
   }, [form.type]);
 
@@ -659,7 +667,7 @@ const Billing = () => {
   }, [productSearchQuery, hierarchy]);
 
   const resolveProductUnitPrice = useCallback((product, qty = 1, isOffsetOverride) => {
-    const isOffset = isOffsetOverride !== undefined ? isOffsetOverride : (form.type === 'Offset');
+    const isOffset = isOffsetOverride !== undefined ? isOffsetOverride : (String(form.type || '').trim().toLowerCase() === 'offset');
     const priceResult = calculateProductPrice({ product, quantity: qty, extras: [], isOffset });
     if (priceResult && priceResult.unit_price > 0) return priceResult.unit_price;
     if (!isOffset && product.mrp != null && Number(product.mrp) > 0) return Number(product.mrp);
@@ -684,7 +692,7 @@ const Billing = () => {
         const doubleSide = field === 'is_double_side' ? !!value : !!l.is_double_side;
         if (field === 'is_double_side') updated.is_double_side = doubleSide;
 
-        const isOffsetLine = form.type === 'Offset' || l.book_type === 'Offset';
+        const isOffsetLine = String(form.type || '').trim().toLowerCase() === 'offset' || l.book_type === 'Offset';
 
         if (l._product && (calcType === 'Slab' || calcType === 'Range' || calcType === 'Normal')) {
           const priceResult = calculateProductPrice({
@@ -723,7 +731,7 @@ const Billing = () => {
 
     const derivedBookType = bookTypeFromCategory(catName);
     const defaultPaperRate = product.has_paper_rate ? (Number(product.paper_rate) || 0) : 0;
-    const isOffsetLine = form.type === 'Offset' || derivedBookType === 'Offset';
+    const isOffsetLine = String(form.type || '').trim().toLowerCase() === 'offset' || derivedBookType === 'Offset';
 
     const priceResult = calculateProductPrice({
       product,
@@ -772,14 +780,15 @@ const Billing = () => {
   // Recalculate order line prices when Customer Type changes (e.g., to/from 'Offset')
   useEffect(() => {
     if (orderLines.length === 0) return;
-    const isOffset = form.type === 'Offset';
+    const isOffset = String(form.type || '').trim().toLowerCase() === 'offset';
     setOrderLines(prev => {
       let changed = false;
       const updatedLines = prev.map(l => {
-        if (!l._product) return l;
+        const product = l._product || (l.product_id ? qrLookupMap.get(normalizeCode(l.product_name))?.product : null);
+        if (!product) return l;
         const lineIsOffset = isOffset || l.book_type === 'Offset';
         const priceResult = calculateProductPrice({
-          product: l._product,
+          product,
           quantity: Number(l.quantity) || 1,
           extras: l.applied_extras || [],
           currentPaperRate: Number(l.customPaperRate) || 0,

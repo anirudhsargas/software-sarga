@@ -896,7 +896,12 @@ const Dashboard = () => {
         initialFetch();
 
         // Event listeners for real-time updates
-        const handleRefresh = () => fetchPendingCount();
+        const handleRefresh = (e) => {
+            if (e?.detail?.decrement) {
+                setPendingRequestsCount(prev => Math.max(0, prev - e.detail.decrement));
+            }
+            fetchPendingCount();
+        };
         const handleCompanyUpdate = () => fetchCompanyInfo();
         if (isAdminOrAccountant) {
             window.addEventListener('requestReviewed', handleRefresh);

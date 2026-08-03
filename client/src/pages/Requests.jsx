@@ -1,6 +1,6 @@
 import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect } from 'react';
-import { CheckCircle2, XCircle, Loader2, AlertCircle, X, User, Edit, Trash2, ArrowRight } from 'lucide-react';
+import { CheckCircle2, XCircle, Loader2, AlertCircle, X, User, Edit, Trash2, ArrowRight, FileCheck } from 'lucide-react';
 import auth from '../services/auth';
 import api from '../services/api';
 import { isTouchDevice } from '../services/utils';
@@ -175,6 +175,15 @@ const Requests = () => {
         if (!isConfirmed) return;
 
         try {
+            // Instant optimistic update: filter item out of table and decrement badge
+            setAllRequests(prev => prev.filter(r => !(r.id === request.id && r.request_type === request.request_type)));
+            setPendingBadgeTotal(prev => (prev !== null && prev > 0 ? prev - 1 : 0));
+            setShowDetailModal(false);
+            setSelectedRequest(null);
+
+            // Dispatch instant badge update event to Dashboard sidebar
+            window.dispatchEvent(new CustomEvent('requestReviewed', { detail: { decrement: 1 } }));
+
             if (request.request_type === 'ID_CHANGE') {
                 await api.post(`/requests/id-change/${request.id}/review`, { action });
             } else if (request.request_type === 'CUSTOMER_CHANGE') {
@@ -194,17 +203,28 @@ const Requests = () => {
                     status: action === 'APPROVE' ? 'Approved' : 'Rejected'
                 });
             }
-            setShowDetailModal(false);
-            setSelectedRequest(null);
+
+            toast.success(`Request ${actionUpper === 'APPROVE' ? 'approved' : 'rejected'} successfully`);
+
+            // Background refetch for full database sync
             if (user.role === 'Accountant') {
                 fetchDiscountRequestsForAccountant();
             } else {
                 fetchAllRequests();
             }
-            // Update badge count immediately
-            window.dispatchEvent(new Event('requestReviewed'));
         } catch (err) {
-            toast.error(err.response?.data?.message || 'Action failed');
+            const field = err.response?.data?.field;
+            const message = err.response?.data?.message || err.message || 'Action failed';
+            const detailMsg = field
+                ? `Column Error [${field}]: ${message}`
+                : message;
+            toast.error(detailMsg);
+            if (user.role === 'Accountant') {
+                fetchDiscountRequestsForAccountant();
+            } else {
+                fetchAllRequests();
+            }
+            window.dispatchEvent(new Event('requestReviewed'));
         }
     };
 
@@ -393,287 +413,305 @@ const Requests = () => {
                 </div>
             </div>
 
-            {/* Detail Modal */}
+            {/* Premium Request Details Modal */}
             {showDetailModal && selectedRequest && (
-                <div className="modal-backdrop">
-                    <div className="modal" style={{ maxWidth: '600px', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
-                        <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-                            <h2 className="modal-title" style={{ margin: 0 }}>Request Details</h2>
-                            <button className="modal-close" onClick={() => { setShowDetailModal(false); setSelectedRequest(null); }}>
-                                <X size={22} />
+                <div className="modal-backdrop" style={{ backdropFilter: 'blur(8px)', backgroundColor: 'rgba(0,0,0,0.55)', zIndex: 1100 }}>
+                    <div className="modal" style={{ maxWidth: '640px', width: '92vw', maxHeight: '88vh', borderRadius: '16px', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)', border: '1px solid var(--border)', overflow: 'hidden', backgroundColor: 'var(--bg-card, #ffffff)' }}>
+                        
+                        {/* Modal Header */}
+                        <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 24px', borderBottom: '1px solid var(--border)', background: 'var(--bg-secondary, #f8fafc)' }}>
+                            <div className="row gap-md items-center">
+                                <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'var(--accent-soft, rgba(99, 102, 241, 0.1))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent, #6366f1)' }}>
+                                    <FileCheck size={22} />
+                                </div>
+                                <div>
+                                    <h2 className="modal-title" style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-primary, #0f172a)' }}>Request Review</h2>
+                                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted, #64748b)', marginTop: '2px' }}>
+                                        ID #{selectedRequest.id} &bull; Submitted {new Date(selectedRequest.created_at || selectedRequest.requested_at || Date.now()).toLocaleString()}
+                                    </div>
+                                </div>
+                            </div>
+                            <button className="modal-close" onClick={() => { setShowDetailModal(false); setSelectedRequest(null); }} style={{ borderRadius: '8px', padding: '8px', cursor: 'pointer', border: 'none', background: 'transparent', color: 'var(--text-muted)' }}>
+                                <X size={20} />
                             </button>
                         </div>
 
-                        <div className="modal-body" style={{ padding: '24px', flex: 1, overflowY: 'auto' }}>
-                            <div className="stack-md">
-                            {/* Request Type */}
-                            <div>
-                                <label className="label">Request Type</label>
-                                <div>{getRequestTypeBadge(selectedRequest.request_type)}</div>
-                            </div>
-
-                            {/* Requested By */}
-                            <div>
-                                <label className="label">Requested By</label>
-                                <div className="row gap-sm items-center">
-                                    <User size={16} className="muted" />
-                                    <span className="user-name">
-                                        {selectedRequest.request_type === 'ID_CHANGE' ? selectedRequest.name :
-                                            selectedRequest.request_type === 'ATTENDANCE_CHANGE' ? selectedRequest.staff_name :
-                                                (selectedRequest.requester_name || selectedRequest.name)}
-                                    </span>
+                        {/* Modal Body */}
+                        <div className="modal-body" style={{ padding: '24px', flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                            
+                            {/* Summary Metadata Card */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px', background: 'var(--bg-secondary, #f8fafc)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                                <div>
+                                    <div style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--text-muted, #64748b)', marginBottom: '6px' }}>Category</div>
+                                    <div>{getRequestTypeBadge(selectedRequest.request_type)}</div>
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--text-muted, #64748b)', marginBottom: '6px' }}>Requested By</div>
+                                    <div className="row gap-xs items-center" style={{ fontWeight: 600, fontSize: '0.92rem', color: 'var(--text-primary)' }}>
+                                        <User size={16} style={{ color: 'var(--accent, #6366f1)' }} />
+                                        <span>
+                                            {selectedRequest.request_type === 'ID_CHANGE' ? selectedRequest.name :
+                                                selectedRequest.request_type === 'ATTENDANCE_CHANGE' ? selectedRequest.staff_name :
+                                                    (selectedRequest.requester_name || selectedRequest.name || 'Staff')}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
 
-                            {/* Request Details based on type */}
+                            {/* Request Details Content */}
                             {selectedRequest.request_type === 'ID_CHANGE' ? (
-                                <>
-                                    <div>
-                                        <label className="label">Current User ID</label>
-                                        <input type="text" className="input-field" value={selectedRequest.old_user_id} disabled />
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>User ID Transfer</div>
+                                    <div className="row gap-md items-center" style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)', justifyContent: 'space-between' }}>
+                                        <div style={{ textAlign: 'center', flex: 1 }}>
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Current User ID</div>
+                                            <div style={{ fontSize: '1.1rem', fontWeight: 700, fontFamily: 'monospace' }}>{selectedRequest.old_user_id}</div>
+                                        </div>
+                                        <div style={{ padding: '8px', borderRadius: '50%', background: 'var(--accent-soft)', color: 'var(--accent)' }}>
+                                            <ArrowRight size={20} />
+                                        </div>
+                                        <div style={{ textAlign: 'center', flex: 1 }}>
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Requested User ID</div>
+                                            <div style={{ fontSize: '1.1rem', fontWeight: 700, fontFamily: 'monospace', color: 'var(--accent)' }}>{selectedRequest.new_user_id}</div>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <label className="label">Requested New User ID</label>
-                                        <input type="text" className="input-field" value={selectedRequest.new_user_id} disabled />
-                                    </div>
-                                </>
+                                </div>
                             ) : selectedRequest.request_type === 'CUSTOMER_CHANGE' ? (
-                                <>
-                                    <div>
-                                        <label className="label">Action</label>
-                                        <div className="row gap-sm items-center">
-                                            {selectedRequest.action === 'EDIT' ? <Edit size={16} className="muted" /> : <Trash2 size={16} className="text-error" />}
-                                            <span>{selectedRequest.action === 'EDIT' ? 'Edit Customer' : 'Delete Customer'}</span>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="label">Customer</label>
-                                        <input type="text" className="input-field" value={selectedRequest.customer_name} disabled />
-                                    </div>
-                                    {selectedRequest.note && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                    <div className="row gap-md items-center" style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)', justifyContent: 'space-between' }}>
                                         <div>
-                                            <label className="label">Note</label>
-                                            <textarea className="input-field" rows="3" value={selectedRequest.note} disabled />
-                                        </div>
-                                    )}
-                                    {selectedRequest.action === 'EDIT' && selectedRequest.payload && (
-                                        <div>
-                                            <label className="label">Requested Changes</label>
-                                            <div className="panel" style={{ backgroundColor: 'var(--bg-secondary)', padding: '12px' }}>
-                                                <pre style={{ margin: 0, fontSize: '0.875rem', whiteSpace: 'pre-wrap' }}>
-                                                    {JSON.stringify(JSON.parse(selectedRequest.payload), null, 2)}
-                                                </pre>
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Action Type</div>
+                                            <div className="row gap-xs items-center" style={{ fontWeight: 700 }}>
+                                                {selectedRequest.action === 'EDIT' ? <Edit size={16} style={{ color: 'var(--accent)' }} /> : <Trash2 size={16} style={{ color: 'var(--error, #ef4444)' }} />}
+                                                <span style={{ color: selectedRequest.action === 'DELETE' ? 'var(--error, #ef4444)' : 'var(--text-primary)' }}>
+                                                    {selectedRequest.action === 'EDIT' ? 'Edit Customer' : 'Delete Customer'}
+                                                </span>
                                             </div>
                                         </div>
-                                    )}
-                                </>
-                            ) : selectedRequest.request_type === 'OPENING_CHANGE' ? (
-                                <>
-                                    <div>
-                                        <label className="label">Change Type</label>
-                                        <input type="text" className="input-field" value={selectedRequest.request_type === 'OPENING_CHANGE' ? (selectedRequest.book_type ? `Opening Balance (${selectedRequest.book_type})` : `Machine Opening Count`) : ''} disabled />
-                                    </div>
-                                    <div>
-                                        <label className="label">Date</label>
-                                        <input type="text" className="input-field" value={selectedRequest.report_date ? new Date(selectedRequest.report_date).toLocaleDateString() : ''} disabled />
-                                    </div>
-                                    <div>
-                                        <label className="label">Branch</label>
-                                        <input type="text" className="input-field" value={selectedRequest.branch_name || ''} disabled />
-                                    </div>
-                                    {selectedRequest.machine_name && (
                                         <div>
-                                            <label className="label">Machine</label>
-                                            <input type="text" className="input-field" value={selectedRequest.machine_name} disabled />
-                                        </div>
-                                    )}
-                                    <div className="row gap-md">
-                                        <div className="flex-1">
-                                            <label className="label">Current Value</label>
-                                            <input type="text" className="input-field" value={selectedRequest.book_type ? `₹${selectedRequest.current_value}` : selectedRequest.current_value} disabled />
-                                        </div>
-                                        <div className="flex-1">
-                                            <label className="label">Requested Value</label>
-                                            <input type="text" className="input-field" value={selectedRequest.book_type ? `₹${selectedRequest.requested_value}` : selectedRequest.requested_value} disabled style={{ fontWeight: 600, color: 'var(--primary)' }} />
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Target Customer</div>
+                                            <div style={{ fontWeight: 700, fontSize: '1rem' }}>{selectedRequest.customer_name}</div>
                                         </div>
                                     </div>
-                                    {selectedRequest.note && (
-                                        <div>
-                                            <label className="label">Note</label>
-                                            <textarea className="input-field" rows="2" value={selectedRequest.note} disabled />
-                                        </div>
-                                    )}
-                                </>
-                            ) : selectedRequest.request_type === 'DISCOUNT_REQUEST' ? (
-                                <>
-                                    <div className="row gap-md">
-                                        <div className="flex-1">
-                                            <label className="label">Discount Requested</label>
-                                            <input type="text" className="input-field" value={`${Number(selectedRequest.discount_percent).toFixed(1)}%`} disabled style={{ fontWeight: 600, color: 'var(--primary)' }} />
-                                        </div>
-                                        <div className="flex-1">
-                                            <label className="label">Order Total</label>
-                                            <input type="text" className="input-field" value={`₹${Number(selectedRequest.total_amount || 0).toFixed(2)}`} disabled />
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="label">Discount Amount</label>
-                                        <input type="text" className="input-field" value={`₹${(Number(selectedRequest.total_amount || 0) * Number(selectedRequest.discount_percent) / 100).toFixed(2)}`} disabled style={{ fontWeight: 600, color: 'var(--warning)' }} />
-                                    </div>
-                                    {selectedRequest.customer_name && (
-                                        <div>
-                                            <label className="label">Customer</label>
-                                            <input type="text" className="input-field" value={selectedRequest.customer_name} disabled />
-                                        </div>
-                                    )}
-                                    {selectedRequest.reason && (
-                                        <div>
-                                            <label className="label">Reason</label>
-                                            <textarea className="input-field" rows={3} value={selectedRequest.reason} disabled />
-                                        </div>
-                                    )}
-                                </>
-                                ) : selectedRequest.request_type === 'PRODUCT_UPDATE' ? (
-                                        <>
-                                            <div>
-                                                <label className="label">Product</label>
-                                                <input type="text" className="input-field" value={selectedRequest.product_name || `Product #${selectedRequest.product_id}`} disabled />
-                                            </div>
-                                            {selectedRequest.current_data && selectedRequest.proposed_data && (
-                                                <div>
-                                                    <label className="label">Changes</label>
-                                                    <div className="table-scroll">
-                                                        <table className="table" style={{ width: '100%' }}>
-                                                            <thead>
-                                                                <tr>
-                                                                    <th style={{ width: '20%' }}>Field</th>
-                                                                    <th style={{ width: '35%' }}>Current</th>
-                                                                    <th style={{ width: '10%' }}></th>
-                                                                    <th style={{ width: '35%' }}>Proposed</th>
-                                                                </tr>
-                                                            </thead>
-                                                            <tbody>
-                                                                {Object.keys(selectedRequest.proposed_data).map(fKey => {
-                                                                    const curr = selectedRequest.current_data?.[fKey];
-                                                                    const prop = selectedRequest.proposed_data?.[fKey];
-                                                                    const isScalar = v => v === null || v === undefined || typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean';
-                                                                    if (!isScalar(curr) && !isScalar(prop)) return null;
-                                                                    const changed = String(curr ?? '') !== String(prop ?? '');
-                                                                    if (!changed && !prop) return null;
-                                                                    return (
-                                                                        <tr key={fKey}>
-                                                                            <td className="font-semibold text-sm">{fKey}</td>
-                                                                            <td style={{ color: changed ? 'var(--text-muted)' : 'var(--text)' }}>
-                                                                                {isScalar(curr) ? (curr ?? '—') : JSON.stringify(curr)}
-                                                                            </td>
-                                                                            <td style={{ textAlign: 'center' }}>
-                                                                                {changed && <ArrowRight size={14} style={{ color: 'var(--warning)' }} />}
-                                                                            </td>
-                                                                            <td style={{ color: changed ? 'var(--success)' : 'var(--text)', fontWeight: changed ? 600 : 400 }}>
-                                                                                {changed ? (isScalar(prop) ? (prop ?? '—') : JSON.stringify(prop)) : (isScalar(curr) ? (curr ?? '—') : JSON.stringify(curr))}
-                                                                            </td>
-                                                                        </tr>
-                                                                    );
-                                                                })}
-                                                            </tbody>
-                                                        </table>
+
+                                    {selectedRequest.action === 'EDIT' && selectedRequest.payload && (() => {
+                                        try {
+                                            const payloadObj = JSON.parse(selectedRequest.payload);
+                                            return (
+                                                <div style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                                                    <div style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)', marginBottom: '12px' }}>Requested Modifications</div>
+                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                                                        {Object.entries(payloadObj).map(([pKey, pVal]) => {
+                                                            if (!pVal) return null;
+                                                            return (
+                                                                <div key={pKey} style={{ background: 'var(--bg-card, #ffffff)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                                                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'capitalize' }}>{pKey.replace(/_/g, ' ')}</div>
+                                                                    <div style={{ fontWeight: 600, fontSize: '0.9rem', marginTop: '2px', wordBreak: 'break-word' }}>{String(pVal)}</div>
+                                                                </div>
+                                                            );
+                                                        })}
                                                     </div>
                                                 </div>
-                                            )}
-                                            {selectedRequest.admin_note && (
-                                                <div>
-                                                    <label className="label">Admin Note</label>
-                                                    <textarea className="input-field" rows="2" value={selectedRequest.admin_note} disabled />
+                                            );
+                                        } catch {
+                                            return null;
+                                        }
+                                    })()}
+
+                                    {selectedRequest.note && (
+                                        <div style={{ background: 'var(--bg-secondary)', padding: '14px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                                            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px' }}>Requester Note</div>
+                                            <div style={{ fontSize: '0.9rem' }}>{selectedRequest.note}</div>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : selectedRequest.request_type === 'OPENING_CHANGE' ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+                                        <div style={{ background: 'var(--bg-secondary)', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                                            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Date</div>
+                                            <div style={{ fontWeight: 600, fontSize: '0.92rem' }}>{selectedRequest.report_date ? new Date(selectedRequest.report_date).toLocaleDateString() : '—'}</div>
+                                        </div>
+                                        <div style={{ background: 'var(--bg-secondary)', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                                            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Branch</div>
+                                            <div style={{ fontWeight: 600, fontSize: '0.92rem' }}>{selectedRequest.branch_name || 'Main'}</div>
+                                        </div>
+                                        {selectedRequest.machine_name && (
+                                            <div style={{ background: 'var(--bg-secondary)', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Machine</div>
+                                                <div style={{ fontWeight: 600, fontSize: '0.92rem' }}>{selectedRequest.machine_name}</div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="row gap-md items-center" style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)', justifyContent: 'space-between' }}>
+                                        <div style={{ flex: 1, textAlign: 'center' }}>
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Current Value</div>
+                                            <div style={{ fontSize: '1.15rem', fontWeight: 600 }}>{selectedRequest.book_type ? `₹${selectedRequest.current_value}` : selectedRequest.current_value}</div>
+                                        </div>
+                                        <div style={{ color: 'var(--accent)' }}>
+                                            <ArrowRight size={20} />
+                                        </div>
+                                        <div style={{ flex: 1, textAlign: 'center' }}>
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Requested Value</div>
+                                            <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--accent)' }}>{selectedRequest.book_type ? `₹${selectedRequest.requested_value}` : selectedRequest.requested_value}</div>
+                                        </div>
+                                    </div>
+
+                                    {selectedRequest.note && (
+                                        <div style={{ background: 'var(--bg-secondary)', padding: '14px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                                            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px' }}>Reason / Note</div>
+                                            <div style={{ fontSize: '0.9rem' }}>{selectedRequest.note}</div>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : selectedRequest.request_type === 'DISCOUNT_REQUEST' ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+                                        <div style={{ background: 'var(--bg-secondary)', padding: '14px', borderRadius: '12px', border: '1px solid var(--border)', textAlign: 'center' }}>
+                                            <div style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '4px' }}>Discount %</div>
+                                            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--accent)' }}>{Number(selectedRequest.discount_percent).toFixed(1)}%</div>
+                                        </div>
+                                        <div style={{ background: 'var(--bg-secondary)', padding: '14px', borderRadius: '12px', border: '1px solid var(--border)', textAlign: 'center' }}>
+                                            <div style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '4px' }}>Order Total</div>
+                                            <div style={{ fontSize: '1.2rem', fontWeight: 700 }}>₹{Number(selectedRequest.total_amount || 0).toFixed(2)}</div>
+                                        </div>
+                                        <div style={{ background: 'var(--bg-secondary)', padding: '14px', borderRadius: '12px', border: '1px solid var(--border)', textAlign: 'center' }}>
+                                            <div style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '4px' }}>Savings</div>
+                                            <div style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--warning, #eab308)' }}>
+                                                ₹{(Number(selectedRequest.total_amount || 0) * Number(selectedRequest.discount_percent) / 100).toFixed(2)}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {selectedRequest.customer_name && (
+                                        <div style={{ background: 'var(--bg-secondary)', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                                            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Customer</div>
+                                            <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>{selectedRequest.customer_name}</div>
+                                        </div>
+                                    )}
+
+                                    {selectedRequest.reason && (
+                                        <div style={{ background: 'var(--bg-secondary)', padding: '14px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                                            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px' }}>Reason</div>
+                                            <div style={{ fontSize: '0.9rem' }}>{selectedRequest.reason}</div>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : selectedRequest.request_type === 'PRODUCT_UPDATE' ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                    <div style={{ background: 'var(--bg-secondary)', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Product</div>
+                                        <div style={{ fontWeight: 700, fontSize: '1rem' }}>{selectedRequest.product_name || `Product #${selectedRequest.product_id}`}</div>
+                                    </div>
+
+                                    {selectedRequest.proposed_data && (
+                                        <div style={{ background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
+                                            <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', fontWeight: 700, fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)' }}>Proposed Changes</div>
+                                            <div style={{ padding: '8px' }}>
+                                                <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                                    <thead>
+                                                        <tr style={{ fontSize: '0.75rem', color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' }}>
+                                                            <th style={{ padding: '8px 12px', textAlign: 'left' }}>Field</th>
+                                                            <th style={{ padding: '8px 12px', textAlign: 'left' }}>Current</th>
+                                                            <th style={{ padding: '8px 4px', textAlign: 'center' }}></th>
+                                                            <th style={{ padding: '8px 12px', textAlign: 'left' }}>Proposed</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {Object.keys(selectedRequest.proposed_data).map(fKey => {
+                                                            const curr = selectedRequest.current_data?.[fKey];
+                                                            const prop = selectedRequest.proposed_data?.[fKey];
+                                                            const isScalar = v => v === null || v === undefined || typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean';
+                                                            const changed = String(curr ?? '') !== String(prop ?? '');
+                                                            if (!changed && !prop) return null;
+                                                            return (
+                                                                <tr key={fKey} style={{ borderBottom: '1px solid var(--border)' }}>
+                                                                    <td style={{ padding: '10px 12px', fontWeight: 600, fontSize: '0.85rem', textTransform: 'capitalize' }}>{fKey.replace(/_/g, ' ')}</td>
+                                                                    <td style={{ padding: '10px 12px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                                                        {isScalar(curr) ? (curr ?? '—') : JSON.stringify(curr)}
+                                                                    </td>
+                                                                    <td style={{ padding: '10px 4px', textAlign: 'center' }}>
+                                                                        {changed && <ArrowRight size={14} style={{ color: 'var(--warning, #eab308)' }} />}
+                                                                    </td>
+                                                                    <td style={{ padding: '10px 12px', fontSize: '0.85rem', fontWeight: changed ? 700 : 400, color: changed ? 'var(--accent)' : 'var(--text)' }}>
+                                                                        {isScalar(prop) ? (prop ?? '—') : JSON.stringify(prop)}
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : selectedRequest.request_type === 'ATTENDANCE_CHANGE' ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+                                        <div style={{ background: 'var(--bg-secondary)', padding: '14px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                                            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Attendance Date</div>
+                                            <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>{new Date(selectedRequest.attendance_date).toLocaleDateString()}</div>
+                                        </div>
+                                        <div style={{ background: 'var(--bg-secondary)', padding: '14px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                                            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Requested Status</div>
+                                            <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--accent)' }}>{selectedRequest.requested_status}</div>
+                                        </div>
+                                    </div>
+
+                                    {(selectedRequest.requested_time || selectedRequest.requested_gone_time) && (
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+                                            {selectedRequest.requested_time && (
+                                                <div style={{ background: 'var(--bg-secondary)', padding: '12px 14px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>In Time</div>
+                                                    <div style={{ fontWeight: 600 }}>{selectedRequest.requested_time}</div>
                                                 </div>
                                             )}
-                                        </>
-                                    ) : selectedRequest.request_type === 'ATTENDANCE_CHANGE' ? (
-                                <>
-                                    <div className="row gap-md">
-                                        <div className="flex-1">
-                                            <label className="label">Attendance Date</label>
-                                            <input type="text" className="input-field" value={new Date(selectedRequest.attendance_date).toLocaleDateString()} disabled />
-                                        </div>
-                                        <div className="flex-1">
-                                            <label className="label">Requested Status</label>
-                                            <input type="text" className="input-field" value={selectedRequest.requested_status} disabled style={{ fontWeight: 600, color: 'var(--primary)' }} />
-                                        </div>
-                                    </div>
-                                    {selectedRequest.requested_time && (
-                                        <div>
-                                            <label className="label">Requested In Time</label>
-                                            <input type="time" className="input-field" value={selectedRequest.requested_time} disabled />
+                                            {selectedRequest.requested_gone_time && (
+                                                <div style={{ background: 'var(--bg-secondary)', padding: '12px 14px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Out Time</div>
+                                                    <div style={{ fontWeight: 600 }}>{selectedRequest.requested_gone_time}</div>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
-                                    {selectedRequest.requested_gone_time && (
-                                        <div>
-                                            <label className="label">Requested Out Time</label>
-                                            <input type="time" className="input-field" value={selectedRequest.requested_gone_time} disabled />
-                                        </div>
-                                    )}
+
                                     {selectedRequest.requested_notes && (
-                                        <div>
-                                            <label className="label">Requested Notes</label>
-                                            <textarea className="input-field" rows="2" value={selectedRequest.requested_notes} disabled />
+                                        <div style={{ background: 'var(--bg-secondary)', padding: '14px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                                            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px' }}>Notes</div>
+                                            <div style={{ fontSize: '0.9rem' }}>{selectedRequest.requested_notes}</div>
                                         </div>
                                     )}
-                                </>
+                                </div>
                             ) : (
-                                <>
-                                    <div>
-                                        <label className="label">Request Type</label>
-                                        <input type="text" className="input-field" value={selectedRequest.request_type_value || selectedRequest.request_type} disabled />
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                                        <div style={{ background: 'var(--bg-secondary)', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                                            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Request Type</div>
+                                            <div style={{ fontWeight: 600 }}>{selectedRequest.request_type_value || selectedRequest.request_type}</div>
+                                        </div>
+                                        <div style={{ background: 'var(--bg-secondary)', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                                            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Entity / Name</div>
+                                            <div style={{ fontWeight: 700 }}>{selectedRequest.name}</div>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <label className="label">Name</label>
-                                        <input type="text" className="input-field" value={selectedRequest.name} disabled />
-                                    </div>
-                                    {selectedRequest.contact_person && (
-                                        <div>
-                                            <label className="label">Contact Person</label>
-                                            <input type="text" className="input-field" value={selectedRequest.contact_person} disabled />
-                                        </div>
-                                    )}
-                                    {selectedRequest.phone && (
-                                        <div>
-                                            <label className="label">Phone</label>
-                                            <input type="text" className="input-field" value={selectedRequest.phone} disabled />
-                                        </div>
-                                    )}
-                                    {selectedRequest.address && (
-                                        <div>
-                                            <label className="label">Address</label>
-                                            <textarea className="input-field" rows="2" value={selectedRequest.address} disabled />
-                                        </div>
-                                    )}
                                     {selectedRequest.request_reason && (
-                                        <div>
-                                            <label className="label">Reason</label>
-                                            <textarea className="input-field" rows="3" value={selectedRequest.request_reason} disabled />
+                                        <div style={{ background: 'var(--bg-secondary)', padding: '14px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                                            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px' }}>Reason</div>
+                                            <div style={{ fontSize: '0.9rem' }}>{selectedRequest.request_reason}</div>
                                         </div>
                                     )}
-                                </>
+                                </div>
                             )}
 
-                            {/* Requested At */}
-                            <div>
-                                <label className="label">Requested At</label>
-                                <input
-                                    type="text"
-                                    className="input-field"
-                                    value={new Date(selectedRequest.created_at).toLocaleString()}
-                                    disabled
-                                />
-                            </div>
-
-                            </div>
                         </div>
 
-                        <div className="modal-footer" style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', gap: '12px', justifyContent: 'flex-end', flexShrink: 0 }}>
+                        {/* Modal Footer */}
+                        <div className="modal-footer" style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', background: 'var(--bg-secondary, #f8fafc)', display: 'flex', gap: '12px', justifyContent: 'flex-end', flexShrink: 0 }}>
                             <button
                                 onClick={() => handleReview(selectedRequest, 'REJECT')}
                                 className="btn btn-ghost btn-danger"
-                                style={{ minWidth: '120px' }}
+                                style={{ minWidth: '130px', padding: '10px 18px', borderRadius: '10px', fontWeight: 600, cursor: 'pointer' }}
                             >
                                 <XCircle size={18} />
                                 <span>Reject</span>
@@ -681,12 +719,13 @@ const Requests = () => {
                             <button
                                 onClick={() => handleReview(selectedRequest, 'APPROVE')}
                                 className="btn btn-primary"
-                                style={{ minWidth: '120px' }}
+                                style={{ minWidth: '130px', padding: '10px 18px', borderRadius: '10px', fontWeight: 600, cursor: 'pointer' }}
                             >
                                 <CheckCircle2 size={18} />
                                 <span>Approve</span>
                             </button>
                         </div>
+
                     </div>
                 </div>
             )}

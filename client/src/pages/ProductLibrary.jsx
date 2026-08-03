@@ -1158,7 +1158,7 @@ const ProductLibrary = () => {
             if (prod.extraInv?.sell_price && (productData.slabs[0]?.unit_rate === 0 || productData.slabs[0]?.unit_rate === '')) {
                 productData.slabs[0].unit_rate = Number(prod.extraInv.sell_price);
             }
-            setOriginalProduct(productData);
+            setOriginalProduct(JSON.parse(JSON.stringify(productData)));
             setNewProduct(productData);
             setProductImage(null);
             setProductImagePreview(prod.image_url ? imgUrl(prod.image_url) : '');
@@ -3513,9 +3513,9 @@ onClick={() => { setProductSearch(''); setFilterVendor('all'); setFilterCalcType
                                     <button type="submit" className="btn btn-primary btn--full" style={{
                                         width: '100%',
                                         justifyContent: 'center',
-                                        opacity: isEditing && !hasProductChanges() ? 0.6 : 1,
-                                        cursor: isEditing && !hasProductChanges() ? 'not-allowed' : 'pointer'
-                                    }} disabled={saveLoading || (isEditing && !hasProductChanges())}>
+                                        opacity: saveLoading ? 0.6 : 1,
+                                        cursor: saveLoading ? 'not-allowed' : 'pointer'
+                                    }} disabled={saveLoading}>
                                         {saveLoading ? (
                                             <>
                                                 <Loader2 size={20} className="spin" />

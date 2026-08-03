@@ -90,7 +90,15 @@ router.post('/requests/id-change/:id/review', authenticateToken, authorizeRoles(
         }
     } catch (err) {
         await connection.rollback();
-        throw err;
+        const sqlMsg = err.sqlMessage || err.message || 'Action failed';
+        let field = null;
+        if (err.code === 'ER_DUP_ENTRY') {
+            field = 'user_id';
+            return res.status(400).json({ message: 'User ID / Mobile already exists for another staff member', field });
+        }
+        const tooLong = sqlMsg.match(/Data too long for column ['"]?([^'"\s]+)['"]?/i);
+        if (tooLong) field = tooLong[1];
+        return res.status(400).json({ message: sqlMsg, field });
     } finally {
         connection.release();
     }
@@ -206,8 +214,12 @@ router.post('/requests/customer-change/:id/review', authenticateToken, authorize
         res.json({ message: 'Request rejected' });
     } catch (err) {
         await connection.rollback();
-        if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'Mobile number already exists' });
-        throw err;
+        const sqlMsg = err.sqlMessage || err.message || 'Action failed';
+        let field = null;
+        if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'Mobile number already exists for another customer', field: 'mobile' });
+        const tooLong = sqlMsg.match(/Data too long for column ['"]?([^'"\s]+)['"]?/i);
+        if (tooLong) field = tooLong[1];
+        return res.status(400).json({ message: sqlMsg, field });
     } finally {
         connection.release();
     }

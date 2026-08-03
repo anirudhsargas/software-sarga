@@ -26,14 +26,15 @@ export const calculateProductPrice = ({
   let slabForDS = null;
 
   const resolveUnitRate = (slab) => {
-    if (!slab) return 0;
-    if (isDoubleSide && slab.double_side_unit_rate !== undefined && slab.double_side_unit_rate !== null && Number(slab.double_side_unit_rate) > 0) {
-      return Number(slab.double_side_unit_rate) || 0;
+    const s = slab || product;
+    if (!s) return 0;
+    if (isDoubleSide && s.double_side_unit_rate !== undefined && s.double_side_unit_rate !== null && Number(s.double_side_unit_rate) > 0) {
+      return Number(s.double_side_unit_rate) || 0;
     }
-    if (isOffset && slab.offset_unit_rate !== undefined && slab.offset_unit_rate !== null && Number(slab.offset_unit_rate) > 0) {
-      return Number(slab.offset_unit_rate) || 0;
+    if (isOffset && s.offset_unit_rate !== undefined && s.offset_unit_rate !== null && Number(s.offset_unit_rate) > 0) {
+      return Number(s.offset_unit_rate) || 0;
     }
-    return Number(slab.unit_rate) || 0;
+    return Number(s.unit_rate || s.sell_price || s.mrp) || 0;
   };
 
   if (product.calculation_type === 'Normal') {
@@ -44,17 +45,17 @@ export const calculateProductPrice = ({
   } else if (product.calculation_type === 'Slab') {
     const slabs = product.slabs || [];
     if (slabs.length > 0) {
-      const sortedSlabs = [...slabs].sort((a, b) => a.min_qty - b.min_qty);
+      const sortedSlabs = [...slabs].sort((a, b) => Number(a.min_qty) - Number(b.min_qty));
       slabForDS = sortedSlabs[0]; // default to first; overridden below
 
       const exactMatch = sortedSlabs.find((s) => Number(s.min_qty) === qty);
       if (exactMatch) {
         total = Number(exactMatch.base_value);
         slabForDS = exactMatch;
-      } else if (qty < sortedSlabs[0].min_qty) {
+      } else if (qty < Number(sortedSlabs[0].min_qty)) {
         total = Number(sortedSlabs[0].base_value);
         slabForDS = sortedSlabs[0];
-      } else if (qty > sortedSlabs[sortedSlabs.length - 1].min_qty) {
+      } else if (qty > Number(sortedSlabs[sortedSlabs.length - 1].min_qty)) {
         const lastSlab = sortedSlabs[sortedSlabs.length - 1];
         // Use the slab's unit_rate directly for quantities beyond the last slab.
         const lastUnit = resolveUnitRate(lastSlab);
@@ -64,10 +65,10 @@ export const calculateProductPrice = ({
         for (let i = 0; i < sortedSlabs.length - 1; i++) {
           const s1 = sortedSlabs[i];
           const s2 = sortedSlabs[i + 1];
-          if (qty > s1.min_qty && qty < s2.min_qty) {
-            const ratio = (qty - s1.min_qty) / (s2.min_qty - s1.min_qty);
-            total = Number(s1.base_value) + ratio * (s2.base_value - s1.base_value);
-            slabForDS = s1; // use the lower bound slab for add-on rates
+          if (qty > Number(s1.min_qty) && qty < Number(s2.min_qty)) {
+            const ratio = (qty - Number(s1.min_qty)) / (Number(s2.min_qty) - Number(s1.min_qty));
+            total = Number(s1.base_value) + ratio * (Number(s2.base_value) - Number(s1.base_value));
+            slabForDS = s1; // use lower bound slab
             break;
           }
         }
@@ -77,7 +78,7 @@ export const calculateProductPrice = ({
   } else if (product.calculation_type === 'Range') {
     const slabs = product.slabs || [];
     if (slabs.length > 0) {
-      const sortedSlabs = [...slabs].sort((a, b) => a.min_qty - b.min_qty);
+      const sortedSlabs = [...slabs].sort((a, b) => Number(a.min_qty) - Number(b.min_qty));
       const matched = sortedSlabs.find((s) => {
         const maxQty =
           s.max_qty === null || s.max_qty === undefined || s.max_qty === ''
