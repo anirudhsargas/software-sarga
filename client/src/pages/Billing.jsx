@@ -576,8 +576,9 @@ const Billing = () => {
     setExistingCustomer(c);
     setCustomerMatches([]);
     setCustomerSearchQuery('');
-    setForm(p => ({ ...p, mobile: c.mobile || '', name: c.name || '', type: c.client_type || p.type, email: c.email || '', address: c.address || '', gst: c.gstin || '' }));
-  }, []);
+    const resolvedType = c.type || (c.client_type && c.client_type !== 'customer' && c.client_type !== 'internal' ? c.client_type : form.type);
+    setForm(p => ({ ...p, mobile: c.mobile || '', name: c.name || '', type: resolvedType, email: c.email || '', address: c.address || '', gst: c.gstin || c.gst || '' }));
+  }, [form.type]);
 
   const handleChangeCustomer = useCallback(() => {
     setExistingCustomer(null);
@@ -657,13 +658,14 @@ const Billing = () => {
     return () => clearTimeout(t);
   }, [productSearchQuery, hierarchy]);
 
-  const resolveProductUnitPrice = useCallback((product, qty = 1) => {
-    if (product.mrp != null && Number(product.mrp) > 0) return Number(product.mrp);
-    if (product.sell_price != null && Number(product.sell_price) > 0) return Number(product.sell_price);
-    const result = calculateProductPrice({ product, quantity: qty, extras: [] });
-    if (result) return result.unit_price;
+  const resolveProductUnitPrice = useCallback((product, qty = 1, isOffsetOverride) => {
+    const isOffset = isOffsetOverride !== undefined ? isOffsetOverride : (form.type === 'Offset');
+    const priceResult = calculateProductPrice({ product, quantity: qty, extras: [], isOffset });
+    if (priceResult && priceResult.unit_price > 0) return priceResult.unit_price;
+    if (!isOffset && product.mrp != null && Number(product.mrp) > 0) return Number(product.mrp);
+    if (!isOffset && product.sell_price != null && Number(product.sell_price) > 0) return Number(product.sell_price);
     return 0;
-  }, []);
+  }, [form.type]);
 
   const updateLine = useCallback((id, field, value) => {
     setOrderLines(prev => prev.map(l => {
@@ -682,13 +684,16 @@ const Billing = () => {
         const doubleSide = field === 'is_double_side' ? !!value : !!l.is_double_side;
         if (field === 'is_double_side') updated.is_double_side = doubleSide;
 
-        if (l._product && (calcType === 'Slab' || calcType === 'Range')) {
+        const isOffsetLine = form.type === 'Offset' || l.book_type === 'Offset';
+
+        if (l._product && (calcType === 'Slab' || calcType === 'Range' || calcType === 'Normal')) {
           const priceResult = calculateProductPrice({
             product: l._product,
             quantity: newQty,
             extras: l.applied_extras || [],
             currentPaperRate: paperRate,
             isDoubleSide: doubleSide,
+            isOffset: isOffsetLine,
           });
           if (priceResult) {
             updated.unit_price = priceResult.unit_price;
@@ -704,7 +709,7 @@ const Billing = () => {
       }
       return updated;
     }));
-  }, []);
+  }, [form.type]);
 
   const handleAddLineItem = useCallback(async (product, qty = 1, extras = [], catId, subId, catName, forceAddNew = false) => {
     const quantity = Number(qty) || 1;
@@ -718,15 +723,17 @@ const Billing = () => {
 
     const derivedBookType = bookTypeFromCategory(catName);
     const defaultPaperRate = product.has_paper_rate ? (Number(product.paper_rate) || 0) : 0;
+    const isOffsetLine = form.type === 'Offset' || derivedBookType === 'Offset';
 
     const priceResult = calculateProductPrice({
       product,
       quantity,
       extras,
       currentPaperRate: defaultPaperRate,
-      isDoubleSide: false
+      isDoubleSide: false,
+      isOffset: isOffsetLine,
     });
-    const unitPrice = priceResult ? priceResult.unit_price : resolveProductUnitPrice(product, quantity);
+    const unitPrice = priceResult && priceResult.unit_price > 0 ? priceResult.unit_price : resolveProductUnitPrice(product, quantity, isOffsetLine);
     const totalAmount = priceResult ? priceResult.total_amount : quantity * unitPrice;
 
     const line = {
@@ -760,7 +767,39 @@ const Billing = () => {
       localStorage.setItem('recentProducts', JSON.stringify(next));
       return next;
     });
-  }, [resolveProductUnitPrice, updateLine]);
+  }, [resolveProductUnitPrice, updateLine, form.type]);
+
+  // Recalculate order line prices when Customer Type changes (e.g., to/from 'Offset')
+  useEffect(() => {
+    if (orderLines.length === 0) return;
+    const isOffset = form.type === 'Offset';
+    setOrderLines(prev => {
+      let changed = false;
+      const updatedLines = prev.map(l => {
+        if (!l._product) return l;
+        const lineIsOffset = isOffset || l.book_type === 'Offset';
+        const priceResult = calculateProductPrice({
+          product: l._product,
+          quantity: Number(l.quantity) || 1,
+          extras: l.applied_extras || [],
+          currentPaperRate: Number(l.customPaperRate) || 0,
+          isDoubleSide: !!l.is_double_side,
+          isOffset: lineIsOffset,
+        });
+
+        if (priceResult && (priceResult.unit_price !== l.unit_price || priceResult.total_amount !== l.total_amount)) {
+          changed = true;
+          return {
+            ...l,
+            unit_price: priceResult.unit_price,
+            total_amount: priceResult.total_amount,
+          };
+        }
+        return l;
+      });
+      return changed ? updatedLines : prev;
+    });
+  }, [form.type]);
 
   const handleQuickAdd = useCallback(() => {
     if (!quickEntry.name.trim() || !Number(quickEntry.amount)) { toast.error('Enter name and amount'); return; }

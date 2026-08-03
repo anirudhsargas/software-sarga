@@ -20,6 +20,7 @@ const Requests = () => {
     const [newId, setNewId] = useState('');
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(true);
+    const [fetchError, setFetchError] = useState(null);
     const [message, setMessage] = useState('');
     const [selectedRequest, setSelectedRequest] = useState(null);
     const [showDetailModal, setShowDetailModal] = useState(false);
@@ -50,16 +51,28 @@ const Requests = () => {
 
     async function fetchAllRequests() {
         setFetching(true);
+        setFetchError(null);
+        const fallbackResponse = { data: { data: [] } };
+        // Fetch each request type independently so a single failing endpoint
+        // doesn't empty the whole page (which would contradict the sidebar badge count).
+        const safeFetch = async (label, promise) => {
+            try {
+                return await promise;
+            } catch (err) {
+                console.error(`Failed to fetch ${label} requests:`, err);
+                setFetchError(prev => ({ ...(prev || {}), [label]: true }));
+                return fallbackResponse;
+            }
+        };
         try {
-            const fallbackResponse = { data: { data: [] } };
             const [idResponse, customerResponse, vendorResponse, openingResponse, attendanceResponse, discountResponse, productResponse] = await Promise.all([
-                api.get('/requests/id-change'),
-                api.get('/requests/customer-change'),
-                api.get('/vendor-requests', { params: { status: 'Pending' } }),
-                api.get('/daily-report/change-requests', { params: { status: 'Pending' } }).catch(() => fallbackResponse),
-                api.get('/requests/attendance').catch(() => fallbackResponse),
-                api.get('/requests/discount').catch(() => fallbackResponse),
-                api.get('/products/update-requests', { params: { status: 'pending' } }).catch(() => fallbackResponse)
+                safeFetch('id change', api.get('/requests/id-change')),
+                safeFetch('customer change', api.get('/requests/customer-change')),
+                safeFetch('vendor', api.get('/vendor-requests', { params: { status: 'Pending' } })),
+                safeFetch('opening balance', api.get('/daily-report/change-requests', { params: { status: 'Pending' } })),
+                safeFetch('attendance', api.get('/requests/attendance')),
+                safeFetch('discount', api.get('/requests/discount')),
+                safeFetch('product', api.get('/products/update-requests', { params: { status: 'pending' } }))
             ]);
 
             const idData = idResponse.data.data || (Array.isArray(idResponse.data) ? idResponse.data : []);
@@ -259,6 +272,16 @@ const Requests = () => {
                         : 'Review and approve staff requests for ID changes and customer modifications. Double-click a row to view details.'}
                 </p>
             </div>
+
+            {fetchError && Object.keys(fetchError).length > 0 && (
+                <div className="alert alert--warning" role="alert">
+                    <AlertCircle size={20} />
+                    <span>
+                        Couldn't load some request types ({Object.keys(fetchError).join(', ')}).
+                        The sidebar count may be higher than what's shown below. Refreshing may help.
+                    </span>
+                </div>
+            )}
 
             <div className="panel panel--tight">
                 <div className="table-scroll">

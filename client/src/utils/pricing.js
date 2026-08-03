@@ -27,10 +27,10 @@ export const calculateProductPrice = ({
 
   const resolveUnitRate = (slab) => {
     if (!slab) return 0;
-    if (isDoubleSide && slab.double_side_unit_rate !== undefined && slab.double_side_unit_rate !== null) {
+    if (isDoubleSide && slab.double_side_unit_rate !== undefined && slab.double_side_unit_rate !== null && Number(slab.double_side_unit_rate) > 0) {
       return Number(slab.double_side_unit_rate) || 0;
     }
-    if (isOffset && slab.offset_unit_rate !== undefined && slab.offset_unit_rate !== null) {
+    if (isOffset && slab.offset_unit_rate !== undefined && slab.offset_unit_rate !== null && Number(slab.offset_unit_rate) > 0) {
       return Number(slab.offset_unit_rate) || 0;
     }
     return Number(slab.unit_rate) || 0;
@@ -57,8 +57,7 @@ export const calculateProductPrice = ({
       } else if (qty > sortedSlabs[sortedSlabs.length - 1].min_qty) {
         const lastSlab = sortedSlabs[sortedSlabs.length - 1];
         // Use the slab's unit_rate directly for quantities beyond the last slab.
-        // Deriving from base_value/min_qty was wrong when qty >> min_qty.
-        const lastUnit = Number(lastSlab.unit_rate) || 0;
+        const lastUnit = resolveUnitRate(lastSlab);
         total = lastUnit * qty;
         slabForDS = lastSlab;
       } else {
@@ -121,6 +120,12 @@ export const calculateProductPrice = ({
     const doubleSideRate = Number(slabForDS?.double_side_unit_rate) || 0;
     if (doubleSideRate > 0) {
       total += doubleSideRate * qty;
+      unit_price = qty > 0 ? total / qty : 0;
+    }
+  } else if (product.calculation_type === 'Slab' && isOffset) {
+    const offsetRate = Number(slabForDS?.offset_unit_rate) || 0;
+    if (offsetRate > 0) {
+      total += offsetRate * qty;
       unit_price = qty > 0 ? total / qty : 0;
     }
   }

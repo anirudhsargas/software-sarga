@@ -144,6 +144,36 @@ describe('calculateProductPrice', () => {
     expect(result.unit_price).toBe(12);
   });
 
+  it('falls back to unit_rate if offset_unit_rate is 0 or null', () => {
+    const result = calculateProductPrice({
+      product: {
+        calculation_type: 'Range',
+        slabs: [
+          { min_qty: 1, max_qty: 100, unit_rate: 10, offset_unit_rate: 0 },
+        ],
+      },
+      quantity: 50,
+      isOffset: true,
+    });
+
+    expect(result.unit_price).toBe(10);
+  });
+
+  it('handles offset rate for Slab type', () => {
+    const result = calculateProductPrice({
+      product: {
+        calculation_type: 'Slab',
+        slabs: [
+          { min_qty: 100, base_value: 500, offset_unit_rate: 1.5 },
+        ],
+      },
+      quantity: 100,
+      isOffset: true,
+    });
+
+    expect(result.total_amount).toBe(650);
+  });
+
   it('returns 0 total for zero quantity', () => {
     const result = calculateProductPrice({
       product: {
