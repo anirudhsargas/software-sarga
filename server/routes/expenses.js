@@ -229,8 +229,8 @@ router.get('/vendor-requests', authenticateToken, authorizeRoles('Admin', 'Accou
         }
 
         if (status) {
-            whereClauses.push('vr.status = ?');
-            params.push(status);
+            whereClauses.push('LOWER(vr.status) = ?');
+            params.push(String(status).toLowerCase());
         }
 
         const whereSection = whereClauses.length > 0 ? ' WHERE ' + whereClauses.join(' AND ') : '';

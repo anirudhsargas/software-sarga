@@ -155,15 +155,15 @@ router.get('/change-requests', auth.authenticate, auth.authorizeRoles('Admin', '
         const params = [];
 
         if (status) {
-            whereClauses.push('cr.status = ?');
-            params.push(status);
+            whereClauses.push('LOWER(cr.status) = ?');
+            params.push(String(status).toLowerCase());
         }
 
         const whereSection = whereClauses.length > 0 ? ' WHERE ' + whereClauses.join(' AND ') : '';
         const baseFrom = `
             FROM sarga_opening_change_requests cr
-            JOIN sarga_staff s ON cr.requester_id = s.id
-            JOIN sarga_branches b ON cr.branch_id = b.id
+            LEFT JOIN sarga_staff s ON cr.requester_id = s.id
+            LEFT JOIN sarga_branches b ON cr.branch_id = b.id
             LEFT JOIN sarga_machines m ON cr.machine_id = m.id
             ${whereSection}
         `;

@@ -42,8 +42,8 @@ router.get('/requests/id-change', authenticateToken, authorizeRoles('Admin'), as
         const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
         const baseFrom = `
              FROM sarga_id_requests r 
-             JOIN sarga_staff u ON r.user_id_internal = u.id 
-             WHERE r.status = 'PENDING'
+             LEFT JOIN sarga_staff u ON r.user_id_internal = u.id 
+             WHERE LOWER(r.status) = 'pending'
         `;
 
         const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`);
@@ -131,9 +131,9 @@ router.get('/requests/customer-change', authenticateToken, authorizeRoles('Admin
     const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
     const baseFrom = `
         FROM sarga_customer_requests r
-        JOIN sarga_staff s ON r.requester_id = s.id
-        JOIN sarga_customers c ON r.customer_id = c.id
-        WHERE r.status = 'PENDING'
+        LEFT JOIN sarga_staff s ON r.requester_id = s.id
+        LEFT JOIN sarga_customers c ON r.customer_id = c.id
+        WHERE LOWER(r.status) = 'pending'
     `;
 
     const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`);
@@ -219,8 +219,8 @@ router.get('/requests/attendance', authenticateToken, authorizeRoles('Admin'), a
     const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
     const baseFrom = `
         FROM sarga_attendance_requests r
-        JOIN sarga_staff s ON r.staff_id = s.id
-        WHERE r.status = 'Pending'
+        LEFT JOIN sarga_staff s ON r.staff_id = s.id
+        WHERE LOWER(r.status) = 'pending'
     `;
 
     const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`);
@@ -308,21 +308,21 @@ router.post('/requests/attendance/:id/review', authenticateToken, authorizeRoles
 }));
 
 
-// Get Pending Requests Count (Admin)
-router.get('/requests/pending-count', authenticateToken, authorizeRoles('Admin', 'Accountant'), redisCache(120, 'requests'), asyncHandler(async (req, res) => {
+// Get Pending Requests Count (Admin & Accountant)
+router.get('/requests/pending-count', authenticateToken, authorizeRoles('Admin', 'Accountant'), asyncHandler(async (req, res) => {
     const isAdmin = req.user.role === 'Admin';
     if (!isAdmin) {
         // Accountant only sees discount requests they can act on
-        const [discountRows] = await pool.query("SELECT COUNT(*) as count FROM sarga_discount_requests WHERE status = 'PENDING' AND approval_level = 'accountant_or_admin'");
+        const [discountRows] = await pool.query("SELECT COUNT(*) as count FROM sarga_discount_requests WHERE LOWER(status) = 'pending' AND approval_level = 'accountant_or_admin'");
         return res.json({ pending_count: discountRows[0].count });
     }
-    const [idRows] = await pool.query("SELECT COUNT(*) as count FROM sarga_id_requests WHERE status = 'PENDING'");
-    const [customerRows] = await pool.query("SELECT COUNT(*) as count FROM sarga_customer_requests WHERE status = 'PENDING'");
-    const [vendorRows] = await pool.query("SELECT COUNT(*) as count FROM sarga_vendor_requests WHERE status = 'Pending'");
-    const [openingRows] = await pool.query("SELECT COUNT(*) as count FROM sarga_opening_change_requests WHERE status = 'Pending'");
-    const [attendanceRows] = await pool.query("SELECT COUNT(*) as count FROM sarga_attendance_requests WHERE status = 'Pending'");
-    const [discountRows] = await pool.query("SELECT COUNT(*) as count FROM sarga_discount_requests WHERE status = 'PENDING'");
-    const [productRows] = await pool.query("SELECT COUNT(*) as count FROM sarga_product_update_requests WHERE status = 'pending'");
+    const [idRows] = await pool.query("SELECT COUNT(*) as count FROM sarga_id_requests r LEFT JOIN sarga_staff u ON r.user_id_internal = u.id WHERE LOWER(r.status) = 'pending'");
+    const [customerRows] = await pool.query("SELECT COUNT(*) as count FROM sarga_customer_requests r LEFT JOIN sarga_staff s ON r.requester_id = s.id LEFT JOIN sarga_customers c ON r.customer_id = c.id WHERE LOWER(r.status) = 'pending'");
+    const [vendorRows] = await pool.query("SELECT COUNT(*) as count FROM sarga_vendor_requests vr LEFT JOIN sarga_staff req ON req.id = vr.requested_by WHERE LOWER(vr.status) = 'pending'");
+    const [openingRows] = await pool.query("SELECT COUNT(*) as count FROM sarga_opening_change_requests cr LEFT JOIN sarga_staff s ON cr.requester_id = s.id LEFT JOIN sarga_branches b ON cr.branch_id = b.id WHERE LOWER(cr.status) = 'pending'");
+    const [attendanceRows] = await pool.query("SELECT COUNT(*) as count FROM sarga_attendance_requests r LEFT JOIN sarga_staff s ON r.staff_id = s.id WHERE LOWER(r.status) = 'pending'");
+    const [discountRows] = await pool.query("SELECT COUNT(*) as count FROM sarga_discount_requests r LEFT JOIN sarga_staff s ON r.requester_id = s.id WHERE LOWER(r.status) = 'pending'");
+    const [productRows] = await pool.query("SELECT COUNT(*) as count FROM sarga_product_update_requests r WHERE LOWER(r.status) = 'pending'");
 
     const totalCount = idRows[0].count + customerRows[0].count + vendorRows[0].count + openingRows[0].count + attendanceRows[0].count + discountRows[0].count + productRows[0].count;
     res.json({ pending_count: totalCount });
@@ -362,8 +362,8 @@ router.get('/requests/discount', authenticateToken, authorizeRoles('Admin', 'Acc
 
     const baseFrom = `
         FROM sarga_discount_requests r
-        JOIN sarga_staff s ON r.requester_id = s.id
-        WHERE r.status = 'PENDING'
+        LEFT JOIN sarga_staff s ON r.requester_id = s.id
+        WHERE LOWER(r.status) = 'pending'
         ${!isAdmin ? "AND r.approval_level = 'accountant_or_admin'" : ''}
     `;
 

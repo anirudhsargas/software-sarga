@@ -855,7 +855,7 @@ const Dashboard = () => {
     const fetchPendingCount = useCallback(async () => {
         if (user?.role !== 'Admin' && user?.role !== 'Accountant') return;
         try {
-            const response = await api.get('/requests/pending-count');
+            const response = await api.get('/requests/pending-count', { _noCache: true });
             const pendingCount = response?.data?.pending_count ?? 0;
             setPendingRequestsCount(prev => {
                 if (prev === pendingCount) return prev;

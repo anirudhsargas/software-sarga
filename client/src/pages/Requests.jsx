@@ -38,7 +38,7 @@ const Requests = () => {
     async function fetchDiscountRequestsForAccountant() {
         setFetching(true);
         try {
-            const res = await api.get('/requests/discount');
+            const res = await api.get('/requests/discount', { _noCache: true });
             const dataArray = res.data.data || (Array.isArray(res.data) ? res.data : []);
             const combined = dataArray.map(r => ({ ...r, request_type: 'DISCOUNT_REQUEST' }));
             setAllRequests(combined);
@@ -66,13 +66,13 @@ const Requests = () => {
         };
         try {
             const [idResponse, customerResponse, vendorResponse, openingResponse, attendanceResponse, discountResponse, productResponse] = await Promise.all([
-                safeFetch('id change', api.get('/requests/id-change')),
-                safeFetch('customer change', api.get('/requests/customer-change')),
-                safeFetch('vendor', api.get('/vendor-requests', { params: { status: 'Pending' } })),
-                safeFetch('opening balance', api.get('/daily-report/change-requests', { params: { status: 'Pending' } })),
-                safeFetch('attendance', api.get('/requests/attendance')),
-                safeFetch('discount', api.get('/requests/discount')),
-                safeFetch('product', api.get('/products/update-requests', { params: { status: 'pending' } }))
+                safeFetch('id change', api.get('/requests/id-change', { _noCache: true })),
+                safeFetch('customer change', api.get('/requests/customer-change', { _noCache: true })),
+                safeFetch('vendor', api.get('/vendor-requests', { params: { status: 'Pending' }, _noCache: true })),
+                safeFetch('opening balance', api.get('/daily-report/change-requests', { params: { status: 'Pending' }, _noCache: true })),
+                safeFetch('attendance', api.get('/requests/attendance', { _noCache: true })),
+                safeFetch('discount', api.get('/requests/discount', { _noCache: true })),
+                safeFetch('product', api.get('/products/update-requests', { params: { status: 'pending' }, _noCache: true }))
             ]);
 
             const idData = idResponse.data.data || (Array.isArray(idResponse.data) ? idResponse.data : []);
@@ -87,16 +87,16 @@ const Requests = () => {
             setCustomerRequests(customerData);
             setVendorRequests(vendorData);
 
-            // Combine and sort all requests by created_at
+            // Combine and sort all requests by created_at / requested_at
             const combined = [
-                ...idData.map(r => ({ ...r, request_type: 'ID_CHANGE' })),
-                ...customerData.map(r => ({ ...r, request_type: 'CUSTOMER_CHANGE' })),
-                ...vendorData.map(r => ({ ...r, request_type: 'VENDOR_REQUEST', request_type_value: r.request_type })),
-                ...openingData.map(r => ({ ...r, request_type: 'OPENING_CHANGE' })),
-                ...attendanceData.map(r => ({ ...r, request_type: 'ATTENDANCE_CHANGE' })),
-                ...discountData.map(r => ({ ...r, request_type: 'DISCOUNT_REQUEST' })),
-                ...productData.map(r => ({ ...r, request_type: 'PRODUCT_UPDATE', created_at: r.requested_at, requester_name: r.requested_by_name, name: r.product_name }))
-            ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                ...idData.map(r => ({ ...r, request_type: 'ID_CHANGE', name: r.name || r.old_user_id || 'Staff' })),
+                ...customerData.map(r => ({ ...r, request_type: 'CUSTOMER_CHANGE', requester_name: r.requester_name || 'Staff', customer_name: r.customer_name || 'Customer' })),
+                ...vendorData.map(r => ({ ...r, request_type: 'VENDOR_REQUEST', request_type_value: r.request_type, requester_name: r.requested_by_name || 'Staff', name: r.name || 'Vendor' })),
+                ...openingData.map(r => ({ ...r, request_type: 'OPENING_CHANGE', requester_name: r.requester_name || 'Staff' })),
+                ...attendanceData.map(r => ({ ...r, request_type: 'ATTENDANCE_CHANGE', staff_name: r.staff_name || 'Staff' })),
+                ...discountData.map(r => ({ ...r, request_type: 'DISCOUNT_REQUEST', requester_name: r.requester_name || 'Staff' })),
+                ...productData.map(r => ({ ...r, request_type: 'PRODUCT_UPDATE', created_at: r.requested_at, requester_name: r.requested_by_name || 'Staff', name: r.product_name || 'Product' }))
+            ].sort((a, b) => new Date(b.created_at || b.requested_at || 0) - new Date(a.created_at || a.requested_at || 0));
 
             setAllRequests(combined);
         } catch (err) {
