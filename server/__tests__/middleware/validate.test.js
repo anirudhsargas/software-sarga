@@ -80,6 +80,11 @@ describe('addCustomerSchema', () => {
     expect(result.success).toBe(true);
   });
 
+  it('accepts E.164 formatted mobile numbers', () => {
+    const result = addCustomerSchema.safeParse({ mobile: '+919876543210', name: 'Test' });
+    expect(result.success).toBe(true);
+  });
+
   it('defaults type to Walk-in', () => {
     const result = addCustomerSchema.safeParse({ mobile: '9876543210', name: 'Test' });
     expect(result.success).toBe(true);

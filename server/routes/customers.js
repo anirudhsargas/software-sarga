@@ -131,11 +131,11 @@ router.get('/customers/:id', authenticateToken, authorizeRoles('Admin', 'Account
 });
 
 // Add Customer
-router.post('/customers', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), validate(addCustomerSchema), attachNormalizedMobile('mobile', 'countryCode'), async (req, res) => {
+router.post('/customers', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), attachNormalizedMobile('mobile', 'countryCode'), validate(addCustomerSchema), async (req, res) => {
     const { mobile, countryCode, name, type, email, gst, address } = req.body;
 
     // Normalize mobile using optional countryCode (handles region codes and calling codes).
-    const normalizedMobile = normalizeMobileWithCountry(mobile, countryCode);
+    const normalizedMobile = req.body.mobile_normalized || normalizeMobileWithCountry(mobile, countryCode);
     if (!normalizedMobile || (!(normalizedMobile.startsWith('+') || normalizedMobile.length === 10))) {
         return res.status(400).json({ message: 'Invalid mobile number' });
     }

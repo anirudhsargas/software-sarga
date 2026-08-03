@@ -380,6 +380,7 @@ const Customers = () => {
         e.preventDefault();
         const { valid, error: phoneError } = validatePhone(newCustomer.mobile);
         if (!valid) {
+            toast.error(phoneError);
             return setError(phoneError);
         }
         setLoading(true);
@@ -392,10 +393,12 @@ const Customers = () => {
             }
             closeAddModal(true);
             setNewCustomer({ mobile: '', countryCode: '+91', name: '', type: 'Walk-in', email: '', gst: '', address: '' });
-            toast.success('Customer added locally');
+            toast.success('Customer added successfully');
             fetchCustomers();
-        } catch {
-            setError('Failed to add customer');
+        } catch (err) {
+            const msg = err.response?.data?.message || err.message || 'Failed to add customer';
+            setError(msg);
+            toast.error(msg);
         } finally {
             setLoading(false);
         }
@@ -403,8 +406,10 @@ const Customers = () => {
 
     const handleUpdateCustomer = async (e) => {
         e.preventDefault();
-        if (selectedCustomer.mobile.length !== 10) {
-            return setError('Mobile number must be exactly 10 digits');
+        const { valid, error: phoneError } = validatePhone(selectedCustomer.mobile);
+        if (!valid) {
+            toast.error(phoneError);
+            return setError(phoneError);
         }
         
         setLoading(true);
@@ -415,10 +420,12 @@ const Customers = () => {
             await localDb.createCustomer(selectedCustomer); // createCustomer handles upsert
             closeEditModal(true);
             setSelectedCustomer(null);
-            toast.success('Customer updated locally');
+            toast.success('Customer updated successfully');
             fetchCustomers();
         } catch (e) {
-            setError('Failed to update customer');
+            const msg = e.response?.data?.message || e.message || 'Failed to update customer';
+            setError(msg);
+            toast.error(msg);
             setCustomers(prevCustomers);
         } finally {
             setLoading(false);
@@ -880,6 +887,33 @@ const Customers = () => {
                     <X size={14} /> Clear
                 </button>
             </div>
+
+            {/* Error banner when error exists outside of modals */}
+            {error && !showAddModal && !showEditModal && !showJobModal && (
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '12px 16px',
+                    borderRadius: '8px',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    color: '#ef4444',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    marginBottom: '16px',
+                    fontSize: '14px',
+                    fontWeight: 500
+                }} role="alert">
+                    <span>{error}</span>
+                    <button
+                        type="button"
+                        onClick={() => setError('')}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '2px 4px', borderRadius: '4px' }}
+                        aria-label="Dismiss error message"
+                    >
+                        <X size={16} />
+                    </button>
+                </div>
+            )}
 
             {/* ═══ Table Toolbar ═══ */}
             <div className="customer-table-toolbar">

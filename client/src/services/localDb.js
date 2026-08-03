@@ -1489,7 +1489,7 @@ export async function createCustomer(customerData) {
             await removeDuplicateCustomerCopies(updatedRecord.id, normalizedMobile, res.data.id);
             record = updatedRecord;
         }
-    });
+    }, true);
 
     return record;
 }
