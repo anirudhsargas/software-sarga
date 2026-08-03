@@ -54,20 +54,18 @@ async function uploadToCloudinary(filePath, folder = 'uploads', options = {}) {
  */
 async function uploadBufferToCloudinary(buffer, filename, folder = 'uploads', options = {}) {
   try {
+    // Generate a unique public_id to prevent overwriting existing images
+    // when different products are uploaded with the same original filename.
+    const baseName = path.parse(filename).name.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const uniqueSuffix = `${Date.now()}_${require('crypto').randomUUID().split('-')[0]}`;
+    const uniquePublicId = `${baseName}_${uniqueSuffix}`;
+
     const defaultOptions = {
       folder,
       resource_type: 'auto',
-      public_id: path.parse(filename).name,
+      public_id: uniquePublicId,
       ...options,
     };
-
-    const result = await cloudinary.uploader.upload_stream( // eslint-disable-line no-unused-vars
-      defaultOptions,
-      (error, result) => {
-        if (error) throw error;
-        return result;
-      }
-    );
 
     return new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
