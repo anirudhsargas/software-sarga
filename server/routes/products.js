@@ -1636,7 +1636,7 @@ module.exports = (upload, removeUploadFile) => {
                 const params = [];
                 let whereSql = '';
                 if (normalizedStatus !== 'all') {
-                    whereSql = 'WHERE r.status = ?';
+                    whereSql = 'WHERE LOWER(r.status) = ?';
                     params.push(normalizedStatus);
                 }
 
@@ -1668,6 +1668,12 @@ module.exports = (upload, removeUploadFile) => {
                     params
                 );
 
+                const safeJsonParse = (val) => {
+                    if (!val) return null;
+                    if (typeof val === 'object') return val;
+                    try { return JSON.parse(val); } catch { return null; }
+                };
+
                 return res.json(rows.map(r => ({
                     id: r.id,
                     product_id: r.product_id,
@@ -1683,12 +1689,12 @@ module.exports = (upload, removeUploadFile) => {
                     reviewed_by: r.reviewed_by,
                     reviewed_by_name: r.reviewed_by_name,
                     admin_note: r.admin_note,
-                    current_data: r.current_data ? JSON.parse(r.current_data) : null,
-                    proposed_data: r.proposed_data ? JSON.parse(r.proposed_data) : null
+                    current_data: safeJsonParse(r.current_data),
+                    proposed_data: safeJsonParse(r.proposed_data)
                 })));
             } catch (err) {
                 console.error('List product update requests error:', err);
-                return res.status(500).json({ message: 'Database error' });
+                return res.status(500).json({ message: err?.message || 'Database error' });
             }
         });
 

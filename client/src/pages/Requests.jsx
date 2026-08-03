@@ -35,6 +35,8 @@ const Requests = () => {
         }
     }, []);
 
+    const [pendingBadgeTotal, setPendingBadgeTotal] = useState(null);
+
     async function fetchDiscountRequestsForAccountant() {
         setFetching(true);
         try {
@@ -42,6 +44,11 @@ const Requests = () => {
             const dataArray = res.data.data || (Array.isArray(res.data) ? res.data : []);
             const combined = dataArray.map(r => ({ ...r, request_type: 'DISCOUNT_REQUEST' }));
             setAllRequests(combined);
+
+            const countRes = await api.get('/requests/pending-count', { _noCache: true }).catch(() => null);
+            if (countRes?.data?.pending_count !== undefined) {
+                setPendingBadgeTotal(countRes.data.pending_count);
+            }
         } catch (err) {
             console.error('Failed to fetch discount requests:', err);
         } finally {
@@ -53,27 +60,36 @@ const Requests = () => {
         setFetching(true);
         setFetchError(null);
         const fallbackResponse = { data: { data: [] } };
-        // Fetch each request type independently so a single failing endpoint
-        // doesn't empty the whole page (which would contradict the sidebar badge count).
+
         const safeFetch = async (label, promise) => {
             try {
                 return await promise;
             } catch (err) {
-                console.error(`Failed to fetch ${label} requests:`, err);
-                setFetchError(prev => ({ ...(prev || {}), [label]: true }));
+                const status = err.response?.status ? `HTTP ${err.response.status}` : 'Network Error';
+                const message = err.response?.data?.message || err.message || 'Failed to load';
+                console.error(`Failed to fetch ${label} requests [${status}]: ${message}`, err);
+                setFetchError(prev => ({
+                    ...(prev || {}),
+                    [label]: { status, message }
+                }));
                 return fallbackResponse;
             }
         };
         try {
-            const [idResponse, customerResponse, vendorResponse, openingResponse, attendanceResponse, discountResponse, productResponse] = await Promise.all([
+            const [idResponse, customerResponse, vendorResponse, openingResponse, attendanceResponse, discountResponse, productResponse, countRes] = await Promise.all([
                 safeFetch('id change', api.get('/requests/id-change', { _noCache: true })),
                 safeFetch('customer change', api.get('/requests/customer-change', { _noCache: true })),
                 safeFetch('vendor', api.get('/vendor-requests', { params: { status: 'Pending' }, _noCache: true })),
                 safeFetch('opening balance', api.get('/daily-report/change-requests', { params: { status: 'Pending' }, _noCache: true })),
                 safeFetch('attendance', api.get('/requests/attendance', { _noCache: true })),
                 safeFetch('discount', api.get('/requests/discount', { _noCache: true })),
-                safeFetch('product', api.get('/products/update-requests', { params: { status: 'pending' }, _noCache: true }))
+                safeFetch('product', api.get('/products/update-requests', { params: { status: 'pending' }, _noCache: true })),
+                api.get('/requests/pending-count', { _noCache: true }).catch(() => null)
             ]);
+
+            if (countRes?.data?.pending_count !== undefined) {
+                setPendingBadgeTotal(countRes.data.pending_count);
+            }
 
             const idData = idResponse.data.data || (Array.isArray(idResponse.data) ? idResponse.data : []);
             const customerData = customerResponse.data.data || (Array.isArray(customerResponse.data) ? customerResponse.data : []);
@@ -273,15 +289,28 @@ const Requests = () => {
                 </p>
             </div>
 
-            {fetchError && Object.keys(fetchError).length > 0 && (
-                <div className="alert alert--warning" role="alert">
-                    <AlertCircle size={20} />
-                    <span>
-                        Couldn't load some request types ({Object.keys(fetchError).join(', ')}).
-                        The sidebar count may be higher than what's shown below. Refreshing may help.
-                    </span>
-                </div>
-            )}
+            {fetchError && Object.keys(fetchError).length > 0 && (() => {
+                const missingCount = (pendingBadgeTotal !== null && pendingBadgeTotal > allRequests.length)
+                    ? pendingBadgeTotal - allRequests.length
+                    : 0;
+                return (
+                    <div className="alert alert--warning" role="alert" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
+                        <div className="row gap-sm items-center">
+                            <AlertCircle size={20} />
+                            <span style={{ fontWeight: 600 }}>
+                                Partial Data Loaded: {missingCount > 0 ? `${missingCount} pending request(s) failed to load.` : 'Some request types failed to load.'}
+                            </span>
+                        </div>
+                        <ul style={{ margin: 0, paddingLeft: '24px', fontSize: '0.875rem' }}>
+                            {Object.entries(fetchError).map(([label, info]) => (
+                                <li key={label}>
+                                    <strong>{label}</strong>: {info.status} — {info.message}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                );
+            })()}
 
             <div className="panel panel--tight">
                 <div className="table-scroll">
