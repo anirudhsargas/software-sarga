@@ -857,14 +857,19 @@ const Billing = () => {
       if (data) {
         const invProduct = { id: data.id, name: data.name, mrp: data.mrp || data.sell_price, sku: data.sku };
         if (autoAdd) {
+          const isOffset = String(form.type || '').trim().toLowerCase() === 'offset';
+          const offsetRate = isOffset && data.offset_unit_rate != null && Number(data.offset_unit_rate) > 0
+            ? Number(data.offset_unit_rate)
+            : null;
+          const unitPrice = offsetRate != null ? offsetRate : Number(data.mrp || data.sell_price || 0);
           setOrderLines(prev => [...prev, {
             id: `inv-${data.id}-${Date.now()}`,
             product_id: data.id,
             inventory_item_id: data.id,
             product_name: data.name,
             quantity: 1,
-            unit_price: Number(data.mrp || data.sell_price || 0),
-            total_amount: Number(data.mrp || data.sell_price || 0),
+            unit_price: unitPrice,
+            total_amount: unitPrice,
             calculation_type: 'flat', applied_extras: [], customPaperRate: 0, is_double_side: false,
             description: '', category: '', subcategory: '', machine_id: null,
             waste_prints: 0, proof_prints: 0, book_type: 'Other',
@@ -883,7 +888,7 @@ const Billing = () => {
         }
       }
     } catch { toast.error('No product or inventory item found for this code.'); }
-  }, [qrLookupMap, handleAddLineItem]);
+  }, [qrLookupMap, handleAddLineItem, form.type]);
 
   // ── Payment ──
   const handlePaymentMethod = useCallback((method) => {
@@ -927,7 +932,7 @@ const Billing = () => {
     try {
       let customerId = existingCustomer?.id;
       if (!customerId && form.name) {
-        const custPayload = { name: form.name, mobile: form.mobile || null, client_type: isWalkIn ? 'Walk-in' : (form.type || 'Retail'), email: form.email || null, address: form.address || null, gstin: form.gst || null };
+        const custPayload = { name: form.name, mobile: form.mobile || null, type: isWalkIn ? 'Walk-in' : (form.type || 'Retail'), email: form.email || null, address: form.address || null, gstin: form.gst || null };
         const customer = await localDb.createCustomer(custPayload);
         customerId = customer.id;
       }
@@ -1627,7 +1632,7 @@ const Billing = () => {
             <div className="billing-quick-actions">
               <button className="btn btn-ghost btn-icon btn-xs" onClick={() => setShowScanner(true)} title="Camera Scan" aria-label="Camera scan"><Camera size={16} aria-hidden="true" /></button>
               <button className="btn btn-ghost btn-icon btn-xs" onClick={() => setShowQuickEntry(true)} title="Quick Add" aria-label="Quick add product"><Zap size={16} aria-hidden="true" /></button>
-              {recentProducts.length > 0 && <button className="btn btn-ghost btn-icon btn-xs" onClick={() => { const r = recentProducts[0]; if (r) handleAddLineItem(r); }} title="Recent" aria-label="Add most recent product"><Clock size={16} aria-hidden="true" /></button>}
+              {recentProducts.length > 0 && <button className="btn btn-ghost btn-icon btn-xs" onClick={() => { const r = recentProducts[0]; if (!r) return; let fullProd = null; for (const cat of (hierarchy || [])) { for (const sub of cat.subcategories || []) { for (const prod of sub.products || []) { if (prod.id === r.id) { fullProd = prod; break; } } if (fullProd) break; } if (fullProd) break; } handleAddLineItem(fullProd || r); }} title="Recent" aria-label="Add most recent product"><Clock size={16} aria-hidden="true" /></button>}
             </div>
             {/* Product suggestions dropdown */}
             {productSuggestions.length > 0 && (
