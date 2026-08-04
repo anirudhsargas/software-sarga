@@ -1,8 +1,9 @@
 import { memo, useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { X, Sunrise, ArrowRight, Loader2, CheckCircle2 } from 'lucide-react';
+import { X, Sunrise, ArrowRight, Loader2, CheckCircle2, RotateCcw, Cpu, Sparkles } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import { serverToday } from '../services/serverTime';
+import { formatCurrency } from '../utils/formatters';
 import CashOpeningSection from './CashOpeningSection';
 import './OpeningSetupModal.css';
 
@@ -32,7 +33,7 @@ const OpeningSetupModal = ({ balances, machines, prevClosing, branchName, onSave
     const autosaveTimer = useRef(null);
 
     const today = date || serverToday();
-    const formattedDate = new Date(today + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+    const formattedDate = new Date(today + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 
     const activeBookTabs = useMemo(() =>
         BOOK_TABS.filter(t => Object.prototype.hasOwnProperty.call(cashValues, t.key)),
@@ -70,6 +71,13 @@ const OpeningSetupModal = ({ balances, machines, prevClosing, branchName, onSave
         setMachineValues(prev => prev.map(m =>
             m.id === id ? { ...m, opening_count: value, error: null } : m
         ));
+    }, []);
+
+    const handleCopyAllMachinesPrev = useCallback(() => {
+        setMachineValues(prev => prev.map(m => {
+            const prevCount = m.previous_count || 0;
+            return prevCount > 0 ? { ...m, opening_count: String(prevCount), error: null } : m;
+        }));
     }, []);
 
     const handleSave = useCallback(async () => {
@@ -120,7 +128,7 @@ const OpeningSetupModal = ({ balances, machines, prevClosing, branchName, onSave
             }
 
             setCompleted(true);
-            toast.success('Opening values saved!');
+            toast.success('Opening setup saved!');
             setTimeout(() => onSave?.(), 1200);
         } catch (err) {
             toast.error(err.response?.data?.error || 'Failed to save opening values');
@@ -157,16 +165,28 @@ const OpeningSetupModal = ({ balances, machines, prevClosing, branchName, onSave
 
     if (completed && !editing) {
         return (
-            <div className="modal-backdrop">
-                <div className="modal os-modal os-modal--success" style={{ maxWidth: 420 }}>
+            <div className="modal-backdrop os-modal-backdrop">
+                <div className="modal os-modal os-modal--success" style={{ maxWidth: 440 }}>
                     <div className="os-success">
                         <div className="os-success__icon">
-                            <CheckCircle2 size={40} />
+                            <CheckCircle2 size={44} />
                         </div>
-                        <h2 className="os-success__title">Opening Completed</h2>
-                        <p className="os-success__text">Today&apos;s values saved successfully.</p>
+                        <h2 className="os-success__title">Opening Completed!</h2>
+                        <p className="os-success__text">Today&apos;s cash drawers and machine counters are recorded.</p>
+                        
+                        <div className="os-success__summary">
+                            <div className="os-success__stat">
+                                <span className="os-success__stat-label">Opening Cash</span>
+                                <span className="os-success__stat-val">{formatCurrency(totalCash)}</span>
+                            </div>
+                            <div className="os-success__stat">
+                                <span className="os-success__stat-label">Machines Set</span>
+                                <span className="os-success__stat-val">{machinesUpdated} / {machineValues.length}</span>
+                            </div>
+                        </div>
+
                         <div className="os-success__actions">
-                            <button className="btn btn-primary" onClick={onSave}>Go to Dashboard</button>
+                            <button className="btn btn-primary os-btn-glow" onClick={onSave}>Go to Dashboard →</button>
                             <button className="btn btn-ghost" onClick={() => { setCompleted(false); setEditing(true); }}>Edit Values</button>
                         </div>
                     </div>
@@ -175,20 +195,25 @@ const OpeningSetupModal = ({ balances, machines, prevClosing, branchName, onSave
         );
     }
 
+    const hasAnyMachinePrev = machineValues.some(m => Number(m.previous_count) > 0);
+
     return (
-        <div className="modal-backdrop">
+        <div className="modal-backdrop os-modal-backdrop">
             <div className="modal os-modal">
-                <button className="modal-close" onClick={onSkip} aria-label="Close">
+                <button className="modal-close os-close-btn" onClick={onSkip} aria-label="Close">
                     <X size={18} />
                 </button>
 
                 <div className="os-header">
                     <div className="os-header__icon">
-                        <Sunrise size={20} />
+                        <Sunrise size={22} />
                     </div>
                     <div className="os-header__text">
-                        <h2 className="os-header__title">Opening Setup</h2>
-                        <p className="os-header__meta">{branchName || 'Branch'} • {formattedDate}</p>
+                        <div className="os-header__title-row">
+                            <h2 className="os-header__title">Opening Setup</h2>
+                            <span className="os-header__badge">{branchName || 'Main Branch'}</span>
+                        </div>
+                        <p className="os-header__meta">Set starting cash drawers and machine counters for {formattedDate}</p>
                     </div>
                 </div>
 
@@ -206,12 +231,25 @@ const OpeningSetupModal = ({ balances, machines, prevClosing, branchName, onSave
                         <div className="os-section">
                             <div className="os-section__header">
                                 <div className="os-section__icon" style={{ background: 'var(--info-bg)', color: 'var(--info)' }}>
-                                    <span style={{ fontSize: 16 }}>⚙</span>
+                                    <Cpu size={18} />
                                 </div>
-                                <div>
+                                <div className="os-section__titles">
                                     <h3 className="os-section__title">Machine Readings</h3>
+                                    <p className="os-section__subtitle">Record starting counter readings for print equipment</p>
                                 </div>
+                                {hasAnyMachinePrev && (
+                                    <button
+                                        type="button"
+                                        className="os-quick-copy-all-btn"
+                                        onClick={handleCopyAllMachinesPrev}
+                                        title="Copy previous closing counters for all machines"
+                                    >
+                                        <Sparkles size={13} />
+                                        <span>Copy Previous Counters</span>
+                                    </button>
+                                )}
                             </div>
+
                             <div className="os-machines-table">
                                 {machineValues.map(m => {
                                     const prev = Number(m.previous_count) || 0;
@@ -220,27 +258,53 @@ const OpeningSetupModal = ({ balances, machines, prevClosing, branchName, onSave
                                     const isInvalid = prev > 0 && curr > 0 && curr < prev;
                                     return (
                                         <div key={m.id} className={`os-machine-row ${m.error ? 'os-machine-row--error' : ''} ${isInvalid ? 'os-machine-row--invalid' : ''}`}>
-                                            <span className="os-machine-row__name">{m.machine_name}</span>
-                                            <span className="os-machine-row__prev">
-                                                {prev > 0 ? `Prev: ${prev.toLocaleString('en-IN')}` : 'Prev: —'}
-                                            </span>
-                                            <input
-                                                type="text"
-                                                inputMode="numeric"
-                                                className={`os-machine-row__input ${m.error ? 'os-machine-row__input--error' : ''} ${isInvalid ? 'os-machine-row__input--invalid' : ''}`}
-                                                value={m.opening_count}
-                                                onChange={(e) => {
-                                                    const raw = e.target.value.replace(/[^0-9]/g, '');
-                                                    handleMachineChange(m.id, raw);
-                                                }}
-                                                placeholder="Counter"
-                                            />
-                                            {diff !== null && !isInvalid && (
-                                                <span className="os-machine-row__diff">+{diff.toLocaleString('en-IN')}</span>
-                                            )}
+                                            <div className="os-machine-row__info">
+                                                <span className="os-machine-row__name">{m.machine_name}</span>
+                                                <span className="os-machine-row__type">{m.type || 'Printer'}</span>
+                                            </div>
+                                            
+                                            <div className="os-machine-row__prev-col">
+                                                <span className="os-machine-row__prev">
+                                                    {prev > 0 ? `Prev: ${prev.toLocaleString('en-IN')}` : 'Prev: —'}
+                                                </span>
+                                                {prev > 0 && m.opening_count === '' && (
+                                                    <button
+                                                        type="button"
+                                                        className="os-machine-row__copy-btn"
+                                                        onClick={() => handleMachineChange(m.id, String(prev))}
+                                                        title="Copy previous counter"
+                                                    >
+                                                        <RotateCcw size={10} /> Same
+                                                    </button>
+                                                )}
+                                            </div>
+
+                                            <div className="os-machine-row__input-col">
+                                                <input
+                                                    type="text"
+                                                    inputMode="numeric"
+                                                    className={`os-machine-row__input ${m.error ? 'os-machine-row__input--error' : ''} ${isInvalid ? 'os-machine-row__input--invalid' : ''}`}
+                                                    value={m.opening_count}
+                                                    onChange={(e) => {
+                                                        const raw = e.target.value.replace(/[^0-9]/g, '');
+                                                        handleMachineChange(m.id, raw);
+                                                    }}
+                                                    placeholder="Counter value"
+                                                />
+                                            </div>
+
+                                            <div className="os-machine-row__status">
+                                                {diff !== null && !isInvalid && (
+                                                    <span className="os-machine-row__diff">+{diff.toLocaleString('en-IN')} prints</span>
+                                                )}
+                                                {curr > 0 && diff === 0 && (
+                                                    <span className="os-machine-row__diff os-machine-row__diff--zero">No change</span>
+                                                )}
+                                            </div>
+
                                             {(m.error || isInvalid) && (
                                                 <span className="os-machine-row__error">
-                                                    {m.error || 'Cannot be less than previous'}
+                                                    {m.error || 'Counter cannot be lower than previous closing reading'}
                                                 </span>
                                             )}
                                         </div>
@@ -251,18 +315,41 @@ const OpeningSetupModal = ({ balances, machines, prevClosing, branchName, onSave
                     )}
                 </div>
 
-                {(isValid || saving) && (
-                    <div className="os-footer">
+                <div className="os-footer">
+                    <div className="os-footer__stats">
+                        <div className="os-footer__stat-item">
+                            <span className="os-footer__stat-lbl">Cash Total:</span>
+                            <span className="os-footer__stat-val">{formatCurrency(totalCash)}</span>
+                        </div>
+                        {machineValues.length > 0 && (
+                            <div className="os-footer__stat-item">
+                                <span className="os-footer__stat-lbl">Machines:</span>
+                                <span className={`os-footer__stat-val ${allMachinesValid ? 'os-footer__stat-val--ok' : ''}`}>
+                                    {machinesUpdated}/{machineValues.length}
+                                </span>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="os-footer__actions">
                         <button
-                            className="btn btn-primary os-footer__save"
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            onClick={onSkip}
+                        >
+                            Skip for Now
+                        </button>
+
+                        <button
+                            className="btn btn-primary os-footer__save os-btn-glow"
                             onClick={handleSave}
-                            disabled={saving}
+                            disabled={saving || !isValid}
                         >
                             {saving ? <Loader2 size={16} className="spin" /> : <ArrowRight size={16} />}
-                            {saving ? 'Saving...' : 'Continue →'}
+                            {saving ? 'Saving...' : 'Save & Continue →'}
                         </button>
                     </div>
-                )}
+                </div>
             </div>
         </div>
     );
