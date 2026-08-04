@@ -1168,7 +1168,7 @@ const Dashboard = () => {
                                 <Route path="customers/new" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><Customers /></ProtectedSubRoute>} />
                                 <Route path="customers/:id" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><CustomerDetails /></ProtectedSubRoute>} />
                                 <Route path="orders" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant', 'Designer', 'Printer']}><Jobs /></ProtectedSubRoute>} />
-                                <Route path="orders/:id" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant', 'Designer', 'Printer']}><JobDetail /></ProtectedSubRoute>} />
+                                <Route path="orders/:id" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant', 'Designer', 'Printer', 'Other Staff']}><JobDetail /></ProtectedSubRoute>} />
                                 <Route path="quotes" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><Quotes /></ProtectedSubRoute>} />
                                 <Route path="invoices" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><Invoices /></ProtectedSubRoute>} />
                                 <Route path="invoices/create" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><React.Suspense fallback={<SkeletonLoader rows={4} />}><CreateInvoice /></React.Suspense></ProtectedSubRoute>} />

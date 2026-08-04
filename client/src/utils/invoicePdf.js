@@ -8,17 +8,68 @@ export async function generateInvoicePDF(billData) {
   const autoTable = autoTableModule.default;
   const QRCode = QRCodeModule.default;
 
-  const {
-    invoiceNumber,
-    invoiceDate,
-    customer = {},
-    orderLines = [],
-    totals = {},
-    payment = {},
-    jobs = [],
-    companyName = 'SARGA',
-    upiId = 'sargadigitalpress@upi',
-  } = billData;
+  // Normalize billData to support both camelCase/nested and flat/snake_case structures
+  const invoiceNumber = billData.invoiceNumber || billData.invoice_number || 'Draft';
+  const invoiceDate = billData.invoiceDate || billData.payment_date || billData.created_at;
+  
+  const customer = billData.customer || {
+    name: billData.customer_name || 'Walk-in Customer',
+    mobile: billData.customer_mobile || '',
+    email: billData.customer_email || '',
+    address: billData.customer_address || '',
+    gst: billData.customer_gst || '',
+    type: billData.customer_type || 'Retail'
+  };
+
+  const rawOrderLines = billData.orderLines || billData.order_lines || [];
+  const orderLines = Array.isArray(rawOrderLines) ? rawOrderLines : [];
+
+  const totals = billData.totals || {
+    subtotal: Number(billData.subtotal || billData.bill_amount || billData.total_amount || 0),
+    gross: Number(billData.gross || billData.total_amount || 0),
+    net: Number(billData.net || billData.net_amount || ((billData.total_amount || 0) / 1.18)),
+    sgst: Number(billData.sgst || billData.sgst_amount || (((billData.total_amount || 0) / 1.18) * 0.09)),
+    cgst: Number(billData.cgst || billData.cgst_amount || (((billData.total_amount || 0) / 1.18) * 0.09)),
+    effectiveDiscount: Number(billData.effectiveDiscount || billData.discount_percent || 0),
+    discountAmount: Number(billData.discountAmount || billData.discount_amount || 0)
+  };
+
+  // Safe payment normalization supporting nested/camelCase, flat/snake_case, and billing page shapes
+  let rawAdvance = 0;
+  if (billData.payment?.advancePaid !== undefined) {
+    rawAdvance = Number(billData.payment.advancePaid);
+  } else if (billData.payment?.advance_paid !== undefined) {
+    rawAdvance = Number(billData.payment.advance_paid);
+  } else if (billData.advance_paid !== undefined) {
+    rawAdvance = Number(billData.advance_paid);
+  } else if (billData.payment?.cash_amount !== undefined || billData.payment?.upi_amount !== undefined) {
+    // If it comes from billing success page: sum the payment method splits
+    rawAdvance = Number(billData.payment.cash_amount || 0) + Number(billData.payment.upi_amount || 0) + Number(billData.payment.cheque_amount || 0) + Number(billData.payment.account_transfer_amount || 0);
+  }
+
+  const grossTotal = Number(totals.gross || 0);
+  let rawBalance = 0;
+  if (billData.payment?.balance !== undefined) {
+    rawBalance = Number(billData.payment.balance);
+  } else if (billData.payment?.balance_amount !== undefined) {
+    rawBalance = Number(billData.payment.balance_amount);
+  } else if (billData.balance_amount !== undefined) {
+    rawBalance = Number(billData.balance_amount);
+  } else {
+    // Fallback: balance = total - advance
+    rawBalance = Math.max(0, grossTotal - rawAdvance);
+  }
+
+  const payment = {
+    advancePaid: rawAdvance,
+    balance: rawBalance,
+    methods: billData.payment?.methods || billData.payment?.method || billData.payment_method || billData.paymentMethod || 'Cash',
+    referenceNumber: billData.payment?.referenceNumber || billData.payment?.reference_number || billData.reference_number || billData.referenceNumber || null
+  };
+
+  const jobs = billData.jobs || [];
+  const companyName = billData.companyName || 'SARGA';
+  const upiId = billData.upiId || 'sargadigitalpress@upi';
 
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -291,25 +342,40 @@ export async function generateInvoicePDF(billData) {
   y += 4;
 
   // QR Code (left)
-  const grandTotal = Number(totals.gross || 0);
-  try {
-    const upiStr = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(companyName)}&am=${grandTotal.toFixed(2)}&cu=INR&tn=Invoice ${invoiceNumber || ''}`;
-    const qrDataUrl = await QRCode.toDataURL(upiStr, {
-      width: 160,
-      margin: 1,
-      color: { dark: '#1a3a5f', light: '#ffffff' },
-    });
-    doc.addImage(qrDataUrl, 'PNG', margin, y, qrSize, qrSize);
+  if (balance > 0) {
+    try {
+      const upiStr = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(companyName)}&am=${balance.toFixed(2)}&cu=INR&tn=Invoice ${invoiceNumber || ''}`;
+      const qrDataUrl = await QRCode.toDataURL(upiStr, {
+        width: 160,
+        margin: 1,
+        color: { dark: '#1a3a5f', light: '#ffffff' },
+      });
+      doc.addImage(qrDataUrl, 'PNG', margin, y, qrSize, qrSize);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.5);
+      doc.setTextColor(...accent);
+      doc.text('SCAN TO PAY', margin + qrSize / 2, y + qrSize + 3, { align: 'center' });
+    } catch {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.setTextColor(...textMuted);
+      doc.text('UPI Payment available', margin, y + 8);
+    }
+  } else {
+    // If balance is 0, show a clean, premium "PAID IN FULL" visual stamp/box
+    doc.setFillColor(236, 253, 245); // Emerald-50
+    doc.setDrawColor(16, 185, 129); // Emerald-500
+    doc.setLineWidth(0.5);
+    doc.roundedRect(margin, y + 2, qrSize, qrSize - 4, 2, 2, 'FD');
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(6.5);
-    doc.setTextColor(...accent);
-    doc.text('SCAN TO PAY', margin + qrSize / 2, y + qrSize + 3, { align: 'center' });
-  } catch {
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7);
-    doc.setTextColor(...textMuted);
-    doc.text('UPI Payment available', margin, y + 8);
+    doc.setFontSize(9);
+    doc.setTextColor(16, 185, 129); // Emerald-500
+    doc.text('PAID', margin + qrSize / 2, y + qrSize / 2 + 1, { align: 'center' });
+    doc.setFontSize(6);
+    doc.setTextColor(4, 120, 87); // Emerald-700
+    doc.text('THANK YOU!', margin + qrSize / 2, y + qrSize / 2 + 6, { align: 'center' });
   }
 
   // Terms (right of QR)

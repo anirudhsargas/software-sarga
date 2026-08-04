@@ -124,7 +124,7 @@ router.post('/checkout', authenticateToken, async (req, res) => {
                         branch_id, customer_id, job_name, description, quantity, 
                         total_amount, advance_paid, balance_amount, status, payment_status, 
                         delivery_date, created_by
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Delivered', 'Paid', ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Completed', 'Paid', ?, ?)
                 `, [
                     branch_id,
                     customer_id || null,

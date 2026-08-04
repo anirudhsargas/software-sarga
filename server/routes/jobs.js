@@ -661,7 +661,7 @@ router.post('/jobs/bulk', authenticateToken, async (req, res) => {
                         Number(line.waste_prints) || 0,
                         Number(line.proof_prints) || 0,
                         line.machine_print_count != null ? (Number(line.machine_print_count) || null) : null,
-                        isWalkin ? 'Delivered' : 'Pending'
+                        isWalkin ? 'Completed' : 'Pending'
                     ]
                 );
 
@@ -728,7 +728,7 @@ router.post('/jobs/bulk', authenticateToken, async (req, res) => {
                             'Unpaid',
                             null,
                             JSON.stringify(line.applied_extras || []),
-                            isWalkin ? 'Delivered' : 'Pending'
+                            isWalkin ? 'Completed' : 'Pending'
                         ]
                     );
                     created.push({ id: result.insertId, job_number: jobNumber });
@@ -774,7 +774,7 @@ router.post('/jobs', authenticateToken, validate(addJobSchema), async (req, res)
             `INSERT INTO sarga_jobs 
             (customer_id, product_id, branch_id, job_number, job_name, description, quantity, unit_price, total_amount, advance_paid, balance_amount, payment_status, delivery_date, applied_extras, category, subcategory, machine_id, status) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-            , [customer_id || null, product_id || null, branch_id || null, job_number, job_name, description, quantity, unit_price, total_amount, advance_paid, balance_amount, payment_status, delivery_date || null, JSON.stringify(applied_extras || []), category || null, subcategory || null, machine_id || null, isWalkin ? 'Delivered' : 'Pending']
+            , [customer_id || null, product_id || null, branch_id || null, job_number, job_name, description, quantity, unit_price, total_amount, advance_paid, balance_amount, payment_status, delivery_date || null, JSON.stringify(applied_extras || []), category || null, subcategory || null, machine_id || null, isWalkin ? 'Completed' : 'Pending']
         );
 
         // 2. SYNC WITH CUSTOMER PAYMENTS IF ADVANCE IS PAID (inside same transaction)

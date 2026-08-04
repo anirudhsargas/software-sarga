@@ -587,9 +587,15 @@ const Invoices = () => {
       {showDetailsModal && selectedInvoice && (
         <div className="modal-backdrop" onClick={() => setShowDetailsModal(false)} role="dialog" aria-modal="true" aria-label="Invoice details">
           <div className="modal modal--large inv-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Invoice: {selectedInvoice.invoice_number || `INV-${selectedInvoice.id}`}</h3>
-              <button className="btn btn-ghost btn-icon" onClick={() => setShowDetailsModal(false)} aria-label="Close invoice details">
+            <div className="modal-header" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Receipt size={20} style={{ color: 'var(--accent)' }} />
+                <h3 style={{ margin: 0 }}>Invoice {selectedInvoice.invoice_number || `INV-${selectedInvoice.id}`}</h3>
+              </div>
+              <span className={`badge badge--pill ${STATUS_CONFIG[selectedInvoice.invoice_status || 'draft']?.class || 'badge--default'}`} style={{ fontSize: '11px', padding: '4px 10px', marginLeft: '12px' }}>
+                {STATUS_CONFIG[selectedInvoice.invoice_status || 'draft']?.label || 'Draft'}
+              </span>
+              <button className="btn btn-ghost btn-icon" onClick={() => setShowDetailsModal(false)} aria-label="Close invoice details" style={{ marginLeft: 'auto' }}>
                 <X size={20} aria-hidden="true" />
               </button>
             </div>
@@ -598,10 +604,36 @@ const Invoices = () => {
                 <div className="inv-modal__section">
                   <span className="inv-modal__section-title">Customer Information</span>
                   <div className="inv-modal__card">
-                    <div className="inv-modal__field"><strong>Name:</strong> {selectedInvoice.customer_name}</div>
-                    <div className="inv-modal__field"><strong>Mobile:</strong> {selectedInvoice.customer_mobile || '—'}</div>
+                    <div className="inv-modal__field" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '50%', background: 'color-mix(in srgb, var(--accent) 8%, var(--surface))', color: 'var(--accent)', flexShrink: 0 }}>
+                        <Receipt size={15} />
+                      </span>
+                      <div>
+                        <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Name</div>
+                        <div style={{ fontWeight: '600', color: 'var(--text-heading)' }}>{selectedInvoice.customer_name}</div>
+                      </div>
+                    </div>
+                    
+                    <div className="inv-modal__field" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '50%', background: 'color-mix(in srgb, var(--accent) 8%, var(--surface))', color: 'var(--accent)', flexShrink: 0 }}>
+                        <Clock size={15} />
+                      </span>
+                      <div>
+                        <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Mobile</div>
+                        <div style={{ fontWeight: '600', color: 'var(--text-heading)' }}>{selectedInvoice.customer_mobile || '—'}</div>
+                      </div>
+                    </div>
+
                     {selectedInvoice.description && (
-                      <div className="inv-modal__field"><strong>Notes:</strong> {selectedInvoice.description}</div>
+                      <div className="inv-modal__field" style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', borderTop: '1px solid var(--border-subtle)', paddingTop: '12px', marginTop: '4px' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '50%', background: 'color-mix(in srgb, var(--accent) 8%, var(--surface))', color: 'var(--accent)', flexShrink: 0 }}>
+                          <FileText size={15} />
+                        </span>
+                        <div>
+                          <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Notes / Description</div>
+                          <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '2px' }}>{selectedInvoice.description}</div>
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -611,7 +643,7 @@ const Invoices = () => {
                     <div className="inv-modal__field-row">
                       <div className="inv-modal__field stack-xs">
                         <label htmlFor="invoice-status" className="label">Status</label>
-                        <select id="invoice-status" className="input-field" value={statusInput} onChange={(e) => setStatusInput(e.target.value)}>
+                        <select id="invoice-status" className="input-field" value={statusInput} onChange={(e) => setStatusInput(e.target.value)} style={{ height: '36px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--surface)' }}>
                           <option value="draft">Draft</option>
                           <option value="pending">Pending Payment</option>
                           <option value="sent">Sent to Customer</option>
@@ -625,12 +657,12 @@ const Invoices = () => {
                       </div>
                       <div className="inv-modal__field stack-xs">
                         <label htmlFor="invoice-due-date" className="label">Due Date</label>
-                        <input id="invoice-due-date" type="date" className="input-field" value={dueDateInput} onChange={(e) => setDueDateInput(e.target.value)} />
+                        <input id="invoice-due-date" type="date" className="input-field" value={dueDateInput} onChange={(e) => setDueDateInput(e.target.value)} style={{ height: '36px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--surface)' }} />
                       </div>
                     </div>
                     <div className="inv-modal__field stack-xs">
-                      <label htmlFor="invoice-notes" className="label">Notes</label>
-                      <input id="invoice-notes" type="text" className="input-field" placeholder="Add details, email logs, calls..." value={notesInput} onChange={(e) => setNotesInput(e.target.value)} autoComplete="off" />
+                      <label htmlFor="invoice-notes" className="label">Notes / History log</label>
+                      <input id="invoice-notes" type="text" className="input-field" placeholder="Add details, email logs, calls..." value={notesInput} onChange={(e) => setNotesInput(e.target.value)} autoComplete="off" style={{ height: '36px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--surface)' }} />
                     </div>
                   </div>
                 </div>
@@ -643,33 +675,42 @@ const Invoices = () => {
                     <caption className="sr-only">Invoice line items</caption>
                     <thead>
                       <tr>
-                        <th scope="col">Item Description</th>
-                        <th scope="col" className="text-right">Qty</th>
-                        <th scope="col" className="text-right">Unit Price</th>
-                        <th scope="col" className="text-right">Total</th>
+                        <th scope="col" style={{ textAlign: 'left' }}>Item Description</th>
+                        <th scope="col" className="text-right" style={{ width: '60px' }}>Qty</th>
+                        <th scope="col" className="text-right" style={{ width: '120px' }}>Unit Price</th>
+                        <th scope="col" className="text-right" style={{ width: '120px' }}>Total</th>
                       </tr>
                     </thead>
                     <tbody>
                       {parsedOrderLines.length === 0 ? (
-                        <tr><td colSpan="4" className="text-center muted">No detailed items recorded (Bulk Payment)</td></tr>
+                        <tr><td colSpan="4" className="text-center muted" style={{ padding: '20px' }}>No detailed items recorded (Bulk Payment)</td></tr>
                       ) : (
                         parsedOrderLines.map((line, idx) => (
                           <tr key={idx}>
-                            <td>
-                              <div className="font-semibold">{line.product_name}</div>
+                            <td style={{ textAlign: 'left' }}>
+                              <div className="font-semibold" style={{ color: 'var(--text-heading)', fontWeight: '600' }}>{line.product_name}</div>
                               {(() => {
                                 const details = [];
-                                if (line.colour) details.push(`Color: ${line.colour}`);
-                                if (line.paper_preference) details.push(`Paper: ${line.paper_preference}`);
-                                if (line.numbering_from || line.numbering_to) details.push(`No: ${line.numbering_from || ''} - ${line.numbering_to || ''}`);
-                                if (line.description) details.push(line.description);
-                                if (line.special_instructions) details.push(`Note: ${line.special_instructions}`);
-                                return details.length > 0 ? <div className="text-xs muted" style={{ marginTop: 2 }}>{details.join(' | ')}</div> : null;
+                                if (line.colour) details.push({ label: 'Color', value: line.colour });
+                                if (line.paper_preference) details.push({ label: 'Paper', value: line.paper_preference });
+                                if (line.numbering_from || line.numbering_to) details.push({ label: 'No', value: `${line.numbering_from || ''} - ${line.numbering_to || ''}` });
+                                if (line.description) details.push({ label: 'Desc', value: line.description });
+                                if (line.special_instructions) details.push({ label: 'Note', value: line.special_instructions });
+                                
+                                return details.length > 0 ? (
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '6px' }}>
+                                    {details.map((d, idx2) => (
+                                      <span key={idx2} style={{ fontSize: '10px', background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', padding: '2px 6px', borderRadius: '4px', color: 'var(--text-secondary)' }}>
+                                        <strong>{d.label}:</strong> {d.value}
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : null;
                               })()}
                             </td>
-                            <td className="text-right">{line.quantity}</td>
-                            <td className="text-right">{formatCurrency(line.unit_price, true)}</td>
-                            <td className="text-right font-bold">{formatCurrency(line.total_amount, true)}</td>
+                            <td className="text-right" style={{ verticalAlign: 'middle' }}>{line.quantity}</td>
+                            <td className="text-right" style={{ verticalAlign: 'middle' }}>{formatCurrency(line.unit_price, true)}</td>
+                            <td className="text-right font-bold" style={{ verticalAlign: 'middle', fontWeight: '700', color: 'var(--text-heading)' }}>{formatCurrency(line.total_amount, true)}</td>
                           </tr>
                         ))
                       )}
@@ -703,17 +744,26 @@ const Invoices = () => {
                     <span>{formatCurrency(selectedInvoice.sgst_amount || ((selectedInvoice.total_amount / 1.18) * 0.09), true)}</span>
                   </div>
                   <div className="inv-modal__divider" />
-                  <div className="inv-modal__total-row inv-modal__total-row--grand">
+                  <div className="inv-modal__total-row inv-modal__total-row--grand" style={{ fontSize: '16px', padding: '2px 0' }}>
                     <span>Invoice Total:</span>
-                    <span className="text-accent">{formatCurrency(selectedInvoice.total_amount, true)}</span>
+                    <span style={{ color: 'var(--accent)', fontWeight: '800' }}>{formatCurrency(selectedInvoice.total_amount, true)}</span>
                   </div>
-                  <div className="inv-modal__total-row inv-modal__total-row--paid">
+                  <div className="inv-modal__total-row inv-modal__total-row--paid" style={{ color: 'var(--success)', fontWeight: '600' }}>
                     <span>Amount Paid:</span>
                     <span>{formatCurrency(selectedInvoice.advance_paid, true)}</span>
                   </div>
-                  <div className="inv-modal__total-row inv-modal__total-row--balance">
-                    <span>Balance Due:</span>
-                    <span>{formatCurrency(selectedInvoice.balance_amount, true)}</span>
+                  <div className={`inv-modal__total-row ${Number(selectedInvoice.balance_amount) > 0.05 ? 'inv-modal__total-row--balance' : ''}`} style={{ 
+                    padding: '8px 12px', 
+                    borderRadius: '8px', 
+                    background: Number(selectedInvoice.balance_amount) > 0.05 ? 'rgba(239, 68, 68, 0.06)' : 'rgba(16, 185, 129, 0.06)', 
+                    color: Number(selectedInvoice.balance_amount) > 0.05 ? 'var(--destructive)' : 'var(--success)',
+                    marginTop: '6px',
+                    border: Number(selectedInvoice.balance_amount) > 0.05 ? '1px solid rgba(239, 68, 68, 0.12)' : '1px solid rgba(16, 185, 129, 0.12)'
+                  }}>
+                    <span style={{ fontWeight: '700' }}>{Number(selectedInvoice.balance_amount) > 0.05 ? 'Balance Due:' : 'Status:'}</span>
+                    <span style={{ fontWeight: '800', fontSize: '15px' }}>
+                      {Number(selectedInvoice.balance_amount) > 0.05 ? formatCurrency(selectedInvoice.balance_amount, true) : 'Paid in Full ✓'}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -726,8 +776,8 @@ const Invoices = () => {
                 <button className="btn btn-secondary btn-with-icon" onClick={() => handleDownload(selectedInvoice)}>
                   <Download size={16} /> Download PDF
                 </button>
-                <button className="btn btn-success btn-with-icon" onClick={(e) => handleWhatsApp(selectedInvoice, e)}>
-                  <MessageCircle size={16} /> Send via WhatsApp
+                <button className="btn btn-success btn-with-icon" onClick={(e) => handleWhatsApp(selectedInvoice, e)} style={{ background: '#25D366', borderColor: '#25D366', color: '#fff' }}>
+                  <MessageCircle size={16} style={{ color: '#fff' }} /> Send via WhatsApp
                 </button>
               </div>
               <div className="inv-modal__footer-right">
