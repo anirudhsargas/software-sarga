@@ -638,7 +638,7 @@ router.get('/laser-live', auth.authenticate, auth.authorizeRoles('Admin', 'Accou
         let machines;
         if (!['Admin', 'Accountant'].includes(req.user.role)) {
             const [rows] = await pool.query(
-                `SELECT m.id, m.machine_name, m.machine_type, m.counter_type, m.location
+                `SELECT m.id, m.machine_name, m.machine_type, m.counter_type, m.location, m.branch_id
                  FROM sarga_machines m
                  JOIN sarga_machine_staff_assignments msa ON msa.machine_id = m.id AND msa.staff_id = ?
                  WHERE m.branch_id = ? AND m.is_active = 1 AND m.machine_type = 'Digital'
@@ -648,7 +648,7 @@ router.get('/laser-live', auth.authenticate, auth.authorizeRoles('Admin', 'Accou
             machines = rows;
         } else {
             const [rows] = await pool.query(
-                `SELECT m.id, m.machine_name, m.machine_type, m.counter_type, m.location
+                `SELECT m.id, m.machine_name, m.machine_type, m.counter_type, m.location, m.branch_id
                  FROM sarga_machines m
                  WHERE m.branch_id = ? AND m.is_active = 1 AND m.machine_type = 'Digital'
                  ORDER BY m.machine_name ASC`,
@@ -683,6 +683,7 @@ router.get('/laser-live', auth.authenticate, auth.authorizeRoles('Admin', 'Accou
                 machine_type: m.machine_type,
                 counter_type: m.counter_type,
                 location: m.location,
+                branch_id: m.branch_id,
                 opening_count: reading ? Number(reading.opening_count) : 0,
                 closing_count: reading ? (reading.closing_count !== null ? Number(reading.closing_count) : null) : null,
                 today_copies: reading ? Number(reading.total_copies || 0) : 0,

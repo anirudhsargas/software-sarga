@@ -155,6 +155,7 @@ const Billing = () => {
   const [scannedPreview, setScannedPreview] = useState(null);
   const [scannedQty, setScannedQty] = useState(1);
   const [duplicateItemModal, setDuplicateItemModal] = useState(null);
+  const [machineModalOpen, setMachineModalOpen] = useState(false);
   const [lastBillData, setLastBillData] = useState(null);
   const [showPostBillOptions, setShowPostBillOptions] = useState(false);
   const [assignJobs, setAssignJobs] = useState([]);
@@ -171,6 +172,31 @@ const Billing = () => {
     });
     return groups;
   }, [staffOptions]);
+  // Only show machines that belong to the selected branch
+  const branchMachines = useMemo(() => {
+    const all = Array.isArray(_machines) ? _machines : [];
+    if (!selectedBranchId) return all;
+    return all.filter(m => String(m.branch_id) === String(selectedBranchId));
+  }, [_machines, selectedBranchId]);
+
+  // Laser items that still need a machine selected before billing can proceed
+  const machineRequiredLines = useMemo(() => {
+    const missing = (Array.isArray(orderLines) ? orderLines : [])
+      .filter(line => line.book_type === 'Laser' && !line.machine_id);
+    const seen = new Set();
+    return missing.filter(l => (seen.has(l.id) ? false : (seen.add(l.id), true)));
+  }, [orderLines]);
+
+  const handleGoToPayment = useCallback(() => {
+    const missing = (Array.isArray(orderLines) ? orderLines : [])
+      .filter(line => line.book_type === 'Laser' && !line.machine_id);
+    if (missing.length > 0) {
+      setMachineModalOpen(true);
+      return;
+    }
+    setActiveTab('payment');
+  }, [orderLines]);
+
   const [showScanner, setShowScanner] = useState(false);
   const [productSearchQuery, setProductSearchQuery] = useState('');
   const [customerSearchQuery, setCustomerSearchQuery] = useState('');
@@ -1394,7 +1420,11 @@ const Billing = () => {
               key={t.key}
               type="button"
               className={`billing-step ${isActive ? 'billing-step--active' : ''} ${isCompleted ? 'billing-step--completed' : ''} ${isLocked ? 'billing-step--locked' : ''}`}
-              onClick={() => { if (canVisitStep(idx)) setActiveTab(t.key); }}
+              onClick={() => {
+                if (!canVisitStep(idx)) return;
+                if (t.key === 'payment') { handleGoToPayment(); return; }
+                setActiveTab(t.key);
+              }}
               disabled={isLocked}
               aria-current={isActive ? 'step' : undefined}
               aria-label={`${t.label}${isCompleted ? ' (completed)' : ''}${isActive ? ' (current step)' : ''}${isLocked ? ' (locked)' : ''}`}
@@ -1849,7 +1879,7 @@ const Billing = () => {
                                 aria-label="Select photocopy machine"
                               >
                                 <option value="">-- Select Machine --</option>
-                                {_machines
+                                {branchMachines
                                   .filter((m) => m.is_active && (m.book_type === 'Laser' || m.machine_type === 'Digital'))
                                   .map((m) => (
                                     <option key={m.id} value={m.id}>
@@ -1980,7 +2010,7 @@ const Billing = () => {
             <button type="button" className="btn btn-secondary btn-sm" onClick={() => setActiveTab('customer')}>
               ← Back: Customer
             </button>
-            <button type="button" className="btn btn-primary btn-sm" disabled={!stepValid[1]} onClick={() => setActiveTab('payment')}>
+            <button type="button" className="btn btn-primary btn-sm" disabled={!stepValid[1]} onClick={handleGoToPayment}>
               Next: Payment →
             </button>
           </div>
@@ -2204,7 +2234,7 @@ const Billing = () => {
                       aria-label="Select machine for count"
                     >
                       <option value="">-- Select Machine --</option>
-                      {_machines
+                      {branchMachines
                         .filter((m) => m.is_active && (m.book_type === 'Laser' || m.machine_type === 'Digital'))
                         .map((m) => (
                           <option key={m.id} value={m.id}>
@@ -2926,6 +2956,158 @@ const Billing = () => {
                   className="btn btn-ghost btn-sm"
                   onClick={() => setDuplicateItemModal(null)}
                   style={{ color: 'var(--text-muted)' }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {machineModalOpen && (
+        <div
+          className="modal-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Machine selection required"
+          onClick={() => setMachineModalOpen(false)}
+          style={{ zIndex: 9999 }}
+        >
+          <div
+            className="modal modal--sm"
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: 480,
+              borderRadius: 16,
+              padding: 24,
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.25), 0 10px 10px -5px rgba(0, 0, 0, 0.15)'
+            }}
+          >
+            <div className="modal__header" style={{ borderBottom: 'none', paddingBottom: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div
+                  style={{
+                    width: 42,
+                    height: 42,
+                    borderRadius: 12,
+                    background: 'rgba(245, 158, 11, 0.12)',
+                    color: '#f59e0b',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0
+                  }}
+                >
+                  <AlertCircle size={22} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: 'var(--text-primary)' }}>
+                    Machine is not selected
+                  </h3>
+                  <p style={{ margin: '2px 0 0', fontSize: 13, color: 'var(--text-muted)' }}>
+                    Select a machine for each laser item before continuing to payment.
+                  </p>
+                </div>
+              </div>
+              <button
+                className="modal-close"
+                onClick={() => setMachineModalOpen(false)}
+                aria-label="Close"
+              >
+                <X size={18} aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="modal__body stack-md" style={{ paddingTop: 16 }}>
+              {machineRequiredLines.map((line, idx) => (
+                <div
+                  key={line.id}
+                  style={{
+                    background: 'var(--surface, #f8fafc)',
+                    borderRadius: 10,
+                    padding: '12px 14px',
+                    border: '1px solid var(--border)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 8
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                    <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      #{idx + 1} {line.product_name}
+                    </div>
+                    <span className="badge badge-warning" style={{ fontSize: 11, flexShrink: 0 }}>Machine Needed</span>
+                  </div>
+                  <select
+                    value={line.machine_id || ''}
+                    onChange={(e) => updateLine(line.id, 'machine_id', e.target.value ? Number(e.target.value) : null)}
+                    style={{
+                      cursor: 'pointer',
+                      padding: '6px 8px',
+                      fontSize: '0.8rem',
+                      height: '34px',
+                      width: '100%',
+                      border: '1px solid var(--border)',
+                      borderRadius: '6px',
+                      background: 'var(--bg)',
+                      outline: 'none'
+                    }}
+                    aria-label={`Select machine for ${line.product_name}`}
+                  >
+                    <option value="">-- Select Machine --</option>
+                    {branchMachines
+                      .filter((m) => m.is_active && (m.book_type === 'Laser' || m.machine_type === 'Digital'))
+                      .map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.machine_name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              ))}
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 6 }}>
+                <button
+                  className="btn btn-primary"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    padding: '11px 16px',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    width: '100%',
+                    borderRadius: 8
+                  }}
+                  onClick={() => {
+                    const stillMissing = (Array.isArray(orderLines) ? orderLines : [])
+                      .filter(l => l.book_type === 'Laser' && !l.machine_id);
+                    if (stillMissing.length > 0) {
+                      toast.error('Please select a machine for all laser items');
+                      return;
+                    }
+                    setMachineModalOpen(false);
+                    setActiveTab('payment');
+                  }}
+                >
+                  <Check size={16} /> Save & Continue
+                </button>
+                <button
+                  className="btn btn-outline"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    padding: '11px 16px',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    width: '100%',
+                    borderRadius: 8
+                  }}
+                  onClick={() => setMachineModalOpen(false)}
                 >
                   Cancel
                 </button>

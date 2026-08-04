@@ -621,6 +621,19 @@ const DailyReport = () => {
         loadAllData(true);
     }, [reportDate, selectedBranch]);
 
+    // Clear tab data immediately when the branch changes so stale machines/entries
+    // from the previously selected branch never appear in the UI or downloaded PDF.
+    useEffect(() => {
+        setOffsetData({ entries: [], summary: {} });
+        setLaserData({ machines: [], entries: [], summary: {} });
+        setOtherData({ entries: [], summary: {} });
+        setLiveCounts(null);
+        setAttendanceData(null);
+        setCreditTransactions([]);
+        setLaserCredits([]);
+        setOtherCredits([]);
+    }, [selectedBranch]);
+
     useEffect(() => {
         if (canViewAllBranches && !selectedBranch) return;
         // Skip if initial load just happened (all data already fetched)
@@ -1881,6 +1894,7 @@ const DailyReport = () => {
                             isFrontOffice={isFrontOffice}
                             user={user}
                             branches={branches}
+                            branchId={selectedBranch || user?.branch_id}
                         />
                     </React.Suspense>
                 </div>

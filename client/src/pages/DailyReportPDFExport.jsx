@@ -30,7 +30,8 @@ export default function DailyReportPDFExport({
     attendanceData,
     isFrontOffice,
     user,
-    branches
+    branches,
+    branchId
 }) {
     useSEO('Daily Report P D F Export');
 
@@ -120,7 +121,11 @@ export default function DailyReportPDFExport({
                 currentY = kvRow('Opening Cash Balance', formatCurrency(opening), currentY);
 
                 if (key === 'Laser' && data.machines?.length > 0) {
-                    data.machines.forEach(m => {
+                    // Only show machines belonging to the currently selected branch.
+                    const branchMachines = branchId
+                        ? data.machines.filter(m => String(m.branch_id) === String(branchId))
+                        : data.machines;
+                    branchMachines.forEach(m => {
                         currentY = kvRow(`${m.machine_name} — Opening`, formatNum(m.opening_count || 0), currentY);
                         currentY = kvRow(`${m.machine_name} — Closing`, formatNum(m.closing_count || 0), currentY);
                         currentY = kvRow(`${m.machine_name} — Copies`, formatNum(m.today_copies || 0), currentY, { color: [5, 150, 105] });
