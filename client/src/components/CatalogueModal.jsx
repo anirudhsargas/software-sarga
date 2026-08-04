@@ -140,7 +140,7 @@ const CatalogueModal = ({ isOpen, onClose, hierarchy = [], selectedIds = [] }) =
     }, [allProducts, activeFilters, selectedIds]);
 
     const estimatedPages = useMemo(() => {
-        return Math.max(1, Math.ceil(filteredProducts.length / 30));
+        return Math.max(1, Math.ceil(filteredProducts.length / 18));
     }, [filteredProducts]);
 
     const getCompanyInfo = useCallback(async () => {
@@ -541,7 +541,7 @@ const CatalogueModal = ({ isOpen, onClose, hierarchy = [], selectedIds = [] }) =
                                                         <div className="catalogue-card-top">
                                                             <div className="catalogue-card-title">{p?.name || 'Trophy / Memento'}</div>
                                                             {options.showRetailPrice && retail > 0 && (
-                                                                <div className="catalogue-card-price">{'\u20B9'}{retail.toLocaleString('en-IN')}</div>
+                                                                <div className="catalogue-card-price">₹{retail.toLocaleString('en-IN')}</div>
                                                             )}
                                                         </div>
 
@@ -550,7 +550,7 @@ const CatalogueModal = ({ isOpen, onClose, hierarchy = [], selectedIds = [] }) =
                                                                 <span className="catalogue-card-sku">SKU: {p.product_code}</span>
                                                             )}
                                                             {options.showOffsetPrice && offset > 0 && (
-                                                                <span className="catalogue-card-offset">WS: {'\u20B9'}{offset.toLocaleString('en-IN')}</span>
+                                                                <span className="catalogue-card-offset">WS: ₹{offset.toLocaleString('en-IN')}</span>
                                                             )}
                                                             {options.showStock && p?.stock_quantity !== undefined && (
                                                                 <span className={`catalogue-card-stock ${isInStock ? 'in-stock' : 'out-stock'}`}>
@@ -558,6 +558,11 @@ const CatalogueModal = ({ isOpen, onClose, hierarchy = [], selectedIds = [] }) =
                                                                 </span>
                                                             )}
                                                         </div>
+                                                        {options.showDescription && p?.description && (
+                                                            <div className="catalogue-card-desc">
+                                                                {p.description}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                             );

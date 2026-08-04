@@ -101,17 +101,17 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
 
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
-    const margin = 10;
+    const margin = 7;
     const usableW = pageW - margin * 2;
 
-    const headerH = showHeader ? 14 : 0;
-    const footerH = showFooter ? 8 : 0;
-    const cellGap = 5;
-    const rowGap = 5;
-    const cols = orientation === 'landscape' ? 4 : 3;
-    const targetRows = orientation === 'landscape' ? 2 : 3;
+    const headerH = showHeader ? 12 : 0;
+    const footerH = showFooter ? 6 : 0;
+    const cellGap = 3;
+    const rowGap = 3;
+    const cols = orientation === 'landscape' ? 6 : 3;
+    const targetRows = orientation === 'landscape' ? 3 : 6;
     const colW = (usableW - (cols - 1) * cellGap) / cols;
-    const contentTop = margin + headerH + 4;
+    const contentTop = margin + headerH + 2;
     const contentBottom = pageH - margin - footerH;
     const availableH = contentBottom - contentTop;
     const rowH = (availableH - (targetRows - 1) * rowGap) / targetRows;
@@ -143,7 +143,7 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
         items.forEach(p => groupedProducts.push({ isHeader: false, ...p }));
     });
 
-    const productsPerPage = cols * targetRows;
+    const productsPerPage = cols * targetRows; // 18 items per page
     const totalPages = Math.ceil(products.length / productsPerPage) || 1;
 
     onProgress({ step: 'loading-images', message: 'Loading product images...', percent: 0 });
@@ -192,45 +192,45 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
 
         // Gold accent bottom line
         doc.setFillColor(...goldAccent);
-        doc.rect(margin, margin + headerH - 1, usableW, 1, 'F');
+        doc.rect(margin, margin + headerH - 0.8, usableW, 0.8, 'F');
 
         // Company title & subtitle
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11);
+        doc.setFontSize(10);
         doc.setTextColor(255, 255, 255);
-        doc.text(companyInfo.name || 'SARGA PRINTS', margin + 3, margin + 5.5);
+        doc.text(companyInfo.name || 'SARGA PRINTS', margin + 3, margin + 4.5);
 
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(7);
+        doc.setFontSize(6.5);
         doc.setTextColor(226, 232, 240);
-        doc.text('Trophies & Mementos Catalogue • Perambra & Meppayur', margin + 3, margin + 9.5);
+        doc.text('Trophies & Mementos Catalogue • Perambra & Meppayur', margin + 3, margin + 8.5);
 
         // Running category / family header on right
         let rightX = margin + usableW - 3;
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8);
+        doc.setFontSize(7.5);
         doc.setTextColor(253, 230, 138); // Soft gold text
-        doc.text(activeCategory, rightX, margin + 5.5, { align: 'right' });
+        doc.text(activeCategory, rightX, margin + 4.5, { align: 'right' });
 
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(6);
+        doc.setFontSize(5.5);
         doc.setTextColor(148, 163, 184);
         const contactLine = [companyInfo.phone ? `Tel: ${companyInfo.phone}` : null, dateStr].filter(Boolean).join(' | ');
         if (contactLine) {
-            doc.text(contactLine, rightX, margin + 9.5, { align: 'right' });
+            doc.text(contactLine, rightX, margin + 8.5, { align: 'right' });
         }
     };
 
     const drawFooter = (pageNum, totalP) => {
         if (!showFooter) return;
-        const footerY = pageH - margin - 2;
+        const footerY = pageH - margin - 1.5;
 
         doc.setDrawColor(...cardBorder);
         doc.setLineWidth(0.2);
         doc.line(margin, pageH - margin - footerH, margin + usableW, pageH - margin - footerH);
 
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(7);
+        doc.setFontSize(6.5);
         doc.setTextColor(...textMuted);
         doc.text('Sarga Prints — Premium Trophies, Mementos & Awards', margin, footerY);
         doc.text(`Page ${pageNum} of ${totalP}`, margin + usableW, footerY, { align: 'right' });
@@ -270,79 +270,84 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
         // 1. Card Container (White studio background with subtle border)
         doc.setFillColor(255, 255, 255);
         doc.setDrawColor(...cardBorder);
-        doc.setLineWidth(0.3);
-        doc.roundedRect(x, y, colW, rowH, 2, 2, 'FD');
+        doc.setLineWidth(0.25);
+        doc.roundedRect(x, y, colW, rowH, 1.5, 1.5, 'FD');
 
-        const pad = 2.5;
+        const pad = 2;
         const innerW = colW - pad * 2;
         const innerX = x + pad;
 
-        // 2. Square Photo Area (Standardized min 300x300px aspect ratio container)
-        const imgH = showImages ? Math.min(rowH * 0.48, 28) : 0;
+        // 2. Square Photo Area (Standardized studio container)
+        const imgH = showImages ? Math.min(rowH * 0.48, 20) : 0;
         if (showImages) {
             const imgY = y + pad;
             doc.setFillColor(...bgLight);
             doc.setDrawColor(...cardBorder);
             doc.setLineWidth(0.15);
-            doc.roundedRect(innerX, imgY, innerW, imgH, 1.5, 1.5, 'FD');
+            doc.roundedRect(innerX, imgY, innerW, imgH, 1, 1, 'FD');
 
             const imgData = product.image_url ? imageCache[product.id] : null;
             if (imgData) {
                 try {
                     // Center product in square/studio container
-                    const imgFitSize = Math.min(innerW - 2, imgH - 2);
+                    const imgFitSize = Math.min(innerW - 1.5, imgH - 1.5);
                     const imgOffsetX = innerX + (innerW - imgFitSize) / 2;
                     const imgOffsetY = imgY + (imgH - imgFitSize) / 2;
                     doc.addImage(imgData, 'JPEG', imgOffsetX, imgOffsetY, imgFitSize, imgFitSize, undefined, 'FAST');
                 } catch {}
             } else {
                 doc.setFont('helvetica', 'normal');
-                doc.setFontSize(6);
+                doc.setFontSize(5.5);
                 doc.setTextColor(...textMuted);
                 doc.text('No Image', innerX + innerW / 2, imgY + imgH / 2, { align: 'center', baseline: 'middle' });
             }
         }
 
         // 3. Card Details Layout
-        const textY = y + pad + (showImages ? imgH + 3 : 2);
+        const textY = y + pad + (showImages ? imgH + 2.2 : 2.5);
 
-        // Product Name (Bold, 14-16pt equivalent scaled for PDF card)
+        // Retail Price String
+        const retailPrice = getRetailPrice(product);
+        const offsetPrice = getOffsetPrice(product);
+        const priceStr = showRetailPrice && retailPrice > 0 ? `Rs. ${formatPrice(retailPrice)}` : '';
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9);
+        doc.setFontSize(8);
+
+        const priceWidth = priceStr ? doc.getTextWidth(priceStr) + 1.5 : 0;
+
+        // Product Name (Bold, scaled for 18-per-sheet PDF card)
         doc.setTextColor(...textDark);
+        doc.setFontSize(7.5);
         const nameStr = String(product.name || '');
-        const nameLines = doc.splitTextToSize(nameStr, innerW - (showRetailPrice ? 18 : 0));
+        const nameLines = doc.splitTextToSize(nameStr, innerW - priceWidth);
         doc.text(nameLines[0] || nameStr, innerX, textY);
 
         // Visual Anchor Price (Top Right / Distinctive Gold Accent)
-        const retailPrice = getRetailPrice(product);
-        const offsetPrice = getOffsetPrice(product);
-
-        if (showRetailPrice && retailPrice > 0) {
+        if (priceStr) {
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(9.5);
+            doc.setFontSize(8);
             doc.setTextColor(...goldAccent);
-            doc.text(`\u20B9${formatPrice(retailPrice)}`, innerX + innerW, textY, { align: 'right' });
+            doc.text(priceStr, innerX + innerW, textY, { align: 'right' });
         }
 
         // Compact Secondary Info Line (SKU, Offset Price, Stock Badge)
-        let subY = textY + 4.5;
+        let subY = textY + 3.2;
 
         // SKU Code
         if (showProductCode && product.product_code) {
             doc.setFont('helvetica', 'normal');
-            doc.setFontSize(6.5);
+            doc.setFontSize(5.5);
             doc.setTextColor(...textMuted);
             doc.text(`SKU: ${product.product_code}`, innerX, subY);
         }
 
         // Offset / Wholesale Price if present
         if (showOffsetPrice && offsetPrice > 0) {
-            const offX = showProductCode && product.product_code ? innerX + 22 : innerX;
+            const offX = showProductCode && product.product_code ? innerX + 20 : innerX;
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(6.5);
+            doc.setFontSize(5.5);
             doc.setTextColor(...offsetRed);
-            doc.text(`WS: \u20B9${formatPrice(offsetPrice)}`, offX, subY);
+            doc.text(`WS: Rs. ${formatPrice(offsetPrice)}`, offX, subY);
         }
 
         // Stock Badge (Bottom Right of card - Green for in-stock, Red for out of stock)
@@ -352,20 +357,21 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
             const stockText = isInStock ? `Stock: ${stockQty}` : 'Stock: 0 pcs';
 
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(6);
+            doc.setFontSize(5.5);
             doc.setTextColor(...(isInStock ? stockGreen : stockRed));
             doc.text(stockText, innerX + innerW, subY, { align: 'right' });
         }
 
-        // Product description / category tag if space permits
+        // Product description line (2 lines of description)
         if (showDescription && product.description) {
-            const descY = subY + 4;
+            const descY = subY + 3.2;
             doc.setFont('helvetica', 'normal');
-            doc.setFontSize(5.5);
+            doc.setFontSize(5);
             doc.setTextColor(...textMuted);
-            const descStr = String(product.description);
+            const descStr = String(product.description).trim();
             const descLines = doc.splitTextToSize(descStr, innerW);
-            doc.text(descLines[0] || descStr, innerX, descY);
+            if (descLines[0]) doc.text(descLines[0], innerX, descY);
+            if (descLines[1]) doc.text(descLines[1], innerX, descY + 2.3);
         }
 
         cardCount++;
