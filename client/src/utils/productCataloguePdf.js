@@ -101,15 +101,15 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
 
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
-    const margin = 7;
+    const margin = 6;
     const usableW = pageW - margin * 2;
 
     const headerH = showHeader ? 12 : 0;
     const footerH = showFooter ? 6 : 0;
-    const cellGap = 3;
-    const rowGap = 3;
-    const cols = orientation === 'landscape' ? 6 : 3;
-    const targetRows = orientation === 'landscape' ? 3 : 6;
+    const cellGap = 2.5;
+    const rowGap = 2.5;
+    const cols = options.columns || (orientation === 'landscape' ? 6 : 5);
+    const targetRows = options.rows || (orientation === 'landscape' ? 3 : (cols >= 5 ? 5 : 6));
     const colW = (usableW - (cols - 1) * cellGap) / cols;
     const contentTop = margin + headerH + 2;
     const contentBottom = pageH - margin - footerH;
@@ -273,12 +273,13 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
         doc.setLineWidth(0.25);
         doc.roundedRect(x, y, colW, rowH, 1.5, 1.5, 'FD');
 
-        const pad = 2;
+        const isCompact = cols >= 5;
+        const pad = isCompact ? 1.5 : 2;
         const innerW = colW - pad * 2;
         const innerX = x + pad;
 
         // 2. Square Photo Area (Standardized studio container)
-        const imgH = showImages ? Math.min(rowH * 0.48, 20) : 0;
+        const imgH = showImages ? Math.min(rowH * 0.48, isCompact ? 22 : 20) : 0;
         if (showImages) {
             const imgY = y + pad;
             doc.setFillColor(...bgLight);
@@ -290,14 +291,14 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
             if (imgData) {
                 try {
                     // Center product in square/studio container
-                    const imgFitSize = Math.min(innerW - 1.5, imgH - 1.5);
+                    const imgFitSize = Math.min(innerW - 1.2, imgH - 1.2);
                     const imgOffsetX = innerX + (innerW - imgFitSize) / 2;
                     const imgOffsetY = imgY + (imgH - imgFitSize) / 2;
                     doc.addImage(imgData, 'JPEG', imgOffsetX, imgOffsetY, imgFitSize, imgFitSize, undefined, 'FAST');
                 } catch {}
             } else {
                 doc.setFont('helvetica', 'normal');
-                doc.setFontSize(5.5);
+                doc.setFontSize(isCompact ? 4.5 : 5.5);
                 doc.setTextColor(...textMuted);
                 doc.text('No Image', innerX + innerW / 2, imgY + imgH / 2, { align: 'center', baseline: 'middle' });
             }
@@ -311,13 +312,13 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
         const offsetPrice = getOffsetPrice(product);
         const priceStr = showRetailPrice && retailPrice > 0 ? `Rs. ${formatPrice(retailPrice)}` : '';
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8);
+        doc.setFontSize(isCompact ? 6.8 : 8);
 
-        const priceWidth = priceStr ? doc.getTextWidth(priceStr) + 1.5 : 0;
+        const priceWidth = priceStr ? doc.getTextWidth(priceStr) + 1 : 0;
 
-        // Product Name (Bold, scaled for 18-per-sheet PDF card)
+        // Product Name (Bold, scaled for card layout)
         doc.setTextColor(...textDark);
-        doc.setFontSize(7.5);
+        doc.setFontSize(isCompact ? 6.5 : 7.5);
         const nameStr = String(product.name || '');
         const nameLines = doc.splitTextToSize(nameStr, innerW - priceWidth);
         doc.text(nameLines[0] || nameStr, innerX, textY);
@@ -325,27 +326,27 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
         // Visual Anchor Price (Top Right / Distinctive Gold Accent)
         if (priceStr) {
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(8);
+            doc.setFontSize(isCompact ? 6.8 : 8);
             doc.setTextColor(...goldAccent);
             doc.text(priceStr, innerX + innerW, textY, { align: 'right' });
         }
 
         // Compact Secondary Info Line (SKU, Offset Price, Stock Badge)
-        let subY = textY + 3.2;
+        let subY = textY + (isCompact ? 2.8 : 3.2);
 
         // SKU Code
         if (showProductCode && product.product_code) {
             doc.setFont('helvetica', 'normal');
-            doc.setFontSize(5.5);
+            doc.setFontSize(isCompact ? 4.8 : 5.5);
             doc.setTextColor(...textMuted);
             doc.text(`SKU: ${product.product_code}`, innerX, subY);
         }
 
         // Offset / Wholesale Price if present
         if (showOffsetPrice && offsetPrice > 0) {
-            const offX = showProductCode && product.product_code ? innerX + 20 : innerX;
+            const offX = showProductCode && product.product_code ? innerX + (isCompact ? 16 : 20) : innerX;
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(5.5);
+            doc.setFontSize(isCompact ? 4.8 : 5.5);
             doc.setTextColor(...offsetRed);
             doc.text(`WS: Rs. ${formatPrice(offsetPrice)}`, offX, subY);
         }
@@ -354,24 +355,24 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
         if (showStock && product.stock_quantity !== undefined && product.stock_quantity !== null) {
             const stockQty = Number(product.stock_quantity);
             const isInStock = stockQty > 0;
-            const stockText = isInStock ? `Stock: ${stockQty}` : 'Stock: 0 pcs';
+            const stockText = isInStock ? `Stock: ${stockQty}` : 'Stock: 0';
 
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(5.5);
+            doc.setFontSize(isCompact ? 4.8 : 5.5);
             doc.setTextColor(...(isInStock ? stockGreen : stockRed));
             doc.text(stockText, innerX + innerW, subY, { align: 'right' });
         }
 
         // Product description line (2 lines of description)
         if (showDescription && product.description) {
-            const descY = subY + 3.2;
+            const descY = subY + (isCompact ? 2.8 : 3.2);
             doc.setFont('helvetica', 'normal');
-            doc.setFontSize(5);
+            doc.setFontSize(isCompact ? 4.3 : 5);
             doc.setTextColor(...textMuted);
             const descStr = String(product.description).trim();
             const descLines = doc.splitTextToSize(descStr, innerW);
             if (descLines[0]) doc.text(descLines[0], innerX, descY);
-            if (descLines[1]) doc.text(descLines[1], innerX, descY + 2.3);
+            if (descLines[1]) doc.text(descLines[1], innerX, descY + (isCompact ? 2 : 2.3));
         }
 
         cardCount++;

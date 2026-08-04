@@ -32,6 +32,7 @@ const CatalogueModal = ({ isOpen, onClose, hierarchy = [], selectedIds = [] }) =
     });
 
     const [options, setOptions] = useState({
+        columns: 5,
         showImages: true,
         showDescription: true,
         showRetailPrice: true,
@@ -44,6 +45,16 @@ const CatalogueModal = ({ isOpen, onClose, hierarchy = [], selectedIds = [] }) =
         orientation: 'portrait',
         margins: 'normal',
     });
+
+    const itemsPerPage = useMemo(() => {
+        const cols = options.columns || 5;
+        const rows = options.orientation === 'landscape' ? 3 : (cols >= 5 ? 5 : 6);
+        return cols * rows;
+    }, [options.columns, options.orientation]);
+
+    const estimatedPages = useMemo(() => {
+        return Math.max(1, Math.ceil(filteredProducts.length / itemsPerPage));
+    }, [filteredProducts, itemsPerPage]);
 
     const [generating, setGenerating] = useState(false);
     const [progress, setProgress] = useState(null);
@@ -138,10 +149,6 @@ const CatalogueModal = ({ isOpen, onClose, hierarchy = [], selectedIds = [] }) =
 
         return result;
     }, [allProducts, activeFilters, selectedIds]);
-
-    const estimatedPages = useMemo(() => {
-        return Math.max(1, Math.ceil(filteredProducts.length / 18));
-    }, [filteredProducts]);
 
     const getCompanyInfo = useCallback(async () => {
         try {
@@ -437,12 +444,23 @@ const CatalogueModal = ({ isOpen, onClose, hierarchy = [], selectedIds = [] }) =
                                     </div>
                                     {expandedLayout && (
                                         <div className="catalogue-section-content">
-                                            <div style={{ marginBottom: '12px' }}>
-                                                <label style={labelStyle}>Orientation</label>
-                                                <select style={selectStyle} value={options.orientation} onChange={(e) => setOptions(o => ({ ...o, orientation: e.target.value }))}>
-                                                    <option value="portrait">Portrait</option>
-                                                    <option value="landscape">Landscape</option>
-                                                </select>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
+                                                <div>
+                                                    <label style={labelStyle}>Orientation</label>
+                                                    <select style={selectStyle} value={options.orientation} onChange={(e) => setOptions(o => ({ ...o, orientation: e.target.value }))}>
+                                                        <option value="portrait">Portrait</option>
+                                                        <option value="landscape">Landscape</option>
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label style={labelStyle}>Columns per Sheet</label>
+                                                    <select style={selectStyle} value={options.columns || 5} onChange={(e) => setOptions(o => ({ ...o, columns: Number(e.target.value) }))}>
+                                                        <option value={3}>3 Columns (18 items/sheet)</option>
+                                                        <option value={4}>4 Columns (20 items/sheet)</option>
+                                                        <option value={5}>5 Columns (25 items/sheet - Default)</option>
+                                                        <option value={6}>6 Columns (30 items/sheet)</option>
+                                                    </select>
+                                                </div>
                                             </div>
 
                                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 16px', marginBottom: '8px' }}>
@@ -518,8 +536,8 @@ const CatalogueModal = ({ isOpen, onClose, hierarchy = [], selectedIds = [] }) =
                                         <span>Trophies & Mementos Collection</span>
                                     </div>
 
-                                    <div className="catalogue-preview-grid">
-                                        {filteredProducts.slice(0, 18).map((p, i) => {
+                                    <div className="catalogue-preview-grid" style={{ gridTemplateColumns: `repeat(${options.columns || 5}, 1fr)` }}>
+                                        {filteredProducts.slice(0, itemsPerPage).map((p, i) => {
                                             const retail = Number(p?.slabs?.[0]?.unit_rate || p?.sell_price || 0);
                                             const offset = Number(p?.slabs?.[0]?.offset_unit_rate || 0);
                                             const stockQty = Number(p?.stock_quantity || 0);
@@ -570,9 +588,9 @@ const CatalogueModal = ({ isOpen, onClose, hierarchy = [], selectedIds = [] }) =
                                     </div>
                                 </div>
 
-                                {filteredProducts.length > 18 && (
+                                {filteredProducts.length > itemsPerPage && (
                                     <div className="catalogue-preview-more">
-                                        ...and {filteredProducts.length - 18} more products in full PDF
+                                        ...and {filteredProducts.length - itemsPerPage} more products in full PDF
                                     </div>
                                 )}
 
