@@ -146,29 +146,33 @@ function setReloadCount(count) {
 }
 
 function handleStaleChunk() {
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.ready.then(registration => {
-      if (registration.waiting) {
-        registration.waiting.postMessage({ type: "SKIP_WAITING" });
-      }
-    });
-  }
-
   const count = getReloadCount();
   if (count < 2) {
     setReloadCount(count + 1);
 
-    if (count === 1 && "serviceWorker" in navigator) {
-      navigator.serviceWorker.getRegistrations().then(registrations => {
-        for (const r of registrations) r.unregister();
-      });
+    const performCleanupAndReload = async () => {
+      if ("serviceWorker" in navigator) {
+        try {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          for (const r of registrations) {
+            await r.unregister();
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
       if ("caches" in window) {
-        caches.keys().then(names => Promise.all(names.map(n => caches.delete(n))));
+        try {
+          const names = await caches.keys();
+          await Promise.all(names.map(n => caches.delete(n)));
+        } catch (e) {
+          console.error(e);
+        }
       }
       window.location.reload();
-    } else {
-      window.location.reload();
-    }
+    };
+
+    performCleanupAndReload();
   }
 }
 

@@ -37,17 +37,29 @@ class ErrorBoundary extends React.Component {
       if (count < 2) {
         sessionStorage.setItem(RELOAD_KEY, JSON.stringify({ c: count + 1, t: Date.now() }));
 
-        if (count === 1 && 'serviceWorker' in navigator) {
-          navigator.serviceWorker.getRegistrations().then(registrations => {
-            for (let registration of registrations) {
-              registration.unregister();
+        const performCleanupAndReload = async () => {
+          if ('serviceWorker' in navigator) {
+            try {
+              const registrations = await navigator.serviceWorker.getRegistrations();
+              for (const r of registrations) {
+                await r.unregister();
+              }
+            } catch (e) {
+              console.error(e);
             }
-          }).finally(() => {
-            window.location.reload();
-          });
-        } else {
+          }
+          if ('caches' in window) {
+            try {
+              const names = await caches.keys();
+              await Promise.all(names.map(n => caches.delete(n)));
+            } catch (e) {
+              console.error(e);
+            }
+          }
           window.location.reload();
-        }
+        };
+
+        performCleanupAndReload();
       }
     }
   }
