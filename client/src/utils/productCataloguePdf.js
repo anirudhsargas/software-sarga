@@ -307,7 +307,7 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
         // 3. Card Details Layout
         const textPadX = isCompact ? 0.8 : 1;
         const textPadTop = isCompact ? 0.5 : 0.6;
-        const textY = y + pad + textPadTop + (showImages ? imgH + 3.2 : 3.8);
+        const textY = y + pad + textPadTop + (showImages ? imgH + 4.5 : 5.0);
 
         // Retail Price String
         const retailPrice = getRetailPrice(product);
@@ -341,12 +341,12 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(isCompact ? 4.8 : 5.5);
             doc.setTextColor(...textMuted);
-            doc.text(`SKU: ${product.product_code}`, innerX, subY);
+            doc.text(`SKU: ${product.product_code}`, innerX + textPadX, subY);
         }
 
         // Offset / Wholesale Price if present
         if (showOffsetPrice && offsetPrice > 0) {
-            const offX = showProductCode && product.product_code ? innerX + (isCompact ? 16 : 20) : innerX;
+            const offX = showProductCode && product.product_code ? innerX + textPadX + (isCompact ? 16 : 20) : innerX + textPadX;
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(isCompact ? 4.8 : 5.5);
             doc.setTextColor(...offsetRed);
@@ -362,7 +362,7 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(isCompact ? 4.8 : 5.5);
             doc.setTextColor(...(isInStock ? stockGreen : stockRed));
-            doc.text(stockText, innerX + innerW, subY, { align: 'right' });
+            doc.text(stockText, innerX + innerW - textPadX, subY, { align: 'right' });
         }
 
         // Product description line (2 lines of description)
@@ -372,9 +372,9 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
             doc.setFontSize(isCompact ? 4.3 : 5);
             doc.setTextColor(...textMuted);
             const descStr = String(product.description).trim();
-            const descLines = doc.splitTextToSize(descStr, innerW);
-            if (descLines[0]) doc.text(descLines[0], innerX, descY);
-            if (descLines[1]) doc.text(descLines[1], innerX, descY + (isCompact ? 1.8 : 2.1));
+            const descLines = doc.splitTextToSize(descStr, innerW - textPadX * 2);
+            if (descLines[0]) doc.text(descLines[0], innerX + textPadX, descY);
+            if (descLines[1]) doc.text(descLines[1], innerX + textPadX, descY + (isCompact ? 1.8 : 2.1));
         }
 
         cardCount++;
