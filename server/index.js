@@ -798,4 +798,36 @@ if (process.env.NODE_ENV !== 'test') {
     }
 }
 
+// Unauthenticated endpoint for daily report backup & update trigger via cron-job.org or similar
+app.get('/api/public/daily-report-trigger', async (req, res) => {
+    const secret = req.query.secret || req.headers['x-run-secret'];
+    if (process.env.BACKUP_RUN_SECRET && secret !== process.env.BACKUP_RUN_SECRET) {
+        return res.status(401).json({ error: 'Unauthorized secret' });
+    }
+
+    try {
+        const { checkAndSendMorningUpdate, executeDailyBook } = require('./services/dailyBookScheduler');
+        
+        // Get current hour in Asia/Kolkata timezone
+        const options = { timeZone: 'Asia/Kolkata', hour: '2-digit', hour12: false };
+        const hourStr = new Intl.DateTimeFormat('en-US', options).format(new Date());
+        const currentHour = parseInt(hourStr, 10);
+
+        console.log(`[DailyReportPing] Triggered at hour: ${currentHour}`);
+
+        if (currentHour === 19) { // 7 PM
+            const result = await executeDailyBook(false, false);
+            return res.json({ success: true, mode: '7pm-report', result });
+        } else if (currentHour === 9) { // 9 AM
+            const result = await checkAndSendMorningUpdate();
+            return res.json({ success: true, mode: '9am-morning-update', result });
+        } else {
+            return res.json({ success: true, mode: 'standby', message: 'Server woken up. Not in 9 AM or 7 PM window.', currentHour });
+        }
+    } catch (err) {
+        console.error('[DailyReportPing] Error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 module.exports = app;

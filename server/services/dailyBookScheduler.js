@@ -11,6 +11,7 @@ function lazyModule(mod) {
   return {
     get fetchDailyBookData() { return lazyRequire('./dailyBookCollector').fetchDailyBookData; },
     get generateDailyBookPdf() { return lazyRequire('./dailyBookPdfGenerator').generateDailyBookPdf; },
+    get generateBackupPdf() { return lazyRequire('./dailyBookPdfGenerator').generateBackupPdf; },
     get generateDailyBookExcel() { return lazyRequire('./dailyBookExcelGenerator').generateDailyBookExcel; },
     get nodemailer() { return lazyRequire('nodemailer'); },
   };
@@ -31,7 +32,10 @@ const getTodayStr = () => {
 };
 
 async function executeDailyBook(isTest = false, forceRun = false) {
-    const today = getTodayStr();
+    return executeDailyBookForDate(getTodayStr(), isTest, forceRun);
+}
+
+async function executeDailyBookForDate(targetDate, isTest = false, forceRunOrType = false) {
     const startTime = Date.now();
     let logId = null;
 
@@ -40,23 +44,25 @@ async function executeDailyBook(isTest = false, forceRun = false) {
         if (settingsRows.length === 0) return { success: false, message: 'Settings not configured' };
         const settings = settingsRows[0];
 
-        if (!settings.is_enabled && !isTest && !forceRun) {
+        if (!settings.is_enabled && !isTest && !forceRunOrType) {
             return { success: false, message: 'Daily book is disabled' };
         }
 
         // Lock/prevent duplicates unless forceRun
-        if (!isTest && !forceRun) {
-            const [existing] = await pool.query(
-                `SELECT id, status FROM sarga_daily_report_logs WHERE report_date = ? AND status IN ('Success', 'Running')`,
-                [today]
-            );
+        if (!isTest && forceRunOrType !== true) {
+            const isMorning = forceRunOrType === 'Morning Update';
+            const statusFilter = isMorning 
+                ? `SELECT id FROM sarga_daily_report_logs WHERE report_date = ? AND status = 'Success' AND error = 'Morning Update'`
+                : `SELECT id FROM sarga_daily_report_logs WHERE report_date = ? AND status IN ('Success', 'Running') AND (error IS NULL OR error != 'Morning Update')`;
+            
+            const [existing] = await pool.query(statusFilter, [targetDate]);
             if (existing.length > 0) {
-                return { success: false, message: 'Report already sent or running for today' };
+                return { success: false, message: `Report already sent or running for ${targetDate}` };
             }
 
             const [insertLog] = await pool.query(
-                `INSERT INTO sarga_daily_report_logs (report_date, status) VALUES (?, 'Running')`,
-                [today]
+                `INSERT INTO sarga_daily_report_logs (report_date, status, error) VALUES (?, 'Running', ?)`,
+                [targetDate, isMorning ? 'Morning Update' : null]
             );
             logId = insertLog.insertId;
         }
@@ -73,12 +79,14 @@ async function executeDailyBook(isTest = false, forceRun = false) {
         const [branches] = await pool.query('SELECT id, name FROM sarga_branches');
         const overrides = (() => { try { return JSON.parse(settings.branch_overrides || '{}'); } catch { return {}; } })();
 
-        const dateStart = `${today} 00:00:00`;
-        const dateEnd = `${today} ${settings.send_time || '20:00:00'}`;
+        const dateStart = `${targetDate} 00:00:00`;
+        const dateEnd = forceRunOrType === 'Morning Update' ? `${targetDate} 23:59:59` : `${targetDate} ${settings.send_time || '19:00:00'}`;
 
         let allEmails = new Set();
         if (settings.recipients_admin) settings.recipients_admin.split(',').forEach(e => allEmails.add(e.trim()));
         if (settings.recipients_accounts) settings.recipients_accounts.split(',').forEach(e => allEmails.add(e.trim()));
+
+        const isMorningLabel = forceRunOrType === 'Morning Update' ? ' [UPDATED MORNING]' : '';
 
         // Process branches
         for (const branch of branches) {
@@ -86,17 +94,23 @@ async function executeDailyBook(isTest = false, forceRun = false) {
             
             const attachments = [];
             if (settings.format_pdf) {
-                const pdfBuf = await m.generateDailyBookPdf(data, today, branch.name);
+                const pdfBuf = await m.generateDailyBookPdf(data, targetDate, branch.name);
                 attachments.push({
-                    filename: `dailybook_${today}_${branch.name}.pdf`,
+                    filename: `dailybook_${targetDate}_${branch.name}.pdf`,
                     content: pdfBuf,
+                    contentType: 'application/pdf'
+                });
+                const backupPdfBuf = await m.generateBackupPdf(data, targetDate, branch.name);
+                attachments.push({
+                    filename: `backup_${targetDate}_${branch.name}.pdf`,
+                    content: backupPdfBuf,
                     contentType: 'application/pdf'
                 });
             }
             if (settings.format_excel) {
-                const xlsxBuf = m.generateDailyBookExcel(data, today, branch.name);
+                const xlsxBuf = m.generateDailyBookExcel(data, targetDate, branch.name);
                 attachments.push({
-                    filename: `dailybook_${today}_${branch.name}.xlsx`,
+                    filename: `dailybook_${targetDate}_${branch.name}.xlsx`,
                     content: xlsxBuf,
                     contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
                 });
@@ -111,10 +125,10 @@ async function executeDailyBook(isTest = false, forceRun = false) {
                     to: toRecipients,
                     cc: settings.recipients_cc || '',
                     bcc: settings.recipients_bcc || '',
-                    subject: `${isTest ? '[TEST] ' : ''}Daily Book Report – ${today} (${branch.name})`,
-                    html: `<h3>Daily Cash Book Report</h3>
+                    subject: `${isTest ? '[TEST] ' : ''}Daily Book Report – ${targetDate} (${branch.name})${isMorningLabel}`,
+                    html: `<h3>Daily Cash Book Report${isMorningLabel}</h3>
                            <p>Branch: <b>${branch.name}</b></p>
-                           <p>Date: <b>${today}</b></p>
+                           <p>Date: <b>${targetDate}</b></p>
                            <p>Total Sales: Rs. ${data.summary.totalSales}</p>
                            <p>Net Cash: Rs. ${data.cashSummary.netCash}</p>
                            <hr />
@@ -128,17 +142,23 @@ async function executeDailyBook(isTest = false, forceRun = false) {
         const combinedData = await m.fetchDailyBookData(dateStart, dateEnd, null);
         const combinedAttachments = [];
         if (settings.format_pdf) {
-            const pdfBuf = await m.generateDailyBookPdf(combinedData, today, 'Combined (All Branches)');
+            const pdfBuf = await m.generateDailyBookPdf(combinedData, targetDate, 'Combined (All Branches)');
             combinedAttachments.push({
-                filename: `dailybook_${today}_combined.pdf`,
+                filename: `dailybook_${targetDate}_combined.pdf`,
                 content: pdfBuf,
+                contentType: 'application/pdf'
+            });
+            const combinedBackupPdfBuf = await m.generateBackupPdf(combinedData, targetDate, 'Combined (All Branches)');
+            combinedAttachments.push({
+                filename: `backup_${targetDate}_combined.pdf`,
+                content: combinedBackupPdfBuf,
                 contentType: 'application/pdf'
             });
         }
         if (settings.format_excel) {
-            const xlsxBuf = m.generateDailyBookExcel(combinedData, today, 'Combined (All Branches)');
+            const xlsxBuf = m.generateDailyBookExcel(combinedData, targetDate, 'Combined (All Branches)');
             combinedAttachments.push({
-                filename: `dailybook_${today}_combined.xlsx`,
+                filename: `dailybook_${targetDate}_combined.xlsx`,
                 content: xlsxBuf,
                 contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
             });
@@ -151,9 +171,9 @@ async function executeDailyBook(isTest = false, forceRun = false) {
                 to: toCombined,
                 cc: settings.recipients_cc || '',
                 bcc: settings.recipients_bcc || '',
-                subject: `${isTest ? '[TEST] ' : ''}Daily Book Report – ${today} (Combined)`,
-                html: `<h3>Daily Cash Book Report (Combined)</h3>
-                       <p>Date: <b>${today}</b></p>
+                subject: `${isTest ? '[TEST] ' : ''}Daily Book Report – ${targetDate} (Combined)${isMorningLabel}`,
+                html: `<h3>Daily Cash Book Report (Combined)${isMorningLabel}</h3>
+                       <p>Date: <b>${targetDate}</b></p>
                        <p>Total Sales: Rs. ${combinedData.summary.totalSales}</p>
                        <p>Net Cash: Rs. ${combinedData.cashSummary.netCash}</p>
                        <hr />
@@ -176,7 +196,6 @@ async function executeDailyBook(isTest = false, forceRun = false) {
         console.error('[DailyBookAutomation] Error:', error);
         
         if (logId) {
-            // Check retry logic
             const [logRow] = await pool.query('SELECT retry_count FROM sarga_daily_report_logs WHERE id = ?', [logId]);
             const retryCount = logRow[0].retry_count;
             const maxRetries = 3;
@@ -187,10 +206,8 @@ async function executeDailyBook(isTest = false, forceRun = false) {
                     [error.message, logId]
                 );
                 
-                // Schedule retry in 10 minutes (simplified for this script, standard setTimeout)
-                console.log(`[DailyBookAutomation] Scheduling retry ${retryCount + 1}/${maxRetries} in 10 minutes`);
                 setTimeout(() => {
-                    executeDailyBook(false, true);
+                    executeDailyBookForDate(targetDate, false, forceRunOrType);
                 }, 10 * 60 * 1000);
                 
             } else {
@@ -204,11 +221,62 @@ async function executeDailyBook(isTest = false, forceRun = false) {
     }
 }
 
+async function checkAndSendMorningUpdate() {
+    try {
+        const d = new Date();
+        d.setDate(d.getDate() - 1);
+        const options = { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' };
+        const parts = new Intl.DateTimeFormat('en-IN', options).formatToParts(d);
+        const y = parts.find(p => p.type === 'year').value;
+        const m = parts.find(p => p.type === 'month').value;
+        const day = parts.find(p => p.type === 'day').value;
+        const yesterday = `${y}-${m}-${day}`;
+
+        const [existingMorning] = await pool.query(
+            `SELECT id FROM sarga_daily_report_logs WHERE report_date = ? AND status = 'Success' AND error = 'Morning Update'`,
+            [yesterday]
+        );
+        if (existingMorning.length > 0) {
+            return { success: false, message: 'Morning update already sent for yesterday' };
+        }
+
+        const [lastRep] = await pool.query(
+            `SELECT completed_at FROM sarga_daily_report_logs WHERE report_date = ? AND status = 'Success' ORDER BY completed_at DESC LIMIT 1`,
+            [yesterday]
+        );
+        if (lastRep.length === 0) {
+            console.log('[DailyBookAutomation] No successful yesterday report found, triggering fresh run');
+            return await executeDailyBookForDate(yesterday, false, 'Morning Update');
+        }
+
+        const lastSentTime = lastRep[0].completed_at;
+
+        const [[{ cnt: jobsCnt }]] = await pool.query(`SELECT COUNT(*) as cnt FROM sarga_jobs WHERE created_at > ?`, [lastSentTime]);
+        const [[{ cnt: paymentsCnt }]] = await pool.query(`SELECT COUNT(*) as cnt FROM sarga_customer_payments WHERE created_at > ?`, [lastSentTime]);
+        const [[{ cnt: expensesCnt }]] = await pool.query(`SELECT COUNT(*) as cnt FROM sarga_payments WHERE created_at > ?`, [lastSentTime]);
+
+        const totalChanges = jobsCnt + paymentsCnt + expensesCnt;
+        console.log(`[DailyBookAutomation] Changes since last report: ${totalChanges}`);
+
+        if (totalChanges > 0) {
+            return await executeDailyBookForDate(yesterday, false, 'Morning Update');
+        } else {
+            return { success: true, message: 'No changes detected since yesterday 7 PM' };
+        }
+    } catch (e) {
+        console.error('[DailyBookAutomation] checkAndSendMorningUpdate failed:', e);
+        return { success: false, message: e.message };
+    }
+}
+
 async function initializeDailyBookCron() {
     try {
         if (currentCronJob) {
             currentCronJob.stop();
         }
+
+        // Auto-migrate old default 20:00:00 to 19:00:00
+        await pool.query("UPDATE sarga_daily_report_settings SET send_time = '19:00:00' WHERE send_time = '20:00:00'");
 
         const [rows] = await pool.query('SELECT * FROM sarga_daily_report_settings LIMIT 1');
         if (rows.length === 0) return;
@@ -219,7 +287,7 @@ async function initializeDailyBookCron() {
             return;
         }
 
-        const [hours, minutes] = (settings.send_time || '20:00:00').split(':');
+        const [hours, minutes] = (settings.send_time || '19:00:00').split(':');
         const days = settings.days_of_week || '1-6';
         const cronStr = `${minutes} ${hours} * * ${days}`;
 
@@ -239,5 +307,6 @@ async function initializeDailyBookCron() {
 
 module.exports = {
     initializeDailyBookCron,
-    executeDailyBook
+    executeDailyBook,
+    checkAndSendMorningUpdate
 };

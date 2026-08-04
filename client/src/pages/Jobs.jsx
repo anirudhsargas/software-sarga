@@ -1,6 +1,6 @@
 import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Search, FileText, Loader2, Plus, Trash2, IndianRupee, RotateCcw, Zap, ChevronDown, Building2, Users, Eye } from 'lucide-react';
+import { Search, FileText, Loader2, Plus, Trash2, IndianRupee, RotateCcw, Zap, ChevronDown, Building2, Users, Eye, Download, FileSpreadsheet } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import auth from '../services/auth';
 import api from '../services/api';
@@ -142,6 +142,189 @@ const Jobs = () => {
     const LIMIT = 20;
     const PAGE_SIZE = 20;
     const FILTER_DEBOUNCE_MS = 280;
+
+    const [exportFilter, setExportFilter] = useState('active');
+    const [showExportMenu, setShowExportMenu] = useState(false);
+    const exportRef = useRef(null);
+
+    // Close export dropdown when clicking outside
+    useEffect(() => {
+        if (!showExportMenu) return;
+        const handler = (e) => {
+            if (exportRef.current && !exportRef.current.contains(e.target)) {
+                setShowExportMenu(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [showExportMenu]);
+
+    const fetchAllJobsForExport = async (filterType) => {
+        try {
+            const params = new URLSearchParams();
+            params.append('export', '1');
+            if (debouncedFilterInput.search) params.append('search', debouncedFilterInput.search);
+            if (debouncedFilterInput.branch) params.append('branch_id', debouncedFilterInput.branch);
+            if (debouncedFilterInput.category) params.append('category', debouncedFilterInput.category);
+            if (debouncedFilterInput.customerType) params.append('customer_type', debouncedFilterInput.customerType);
+
+            // Use the selected export filter type
+            params.append('tab', filterType || 'active');
+
+            const response = await api.get(`/jobs?${params.toString()}`);
+            return Array.isArray(response.data) ? response.data : [];
+        } catch (err) {
+            console.error('Failed to fetch jobs for export:', err);
+            toast.error('Failed to fetch orders data for export.');
+            return [];
+        }
+    };
+
+    const getExportTitle = () => {
+        const parts = ['Orders Report'];
+        if (exportFilter) parts.push(`Type: ${exportFilter.toUpperCase()}`);
+        if (debouncedFilterInput.search) parts.push(`Search: "${debouncedFilterInput.search}"`);
+        return parts.join(' | ');
+    };
+
+    const exportToPDF = async () => {
+        const toastId = toast.loading('Preparing PDF...');
+        try {
+            const allJobs = await fetchAllJobsForExport(exportFilter);
+            if (allJobs.length === 0) {
+                toast.error('No orders to export', { id: toastId });
+                return;
+            }
+
+            const [{ default: jsPDF }, autotable] = await Promise.all([
+                import('jspdf'),
+                import('jspdf-autotable'),
+            ]);
+            toast.success('Generating PDF...', { id: toastId });
+
+            const doc = new jsPDF('l', 'mm', 'a4');
+            const title = getExportTitle();
+
+            const tableColumn = [
+                'Order No', 
+                'Date',
+                'Job Name', 
+                'Category', 
+                'Customer Name', 
+                'Phone', 
+                'Branch', 
+                'Status', 
+                'Sheets (Used/Req)',
+                ...(isFinancialsVisible ? ['Total Amount', 'Balance'] : [])
+            ];
+
+            const tableRows = allJobs.map(j => [
+                j.job_number || '',
+                j.created_at ? new Date(j.created_at).toLocaleDateString('en-IN') : '',
+                j.job_name || '',
+                j.category || '',
+                j.customer_name || 'Walk-in',
+                j.customer_mobile ? String(j.customer_mobile).replace(/^\+/, '') : '',
+                j.branch_name || 'Main',
+                j.status || '',
+                `${j.used_sheets || 0}/${j.required_sheets || 0}`,
+                ...(isFinancialsVisible ? [
+                    `Rs. ${Number(j.total_amount || 0).toFixed(2)}`,
+                    `Rs. ${Number(j.balance_amount || 0).toFixed(2)}`
+                ] : [])
+            ]);
+
+            doc.setFontSize(16);
+            doc.text(title, 14, 15);
+            doc.setFontSize(10);
+            doc.text(`Generated: ${new Date().toLocaleString('en-IN')} | Total Orders: ${allJobs.length}`, 14, 22);
+            
+            doc.autoTable({
+                head: [tableColumn],
+                body: tableRows,
+                startY: 28,
+                styles: { fontSize: 8, cellPadding: 2 },
+                headStyles: { fillColor: [79, 70, 229], fontSize: 8, fontStyle: 'bold' },
+                alternateRowStyles: { fillColor: [245, 245, 250] }
+            });
+
+            doc.save(`orders-${new Date().toISOString().split('T')[0]}.pdf`);
+            setShowExportMenu(false);
+            toast.dismiss(toastId);
+        } catch (error) {
+            console.error('PDF Export failed:', error);
+            toast.error('PDF Export failed', { id: toastId });
+        }
+    };
+
+    const exportToExcel = async () => {
+        const toastId = toast.loading('Preparing CSV...');
+        try {
+            const allJobs = await fetchAllJobsForExport(exportFilter);
+            if (allJobs.length === 0) {
+                toast.error('No orders to export', { id: toastId });
+                return;
+            }
+            toast.success('Generating CSV...', { id: toastId });
+
+            const headers = [
+                'Order No', 
+                'Date',
+                'Job Name', 
+                'Description',
+                'Category', 
+                'Customer Name', 
+                'Customer Phone', 
+                'Customer Type',
+                'Branch', 
+                'Status', 
+                'Payment Status',
+                'Required Sheets',
+                'Used Sheets',
+                ...(isFinancialsVisible ? ['Total Amount', 'Balance'] : []),
+                'Delivery Date'
+            ];
+
+            const rows = allJobs.map(j => [
+                j.job_number || '',
+                j.created_at ? new Date(j.created_at).toLocaleString('en-IN') : '',
+                j.job_name || '',
+                j.description || '',
+                j.category || '',
+                j.customer_name || 'Walk-in',
+                j.customer_mobile ? String(j.customer_mobile) : '',
+                j.customer_type || 'Walk-in',
+                j.branch_name || 'Main',
+                j.status || '',
+                j.payment_status || '',
+                Number(j.required_sheets || 0),
+                Number(j.used_sheets || 0),
+                ...(isFinancialsVisible ? [
+                    Number(j.total_amount || 0),
+                    Number(j.balance_amount || 0)
+                ] : []),
+                j.delivery_date ? new Date(j.delivery_date).toLocaleString('en-IN') : ''
+            ]);
+
+            const title = getExportTitle();
+            const csvContent = [['Report: ' + title], headers, ...rows]
+                .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+                .join('\n');
+
+            const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `orders-${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+            setShowExportMenu(false);
+            toast.dismiss(toastId);
+        } catch (error) {
+            console.error('CSV Export failed:', error);
+            toast.error('CSV Export failed', { id: toastId });
+        }
+    };
 
     const userRole = auth.getUser()?.role;
     const isFinancialsVisible = isFinanceRole(userRole);
@@ -479,6 +662,44 @@ const Jobs = () => {
                         <option value="Offset">Offset</option>
                     </select>
                     <ChevronDown size={12} className="filter-select-icon" />
+                </div>
+
+                <div className="export-dropdown-wrapper" ref={exportRef}>
+                    <button className="toolbar-btn toolbar-btn--icon" title="Export Orders" onClick={() => setShowExportMenu(prev => !prev)}>
+                        <Download size={14} />
+                    </button>
+                    {showExportMenu && (
+                        <div className="export-dropdown-menu">
+                            <div className="export-filter-group">
+                                {[
+                                    { value: 'active', label: 'Active Orders' },
+                                    { value: 'completed', label: 'Completed' },
+                                    { value: 'delivered', label: 'Delivered' },
+                                    { value: 'due', label: 'With Due' },
+                                    { value: 'overdue', label: 'Overdue' },
+                                    { value: 'all', label: 'All Orders' },
+                                ].map(opt => (
+                                    <label key={opt.value} className={`export-filter-option ${exportFilter === opt.value ? 'active' : ''}`}>
+                                        <input
+                                            type="radio"
+                                            name="exportFilter"
+                                            value={opt.value}
+                                            checked={exportFilter === opt.value}
+                                            onChange={() => setExportFilter(opt.value)}
+                                        />
+                                        <span>{opt.label}</span>
+                                    </label>
+                                ))}
+                            </div>
+                            <div className="export-dropdown-divider" />
+                            <button className="export-dropdown-item" onClick={exportToPDF}>
+                                <FileText size={14} /> Export as PDF
+                            </button>
+                            <button className="export-dropdown-item" onClick={exportToExcel}>
+                                <FileSpreadsheet size={14} /> Export as Excel (CSV)
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
 

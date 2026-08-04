@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as localDb from '../services/localDb';
 import { toast } from 'react-hot-toast';
@@ -6,7 +6,7 @@ import VendorModal from './VendorModal';
 import InvoiceModal from './InvoiceModal';
 import PaymentModal from './PaymentModal';
 import VendorDetail from './VendorDetail';
-import { Search, Filter, Store, Tag, Eye, Edit, FileText, Trash2, User, Phone, ChevronRight } from 'lucide-react';
+import { Search, Filter, Store, Tag, Eye, Edit, FileText, Trash2, User, Phone, ChevronRight, Download, FileSpreadsheet } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
 import '../pages/Vendors.css';
 
@@ -28,6 +28,175 @@ const Vendors = ({
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'detail'
   const [vendorRefreshKey, setVendorRefreshKey] = useState(0);
+
+  const [exportFilter, setExportFilter] = useState('all');
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const exportRef = useRef(null);
+
+  // Close export dropdown when clicking outside
+  useEffect(() => {
+    if (!showExportMenu) return;
+    const handler = (e) => {
+      if (exportRef.current && !exportRef.current.contains(e.target)) {
+        setShowExportMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showExportMenu]);
+
+  const fetchAllVendorsForExport = async (filterType) => {
+    try {
+      let data = await localDb.getVendors({
+        search: searchTerm,
+        type: categoryFilter
+      });
+
+      if (filterType === 'due') {
+        data = data.filter(v => (Number(v.pending_amount) || 0) > 0);
+      } else if (filterType === 'limit_exceeded') {
+        data = data.filter(v => v.credit_limit > 0 && (Number(v.pending_amount) || 0) >= Number(v.credit_limit));
+      }
+      return data;
+    } catch (err) {
+      console.error('Failed to fetch vendors for export:', err);
+      toast.error('Failed to get vendors data.');
+      return [];
+    }
+  };
+
+  const getExportTitle = () => {
+    const parts = ['Vendors Directory'];
+    if (exportFilter === 'due') parts.push('With Outstanding');
+    if (exportFilter === 'limit_exceeded') parts.push('Limit Exceeded');
+    if (searchTerm) parts.push(`Search: "${searchTerm}"`);
+    return parts.join(' | ');
+  };
+
+  const exportToPDF = async () => {
+    const toastId = toast.loading('Preparing PDF...');
+    try {
+      const allVendors = await fetchAllVendorsForExport(exportFilter);
+      if (allVendors.length === 0) {
+        toast.error('No vendors to export', { id: toastId });
+        return;
+      }
+
+      const [{ default: jsPDF }, autotable] = await Promise.all([
+        import('jspdf'),
+        import('jspdf-autotable'),
+      ]);
+      toast.success('Generating PDF...', { id: toastId });
+
+      const doc = new jsPDF('l', 'mm', 'a4');
+      const title = getExportTitle();
+
+      const tableColumn = [
+        'Code', 
+        'Vendor Name', 
+        'Category', 
+        'Contact Person', 
+        'Phone', 
+        'GSTIN',
+        'This Month Spend', 
+        'Outstanding', 
+        'Credit Limit'
+      ];
+
+      const tableRows = allVendors.map(v => [
+        v.vendor_code || '',
+        v.name || '',
+        v.category ? String(v.category).replace('_', ' ') : '',
+        v.contact_person || '',
+        v.phone || '',
+        v.gst || '',
+        `Rs. ${Number(v.this_month_spend || 0).toFixed(2)}`,
+        `Rs. ${Number(v.pending_amount || 0).toFixed(2)}`,
+        v.credit_limit > 0 ? `Rs. ${Number(v.credit_limit).toFixed(2)}` : 'No Limit'
+      ]);
+
+      doc.setFontSize(16);
+      doc.text(title, 14, 15);
+      doc.setFontSize(10);
+      doc.text(`Generated: ${new Date().toLocaleString('en-IN')} | Total Vendors: ${allVendors.length}`, 14, 22);
+      
+      doc.autoTable({
+        head: [tableColumn],
+        body: tableRows,
+        startY: 28,
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [79, 70, 229], fontSize: 8, fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [245, 245, 250] }
+      });
+
+      doc.save(`vendors-${new Date().toISOString().split('T')[0]}.pdf`);
+      setShowExportMenu(false);
+      toast.dismiss(toastId);
+    } catch (error) {
+      console.error('PDF Export failed:', error);
+      toast.error('PDF Export failed', { id: toastId });
+    }
+  };
+
+  const exportToExcel = async () => {
+    const toastId = toast.loading('Preparing CSV...');
+    try {
+      const allVendors = await fetchAllVendorsForExport(exportFilter);
+      if (allVendors.length === 0) {
+        toast.error('No vendors to export', { id: toastId });
+        return;
+      }
+      toast.success('Generating CSV...', { id: toastId });
+
+      const headers = [
+        'Code', 
+        'Vendor Name', 
+        'Category', 
+        'Contact Person', 
+        'Phone', 
+        'Email',
+        'GSTIN',
+        'Address',
+        'This Month Spend', 
+        'Outstanding', 
+        'Credit Limit',
+        'Total Invoices'
+      ];
+
+      const rows = allVendors.map(v => [
+        v.vendor_code || '',
+        v.name || '',
+        v.category ? String(v.category).replace('_', ' ') : '',
+        v.contact_person || '',
+        v.phone || '',
+        v.email || '',
+        v.gst || '',
+        v.address || '',
+        Number(v.this_month_spend || 0),
+        Number(v.pending_amount || 0),
+        Number(v.credit_limit || 0),
+        Number(v.total_invoices || 0)
+      ]);
+
+      const title = getExportTitle();
+      const csvContent = [['Report: ' + title], headers, ...rows]
+        .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+        .join('\n');
+
+      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `vendors-${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setShowExportMenu(false);
+      toast.dismiss(toastId);
+    } catch (error) {
+      console.error('CSV Export failed:', error);
+      toast.error('CSV Export failed', { id: toastId });
+    }
+  };
 
   const loadVendors = async () => {
     try {
@@ -209,6 +378,41 @@ const Vendors = ({
                 <option value="id_card">ID Card</option>
                 <option value="other">Other</option>
               </select>
+            </div>
+
+            <div className="export-dropdown-wrapper" ref={exportRef}>
+              <button className="toolbar-btn toolbar-btn--icon" title="Export Vendors" onClick={() => setShowExportMenu(prev => !prev)}>
+                <Download size={16} />
+              </button>
+              {showExportMenu && (
+                <div className="export-dropdown-menu">
+                  <div className="export-filter-group">
+                    {[
+                      { value: 'all', label: 'All Vendors' },
+                      { value: 'due', label: 'With Outstanding' },
+                      { value: 'limit_exceeded', label: 'Limit Exceeded' },
+                    ].map(opt => (
+                      <label key={opt.value} className={`export-filter-option ${exportFilter === opt.value ? 'active' : ''}`}>
+                        <input
+                          type="radio"
+                          name="exportFilter"
+                          value={opt.value}
+                          checked={exportFilter === opt.value}
+                          onChange={() => setExportFilter(opt.value)}
+                        />
+                        <span>{opt.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <div className="export-dropdown-divider" />
+                  <button className="export-dropdown-item" onClick={exportToPDF}>
+                    <FileText size={14} /> Export as PDF
+                  </button>
+                  <button className="export-dropdown-item" onClick={exportToExcel}>
+                    <FileSpreadsheet size={14} /> Export as Excel (CSV)
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 

@@ -1086,3 +1086,114 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ── Export Dropdown ── */
+.export-dropdown-wrapper {
+  position: relative;
+}
+
+.export-dropdown-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  min-width: 180px;
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #e2e4e9);
+  border-radius: var(--radius-md, 8px);
+  box-shadow: var(--shadow-lg, 0 8px 30px rgba(0,0,0,0.12));
+  z-index: var(--z-dropdown, 100);
+  padding: 4px;
+  animation: fadeIn 120ms ease;
+  overflow: hidden;
+}
+
+.export-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text, #1a1d23);
+  font-size: var(--text-sm, 13px);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--transition-fast, 150ms);
+  white-space: nowrap;
+}
+
+.export-dropdown-item:hover {
+  background: var(--table-row-hover, #f0f2f5);
+}
+
+.export-dropdown-item svg {
+  color: var(--text-muted, #6b7280);
+  flex-shrink: 0;
+}
+
+.export-filter-group {
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.export-filter-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: var(--text-sm, 13px);
+  color: var(--text, #1a1d23);
+  transition: background var(--transition-fast, 150ms);
+}
+
+.export-filter-option:hover {
+  background: var(--table-row-hover, #f0f2f5);
+}
+
+.export-filter-option.active {
+  background: var(--accent-alpha, #eef2ff);
+  color: var(--accent, #4f46e5);
+  font-weight: 600;
+}
+
+.export-filter-option input[type="radio"] {
+  accent-color: var(--accent, #4f46e5);
+  margin: 0;
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+}
+
+.export-dropdown-divider {
+  height: 1px;
+  background: var(--border, #e2e4e9);
+  margin: 4px 8px;
+}
+
+/* toolbar-btn styles for export trigger */
+.toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  width: 40px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.toolbar-btn:hover {
+  border-color: var(--text-muted);
+  color: var(--text);
+  background: var(--surface-2);
+}

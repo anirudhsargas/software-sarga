@@ -376,6 +376,7 @@ router.get('/jobs', authenticateToken, async (req, res) => {
         const customerType = String(req.query.customer_type || '').trim();
         const tab = String(req.query.tab || 'active').trim().toLowerCase();
         const userRole = String(req.user.role || '').trim();
+        const isExport = req.query.export === '1' || req.query.export === 'true';
         const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
         const { branchId } = await branchFilter(req);
 
@@ -440,10 +441,10 @@ router.get('/jobs', authenticateToken, async (req, res) => {
                 where += ' AND j.payment_status = "Paid"';
             }
 
-            if (!search && !status && ['completed', 'delivered', 'due', 'overdue', 'payments'].includes(tab)) {
+            if (!isExport && !search && !status && ['completed', 'delivered', 'due', 'overdue', 'payments'].includes(tab)) {
                 // Restrict heavy historical tabs to recent jobs for performance
                 where += ' AND j.created_at > DATE_SUB(NOW(), INTERVAL 90 DAY)';
-            } else if (!search && !status && !['active', 'completed', 'delivered', 'due', 'overdue', 'payments'].includes(tab)) {
+            } else if (!isExport && !search && !status && !['active', 'completed', 'delivered', 'due', 'overdue', 'payments'].includes(tab)) {
                 // Default dashboard query for Admins: last 90 days only
                 where += ' AND j.created_at > DATE_SUB(NOW(), INTERVAL 90 DAY)';
             }
@@ -478,6 +479,15 @@ router.get('/jobs', authenticateToken, async (req, res) => {
             LEFT JOIN sarga_branches b ON j.branch_id = b.id
             ${myStatusJoin}
             WHERE 1=1 ${where}`;
+
+        if (isExport) {
+            const dataQuery = `
+                SELECT ${JOB_LIST_COL_MINIMAL}, COALESCE(c.name, 'Walk-in') as customer_name, c.mobile as customer_mobile, c.type as customer_type, b.name as branch_name${isStaff ? ', jsa.status as my_assignment_status' : ''}
+                ${baseFrom} ORDER BY j.created_at DESC
+            `;
+            const [rows] = await pool.query(dataQuery, [...myStatusParams, ...params]);
+            return res.json(rows);
+        }
 
         const countQuery = `SELECT COUNT(*) as total ${baseFrom}`;
         const [[{ total }]] = await pool.query(countQuery, [...myStatusParams, ...params]);

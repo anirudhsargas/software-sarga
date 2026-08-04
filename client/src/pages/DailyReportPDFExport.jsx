@@ -88,12 +88,19 @@ export default function DailyReportPDFExport({
                     doc.setTextColor(100, 100, 100);
                     doc.text(label, margin + 2, yPos);
                     doc.setFont('helvetica', 'bold');
-                    doc.setTextColor(options.color || [30, 30, 30]);
+
+                    const textColor = options.color || [30, 30, 30];
+                    if (Array.isArray(textColor)) {
+                        doc.setTextColor(...textColor);
+                    } else {
+                        doc.setTextColor(textColor);
+                    }
 
                     const cleanValue = String(value).replace('₹', 'Rs. ');
                     doc.text(cleanValue, pageW - margin - 2, yPos, { align: 'right' });
                     return yPos + 5.5;
-                } catch {
+                } catch (err) {
+                    console.error('Error in PDF kvRow rendering:', err);
                     return yPos + 5.5;
                 }
             };

@@ -1,8 +1,9 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   BarChart3, Download, CreditCard, Loader2, FileText, TrendingUp,
-  Building2, Users, Zap, Home, Banknote, PieChart
+  Building2, Users, Zap, Home, Banknote, PieChart, FileSpreadsheet
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import api from '../../services/api';
 import { fmt, fmtDate, REPORT_TYPES, exportRowsToCsv } from './constants';
 import PageContainer from '../../components/ui/PageContainer';
@@ -21,6 +22,85 @@ const ReportsTab = ({ branches, onError }) => {
   const [filters, setFilters] = useState({ start_date: '', end_date: '', branch_id: '', vendor_id: '', vendor_name: '' });
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const exportRef = useRef(null);
+
+  // Close export dropdown when clicking outside
+  useEffect(() => {
+    if (!showExportMenu) return;
+    const handler = (e) => {
+      if (exportRef.current && !exportRef.current.contains(e.target)) {
+        setShowExportMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showExportMenu]);
+
+  const getExportTitle = () => {
+    const parts = [REPORT_TYPES.find(r => r.key === reportType)?.label || 'Expense Report'];
+    if (filters.start_date) parts.push(`From: ${filters.start_date}`);
+    if (filters.end_date) parts.push(`To: ${filters.end_date}`);
+    return parts.join(' | ');
+  };
+
+  const exportToPDF = async () => {
+    if (!data?.rows || data.rows.length === 0) {
+      toast.error('No data to export');
+      return;
+    }
+
+    const toastId = toast.loading('Preparing PDF...');
+    try {
+      const [{ default: jsPDF }, autotable] = await Promise.all([
+        import('jspdf'),
+        import('jspdf-autotable'),
+      ]);
+      toast.success('Generating PDF...', { id: toastId });
+
+      const doc = new jsPDF('l', 'mm', 'a4');
+      const title = getExportTitle();
+
+      // Dynamically get keys from first row for headers
+      const firstRow = data.rows[0];
+      const keys = Object.keys(firstRow);
+      
+      const tableColumn = keys.map(k => k.replace(/_/g, ' ').toUpperCase());
+      const tableRows = data.rows.map(r => 
+        keys.map(k => {
+          const val = r[k];
+          if (typeof val === 'number') {
+            return `Rs. ${val.toFixed(2)}`;
+          }
+          if (k.includes('date')) {
+            return val ? new Date(val).toLocaleDateString('en-IN') : '';
+          }
+          return val || '—';
+        })
+      );
+
+      doc.setFontSize(16);
+      doc.text(title, 14, 15);
+      doc.setFontSize(10);
+      doc.text(`Generated: ${new Date().toLocaleString('en-IN')} | Records: ${data.rows.length}`, 14, 22);
+
+      doc.autoTable({
+        head: [tableColumn],
+        body: tableRows,
+        startY: 28,
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [79, 70, 229], fontSize: 8, fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [245, 245, 250] }
+      });
+
+      doc.save(`expense-${reportType}-${new Date().toISOString().split('T')[0]}.pdf`);
+      setShowExportMenu(false);
+      toast.dismiss(toastId);
+    } catch (error) {
+      console.error('PDF Export failed:', error);
+      toast.error('PDF Export failed', { id: toastId });
+    }
+  };
 
   const fetchReport = useCallback(async () => {
     setLoading(true);
@@ -103,11 +183,22 @@ const ReportsTab = ({ branches, onError }) => {
                   <strong>₹{fmt(grandTotal)}</strong> <span>total</span>
                 </div>
               )}
-              <button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto' }}
-                onClick={() => exportRowsToCsv(data.rows, `${reportType}.csv`)}>
-                <Download size={14} /> Export CSV
+            <div className="export-dropdown-wrapper" ref={exportRef} style={{ marginLeft: 'auto' }}>
+              <button className="btn btn-ghost btn-sm" onClick={() => setShowExportMenu(prev => !prev)}>
+                <Download size={14} /> Export
               </button>
+              {showExportMenu && (
+                <div className="export-dropdown-menu">
+                  <button className="export-dropdown-item" onClick={exportToPDF}>
+                    <FileText size={14} /> Export as PDF
+                  </button>
+                  <button className="export-dropdown-item" onClick={() => { exportRowsToCsv(data.rows, `${reportType}.csv`); setShowExportMenu(false); }}>
+                    <FileSpreadsheet size={14} /> Export as CSV
+                  </button>
+                </div>
+              )}
             </div>
+          </div>
           )}
 
           {/* Monthly Expenses with bars */}

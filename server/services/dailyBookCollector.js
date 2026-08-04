@@ -22,7 +22,7 @@ async function fetchDailyBookData(startDateStr, endDateStr, branchId = null) {
 
     // 2. Expenses (Payments out)
     const [expenses] = await pool.query(
-        `SELECT id, type, payee_name, amount, payment_method, branch_id, created_at
+        `SELECT id, type, payee_name, amount, payment_method, description, branch_id, created_at
          FROM sarga_payments
          WHERE payment_date BETWEEN ? AND ? ${branchFilter}`,
         params
@@ -31,7 +31,7 @@ async function fetchDailyBookData(startDateStr, endDateStr, branchId = null) {
 
     // 3. Payments (Income/Customer Payments)
     const [payments] = await pool.query(
-        `SELECT id, customer_name, total_amount, advance_paid, payment_method, cash_amount, upi_amount, branch_id, created_at
+        `SELECT id, customer_name, total_amount, advance_paid, payment_method, cash_amount, upi_amount, description, reference_number, branch_id, created_at
          FROM sarga_customer_payments
          WHERE payment_date BETWEEN ? AND ? ${branchFilter}`,
         params
@@ -51,9 +51,10 @@ async function fetchDailyBookData(startDateStr, endDateStr, branchId = null) {
     // Here we can fetch jobs/invoices with pending balances. For a daily summary, we can aggregate.
     // Simplifying: we'll aggregate total advance_paid vs total_amount from jobs created today
     const [jobs] = await pool.query(
-        `SELECT id, job_number, total_amount, advance_paid, balance_amount, payment_status, branch_id, created_at
-         FROM sarga_jobs
-         WHERE created_at BETWEEN ? AND ? ${branchFilter}`,
+        `SELECT j.id, j.job_number, j.job_name, j.category, j.status, j.total_amount, j.advance_paid, j.balance_amount, j.payment_status, j.branch_id, j.created_at, c.name as customer_name
+         FROM sarga_jobs j
+         LEFT JOIN sarga_customers c ON j.customer_id = c.id
+         WHERE j.created_at BETWEEN ? AND ? ${branchFilter}`,
         params
     );
     results.jobs = jobs;
