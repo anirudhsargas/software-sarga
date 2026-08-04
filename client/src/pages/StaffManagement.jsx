@@ -455,6 +455,10 @@ const StaffManagement = () => {
                     gone_time: now
                 });
                 toast.success('Marked as gone successfully!');
+                setTodayAttendance(prev => ({
+                    ...prev,
+                    [staffId]: { ...existing, out_time: now }
+                }));
             } else {
                 // Mark attendance (in_time)
                 await api.post(`/staff/${staffId}/attendance`, {
@@ -463,9 +467,14 @@ const StaffManagement = () => {
                     time: now
                 });
                 toast.success('Attendance marked successfully!');
+                setTodayAttendance(prev => ({
+                    ...prev,
+                    [staffId]: { in_time: now, out_time: null, status: 'Present' }
+                }));
             }
             fetchTodayAttendance();
         } catch (err) {
+            toast.error('Failed to mark attendance');
             setError(err.response?.data?.message || 'Failed to mark attendance');
         }
     };

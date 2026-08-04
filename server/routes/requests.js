@@ -258,7 +258,11 @@ router.post('/requests/attendance/:id/review', authenticateToken, authorizeRoles
     await connection.beginTransaction();
 
     try {
-        const [requests] = await connection.query("SELECT id, staff_id, attendance_date, requested_status, requested_notes, requested_time, requested_gone_time, status FROM sarga_attendance_requests WHERE id = ?", [requestId]);
+        const [requests] = await connection.query(`
+            SELECT r.*, DATE_FORMAT(r.attendance_date, '%Y-%m-%d') AS formatted_date 
+            FROM sarga_attendance_requests r 
+            WHERE r.id = ?
+        `, [requestId]);
         const request = requests[0];
 
         if (!request) {
@@ -267,45 +271,46 @@ router.post('/requests/attendance/:id/review', authenticateToken, authorizeRoles
         }
 
         if (action === 'APPROVE') {
-            // Update attendance record
+            const attDate = request.formatted_date || request.attendance_date;
+            const requestedStatus = request.requested_status || 'Present';
+            const attendanceStatus = (requestedStatus === 'Half Day') ? 'Present' : requestedStatus;
+            
+            let notes = request.requested_notes || null;
+            if (requestedStatus === 'Half Day') {
+                notes = `[Half Day] ${notes || ''}`.trim();
+            }
+
+            const inTime = request.requested_time || null;
+            const outTime = request.requested_gone_time || null;
+
+            // Atomic insert / update into sarga_staff_attendance
             await connection.query(`
                 INSERT INTO sarga_staff_attendance 
-                (staff_id, attendance_date, status, notes, created_by)
-                VALUES (?, ?, ?, ?, ?)
+                (staff_id, attendance_date, status, notes, in_time, out_time, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE 
                 status = VALUES(status), 
-                notes = VALUES(notes)
+                notes = VALUES(notes),
+                in_time = COALESCE(VALUES(in_time), sarga_staff_attendance.in_time),
+                out_time = COALESCE(VALUES(out_time), sarga_staff_attendance.out_time)
             `, [
                 request.staff_id,
-                request.attendance_date,
-                request.requested_status,
-                request.requested_notes,
+                attDate,
+                attendanceStatus,
+                notes,
+                inTime,
+                outTime,
                 req.user.id
             ]);
 
-            // Update times if requested
-            if (request.requested_status === 'Present' || request.requested_status === 'Half Day') {
-                if (request.requested_time) {
-                    await connection.query(
-                        "UPDATE sarga_staff_attendance SET in_time = ? WHERE staff_id = ? AND attendance_date = ?",
-                        [request.requested_time, request.staff_id, request.attendance_date]
-                    );
-                }
-                if (request.requested_gone_time) {
-                    await connection.query(
-                        "UPDATE sarga_staff_attendance SET out_time = ? WHERE staff_id = ? AND attendance_date = ?",
-                        [request.requested_gone_time, request.staff_id, request.attendance_date]
-                    );
-                }
-            }
-
-            auditLog(req.user.id, 'ATTENDANCE_CHANGE_APPROVE', `Approved attendance change for staff ${request.staff_id} on ${request.attendance_date}`);
+            auditLog(req.user.id, 'ATTENDANCE_CHANGE_APPROVE', `Approved attendance change for staff ${request.staff_id} on ${attDate}`);
             await connection.query("UPDATE sarga_attendance_requests SET status = 'Approved', resolved_at = CURRENT_TIMESTAMP WHERE id = ?", [requestId]);
 
             await connection.commit();
             return res.json({ message: 'Attendance request approved successfully' });
         } else {
-            auditLog(req.user.id, 'ATTENDANCE_CHANGE_REJECT', `Rejected attendance change for staff ${request.staff_id} on ${request.attendance_date}`);
+            const attDate = request.formatted_date || request.attendance_date;
+            auditLog(req.user.id, 'ATTENDANCE_CHANGE_REJECT', `Rejected attendance change for staff ${request.staff_id} on ${attDate}`);
             await connection.query("UPDATE sarga_attendance_requests SET status = 'Rejected', resolved_at = CURRENT_TIMESTAMP WHERE id = ?", [requestId]);
 
             await connection.commit();
@@ -313,7 +318,8 @@ router.post('/requests/attendance/:id/review', authenticateToken, authorizeRoles
         }
     } catch (err) {
         await connection.rollback();
-        throw err;
+        console.error('Attendance review error:', err);
+        return res.status(500).json({ message: err.message || 'Failed to process attendance request' });
     } finally {
         connection.release();
     }
