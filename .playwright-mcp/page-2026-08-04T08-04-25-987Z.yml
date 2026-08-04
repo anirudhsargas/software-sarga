@@ -1,0 +1,73 @@
+- generic [ref=f27e2]:
+  - button "Keyboard Shortcuts" [ref=f27e3] [cursor=pointer]
+  - link "Skip to main content" [ref=f27e6] [cursor=pointer]:
+    - /url: "#main-content"
+  - main [ref=f27e12]:
+    - generic [ref=f27e13]:
+      - link "Skip to main content" [ref=f27e14] [cursor=pointer]:
+        - /url: "#main-content"
+      - navigation "Sidebar navigation" [ref=f27e15]:
+        - generic [ref=f27e16]:
+          - generic [ref=f27e17]:
+            - img "Sarga" [ref=f27e18]
+            - generic [ref=f27e19]: SARGA
+          - button "Collapse sidebar" [ref=f27e20] [cursor=pointer]
+        - navigation [ref=f27e23]:
+          - link "Front Office" [ref=f27e24] [cursor=pointer]:
+            - /url: /dashboard
+          - button "Sales" [ref=f27e30] [cursor=pointer]
+          - button "Accounts" [ref=f27e39] [cursor=pointer]
+          - button "Inventory" [ref=f27e48] [cursor=pointer]
+          - generic [ref=f27e57]:
+            - button "Production" [ref=f27e58] [cursor=pointer]
+            - generic [ref=f27e65]:
+              - link "Product Library" [ref=f27e66] [cursor=pointer]:
+                - /url: /dashboard/products
+              - link "Machine Management" [ref=f27e71] [cursor=pointer]:
+                - /url: /dashboard/machines
+              - link "Production Tracker" [ref=f27e77] [cursor=pointer]:
+                - /url: /dashboard/production-tracker
+              - link "Paper Layout" [ref=f27e84] [cursor=pointer]:
+                - /url: /dashboard/paper-layout
+          - link "Internal Transfers" [ref=f27e91] [cursor=pointer]:
+            - /url: /dashboard/internal-transactions
+          - link "Staff Management" [ref=f27e96] [cursor=pointer]:
+            - /url: /dashboard/staff
+        - generic [ref=f27e104]:
+          - generic [ref=f27e105]:
+            - generic [ref=f27e106]: Appearance
+            - generic [ref=f27e107]:
+              - button "Light" [ref=f27e108] [cursor=pointer]
+              - button "Dark" [ref=f27e116] [cursor=pointer]
+              - button "System" [ref=f27e120] [cursor=pointer]
+          - button "User profile" [ref=f27e124] [cursor=pointer]:
+            - img "Divya" [ref=f27e127]
+            - generic [ref=f27e128]:
+              - generic [ref=f27e129]: Divya
+              - generic [ref=f27e130]: Front Office
+          - button "Logout" [ref=f27e131] [cursor=pointer]
+      - main [ref=f27e136]:
+        - generic [ref=f27e137]:
+          - generic [ref=f27e138]:
+            - button "Toggle navigation menu" [ref=f27e139] [cursor=pointer]
+            - generic [ref=f27e141]:
+              - button "Dashboard" [ref=f27e143] [cursor=pointer]
+              - generic [ref=f27e144] [cursor=pointer]:
+                - generic [ref=f27e145]: /
+                - generic [ref=f27e146]: Products
+          - button "Search" [ref=f27e148] [cursor=pointer]:
+            - generic [ref=f27e152]:
+              - text: Search...
+              - generic [ref=f27e153]: ⌘K
+          - generic [ref=f27e154]:
+            - generic "Branch is restricted for your role" [ref=f27e160]:
+              - generic [ref=f27e161]:
+                - text: "Branch:"
+                - strong [ref=f27e162]: MEPPAYUR
+            - button "0 notifications" [ref=f27e163] [cursor=pointer]
+            - button "Open profile panel" [ref=f27e166] [cursor=pointer]:
+              - img "Divya" [ref=f27e169]
+        - generic [ref=f27e172]:
+          - heading "App Updated" [level=1] [ref=f27e179]
+          - paragraph [ref=f27e180]: A new version of Sarga was deployed. Please reload the page to continue.
+          - button "Reload Now" [ref=f27e182] [cursor=pointer]

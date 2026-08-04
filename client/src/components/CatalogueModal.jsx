@@ -52,10 +52,6 @@ const CatalogueModal = ({ isOpen, onClose, hierarchy = [], selectedIds = [] }) =
         return cols * rows;
     }, [options.columns, options.orientation]);
 
-    const estimatedPages = useMemo(() => {
-        return Math.max(1, Math.ceil(filteredProducts.length / itemsPerPage));
-    }, [filteredProducts, itemsPerPage]);
-
     const [generating, setGenerating] = useState(false);
     const [progress, setProgress] = useState(null);
     const [cancelled, setCancelled] = useState(false);
@@ -149,6 +145,10 @@ const CatalogueModal = ({ isOpen, onClose, hierarchy = [], selectedIds = [] }) =
 
         return result;
     }, [allProducts, activeFilters, selectedIds]);
+
+    const estimatedPages = useMemo(() => {
+        return Math.max(1, Math.ceil(filteredProducts.length / itemsPerPage));
+    }, [filteredProducts, itemsPerPage]);
 
     const getCompanyInfo = useCallback(async () => {
         try {

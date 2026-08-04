@@ -1,0 +1,192 @@
+- generic [ref=f26e2]:
+  - button "Keyboard Shortcuts" [ref=f26e8] [cursor=pointer]
+  - link "Skip to main content" [ref=f26e11] [cursor=pointer]:
+    - /url: "#main-content"
+  - main [ref=f26e12]:
+    - generic [ref=f26e13]:
+      - link "Skip to main content" [ref=f26e14] [cursor=pointer]:
+        - /url: "#main-content"
+      - navigation "Sidebar navigation" [ref=f26e15]:
+        - generic [ref=f26e16]:
+          - generic [ref=f26e17]:
+            - img "Sarga" [ref=f26e18]
+            - generic [ref=f26e19]: SARGA
+          - button "Collapse sidebar" [ref=f26e20] [cursor=pointer]
+        - navigation [ref=f26e23]:
+          - link "Front Office" [ref=f26e24] [cursor=pointer]:
+            - /url: /dashboard
+          - button "Sales" [ref=f26e30] [cursor=pointer]
+          - button "Accounts" [ref=f26e39] [cursor=pointer]
+          - button "Inventory" [ref=f26e48] [cursor=pointer]
+          - generic [ref=f26e57]:
+            - button "Production" [ref=f26e58] [cursor=pointer]
+            - generic [ref=f26e65]:
+              - link "Product Library" [ref=f26e66] [cursor=pointer]:
+                - /url: /dashboard/products
+              - link "Machine Management" [ref=f26e71] [cursor=pointer]:
+                - /url: /dashboard/machines
+              - link "Production Tracker" [ref=f26e77] [cursor=pointer]:
+                - /url: /dashboard/production-tracker
+              - link "Paper Layout" [ref=f26e84] [cursor=pointer]:
+                - /url: /dashboard/paper-layout
+          - link "Internal Transfers" [ref=f26e91] [cursor=pointer]:
+            - /url: /dashboard/internal-transactions
+          - link "Staff Management" [ref=f26e96] [cursor=pointer]:
+            - /url: /dashboard/staff
+        - generic [ref=f26e104]:
+          - generic [ref=f26e105]:
+            - generic [ref=f26e106]: Appearance
+            - generic [ref=f26e107]:
+              - button "Light" [ref=f26e108] [cursor=pointer]
+              - button "Dark" [ref=f26e116] [cursor=pointer]
+              - button "System" [ref=f26e120] [cursor=pointer]
+          - button "User profile" [ref=f26e124] [cursor=pointer]:
+            - img "Divya" [ref=f26e127]
+            - generic [ref=f26e128]:
+              - generic [ref=f26e129]: Divya
+              - generic [ref=f26e130]: Front Office
+          - button "Logout" [ref=f26e131] [cursor=pointer]
+      - main [ref=f26e136]:
+        - generic [ref=f26e137]:
+          - generic [ref=f26e138]:
+            - button "Toggle navigation menu" [ref=f26e139] [cursor=pointer]
+            - generic [ref=f26e141]: Dashboard
+          - button "Search" [ref=f26e145] [cursor=pointer]:
+            - generic [ref=f26e149]:
+              - text: Search...
+              - generic [ref=f26e150]: ⌘K
+          - generic [ref=f26e151]:
+            - generic "Branch is restricted for your role" [ref=f26e157]:
+              - generic [ref=f26e158]:
+                - text: "Branch:"
+                - strong [ref=f26e159]: MEPPAYUR
+            - button "0 notifications" [ref=f26e160] [cursor=pointer]
+            - button "Open profile panel" [ref=f26e163] [cursor=pointer]:
+              - img "Divya" [ref=f26e166]
+        - generic [ref=f26e167]:
+          - generic [ref=f26e169]:
+            - generic [ref=f26e170]:
+              - generic [ref=f26e171]:
+                - heading "Front Office" [level=1] [ref=f26e172]
+                - generic [ref=f26e173]: Tuesday, 4 August
+              - button "Refresh dashboard" [ref=f26e175] [cursor=pointer]
+            - generic [ref=f26e181]:
+              - generic [ref=f26e183]:
+                - textbox "Search customer / order / invoice / phone / barcode..." [ref=f26e184]
+                - generic: Ctrl+K
+              - button "New Order Alt+N" [ref=f26e185] [cursor=pointer]:
+                - generic [ref=f26e187]: New Order
+                - generic [ref=f26e188]: Alt+N
+            - generic [ref=f26e190]:
+              - button "Scan Item" [ref=f26e191] [cursor=pointer]
+              - button "Payment" [ref=f26e199] [cursor=pointer]
+              - button "Expense" [ref=f26e205] [cursor=pointer]
+              - button "Attendance" [ref=f26e211] [cursor=pointer]
+              - button "Shortcuts" [ref=f26e217] [cursor=pointer]
+            - generic [ref=f26e222]:
+              - button [ref=f26e223] [cursor=pointer]:
+                - group "Orders Today" [ref=f26e228]:
+                  - generic [ref=f26e229]: "0"
+              - button [ref=f26e231] [cursor=pointer]:
+                - group "Active Jobs" [ref=f26e236]:
+                  - generic [ref=f26e237]: "0"
+              - button [ref=f26e239] [cursor=pointer]:
+                - group "Ready Pickup" [ref=f26e244]:
+                  - generic [ref=f26e245]: "0"
+              - button [ref=f26e247] [cursor=pointer]:
+                - group "Due Collection" [ref=f26e252]:
+                  - generic [ref=f26e253]: ₹0
+              - button [ref=f26e255] [cursor=pointer]:
+                - group "Today Collection" [ref=f26e260]:
+                  - generic [ref=f26e261]: ₹0
+              - button [ref=f26e263] [cursor=pointer]:
+                - group "Delivered Today" [ref=f26e270]:
+                  - generic [ref=f26e271]: "0"
+              - button [ref=f26e273] [cursor=pointer]:
+                - group "Pending Approval" [ref=f26e278]:
+                  - generic [ref=f26e279]: "0"
+              - button [ref=f26e281] [cursor=pointer]:
+                - group "Avg Processing" [ref=f26e285]:
+                  - generic [ref=f26e286]: —
+            - generic [ref=f26e288]:
+              - button "Active Jobs" [ref=f26e289] [cursor=pointer]
+              - button "Due Collection" [ref=f26e294] [cursor=pointer]
+              - button "Overdue" [ref=f26e298] [cursor=pointer]
+              - button "Completed" [ref=f26e301] [cursor=pointer]
+              - button "Payments" [ref=f26e305] [cursor=pointer]
+              - button "Delivered" [ref=f26e309] [cursor=pointer]
+            - generic [ref=f26e316]:
+              - generic [ref=f26e317]:
+                - generic [ref=f26e318]: Active Jobs
+                - generic [ref=f26e324]:
+                  - generic [ref=f26e325]:
+                    - button "All" [ref=f26e326] [cursor=pointer]
+                    - button "Offset" [ref=f26e327] [cursor=pointer]
+                    - button "Digital" [ref=f26e328] [cursor=pointer]
+                    - button "Laser" [ref=f26e329] [cursor=pointer]
+                    - button "Frames" [ref=f26e330] [cursor=pointer]
+                    - button "Mementos" [ref=f26e331] [cursor=pointer]
+                  - generic [ref=f26e332]:
+                    - button "Previous page" [disabled]
+                    - button "Next page" [disabled]
+                    - button "Refresh active jobs" [ref=f26e333] [cursor=pointer]
+              - paragraph [ref=f26e344]: No active jobs right now
+          - generic [ref=f26e346]:
+            - button "Close" [ref=f26e347] [cursor=pointer]
+            - generic [ref=f26e358]:
+              - generic [ref=f26e359]:
+                - heading "Opening Setup" [level=2] [ref=f26e360]
+                - generic [ref=f26e361]: Main Branch
+              - paragraph [ref=f26e362]: Set starting cash drawers and machine counters for Tue, 4 Aug, 2026
+            - generic [ref=f26e363]:
+              - generic [ref=f26e364]:
+                - generic [ref=f26e370]:
+                  - heading "Cash Opening Balances" [level=3] [ref=f26e371]
+                  - paragraph [ref=f26e372]: Set starting cash drawer amounts for each register
+                - generic [ref=f26e373]:
+                  - generic [ref=f26e374]:
+                    - generic [ref=f26e375]: Offset Book
+                    - generic [ref=f26e378]:
+                      - generic [ref=f26e379]: ₹
+                      - textbox "0.00" [ref=f26e380]
+                    - generic [ref=f26e381]:
+                      - button "₹500" [ref=f26e382] [cursor=pointer]
+                      - button "₹1,000" [ref=f26e383] [cursor=pointer]
+                      - button "₹5,000" [ref=f26e384] [cursor=pointer]
+                  - generic [ref=f26e385]:
+                    - generic [ref=f26e386]: Laser Book
+                    - generic [ref=f26e389]:
+                      - generic [ref=f26e390]: ₹
+                      - textbox "0.00" [ref=f26e391]
+                    - generic [ref=f26e392]:
+                      - button "₹500" [ref=f26e393] [cursor=pointer]
+                      - button "₹1,000" [ref=f26e394] [cursor=pointer]
+                      - button "₹5,000" [ref=f26e395] [cursor=pointer]
+              - generic [ref=f26e396]:
+                - generic [ref=f26e402]:
+                  - heading "Machine Readings" [level=3] [ref=f26e403]
+                  - paragraph [ref=f26e404]: Record starting counter readings for print equipment
+                - generic [ref=f26e405]:
+                  - generic [ref=f26e406]:
+                    - generic [ref=f26e407]:
+                      - generic [ref=f26e408]: Konica Minolta 4065
+                      - generic [ref=f26e409]: Printer
+                    - generic [ref=f26e410]: "Prev: —"
+                    - textbox "Counter value" [ref=f26e413]: "202151"
+                  - generic [ref=f26e414]:
+                    - generic [ref=f26e415]:
+                      - generic [ref=f26e416]: Konica Minolta bizhub C 558
+                      - generic [ref=f26e417]: Printer
+                    - generic [ref=f26e418]: "Prev: —"
+                    - textbox "Counter value" [ref=f26e421]: "522159"
+            - generic [ref=f26e422]:
+              - generic [ref=f26e423]:
+                - generic [ref=f26e424]:
+                  - generic [ref=f26e425]: "Cash Total:"
+                  - generic [ref=f26e426]: ₹0
+                - generic [ref=f26e427]:
+                  - generic [ref=f26e428]: "Machines:"
+                  - generic [ref=f26e429]: 2/2
+              - generic [ref=f26e430]:
+                - button "Skip for Now" [ref=f26e431] [cursor=pointer]
+                - button "Save & Continue →" [ref=f26e432] [cursor=pointer]
