@@ -502,59 +502,78 @@ const CatalogueModal = ({ isOpen, onClose, hierarchy = [], selectedIds = [] }) =
                             </div>
                             <div className="catalogue-preview">
                                 <div className="catalogue-preview-header">
-                                    <div style={{ fontWeight: 'bold', fontSize: '7px' }}>{'COMPANY NAME'}</div>
-                                    <div style={{ fontSize: '5px', color: '#999' }}>Product Catalogue</div>
+                                    <div>
+                                        <div style={{ fontWeight: 'bold', fontSize: '8px', letterSpacing: '0.02em' }}>SARGA PRINTS</div>
+                                        <div style={{ fontSize: '5.5px', color: '#94a3b8' }}>Trophies & Mementos Catalogue</div>
+                                    </div>
+                                    <div style={{ textAlign: 'right' }}>
+                                        <div style={{ fontWeight: 'bold', fontSize: '6.5px', color: '#fde047' }}>Trophies & Mementos</div>
+                                        <div style={{ fontSize: '5px', color: '#94a3b8' }}>Page 1 of {estimatedPages}</div>
+                                    </div>
                                 </div>
-                                <div className="catalogue-preview-list">
-                                    {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29].slice(0, Math.min(30, filteredProducts.length)).map(i => {
-                                        const p = filteredProducts[i];
-                                        return (
-                                            <div key={i} className="catalogue-preview-row">
-                                                <div className="catalogue-preview-img">
-                                                    <ImageIcon size={8} />
+
+                                <div className="catalogue-preview-body">
+                                    {/* Family Section Header */}
+                                    <div className="catalogue-family-header">
+                                        <span>Trophies & Mementos Collection</span>
+                                    </div>
+
+                                    <div className="catalogue-preview-grid">
+                                        {filteredProducts.slice(0, 18).map((p, i) => {
+                                            const retail = Number(p?.slabs?.[0]?.unit_rate || p?.sell_price || 0);
+                                            const offset = Number(p?.slabs?.[0]?.offset_unit_rate || 0);
+                                            const stockQty = Number(p?.stock_quantity || 0);
+                                            const isInStock = stockQty > 0;
+
+                                            return (
+                                                <div key={i} className="catalogue-card">
+                                                    <div className="catalogue-card-img-wrap">
+                                                        {p?.image_url ? (
+                                                            <img src={p.image_url} alt={p.name} className="catalogue-card-img" />
+                                                        ) : (
+                                                            <div className="catalogue-card-no-img">
+                                                                <ImageIcon size={12} />
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="catalogue-card-body">
+                                                        <div className="catalogue-card-top">
+                                                            <div className="catalogue-card-title">{p?.name || 'Trophy / Memento'}</div>
+                                                            {options.showRetailPrice && retail > 0 && (
+                                                                <div className="catalogue-card-price">{'\u20B9'}{retail.toLocaleString('en-IN')}</div>
+                                                            )}
+                                                        </div>
+
+                                                        <div className="catalogue-card-meta">
+                                                            {options.showProductCode && p?.product_code && (
+                                                                <span className="catalogue-card-sku">SKU: {p.product_code}</span>
+                                                            )}
+                                                            {options.showOffsetPrice && offset > 0 && (
+                                                                <span className="catalogue-card-offset">WS: {'\u20B9'}{offset.toLocaleString('en-IN')}</span>
+                                                            )}
+                                                            {options.showStock && p?.stock_quantity !== undefined && (
+                                                                <span className={`catalogue-card-stock ${isInStock ? 'in-stock' : 'out-stock'}`}>
+                                                                    {isInStock ? `Stock: ${stockQty}` : 'Stock: 0'}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <div className="catalogue-preview-info">
-                                                    <div className="catalogue-preview-row-top">
-                                                        <span className="catalogue-preview-name">
-                                                            {p ? (p.name || '').substring(0, 18) + ((p.name || '').length > 18 ? '...' : '') : '-'}
-                                                        </span>
-                                                        {options.showRetailPrice && p && (
-                                                            <span className="catalogue-preview-retail">
-                                                                {'\u20B9'}{Number(p.slabs?.[0]?.unit_rate || p.sell_price || 0).toLocaleString('en-IN')}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <div className="catalogue-preview-row-mid">
-                                                        {p && p.product_code && options.showProductCode && (
-                                                            <span className="catalogue-preview-sku">SKU: {p.product_code}</span>
-                                                        )}
-                                                        {options.showOffsetPrice && (p?.slabs?.[0]?.offset_unit_rate) && (
-                                                            <span className="catalogue-preview-offset">
-                                                                {'\u20B9'}{Number(p.slabs[0].offset_unit_rate).toLocaleString('en-IN')}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <div className="catalogue-preview-row-bot">
-                                                        <span className="catalogue-preview-desc">
-                                                            {p && p.description ? (p.description.substring(0, 35) + (p.description.length > 35 ? '...' : '')) : ''}
-                                                        </span>
-                                                        {options.showStock && p && p.stock_quantity !== undefined && (
-                                                            <span className="catalogue-preview-stock-sm">Stock: {Number(p.stock_quantity)}</span>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
+                                            );
+                                        })}
+                                    </div>
                                 </div>
-                                {filteredProducts.length > 30 && (
+
+                                {filteredProducts.length > 18 && (
                                     <div className="catalogue-preview-more">
-                                        ...and {filteredProducts.length - 30} more products
+                                        ...and {filteredProducts.length - 18} more products in full PDF
                                     </div>
                                 )}
+
                                 <div className="catalogue-preview-footer">
+                                    <span>Running Header: Trophies & Mementos</span>
                                     <span>Page 1 of {estimatedPages}</span>
-                                    <span>Generated by Sarga ERP</span>
                                 </div>
                             </div>
                             <div className="catalogue-preview-stats">

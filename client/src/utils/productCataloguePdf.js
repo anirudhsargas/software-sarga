@@ -104,27 +104,47 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
     const margin = 10;
     const usableW = pageW - margin * 2;
 
-    const headerH = showHeader ? 10 : 0;
-    const footerH = showFooter ? 5 : 0;
-    const cellGap = 2.5;
-    const rowGap = 2.5;
-    const cols = 2;
-    const targetRows = 15;
-    const colW = (usableW - cellGap) / cols;
-    const contentTop = margin + headerH;
+    const headerH = showHeader ? 14 : 0;
+    const footerH = showFooter ? 8 : 0;
+    const cellGap = 5;
+    const rowGap = 5;
+    const cols = orientation === 'landscape' ? 4 : 3;
+    const targetRows = orientation === 'landscape' ? 2 : 3;
+    const colW = (usableW - (cols - 1) * cellGap) / cols;
+    const contentTop = margin + headerH + 4;
     const contentBottom = pageH - margin - footerH;
     const availableH = contentBottom - contentTop;
     const rowH = (availableH - (targetRows - 1) * rowGap) / targetRows;
-    const imgSize = showImages ? 11 : 0;
 
-    const primary = [30, 58, 95];
-    const accent = [41, 128, 185];
-    const offsetColor = [200, 60, 40];
-    const textDark = [33, 37, 41];
-    const textMuted = [120, 125, 130];
+    // Brand color system
+    const navyPrimary = [15, 23, 42];     // Deep navy #0f172a
+    const goldAccent = [217, 119, 6];      // Warm gold/amber #d97706
+    const offsetRed = [220, 38, 38];       // Offset price red #dc2626
+    const textDark = [30, 41, 59];        // Slate dark #1e293b
+    const textMuted = [100, 116, 139];    // Muted slate #64748b
+    const bgLight = [248, 250, 252];      // Light studio bg #f8fafc
+    const cardBorder = [226, 232, 240];   // Border slate #e2e8f0
+    const stockGreen = [16, 185, 129];    // In-stock green #10b981
+    const stockRed = [239, 68, 68];       // Out-of-stock red #ef4444
+
+    // Group products by Family / Category for structured catalog display
+    const groupedProducts = [];
+    const categoryMap = new Map();
+    products.forEach(p => {
+        const catName = p.subcategory_name || p.category_name || 'Trophies & Mementos';
+        if (!categoryMap.has(catName)) {
+            categoryMap.set(catName, []);
+        }
+        categoryMap.get(catName).push(p);
+    });
+
+    categoryMap.forEach((items, catName) => {
+        groupedProducts.push({ isHeader: true, title: catName });
+        items.forEach(p => groupedProducts.push({ isHeader: false, ...p }));
+    });
 
     const productsPerPage = cols * targetRows;
-    const totalPages = Math.ceil(products.length / productsPerPage);
+    const totalPages = Math.ceil(products.length / productsPerPage) || 1;
 
     onProgress({ step: 'loading-images', message: 'Loading product images...', percent: 0 });
 
@@ -133,7 +153,7 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
         const imgProducts = products.filter(p => p.image_url);
         let loaded = 0;
         const total = imgProducts.length;
-        const batchSize = 3;
+        const batchSize = 4;
         for (let i = 0; i < imgProducts.length; i += batchSize) {
             const batch = imgProducts.slice(i, i + batchSize);
             const results = await Promise.all(
@@ -147,8 +167,8 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
             loaded += batch.length;
             onProgress({
                 step: 'loading-images',
-                message: `Loading images... ${Math.min(loaded, total)}/${total}`,
-                percent: (loaded / Math.max(total, 1)) * 20,
+                message: `Loading studio images... ${Math.min(loaded, total)}/${total}`,
+                percent: (loaded / Math.max(total, 1)) * 25,
             });
         }
     }
@@ -158,168 +178,207 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
         day: '2-digit', month: 'short', year: 'numeric',
     });
 
-    for (let page = 0; page < totalPages; page++) {
-        if (page > 0) doc.addPage();
+    // Pagination and card layout
+    let currentPage = 0;
+    let cardCount = 0;
+    let currentCategory = 'Trophies & Mementos Catalogue';
 
-        onProgress({
-            step: 'generating',
-            message: `Generating page ${page + 1} of ${totalPages}...`,
-            percent: 20 + ((page + 1) / totalPages) * 75,
-        });
-        onPage(page + 1, totalPages);
+    const drawHeader = (pageNum, activeCategory) => {
+        if (!showHeader) return;
 
-        const startIdx = page * productsPerPage;
-        const pageProducts = products.slice(startIdx, startIdx + productsPerPage);
+        // Deep navy masthead
+        doc.setFillColor(...navyPrimary);
+        doc.rect(margin, margin, usableW, headerH, 'F');
 
-        if (showHeader) {
-            doc.setFillColor(...primary);
-            doc.rect(margin, margin, usableW, headerH, 'F');
+        // Gold accent bottom line
+        doc.setFillColor(...goldAccent);
+        doc.rect(margin, margin + headerH - 1, usableW, 1, 'F');
+
+        // Company title & subtitle
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(255, 255, 255);
+        doc.text(companyInfo.name || 'SARGA PRINTS', margin + 3, margin + 5.5);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+        doc.setTextColor(226, 232, 240);
+        doc.text('Trophies & Mementos Catalogue • Perambra & Meppayur', margin + 3, margin + 9.5);
+
+        // Running category / family header on right
+        let rightX = margin + usableW - 3;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(253, 230, 138); // Soft gold text
+        doc.text(activeCategory, rightX, margin + 5.5, { align: 'right' });
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6);
+        doc.setTextColor(148, 163, 184);
+        const contactLine = [companyInfo.phone ? `Tel: ${companyInfo.phone}` : null, dateStr].filter(Boolean).join(' | ');
+        if (contactLine) {
+            doc.text(contactLine, rightX, margin + 9.5, { align: 'right' });
+        }
+    };
+
+    const drawFooter = (pageNum, totalP) => {
+        if (!showFooter) return;
+        const footerY = pageH - margin - 2;
+
+        doc.setDrawColor(...cardBorder);
+        doc.setLineWidth(0.2);
+        doc.line(margin, pageH - margin - footerH, margin + usableW, pageH - margin - footerH);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+        doc.setTextColor(...textMuted);
+        doc.text('Sarga Prints — Premium Trophies, Mementos & Awards', margin, footerY);
+        doc.text(`Page ${pageNum} of ${totalP}`, margin + usableW, footerY, { align: 'right' });
+    };
+
+    // Render cards page by page
+    drawHeader(1, currentCategory);
+
+    let col = 0;
+    let row = 0;
+
+    for (let i = 0; i < products.length; i++) {
+        const product = products[i];
+        if (product.subcategory_name || product.category_name) {
+            currentCategory = product.subcategory_name || product.category_name;
+        }
+
+        // New page check
+        if (cardCount > 0 && cardCount % productsPerPage === 0) {
+            drawFooter(currentPage + 1, totalPages);
+            doc.addPage();
+            currentPage++;
+            col = 0;
+            row = 0;
+            drawHeader(currentPage + 1, currentCategory);
+            onProgress({
+                step: 'generating',
+                message: `Rendering page ${currentPage + 1} of ${totalPages}...`,
+                percent: 25 + (currentPage / totalPages) * 70,
+            });
+            onPage(currentPage + 1, totalPages);
+        }
+
+        const x = margin + col * (colW + cellGap);
+        const y = contentTop + row * (rowH + rowGap);
+
+        // 1. Card Container (White studio background with subtle border)
+        doc.setFillColor(255, 255, 255);
+        doc.setDrawColor(...cardBorder);
+        doc.setLineWidth(0.3);
+        doc.roundedRect(x, y, colW, rowH, 2, 2, 'FD');
+
+        const pad = 2.5;
+        const innerW = colW - pad * 2;
+        const innerX = x + pad;
+
+        // 2. Square Photo Area (Standardized min 300x300px aspect ratio container)
+        const imgH = showImages ? Math.min(rowH * 0.48, 28) : 0;
+        if (showImages) {
+            const imgY = y + pad;
+            doc.setFillColor(...bgLight);
+            doc.setDrawColor(...cardBorder);
+            doc.setLineWidth(0.15);
+            doc.roundedRect(innerX, imgY, innerW, imgH, 1.5, 1.5, 'FD');
+
+            const imgData = product.image_url ? imageCache[product.id] : null;
+            if (imgData) {
+                try {
+                    // Center product in square/studio container
+                    const imgFitSize = Math.min(innerW - 2, imgH - 2);
+                    const imgOffsetX = innerX + (innerW - imgFitSize) / 2;
+                    const imgOffsetY = imgY + (imgH - imgFitSize) / 2;
+                    doc.addImage(imgData, 'JPEG', imgOffsetX, imgOffsetY, imgFitSize, imgFitSize, undefined, 'FAST');
+                } catch {}
+            } else {
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(6);
+                doc.setTextColor(...textMuted);
+                doc.text('No Image', innerX + innerW / 2, imgY + imgH / 2, { align: 'center', baseline: 'middle' });
+            }
+        }
+
+        // 3. Card Details Layout
+        const textY = y + pad + (showImages ? imgH + 3 : 2);
+
+        // Product Name (Bold, 14-16pt equivalent scaled for PDF card)
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.setTextColor(...textDark);
+        const nameStr = String(product.name || '');
+        const nameLines = doc.splitTextToSize(nameStr, innerW - (showRetailPrice ? 18 : 0));
+        doc.text(nameLines[0] || nameStr, innerX, textY);
+
+        // Visual Anchor Price (Top Right / Distinctive Gold Accent)
+        const retailPrice = getRetailPrice(product);
+        const offsetPrice = getOffsetPrice(product);
+
+        if (showRetailPrice && retailPrice > 0) {
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(9.5);
+            doc.setTextColor(...goldAccent);
+            doc.text(`\u20B9${formatPrice(retailPrice)}`, innerX + innerW, textY, { align: 'right' });
+        }
+
+        // Compact Secondary Info Line (SKU, Offset Price, Stock Badge)
+        let subY = textY + 4.5;
+
+        // SKU Code
+        if (showProductCode && product.product_code) {
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(6.5);
+            doc.setTextColor(...textMuted);
+            doc.text(`SKU: ${product.product_code}`, innerX, subY);
+        }
+
+        // Offset / Wholesale Price if present
+        if (showOffsetPrice && offsetPrice > 0) {
+            const offX = showProductCode && product.product_code ? innerX + 22 : innerX;
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(6.5);
+            doc.setTextColor(...offsetRed);
+            doc.text(`WS: \u20B9${formatPrice(offsetPrice)}`, offX, subY);
+        }
+
+        // Stock Badge (Bottom Right of card - Green for in-stock, Red for out of stock)
+        if (showStock && product.stock_quantity !== undefined && product.stock_quantity !== null) {
+            const stockQty = Number(product.stock_quantity);
+            const isInStock = stockQty > 0;
+            const stockText = isInStock ? `Stock: ${stockQty}` : 'Stock: 0 pcs';
 
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(11);
-            doc.setTextColor(255, 255, 255);
-            doc.text(companyInfo.name || 'Company Name', margin + 2, margin + 4);
-
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(7);
-            doc.setTextColor(200, 210, 230);
-            doc.text('Product Catalogue', margin + 2, margin + 8);
-
-            let rightX = margin + usableW - 2;
-            doc.setFontSize(5);
-            doc.setTextColor(180, 190, 210);
-            const contactParts = [];
-            if (companyInfo.phone) contactParts.push(`Tel: ${companyInfo.phone}`);
-            if (companyInfo.email) contactParts.push(`Email: ${companyInfo.email}`);
-            if (companyInfo.website) contactParts.push(companyInfo.website);
-            if (contactParts.length > 0) {
-                doc.text(contactParts.join(' | '), rightX, margin + 4, { align: 'right' });
-            }
-            if (companyInfo.gst) {
-                doc.text(`GST: ${companyInfo.gst}`, rightX, margin + 8, { align: 'right' });
-            }
+            doc.setFontSize(6);
+            doc.setTextColor(...(isInStock ? stockGreen : stockRed));
+            doc.text(stockText, innerX + innerW, subY, { align: 'right' });
         }
 
-        for (let row = 0; row < targetRows; row++) {
-            for (let col = 0; col < cols; col++) {
-                const idx = row * cols + col;
-                if (idx >= pageProducts.length) break;
-
-                const product = pageProducts[idx];
-                const x = margin + col * (colW + cellGap);
-                const y = contentTop + row * (rowH + rowGap);
-
-                if (col === 0) {
-                    doc.setDrawColor(225, 225, 230);
-                    doc.setLineWidth(0.2);
-                    doc.line(margin, y, margin + usableW, y);
-                }
-
-                const pad = 1.5;
-                const textStartX = x + imgSize + pad + 1.5;
-                const textW = colW - imgSize - pad - 3;
-                const rightX = x + colW - 1;
-
-                const borderCol = [218, 220, 225];
-                doc.setDrawColor(...borderCol);
-                doc.setLineWidth(0.3);
-                doc.setFillColor(252, 252, 253);
-                doc.roundedRect(x, y, colW, rowH, 1, 1, 'FD');
-
-                const cellTop = y + pad;
-
-                if (showImages) {
-                    const imgData = product.image_url ? imageCache[product.id] : null;
-                    if (imgData) {
-                        try {
-                            doc.addImage(imgData, 'JPEG', x + 1, cellTop, imgSize, imgSize, undefined, 'FAST');
-                        } catch {}
-                    } else {
-                        doc.setFillColor(240, 240, 243);
-                        doc.roundedRect(x + 1, cellTop, imgSize, imgSize, 1, 1, 'F');
-                        doc.setFont('helvetica', 'normal');
-                        doc.setFontSize(4);
-                        doc.setTextColor(...textMuted);
-                        doc.text('No', x + 1 + imgSize / 2, cellTop + imgSize / 2 - 1.5, {
-                            align: 'center', baseline: 'middle',
-                        });
-                        doc.text('Img', x + 1 + imgSize / 2, cellTop + imgSize / 2 + 2.5, {
-                            align: 'center', baseline: 'middle',
-                        });
-                    }
-                }
-
-                const nameY = cellTop + 3;
-                const skuY = cellTop + 5.8;
-                const descY = cellTop + 8.5;
-
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(8);
-                doc.setTextColor(...textDark);
-                const nameStr = String(product.name || '');
-                const nameLines = doc.splitTextToSize(nameStr, textW - 25);
-                doc.text(nameLines[0] || nameStr.substring(0, 16), textStartX, nameY);
-
-                if (showProductCode && product.product_code) {
-                    doc.setFont('helvetica', 'normal');
-                    doc.setFontSize(6);
-                    doc.setTextColor(...textMuted);
-                    doc.text(`SKU: ${product.product_code}`, textStartX, skuY);
-                }
-
-                if (showDescription && product.description) {
-                    doc.setFont('helvetica', 'normal');
-                    doc.setFontSize(5.5);
-                    doc.setTextColor(...textMuted);
-                    const descStr = String(product.description);
-                    doc.text(descStr.length > 30 ? descStr.substring(0, 30) + '...' : descStr, textStartX, descY);
-                }
-
-                if (showRetailPrice) {
-                    const rp = getRetailPrice(product);
-                    if (rp > 0) {
-                        doc.setFont('helvetica', 'bold');
-                        doc.setFontSize(7);
-                        doc.setTextColor(...textDark);
-                        doc.text(`\u20B9${formatPrice(rp)}`, rightX, nameY, { align: 'right' });
-                    }
-                }
-                if (showOffsetPrice) {
-                    const op = getOffsetPrice(product);
-                    if (op > 0) {
-                        doc.setFont('helvetica', 'bold');
-                        doc.setFontSize(7);
-                        doc.setTextColor(...offsetColor);
-                        doc.text(`\u20B9${formatPrice(op)}`, rightX, skuY, { align: 'right' });
-                    }
-                }
-
-                if (showStock && product.stock_quantity !== undefined && product.stock_quantity !== null) {
-                    doc.setFont('helvetica', 'normal');
-                    doc.setFontSize(5.5);
-                    doc.setTextColor(...textMuted);
-                    doc.text(`Stock: ${Number(product.stock_quantity)}${product.stock_unit ? ' ' + product.stock_unit : ''}`, rightX, descY, { align: 'right' });
-                }
-
-                if (showCategory && product.category_name && !showProductCode && !showDescription) {
-                    doc.setFont('helvetica', 'normal');
-                    doc.setFontSize(5.5);
-                    doc.setTextColor(...textMuted);
-                    doc.text(product.category_name, textStartX, descY);
-                }
-            }
-            if (row * cols + cols > pageProducts.length) break;
-        }
-
-        if (showFooter) {
+        // Product description / category tag if space permits
+        if (showDescription && product.description) {
+            const descY = subY + 4;
             doc.setFont('helvetica', 'normal');
-            doc.setFontSize(7);
+            doc.setFontSize(5.5);
             doc.setTextColor(...textMuted);
-            doc.text(`Page ${page + 1} of ${totalPages}`, margin + usableW / 2, pageH - margin - footerH + 3, { align: 'center' });
+            const descStr = String(product.description);
+            const descLines = doc.splitTextToSize(descStr, innerW);
+            doc.text(descLines[0] || descStr, innerX, descY);
+        }
+
+        cardCount++;
+        col++;
+        if (col >= cols) {
+            col = 0;
+            row++;
         }
     }
 
-    onProgress({ step: 'complete', message: 'PDF generated successfully!', percent: 100 });
+    drawFooter(currentPage + 1, totalPages);
+
+    onProgress({ step: 'complete', message: 'Trophies Catalogue PDF generated!', percent: 100 });
     return doc;
 }
 

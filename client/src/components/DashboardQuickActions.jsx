@@ -28,7 +28,7 @@ const QUICK_ACTIONS = [
     id: 'attendance',
     label: 'Attendance',
     icon: CalendarCheck,
-    route: '/dashboard/daily-report',
+    route: '/dashboard/staff',
     color: 'var(--primary)'
   },
   {
