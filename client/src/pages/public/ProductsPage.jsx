@@ -15,6 +15,12 @@ const products = [
   { name: 'Invitation Cards', category: 'Specialty', description: 'Wedding invitations, event cards, and festive greetings.' },
   { name: 'Carry Bags', category: 'Packaging', description: 'Paper carry bags with custom printing and handles.' },
   { name: 'Calendars', category: 'Specialty', description: 'Wall calendars and desk calendars with custom designs.' },
+  { name: 'Stickers', category: 'Packaging', description: 'Custom die-cut stickers and decals in various materials and finishes.' },
+  { name: 'Banners & Flex', category: 'Marketing', description: 'Durable PVC flex banners and promotional displays for events.' },
+  { name: 'Compliment Slips', category: 'Stationery', description: 'Elegant compliment slips that complement your branded letterheads.' },
+  { name: 'Restaurant Menus', category: 'Specialty', description: 'Laminated and spot-UV menus for cafes, restaurants, and hotels.' },
+  { name: 'Gift Vouchers', category: 'Specialty', description: 'Scratch and digital gift vouchers for festive promotions.' },
+  { name: 'Product Tags', category: 'Packaging', description: 'Hang tags, swing tags, and price tags for retail merchandise.' },
 ];
 
 export default function ProductsPage() {
