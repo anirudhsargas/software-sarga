@@ -670,8 +670,8 @@ const Billing = () => {
     const isOffset = isOffsetOverride !== undefined ? isOffsetOverride : (String(form.type || '').trim().toLowerCase() === 'offset');
     const priceResult = calculateProductPrice({ product, quantity: qty, extras: [], isOffset });
     if (priceResult && priceResult.unit_price > 0) return priceResult.unit_price;
-    if (!isOffset && product.mrp != null && Number(product.mrp) > 0) return Number(product.mrp);
-    if (!isOffset && product.sell_price != null && Number(product.sell_price) > 0) return Number(product.sell_price);
+    if (product.mrp != null && Number(product.mrp) > 0) return Number(product.mrp);
+    if (product.sell_price != null && Number(product.sell_price) > 0) return Number(product.sell_price);
     return 0;
   }, [form.type]);
 

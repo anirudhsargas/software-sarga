@@ -18,13 +18,8 @@ function logSchedule(name, expression, status, error) {
 
 function safeSchedule(name, expression, task, options = {}) {
     const { timezone, runOnStart, startDelay } = options;
-    const isMlJob = ['Anomaly Detection', 'Business Insights', 'Seasonal Analysis'].includes(name);
     const scheduleStartedAt = process.hrtime.bigint();
     logger.info(`[Scheduler] ${name} registration started`);
-    if (process.env.ENABLE_ML !== 'true' && isMlJob) {
-        logger.info(`[AI_DISABLED] ML skipped: ${name} schedule bypassed`);
-        return null;
-    }
     try {
         const job = cron.schedule(expression, async () => {
             const start = Date.now();
@@ -62,51 +57,6 @@ function safeSchedule(name, expression, task, options = {}) {
 function initializeScheduler() {
     const startedAt = process.hrtime.bigint();
     const tasks = [];
-
-    // Anomaly detection — every 15 minutes
-    try {
-        const stepStartedAt = process.hrtime.bigint();
-        logger.info('[Scheduler] Loading Anomaly Detection task module');
-        const { checkAnomalies } = require('../routes/anomalies');
-        logger.info(`[Scheduler] Anomaly Detection module loaded in ${(Number(process.hrtime.bigint() - stepStartedAt) / 1e6).toFixed(1)}ms`);
-        safeSchedule('Anomaly Detection', '*/15 * * * *', () => checkAnomalies(), {
-            runOnStart: true,
-            startDelay: 10_000,
-            onError: () => {
-                setTimeout(() => {
-                    logger.info('[Scheduler] Retrying anomaly detection…');
-                    checkAnomalies().catch(() => {});
-                }, 60_000);
-            }
-        });
-        tasks.push('Anomaly Detection');
-    } catch (e) {
-        logSchedule('Anomaly Detection', '*/15 * * * *', 'error', e);
-    }
-
-    // Business insights — daily at 7:00 AM
-    try {
-        const stepStartedAt = process.hrtime.bigint();
-        logger.info('[Scheduler] Loading Business Insights task module');
-        const { generateInsights } = require('../routes/insights');
-        logger.info(`[Scheduler] Business Insights module loaded in ${(Number(process.hrtime.bigint() - stepStartedAt) / 1e6).toFixed(1)}ms`);
-        safeSchedule('Business Insights', '0 7 * * *', () => generateInsights());
-        tasks.push('Business Insights');
-    } catch (e) {
-        logSchedule('Business Insights', '0 7 * * *', 'error', e);
-    }
-
-    // Seasonal analysis — 1st of month at 6:00 AM
-    try {
-        const stepStartedAt = process.hrtime.bigint();
-        logger.info('[Scheduler] Loading Seasonal Analysis task module');
-        const { computeSeasonal } = require('../routes/seasonal');
-        logger.info(`[Scheduler] Seasonal Analysis module loaded in ${(Number(process.hrtime.bigint() - stepStartedAt) / 1e6).toFixed(1)}ms`);
-        safeSchedule('Seasonal Analysis', '0 6 1 * *', () => computeSeasonal());
-        tasks.push('Seasonal Analysis');
-    } catch (e) {
-        logSchedule('Seasonal Analysis', '0 6 1 * *', 'error', e);
-    }
 
     // Bill email parser — daily at 9:00 AM
     try {

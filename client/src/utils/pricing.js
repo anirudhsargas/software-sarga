@@ -126,8 +126,8 @@ export const calculateProductPrice = ({
   } else if (product.calculation_type === 'Slab' && isOffset) {
     const offsetRate = Number(slabForDS?.offset_unit_rate) || 0;
     if (offsetRate > 0) {
-      total += offsetRate * qty;
-      unit_price = qty > 0 ? total / qty : 0;
+      total = offsetRate * qty;
+      unit_price = offsetRate;
     }
   }
 

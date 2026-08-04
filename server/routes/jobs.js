@@ -91,7 +91,7 @@ const getHierarchyData = async (includeInactive = false) => {
             products = await connection.query(productsQuery).then(r => r[0]);
             inventory = await connection.query(inventoryQuery).then(r => r[0]);
         }
-        const slabs = await connection.query("SELECT id, product_id, min_qty, max_qty, unit_rate, base_value, double_side_unit_rate FROM sarga_product_slabs ORDER BY product_id, min_qty ASC").then(r => r[0]);
+        const slabs = await connection.query("SELECT id, product_id, min_qty, max_qty, unit_rate, base_value, offset_unit_rate, double_side_unit_rate FROM sarga_product_slabs ORDER BY product_id, min_qty ASC").then(r => r[0]);
         const extras = await connection.query("SELECT id, product_id, purpose AS extra_name, amount AS unit_rate, 1 as is_active FROM sarga_product_extras_template").then(r => r[0]);
         const links = await connection.query("SELECT id, product_id, name, url FROM sarga_product_links ORDER BY id ASC").then(r => r[0]);
 

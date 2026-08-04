@@ -3181,6 +3181,7 @@ onClick={() => { setProductSearch(''); setFilterVendor('all'); setFilterCalcType
                                             <div style={{ width: 80, flexShrink: 0 }}>Min Qty</div>
                                             {newProduct.calculation_type === 'Range' && <div style={{ width: 80, flexShrink: 0 }}>Max Qty</div>}
                                             {newProduct.calculation_type === 'Slab' && <div style={{ width: 100, flexShrink: 0 }}>Base Value (₹)</div>}
+                                            {newProduct.calculation_type === 'Slab' && <div style={{ width: 100, flexShrink: 0 }}>Offset Rate (₹)</div>}
                                             {newProduct.calculation_type === 'Slab' && newProduct.has_double_side_rate && <div style={{ width: 105, flexShrink: 0 }}>Double Side (₹)</div>}
                                             {newProduct.calculation_type === 'Range' && <div style={{ minWidth: 85, flex: 1 }}>Retail Rate (₹)</div>}
                                             {newProduct.calculation_type === 'Range' && <div style={{ minWidth: 85, flex: 1 }}>Offset Rate (₹)</div>}
@@ -3242,30 +3243,56 @@ onClick={() => { setProductSearch(''); setFilterVendor('all'); setFilterCalcType
                                                     </div>
                                                 )}
                                                 {newProduct.calculation_type === 'Slab' && (
-                                                    <div style={{ width: 100, flexShrink: 0 }}>
-                                                    <input
-                                                        type="number" className="input-field text-sm" style={{ width: '100%' }}
-                                                        placeholder="Base Value"
-                                                        step="any"
-                                                        value={slab.base_value !== undefined ? slab.base_value : ''}
-                                                        data-slab-row={idx}
-                                                        data-slab-col={1}
-                                                        onChange={e => {
-                                                            const slabs = [...newProduct.slabs];
-                                                            slabs[idx].base_value = e.target.value === '' ? '' : Number(e.target.value);
-                                                            setNewProduct({ ...newProduct, slabs });
-                                                        }}
-                                                        onKeyDown={(e) => {
-                                                            if (e.key === 'Enter') {
-                                                                e.preventDefault();
-                                                                addSlab();
-                                                            } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-                                                                e.preventDefault();
-                                                                moveSlabFocus(idx, 1, e.key === 'ArrowUp' ? -1 : 1);
-                                                             }
-                                                         }}
-                                                         />
-                                                    </div>
+                                                    <>
+                                                        <div style={{ width: 100, flexShrink: 0 }}>
+                                                            <input
+                                                                type="number" className="input-field text-sm" style={{ width: '100%' }}
+                                                                placeholder="Base Value"
+                                                                step="any"
+                                                                value={slab.base_value !== undefined ? slab.base_value : ''}
+                                                                data-slab-row={idx}
+                                                                data-slab-col={1}
+                                                                onChange={e => {
+                                                                    const slabs = [...newProduct.slabs];
+                                                                    slabs[idx].base_value = e.target.value === '' ? '' : Number(e.target.value);
+                                                                    setNewProduct({ ...newProduct, slabs });
+                                                                }}
+                                                                onKeyDown={(e) => {
+                                                                    if (e.key === 'Enter') {
+                                                                        e.preventDefault();
+                                                                        addSlab();
+                                                                    } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                                                                        e.preventDefault();
+                                                                        moveSlabFocus(idx, 1, e.key === 'ArrowUp' ? -1 : 1);
+                                                                    }
+                                                                }}
+                                                            />
+                                                        </div>
+                                                        <div style={{ width: 100, flexShrink: 0 }}>
+                                                            <input
+                                                                type="number" className="input-field text-sm" style={{ width: '100%' }}
+                                                                placeholder="Offset Rate"
+                                                                step="any"
+                                                                value={slab.offset_unit_rate !== undefined ? slab.offset_unit_rate : ''}
+                                                                data-slab-row={idx}
+                                                                data-slab-col={2}
+                                                                onChange={e => {
+                                                                    const slabs = [...newProduct.slabs];
+                                                                    slabs[idx].offset_unit_rate = e.target.value === '' ? '' : Number(e.target.value);
+                                                                    setNewProduct({ ...newProduct, slabs });
+                                                                }}
+                                                                onKeyDown={(e) => {
+                                                                    if (e.key === 'Enter') {
+                                                                        e.preventDefault();
+                                                                        addSlab();
+                                                                    } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                                                                        e.preventDefault();
+                                                                        moveSlabFocus(idx, 2, e.key === 'ArrowUp' ? -1 : 1);
+                                                                    }
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    </>
                                                 )}
                                                 {newProduct.calculation_type === 'Slab' && newProduct.has_double_side_rate && (
                                                     <div style={{ width: 105, flexShrink: 0 }}>

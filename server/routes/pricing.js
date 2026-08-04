@@ -79,7 +79,7 @@ router.get('/pricing/products', asyncHandler(async (req, res) => {
 
   // Also get existing slab data from the legacy system
   const [slabs] = await pool.query(
-    'SELECT id, product_id, min_qty, max_qty, unit_rate, base_value, double_side_unit_rate FROM sarga_product_slabs ORDER BY product_id, min_qty ASC'
+    'SELECT id, product_id, min_qty, max_qty, unit_rate, base_value, offset_unit_rate, double_side_unit_rate FROM sarga_product_slabs ORDER BY product_id, min_qty ASC'
   );
   slabs.forEach(s => {
     if (productsMap[s.product_id]) productsMap[s.product_id].slabs.push(s);
