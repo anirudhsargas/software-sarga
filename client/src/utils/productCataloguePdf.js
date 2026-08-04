@@ -307,7 +307,7 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
         // 3. Card Details Layout
         const textPadX = isCompact ? 0.8 : 1;
         const textPadTop = isCompact ? 0.5 : 0.6;
-        const textY = y + pad + textPadTop + (showImages ? imgH + 1.8 : 2.2);
+        const textY = y + pad + textPadTop + (showImages ? imgH + 3.2 : 3.8);
 
         // Retail Price String
         const retailPrice = getRetailPrice(product);
@@ -334,7 +334,7 @@ export async function generateCataloguePDF(products, companyInfo, options = {}) 
         }
 
         // Compact Secondary Info Line (SKU, Offset Price, Stock Badge)
-        let subY = textY + (isCompact ? 3.2 : 3.6);
+        let subY = textY + (isCompact ? 3.6 : 4.2);
 
         // SKU Code
         if (showProductCode && product.product_code) {

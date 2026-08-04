@@ -121,7 +121,7 @@
   display: flex;
   flex-direction: column;
   padding: 6px;
-  gap: 6px;
+  gap: 10px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
@@ -163,7 +163,7 @@
 .catalogue-card-body {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 5px;
 }
 
 .catalogue-card-top {
@@ -197,7 +197,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 4px;
-  margin-top: 2px;
+  margin-top: 0px;
   flex-wrap: wrap;
 }
 
