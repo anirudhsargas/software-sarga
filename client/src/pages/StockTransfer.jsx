@@ -53,7 +53,7 @@ const StockTransfer = () => {
             setLoading(true);
             const [branchRes, invRes] = await Promise.all([
                 api.get('/branches'),
-                api.get('/inventory', { params: { limit: 1000 } })
+                api.get('/inventory', { params: { no_pagination: '1' } })
             ]);
             setBranches(branchRes.data || []);
             setInventory(invRes.data?.data || invRes.data || []);
@@ -105,11 +105,12 @@ const StockTransfer = () => {
     }
 
     const filteredInventory = useMemo(() => {
-        if (!searchQuery) return inventory.slice(0, 10);
+        const q = (searchQuery || '').trim().toLowerCase();
+        if (!q) return inventory.slice(0, 20);
         return inventory.filter(item => 
-            item.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-            (item.sku && item.sku.toLowerCase().includes(searchQuery.toLowerCase()))
-        ).slice(0, 10);
+            (item.name || '').toLowerCase().includes(q) || 
+            (item.sku || '').toLowerCase().includes(q)
+        ).slice(0, 50);
     }, [inventory, searchQuery]);
 
     const handleAction = async () => {
@@ -322,7 +323,7 @@ const StockTransfer = () => {
                                                 <div className="badge badge--primary">{selectedItem.sku || 'NO SKU'}</div>
                                                 <div className="selected-item-name">{selectedItem.name}</div>
                                             </div>
-                                            <button className="btn btn-ghost btn-icon" onClick={() => setSelectedItem(null)}><XCircle size={16} /></button>
+                                            <button className="btn btn-ghost btn-icon" onClick={() => { setSelectedItem(null); setSearchQuery(''); }}><XCircle size={16} /></button>
                                         </div>
                                     </div>
 
@@ -344,6 +345,7 @@ const StockTransfer = () => {
                                         <div className="stack-xs">
                                             <label className="label">{transferMode === 'direct' ? 'Destination Branch' : 'Request From Branch'}</label>
                                             <BranchSelect 
+                                                unrestricted
                                                 className="input-field" 
                                                 value={toBranchId} 
                                                 onChange={e => setToBranchId(e.target.value)}

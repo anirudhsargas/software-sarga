@@ -84,7 +84,7 @@ setTimeout(async () => {
 // --- INVENTORY ROUTES (Admin Only) ---
 
 // List Inventory with enhanced filtering and branch stock support
-router.get('/inventory', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
+router.get('/inventory', authenticateToken, async (req, res) => {
     try {
         const { branchId: filterBranchId } = await branchFilter(req, { column: 'i.id', allowPrivilegedQuery: true, queryKey: 'branch_id', nullableForPrivileged: true });
         const noPagination = req.query.no_pagination === '1';
@@ -335,7 +335,7 @@ router.get('/inventory/:id/movements', authenticateToken, authorizeRoles('Admin'
 });
 
 // Get single inventory item detail with full product info, branch stock, and movement log
-router.get('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
+router.get('/inventory/:id', authenticateToken, async (req, res) => {
     try {
         const [rows] = await pool.query(
             `SELECT i.*, 
@@ -423,7 +423,7 @@ router.get('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Account
 });
 
 // Branch availability for stock requests — returns other branches with per-branch stock
-router.get('/inventory/:id/branch-availability', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
+router.get('/inventory/:id/branch-availability', authenticateToken, async (req, res) => {
     try {
         const itemId = parseInt(req.params.id);
         if (!Number.isFinite(itemId)) return res.status(400).json({ message: 'Invalid item id' });
@@ -569,7 +569,7 @@ router.get('/inventory/:id/branch-availability', authenticateToken, authorizeRol
     });
 
 // Lookup inventory item by SKU — used by billing QR scan and sidebar scanner
-router.get('/inventory/by-sku/:sku', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
+router.get('/inventory/by-sku/:sku', authenticateToken, async (req, res) => {
     try {
         const rawSku = req.params.sku || '';
         const { normalized, item } = await findInventoryByScannedCode(rawSku);

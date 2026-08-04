@@ -507,10 +507,11 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
 
                 const currentAdvance = Number(job.advance_paid) || 0;
                 const nextAdvance = Math.min(effectiveJobTotal, currentAdvance + jobAdvance);
-                const nextBalance = effectiveJobTotal - nextAdvance;
-                // Treat balance < 1 as fully paid (rounding dust)
-                const effectiveBalance = nextBalance < 1 ? 0 : nextBalance;
-                const effectiveAdvance = effectiveBalance === 0 ? effectiveJobTotal : nextAdvance;
+                const rawBalance = effectiveJobTotal - nextAdvance;
+                const nextBalance = Math.max(0, Math.round(rawBalance * 100) / 100);
+                // Treat balance <= 0.01 as fully paid (rounding dust)
+                const effectiveBalance = nextBalance <= 0.01 ? 0 : nextBalance;
+                const effectiveAdvance = effectiveBalance === 0 ? effectiveJobTotal : Math.round(nextAdvance * 100) / 100;
                 const nextStatus = effectiveBalance === 0 ? 'Paid' : (effectiveAdvance > 0 ? 'Partial' : 'Unpaid');
 
                 // If auto_deliver (walk-in), mark job as Delivered on payment
@@ -1405,7 +1406,7 @@ router.get('/stats/dashboard/drilldown', authenticateToken, authorizeRoles('Admi
                     j.job_name,
                     j.total_amount,
                     j.advance_paid,
-                    ROUND(GREATEST(COALESCE(j.total_amount,0) - COALESCE(j.advance_paid,0), 0), 2) AS balance_amount,
+                    j.balance_amount,
                     j.status,
                     j.created_at,
                     COALESCE(c.id, 0) AS customer_id,
@@ -1413,9 +1414,10 @@ router.get('/stats/dashboard/drilldown', authenticateToken, authorizeRoles('Admi
                 FROM sarga_jobs j
                 LEFT JOIN sarga_customers c ON j.customer_id = c.id
                 WHERE j.status != 'Cancelled'
-                  AND GREATEST(COALESCE(j.total_amount,0) - COALESCE(j.advance_paid,0), 0) > 0
-                  ${branchClause('j')}
-                ORDER BY balance_amount DESC
+                  AND j.balance_amount > 0
+                  AND (j.payment_status != 'Paid' OR j.payment_status IS NULL)
+                ${branchClause('j')}
+                ORDER BY j.balance_amount DESC
                 LIMIT 50
             `, [...branchParams]);
             return res.json(rows);

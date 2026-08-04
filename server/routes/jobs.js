@@ -43,7 +43,7 @@ const JOB_LIST_COLUMNS = [
 const CATEGORY_COLUMNS = 'id, name, position, image_url, is_active, created_at';
 const SUBCATEGORY_COLUMNS = 'id, category_id, name, position, image_url, is_active, created_at';
 const PRODUCT_COLUMNS = 'id, subcategory_id, name, product_code, company_name, company_code, size, calculation_type, description, image_url, has_paper_rate, paper_rate, has_double_side_rate, position, inventory_item_id, is_physical_product, is_active, created_at, updated_at';
-const PAYMENT_SUMMARY_COLUMNS = 'id, customer_id, customer_name, customer_mobile, total_amount, advance_paid, balance_amount, payment_method, cash_amount, upi_amount, branch_id, reference_number, description, payment_date, created_at, verification_status';
+const PAYMENT_SUMMARY_COLUMNS = 'id, customer_id, customer_name, customer_mobile, total_amount, discount_amount, advance_paid, balance_amount, payment_method, cash_amount, upi_amount, branch_id, reference_number, description, payment_date, created_at, verification_status';
 
 // --- PRODUCT HIERARCHY DATA ---
 

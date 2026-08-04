@@ -5,13 +5,13 @@ import auth from '../../services/auth';
 
 const ADMIN_ROLES = ['admin', 'super_admin'];
 
-const BranchSelect = ({ children, className, style, ...props }) => {
+const BranchSelect = ({ children, className, style, unrestricted = false, ...props }) => {
     const { getBranchName, assignedBranches } = useBranches();
     const user = auth.getUser();
     const isAdmin = ADMIN_ROLES.includes(user?.role?.toLowerCase());
     const hasMultipleBranches = assignedBranches && assignedBranches.length > 1;
 
-    if (!isAdmin && !hasMultipleBranches) {
+    if (!unrestricted && !isAdmin && !hasMultipleBranches) {
         const assignedBranchId = user?.branch_id;
         const branchName = getBranchName(assignedBranchId) || user?.branch_short_name || 'Assigned Branch';
 

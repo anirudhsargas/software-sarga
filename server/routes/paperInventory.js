@@ -56,7 +56,7 @@ function convertToSheets(quantity, unit, _category) {
 // --- ROUTES ---
 
 // 1. GET /types - List all paper types
-router.get('/types', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
+router.get('/types', authenticateToken, async (req, res) => {
     try {
         const { category, search } = req.query;
         let query = `
@@ -113,7 +113,7 @@ router.post('/types', authenticateToken, authorizeRoles('Admin', 'Accountant', '
 });
 
 // 3. GET /stock - Get current stock summary
-router.get('/stock', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
+router.get('/stock', authenticateToken, async (req, res) => {
     try {
         const { branch_id, category, search } = req.query;
         let query = `

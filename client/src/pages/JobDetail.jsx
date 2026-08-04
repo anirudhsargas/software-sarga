@@ -1006,7 +1006,7 @@ const JobDetail = () => {
                             value={fmt(job.advance_paid)}
                             icon={CheckCircle2}
                             color="var(--success)"
-                            subValue="Customer Deposit"
+                            subValue={Number(data?.payments?.[0]?.discount_amount || 0) > 0 ? `Discount: ${fmt(Number(data.payments[0].discount_amount))}` : 'Customer Deposit'}
                         />
                         <StatCard
                             label="Balance Due"

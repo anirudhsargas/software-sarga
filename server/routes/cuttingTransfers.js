@@ -223,7 +223,7 @@ router.post('/stock-transfers/:id/receive', authenticateToken, authorizeRoles(..
 });
 
 // GET /api/stock-transfers
-router.get('/stock-transfers', authenticateToken, authorizeRoles(...ALLOWED_ROLES), async (req, res) => {
+router.get('/stock-transfers', authenticateToken, async (req, res) => {
     try {
         const { status, branch_id, page = 1, limit = 50 } = req.query;
         let query = `
