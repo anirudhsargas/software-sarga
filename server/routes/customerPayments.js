@@ -660,6 +660,13 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
         );
 
         await connection.commit();
+
+        // Auto-send the invoice to the customer's email (fire-and-forget) if they have one on file
+        if (invoiceNumber && resolvedCustomerId && !isInternal) {
+            const { sendInvoiceEmail } = require('../services/invoiceEmailService');
+            sendInvoiceEmail(paymentId).catch((e) => console.error('[InvoiceEmail] Auto-send error:', e?.message || e));
+        }
+
         res.status(201).json({ id: paymentId, invoice_number: invoiceNumber, balance_amount: balance, message: 'Customer payment recorded' });
         invalidateDashboardCache().catch(() => {});
         invalidateAnalyticsCache().catch(() => {});

@@ -1106,6 +1106,24 @@ router.put('/inventory/:id', authenticateToken, authorizeRoles('Admin', 'Account
             [name, normalizedSku, id]
         );
 
+        // Also update slabs unit_rate for these linked products to match new sell_price
+        const [linkedProducts] = await connection.query(
+            'SELECT id FROM sarga_products WHERE inventory_item_id = ? AND is_deleted = 0',
+            [id]
+        );
+        for (const lp of linkedProducts) {
+            const [slabs] = await connection.query(
+                'SELECT id FROM sarga_product_slabs WHERE product_id = ? ORDER BY min_qty ASC LIMIT 1',
+                [lp.id]
+            );
+            if (slabs.length > 0) {
+                await connection.query(
+                    'UPDATE sarga_product_slabs SET unit_rate = ? WHERE id = ?',
+                    [Number(sell_price) || 0, slabs[0].id]
+                );
+            }
+        }
+
         await connection.commit();
         invalidateHierarchyCache();
         auditLog(req.user.id, 'INVENTORY_UPDATE', `Updated item ${id} (${name})`);
