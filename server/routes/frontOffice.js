@@ -346,8 +346,11 @@ router.get('/front-office/active-jobs', authenticateToken, authorizeRoles('Admin
         const [jobs] = await pool.query(
             `SELECT j.id, j.job_number, j.job_name, j.total_amount, j.advance_paid, j.balance_amount,
                     j.status, j.payment_status, j.delivery_date, j.created_at, j.quantity, j.category,
+                    COALESCE(pc.name, j.category) as category_name,
                     COALESCE(c.name, 'Walk-in') as customer_name, c.mobile as customer_mobile
-             FROM sarga_jobs j LEFT JOIN sarga_customers c ON j.customer_id = c.id
+             FROM sarga_jobs j
+             LEFT JOIN sarga_product_categories pc ON pc.id = j.category
+             LEFT JOIN sarga_customers c ON j.customer_id = c.id
              WHERE j.status IN ${activeStatuses} ${branchWhere}
              ORDER BY CASE j.status WHEN 'Processing' THEN 1 WHEN 'Designing' THEN 2 WHEN 'Printing' THEN 3 WHEN 'Pending' THEN 4 ELSE 5 END, j.delivery_date ASC, j.created_at DESC
              LIMIT ? OFFSET ?`, [...branchParams, limit, offset]
@@ -413,8 +416,11 @@ router.get('/front-office/overdue-jobs', authenticateToken, authorizeRoles('Admi
         const [jobs] = await pool.query(
             `SELECT j.id, j.job_number, j.job_name, j.total_amount, j.advance_paid, j.balance_amount,
                     j.status, j.delivery_date, j.created_at, j.category,
+                    COALESCE(pc.name, j.category) as category_name,
                     COALESCE(c.name, 'Walk-in') as customer_name, c.mobile as customer_mobile
-             FROM sarga_jobs j LEFT JOIN sarga_customers c ON j.customer_id = c.id
+             FROM sarga_jobs j
+             LEFT JOIN sarga_product_categories pc ON pc.id = j.category
+             LEFT JOIN sarga_customers c ON j.customer_id = c.id
              WHERE j.delivery_date < ? AND j.status NOT IN ('Delivered', 'Cancelled') ${branchWhere}
              ORDER BY j.delivery_date ASC
              LIMIT ? OFFSET ?`, [today, ...branchParams, limit, offset]

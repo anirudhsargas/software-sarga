@@ -470,8 +470,30 @@ const CustomerDetails = () => {
                   <div role="button" tabIndex={0} aria-expanded={expandedJob === job.id} className="cd-order-header" onClick={() => setExpandedJob(expandedJob === job.id ? null : job.id)}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedJob(expandedJob === job.id ? null : job.id); } }}>
                     <div className="cd-order-left">
-                      <span className="cd-order-number">#{job.job_number || job.id}</span>
-                      <span className="cd-order-name">{job.job_name}</span>
+                      <span 
+                        className="cd-order-number" 
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          navigate(`/dashboard/sales/orders/${job.id}`); 
+                        }}
+                        title="Go to Order Dashboard"
+                        style={{ cursor: 'pointer', textDecoration: 'underline', color: 'var(--accent)', fontWeight: 700 }}
+                      >
+                        #{job.job_number || job.id}
+                      </span>
+                      <span 
+                        className="cd-order-name"
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          navigate(`/dashboard/sales/orders/${job.id}`); 
+                        }}
+                        title="Go to Order Dashboard"
+                        style={{ cursor: 'pointer' }}
+                        onMouseOver={e => e.currentTarget.style.color = 'var(--accent)'}
+                        onMouseOut={e => e.currentTarget.style.color = ''}
+                      >
+                        {job.job_name}
+                      </span>
                       {/* Compact Tags for Customer Dashboard */}
                       {job.description && (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
@@ -534,6 +556,9 @@ const CustomerDetails = () => {
                         </div>
                       )}
                       <div className="cd-order-actions">
+                        <button className="btn btn-ghost btn-sm" onClick={() => navigate(`/dashboard/sales/orders/${job.id}`)} title="Go to Order Dashboard">
+                          <Eye size={13} /> View Order
+                        </button>
                         <button className="btn btn-primary btn-sm" onClick={() => handleRepeatOrder(job.id)}
                           title="Creates a new order instantly with same details">
                           <Copy size={13} /> 1-Click Repeat
@@ -573,8 +598,30 @@ const CustomerDetails = () => {
                 return (
                   <div key={job.id} className="cd-tracking-card">
                     <div className="cd-tracking-header">
-                      <span className="cd-order-number">#{job.job_number || job.id}</span>
-                      <span className="cd-order-name">{job.job_name}</span>
+                      <span 
+                        className="cd-order-number" 
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          navigate(`/dashboard/sales/orders/${job.id}`); 
+                        }}
+                        title="Go to Order Dashboard"
+                        style={{ cursor: 'pointer', textDecoration: 'underline', color: 'var(--accent)', fontWeight: 700 }}
+                      >
+                        #{job.job_number || job.id}
+                      </span>
+                      <span 
+                        className="cd-order-name"
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          navigate(`/dashboard/sales/orders/${job.id}`); 
+                        }}
+                        title="Go to Order Dashboard"
+                        style={{ cursor: 'pointer' }}
+                        onMouseOver={e => e.currentTarget.style.color = 'var(--accent)'}
+                        onMouseOut={e => e.currentTarget.style.color = ''}
+                      >
+                        {job.job_name}
+                      </span>
                       <span className="cd-order-amount">{fmtCurrency(job.total_amount)}</span>
                     </div>
                     

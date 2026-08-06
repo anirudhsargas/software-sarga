@@ -486,6 +486,18 @@
   color: var(--text-heading);
 }
 
+.job-customer-link {
+  cursor: pointer;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.job-customer-link:hover,
+.job-customer-link:focus-visible {
+  text-decoration: underline;
+  outline: none;
+}
+
 .job-customer-phone {
   font-size: var(--text-xs);
   color: var(--text-muted);

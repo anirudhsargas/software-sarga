@@ -924,6 +924,9 @@ const CustomerPayments = () => {
                           <div className="cp-dropdown-info">
                             <span className="cp-dropdown-name">{c.name}</span>
                             <span className="cp-dropdown-mobile">{c.mobile ? formatForDisplay(c.mobile) : 'No mobile'}</span>
+                            <span className="cp-dropdown-due">
+                              Due: ₹{(Number(c.due_amount) || Number(c.outstanding_balance) || 0).toFixed(2)}
+                            </span>
                           </div>
                         </button>
                       ))

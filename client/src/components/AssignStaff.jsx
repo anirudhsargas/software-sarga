@@ -11,7 +11,7 @@ function AssignStaff({ jobId, currentAssignments = [], onAssigned, canAssign }) 
   const [roleFilter, setRoleFilter] = useState('all');
   const [assignMode, setAssignMode] = useState('staff');
   const [selectedStaff, setSelectedStaff] = useState('');
-  const [selectedRole, setSelectedRole] = useState('');
+  const [selectedRoles, setSelectedRoles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
 
@@ -55,23 +55,28 @@ function AssignStaff({ jobId, currentAssignments = [], onAssigned, canAssign }) 
         return;
       }
     } else {
-      if (!selectedRole) {
-        toast.error('Please select a role');
+      if (!selectedRoles.length) {
+        toast.error('Please select at least one role');
         return;
       }
     }
 
     setLoading(true);
     try {
-      const payload = assignMode === 'staff'
-        ? { assign_type: 'staff', staff_id: selectedStaff }
-        : { assign_type: 'role', role: selectedRole };
-
-      const res = await api.post(`/jobs/${jobId}/assign`, payload);
+      let finalAssignments = [];
+      if (assignMode === 'staff') {
+        const res = await api.post(`/jobs/${jobId}/assign`, { assign_type: 'staff', staff_id: selectedStaff });
+        finalAssignments = res.data.assignments;
+      } else {
+        for (const role of selectedRoles) {
+          const res = await api.post(`/jobs/${jobId}/assign`, { assign_type: 'role', role });
+          finalAssignments = res.data.assignments;
+        }
+      }
       toast.success('Assigned successfully');
       setSelectedStaff('');
-      setSelectedRole('');
-      if (onAssigned) onAssigned(res.data.assignments);
+      setSelectedRoles([]);
+      if (onAssigned) onAssigned(finalAssignments);
     } catch (e) {
       toast.error(e.response?.data?.message || 'Failed to assign');
     } finally {
@@ -150,26 +155,40 @@ function AssignStaff({ jobId, currentAssignments = [], onAssigned, canAssign }) 
                 </div>
               </>
             ) : (
-              <div className="form-group" style={{ minWidth: 200, flex: 1 }}>
-                <label className="form-label" style={{ display: 'block', marginBottom: 4, fontSize: 12 }}>Select role</label>
-                <select
-                  className="form-input"
-                  value={selectedRole}
-                  onChange={(e) => setSelectedRole(e.target.value)}
-                  style={{ width: '100%', padding: '6px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
-                >
-                  <option value="">-- Select Role --</option>
+              <div className="form-group" style={{ minWidth: 220, flex: 1 }}>
+                <label className="form-label" style={{ display: 'block', marginBottom: 4, fontSize: 12 }}>Select roles (can pick each)</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                   {ROLE_ASSIGNABLE.map(r => (
-                    <option key={r} value={r}>{r}</option>
+                    <label
+                      key={r}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 6,
+                        padding: '6px 12px', borderRadius: 6, cursor: 'pointer',
+                        fontSize: 13, fontWeight: 500, userSelect: 'none',
+                        border: `1px solid ${selectedRoles.includes(r) ? 'var(--accent)' : 'var(--border)'}`,
+                        background: selectedRoles.includes(r) ? 'var(--accent)' : 'var(--bg)',
+                        color: selectedRoles.includes(r) ? 'var(--on-accent)' : 'var(--text)'
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedRoles.includes(r)}
+                        onChange={() => setSelectedRoles(prev =>
+                          prev.includes(r) ? prev.filter(x => x !== r) : [...prev, r]
+                        )}
+                        style={{ accentColor: 'var(--accent)', cursor: 'pointer' }}
+                      />
+                      {r}
+                    </label>
                   ))}
-                </select>
+                </div>
               </div>
             )}
 
             <button
               className="btn btn-primary btn-sm"
               onClick={handleAssign}
-              disabled={loading || (assignMode === 'staff' ? !selectedStaff : !selectedRole)}
+              disabled={loading || (assignMode === 'staff' ? !selectedStaff : selectedRoles.length === 0)}
               style={{ display: 'flex', alignItems: 'center', gap: 4, height: 34, padding: '0 16px', whiteSpace: 'nowrap' }}
             >
               {loading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}

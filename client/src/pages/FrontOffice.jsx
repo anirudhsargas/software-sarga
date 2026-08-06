@@ -472,8 +472,19 @@ const FrontOffice = () => {
 
   const matchesCategory = (categoryValue) => {
     if (activeJobFilter === 'all' || !activeJobFilter) return true;
-    const cat = String(categoryValue || '').trim().toUpperCase();
-    return cat === activeJobFilter;
+    const raw = categoryValue || {};
+    // Prefer the server-resolved category name; fall back to the raw value.
+    const rawValue = typeof raw === 'string' ? raw : (raw.name ?? raw.category_name ?? raw.category ?? '');
+    const name = String(rawValue).trim().toUpperCase();
+    const CATEGORY_KEYWORDS = {
+      OFFSET: /OFFSET/,
+      LASER: /LASER/,
+      DIGITAL: /DIGITAL/,
+      FRAMES: /FRAME/,
+      MEMENTOS: /MEMENTO/
+    };
+    const kw = CATEGORY_KEYWORDS[activeJobFilter];
+    return kw ? kw.test(name) : false;
   };
 
   const { stats } = data || {};

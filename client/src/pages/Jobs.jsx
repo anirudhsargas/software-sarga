@@ -895,7 +895,20 @@ const Jobs = () => {
                                             </td>
                                             <td>
                                                 <div className="job-customer">
-                                                    <span className="job-customer-name">{j.customer_name}</span>
+                                                    {j.customer_id ? (
+                                                        <span
+                                                            className="job-customer-name job-customer-link"
+                                                            role="link"
+                                                            tabIndex={0}
+                                                            title="Open customer dashboard"
+                                                            onClick={(e) => { e.stopPropagation(); navigate(`/dashboard/customers/${j.customer_id}`); }}
+                                                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); navigate(`/dashboard/customers/${j.customer_id}`); } }}
+                                                        >
+                                                            {j.customer_name}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="job-customer-name">{j.customer_name}</span>
+                                                    )}
                                                     <span className="job-customer-phone">{formatForDisplay(j.customer_mobile)}</span>
                                                 </div>
                                             </td>

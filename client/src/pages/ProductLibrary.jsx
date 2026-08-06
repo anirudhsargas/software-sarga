@@ -245,13 +245,17 @@ const ProductLibrary = () => {
 
     useEffect(() => {
         if (!productImage) {
-            if (!isEditing) setProductImagePreview('');
+            if (newProduct.image_url) {
+                setProductImagePreview(imgUrl(newProduct.image_url));
+            } else if (!isEditing) {
+                setProductImagePreview('');
+            }
             return;
         }
         const url = URL.createObjectURL(productImage);
         setProductImagePreview(url);
         return () => URL.revokeObjectURL(url);
-    }, [productImage]);
+    }, [productImage, isEditing, newProduct.image_url]); // eslint-disable-line react-hooks/exhaustive-deps
 
     async function fetchHierarchy(forceRefresh) {
         try {
