@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS sarga_machines (
   id INT AUTO_INCREMENT PRIMARY KEY,
   machine_name VARCHAR(150) NOT NULL,
   machine_type ENUM('Offset', 'Digital', 'Binding', 'Lamination', 'Cutting', 'Other') NOT NULL,
+  machine_category VARCHAR(30) DEFAULT NULL,
   counter_type ENUM('Manual', 'Automatic') DEFAULT 'Manual',
   branch_id INT NOT NULL,
   location VARCHAR(200),

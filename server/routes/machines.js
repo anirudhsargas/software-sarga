@@ -525,16 +525,16 @@ router.get('/:id', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant',
 // ==================== CREATE MACHINE (ADMIN ONLY) ====================
 router.post('/', auth.authenticate, auth.requireRole(['Admin']), async (req, res) => {
     try {
-        const { machine_name, machine_type, counter_type, branch_id, location, ip_address, snmp_community, mpr_username, mpr_password, book_type } = req.body;
+        const { machine_name, machine_type, machine_category, counter_type, branch_id, location, ip_address, snmp_community, mpr_username, mpr_password, book_type } = req.body;
 
         if (!machine_name || !machine_type || !branch_id) {
             return res.status(400).json({ error: 'Machine name, type, and branch are required' });
         }
 
         const [result] = await pool.query(
-            `INSERT INTO sarga_machines (machine_name, machine_type, counter_type, branch_id, location, ip_address, snmp_community, mpr_username, mpr_password, book_type)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [machine_name, machine_type, counter_type || 'Manual', branch_id, location, ip_address || null,
+            `INSERT INTO sarga_machines (machine_name, machine_type, machine_category, counter_type, branch_id, location, ip_address, snmp_community, mpr_username, mpr_password, book_type)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [machine_name, machine_type, machine_category || null, counter_type || 'Manual', branch_id, location, ip_address || null,
              snmp_community || 'public', mpr_username || null, mpr_password || null, book_type || null]
         );
 
@@ -558,7 +558,7 @@ router.post('/', auth.authenticate, auth.requireRole(['Admin']), async (req, res
 router.put('/:id', auth.authenticate, auth.requireRole(['Admin']), async (req, res) => {
     try {
         const { id } = req.params;
-        const { machine_name, machine_type, counter_type, branch_id, location, ip_address, is_active, snmp_community, mpr_username, mpr_password, book_type } = req.body;
+        const { machine_name, machine_type, machine_category, counter_type, branch_id, location, ip_address, is_active, snmp_community, mpr_username, mpr_password, book_type } = req.body;
         const [existing] = await pool.query('SELECT id FROM sarga_machines WHERE id = ?', [id]);
         if (existing.length === 0) {
             return res.status(404).json({ error: 'Machine not found' });
@@ -569,6 +569,7 @@ router.put('/:id', auth.authenticate, auth.requireRole(['Admin']), async (req, r
 
         if (machine_name !== undefined) { updates.push('machine_name = ?'); params.push(machine_name); }
         if (machine_type !== undefined) { updates.push('machine_type = ?'); params.push(machine_type); }
+        if (machine_category !== undefined) { updates.push('machine_category = ?'); params.push(machine_category || null); }
         if (counter_type !== undefined) { updates.push('counter_type = ?'); params.push(counter_type); }
         if (branch_id !== undefined) { updates.push('branch_id = ?'); params.push(branch_id); }
         if (location !== undefined) { updates.push('location = ?'); params.push(location); }

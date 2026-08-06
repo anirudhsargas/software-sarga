@@ -366,15 +366,20 @@ const CustomerPayments = () => {
   };
 
   const filteredCustomers = useMemo(() => {
+    const hasPendingBalance = (c) => Number(c.due_amount) > 0 || Number(c.outstanding_balance) > 0;
     let list = customers.filter((c) => (c.type || '').toLowerCase() !== 'walk-in');
     if (filterPendingOnly) {
-      list = list.filter((c) => Number(c.due_amount) > 0);
+      list = list.filter(hasPendingBalance);
     }
     if (!customerSearch.trim()) return list;
     const q = customerSearch.toLowerCase();
+    const digits = customerSearch.replace(/\D/g, '');
     return list.filter((c) =>
       (c.name || '').toLowerCase().includes(q) ||
-      (c.mobile || '').includes(q)
+      (c.mobile || '').includes(q) ||
+      (c.phone || '').includes(q) ||
+      (digits && String(c.mobile || '').replace(/\D/g, '').includes(digits)) ||
+      (digits && String(c.phone || '').replace(/\D/g, '').includes(digits))
     );
   }, [customers, customerSearch, filterPendingOnly]);
 

@@ -20,6 +20,7 @@ import PageContainer from '../components/ui/PageContainer';
 import BranchSelect from '../components/ui/BranchSelect';
 
 const machineTypes = ['Offset', 'Digital', 'Binding', 'Lamination', 'Cutting', 'Other'];
+const DIGITAL_CATEGORY_OPTIONS = ['Laser', 'Photocopy', 'Colour Photocopy'];
 const BOOK_TYPES = [
     { key: 'Offset', color: 'var(--accent)', label: 'Offset' },
     { key: 'Laser',  color: 'var(--accent)', label: 'Laser'  },
@@ -103,7 +104,7 @@ const MachineManagement = () => {
         machine_name: '', machine_type: 'Offset', counter_type: 'Manual',
         branch_id: '', location: '', ip_address: '', is_active: true,
         snmp_community: 'public', mpr_requires_login: false, mpr_username: '', mpr_password: '',
-        book_type: 'Offset'
+        book_type: 'Offset', machine_category: ''
     });
     const [workForm, setWorkForm] = useState({
         customer_name: '', work_details: '', copies: '', payment_type: 'Cash',
@@ -302,7 +303,8 @@ const MachineManagement = () => {
             mpr_requires_login: !!(machine.mpr_username),
             mpr_username: machine.mpr_username || '',
             mpr_password: machine.mpr_password || '',
-            book_type: machine.book_type || 'Offset'
+            book_type: machine.book_type || 'Offset',
+            machine_category: machine.machine_category || ''
         });
         setShowModal(true);
     };
@@ -352,7 +354,7 @@ const MachineManagement = () => {
     };
 
     const resetForm = () => {
-        setFormData({ machine_name: '', machine_type: 'Offset', counter_type: 'Manual', branch_id: '', location: '', ip_address: '', is_active: true, snmp_community: 'public', mpr_requires_login: false, mpr_username: '', mpr_password: '', book_type: 'Offset' });
+        setFormData({ machine_name: '', machine_type: 'Offset', counter_type: 'Manual', branch_id: '', location: '', ip_address: '', is_active: true, snmp_community: 'public', mpr_requires_login: false, mpr_username: '', mpr_password: '', book_type: 'Offset', machine_category: '' });
         setEditingMachine(null);
     };
 
@@ -1389,6 +1391,17 @@ const MachineManagement = () => {
                                             {machineTypes.map(t => <option key={t} value={t}>{t}</option>)}
                                         </select>
                                     </div>
+                                    {formData.machine_type === 'Digital' && (
+                                        <div className="form-group flex-1">
+                                            <label className="form-label">Digital Category</label>
+                                            <select className="input-field"
+                                                value={formData.machine_category || ''}
+                                                onChange={e => setFormData({ ...formData, machine_category: e.target.value })}>
+                                                <option value="">Select Category</option>
+                                                {DIGITAL_CATEGORY_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
+                                            </select>
+                                        </div>
+                                    )}
                                     <div className="form-group flex-1">
                                         <label className="form-label">Counter Type *</label>
                                         <select className="input-field" required

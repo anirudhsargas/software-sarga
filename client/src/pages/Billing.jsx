@@ -48,6 +48,14 @@ const bookTypeFromCategory = (catName) => {
   return 'Other';
 };
 
+// A line needs machine selection when it's a Laser item or the category is a
+// photocopy/xerox service. Photocopy lines keep book_type 'Other' but still
+// need a machine picked for meter/count tracking.
+const isMachineCountLine = (line) =>
+  !!line &&
+  String(line.book_type || '').toLowerCase() === 'laser' ||
+  /(photocopy|xerox)/i.test(String(line.category_name || ''));
+
 const defaultPayment = () => ({
   selectedMethods: ['Cash'],
   methodAmounts: { Cash: 0, UPI: 0, Cheque: 0, 'Account Transfer': 0 },
@@ -145,7 +153,7 @@ const Billing = () => {
   const [_showJobDetails, _setShowJobDetails] = useState(false);
   const [_showMachineDetails, _setShowMachineDetails] = useState(false);
   const [showQuickEntry, setShowQuickEntry] = useState(false);
-  const [quickEntry, setQuickEntry] = useState({ name: '', amount: '', book_type: 'Laser' });
+  const [quickEntry, setQuickEntry] = useState({ name: '', amount: '' });
   const [payment, setPayment] = useState(defaultPayment());
   const [discountPercent, setDiscountPercent] = useState(0);
   const [discountMode, setDiscountMode] = useState('amount');
@@ -182,14 +190,14 @@ const Billing = () => {
   // Laser items that still need a machine selected before billing can proceed
   const machineRequiredLines = useMemo(() => {
     const missing = (Array.isArray(orderLines) ? orderLines : [])
-      .filter(line => line.book_type === 'Laser' && !line.machine_id);
+      .filter(line => line.book_type === 'Laser' && !line.machine_id && !line.quick_added);
     const seen = new Set();
     return missing.filter(l => (seen.has(l.id) ? false : (seen.add(l.id), true)));
   }, [orderLines]);
 
   const handleGoToPayment = useCallback(() => {
     const missing = (Array.isArray(orderLines) ? orderLines : [])
-      .filter(line => line.book_type === 'Laser' && !line.machine_id);
+      .filter(line => line.book_type === 'Laser' && !line.machine_id && !line.quick_added);
     if (missing.length > 0) {
       setMachineModalOpen(true);
       return;
@@ -372,11 +380,13 @@ const Billing = () => {
     const nextLines = orderLines.map(line => {
       if (line._product) return line;
       let foundProd = null;
+      let foundCatName = null;
       for (const cat of hierarchy) {
         for (const sub of cat.subcategories || []) {
           for (const prod of sub.products || []) {
             if (prod.id === line.product_id) {
               foundProd = prod;
+              foundCatName = cat.name;
               break;
             }
           }
@@ -386,7 +396,7 @@ const Billing = () => {
       }
       if (foundProd) {
         updated = true;
-        return { ...line, _product: foundProd };
+        return { ...line, _product: foundProd, category_name: line.category_name || foundCatName || '' };
       }
       return line;
     });
@@ -547,7 +557,7 @@ const Billing = () => {
       (form.mobile.length === 10 && form.name.trim().length > 0)
     );
     const products = orderLines.length > 0;
-    const paymentValid = advancePaid > 0;
+    const paymentValid = isWalkIn ? advancePaid > 0 : true;
     const summary = true;
     return [customer, products, paymentValid, summary];
   }, [form.type, form.mobile, form.name, orderLines.length, advancePaid]);
@@ -784,6 +794,7 @@ const Billing = () => {
       is_double_side: false,
       description: '',
       category: catId || '',
+      category_name: catName || '',
       subcategory: subId || '',
       machine_id: null,
       waste_prints: 0,
@@ -847,12 +858,12 @@ const Billing = () => {
       total_amount: Number(quickEntry.amount),
       calculation_type: 'flat',
       applied_extras: [], customPaperRate: 0, is_double_side: false, description: '',
-      category: '', subcategory: '', machine_id: null,
-      waste_prints: 0, proof_prints: 0, book_type: quickEntry.book_type,
+      category: '', subcategory: '', machine_id: null, quick_added: true,
+      waste_prints: 0, proof_prints: 0, book_type: 'Laser',
       colour: '', numbering_from: '', numbering_to: '', special_instructions: '',
       matter_text: '', matter_file: null, matter_preview: null, is_inventory_item: false,
     }]);
-    setQuickEntry({ name: '', amount: '', book_type: 'Laser' });
+    setQuickEntry({ name: '', amount: '' });
     setShowQuickEntry(false);
   }, [quickEntry]);
 
@@ -1704,10 +1715,6 @@ const Billing = () => {
             <input id="billing-quick-name" name="billingQuickName" type="text" placeholder="Product name" value={quickEntry.name} onChange={e => setQuickEntry(p => ({ ...p, name: e.target.value }))} className="billing-field__input" autoComplete="off" />
             <label htmlFor="billing-quick-amount" className="sr-only">Amount</label>
             <input id="billing-quick-amount" name="billingQuickAmount" type="number" placeholder="Amount" value={quickEntry.amount} onChange={e => setQuickEntry(p => ({ ...p, amount: e.target.value }))} className="billing-field__input" />
-            <label htmlFor="billing-quick-type" className="sr-only">Book type</label>
-            <select id="billing-quick-type" name="billingQuickType" value={quickEntry.book_type} onChange={e => setQuickEntry(p => ({ ...p, book_type: e.target.value }))} className="billing-select">
-              <option value="Laser">Laser</option><option value="Offset">Offset</option><option value="Other">Other</option>
-            </select>
             <button className="btn btn-primary btn-sm" onClick={handleQuickAdd}>Add</button>
             <button className="btn btn-ghost btn-sm" onClick={() => setShowQuickEntry(false)}>Cancel</button>
           </div>
@@ -1868,7 +1875,7 @@ const Billing = () => {
                           )}
 
                           {/* Machine selection for Laser / Photocopy category */}
-                          {line.book_type === 'Laser' && (
+                          {isMachineCountLine(line) && !line.quick_added && (
                             <div className="row items-center gap-xxs mt-8" style={{ background: 'var(--surface-2, rgba(255,255,255,0.03))', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--border)', maxWidth: 'fit-content' }}>
                               <span style={{ fontSize: '11px', color: 'var(--text-muted, #aaa)', marginRight: '4px' }}>Machine:</span>
                               <select
@@ -2224,7 +2231,7 @@ const Billing = () => {
                     <label htmlFor={`ds-${line.id}`} style={{ cursor: 'pointer', margin: 0, fontSize: '0.8rem' }}>Double Side</label>
                   </div>
                 )}
-                {line.book_type === 'Laser' && (
+                {isMachineCountLine(line) && !line.quick_added && (
                   <div className="billing-summary-details__field">
                     <label>Machine (for count)</label>
                     <select
@@ -3083,7 +3090,7 @@ const Billing = () => {
                   }}
                   onClick={() => {
                     const stillMissing = (Array.isArray(orderLines) ? orderLines : [])
-                      .filter(l => l.book_type === 'Laser' && !l.machine_id);
+                      .filter(l => l.book_type === 'Laser' && !l.machine_id && !l.quick_added);
                     if (stillMissing.length > 0) {
                       toast.error('Please select a machine for all laser items');
                       return;

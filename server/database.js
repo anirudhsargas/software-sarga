@@ -351,6 +351,15 @@ const initDb = async () => {
        appliedMigrations.add(migrateSourceCodeLengthName);
      }
 
+    // Add machine_category to sarga_machines (Digital machine sub-type: Laser / Photocopy / Colour Photocopy)
+    const migrateMachineCategoryName = '040_add_machine_category.js';
+    if (!appliedMigrations.has(migrateMachineCategoryName)) {
+      const migrateMachineCategory = require('./migrations/040_add_machine_category');
+      await migrateMachineCategory(connection);
+      await connection.query('INSERT IGNORE INTO schema_migrations (migration_name) VALUES (?)', [migrateMachineCategoryName]);
+      appliedMigrations.add(migrateMachineCategoryName);
+    }
+
     // Create paper_rate_history table and add current_rate_id to paper_types (was never wired into initDb)
     const migratePaperRateHistoryName = '2026_07_15_paper_rate_history.sql';
     if (!appliedMigrations.has(migratePaperRateHistoryName)) {
