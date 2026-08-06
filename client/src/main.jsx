@@ -26,20 +26,72 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   });
 }
 
-// ── Sentry (Lazy Loaded) ────────────────
-import('@sentry/react').then((Sentry) => {
-  Sentry.init({
-    dsn: "https://ed80e78984db726985d5baaa8aaab8d7@o4511491000041472.ingest.us.sentry.io/4511609262112769",
-    tracesSampleRate: 0.2,
-  });
-}).catch(err => {
-  const msg = err?.message || '';
-  if (/Cannot access\s+['"][^'"]+['"]\s+before initialization/.test(msg)) {
-    handleStaleChunk();
-  } else {
-    console.error("Sentry load failed:", err);
-  }
-});
+// ── Sentry (Lazy Loaded after startup to optimize Time to Interactive) ──
+const pendingErrors = [];
+const pendingRejections = [];
+
+const earlyErrorHandler = (event) => {
+  pendingErrors.push(event);
+};
+
+const earlyRejectionHandler = (event) => {
+  pendingRejections.push(event);
+};
+
+window.addEventListener('error', earlyErrorHandler);
+window.addEventListener('unhandledrejection', earlyRejectionHandler);
+
+const initLazySentry = () => {
+  import('@sentry/browser')
+    .then((Sentry) => {
+      Sentry.init({
+        dsn: "https://ed80e78984db726985d5baaa8aaab8d7@o4511491000041472.ingest.us.sentry.io/4511609262112769",
+        tracesSampleRate: 0.2,
+      });
+
+      // Remove the early listeners
+      window.removeEventListener('error', earlyErrorHandler);
+      window.removeEventListener('unhandledrejection', earlyRejectionHandler);
+
+      // Report queued errors
+      pendingErrors.forEach((event) => {
+        if (event.error) {
+          Sentry.captureException(event.error);
+        } else {
+          Sentry.captureMessage(event.message || 'Unknown error');
+        }
+      });
+      pendingRejections.forEach((event) => {
+        Sentry.captureException(event.reason || new Error('Unhandled promise rejection'));
+      });
+
+      // Clear the arrays
+      pendingErrors.length = 0;
+      pendingRejections.length = 0;
+    })
+    .catch((err) => {
+      const msg = err?.message || '';
+      if (/Cannot access\s+['"][^'"]+['"]\s+before initialization/.test(msg)) {
+        handleStaleChunk();
+      } else {
+        console.error("Sentry load failed:", err);
+      }
+    });
+};
+
+// Delay Sentry load by 4 seconds (after initial render and interaction window)
+if (window.requestIdleCallback) {
+  window.addEventListener('load', () => {
+    window.requestIdleCallback(() => {
+      setTimeout(initLazySentry, 4000);
+    });
+  }, { once: true });
+} else {
+  window.addEventListener('load', () => {
+    setTimeout(initLazySentry, 4000);
+  }, { once: true });
+}
+
 
 // Optional: disable logs in production
 

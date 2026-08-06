@@ -1,12 +1,12 @@
 export async function generateInvoicePDF(billData) {
-  const [jsPDFModule, autoTableModule, QRCodeModule] = await Promise.all([
+  const [jsPDFModule, autoTableModule, QrCreatorModule] = await Promise.all([
     import('jspdf'),
     import('jspdf-autotable'),
-    import('qrcode')
+    import('qr-creator')
   ]);
   const jsPDF = jsPDFModule.default;
   const autoTable = autoTableModule.default;
-  const QRCode = QRCodeModule.default;
+  const QrCreator = QrCreatorModule.default;
 
   // Normalize billData to support both camelCase/nested and flat/snake_case structures
   const invoiceNumber = billData.invoiceNumber || billData.invoice_number || 'Draft';
@@ -345,11 +345,16 @@ export async function generateInvoicePDF(billData) {
   if (balance > 0) {
     try {
       const upiStr = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(companyName)}&am=${balance.toFixed(2)}&cu=INR&tn=Invoice ${invoiceNumber || ''}`;
-      const qrDataUrl = await QRCode.toDataURL(upiStr, {
-        width: 160,
-        margin: 1,
-        color: { dark: '#1a3a5f', light: '#ffffff' },
-      });
+      const canvas = document.createElement('canvas');
+      QrCreator.render({
+        text: upiStr,
+        radius: 0.0,
+        ecLevel: 'M',
+        fill: '#1a3a5f',
+        background: '#ffffff',
+        size: 160
+      }, canvas);
+      const qrDataUrl = canvas.toDataURL('image/png');
       doc.addImage(qrDataUrl, 'PNG', margin, y, qrSize, qrSize);
 
       doc.setFont('helvetica', 'bold');

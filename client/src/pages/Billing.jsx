@@ -548,8 +548,12 @@ const Billing = () => {
 
     setUpiQrLoading(true);
     const upiStr = `upi://pay?pa=${encodeURIComponent(branchUpiId)}&pn=${encodeURIComponent('SARGA')}&am=${upiAmt.toFixed(2)}&cu=INR&tn=${encodeURIComponent('Invoice Payment')}`;
-    import('qrcode')
-      .then(mod => mod.default.toDataURL(upiStr, { width: 200, margin: 1 }))
+    import('qr-creator')
+      .then(mod => {
+        const canvas = document.createElement('canvas');
+        mod.default.render({ text: upiStr, radius: 0.0, ecLevel: 'M', fill: '#000000', background: '#ffffff', size: 200 }, canvas);
+        return canvas.toDataURL('image/png');
+      })
       .then(url => { setUpiQrUrl(url); setUpiQrLoading(false); })
       .catch(() => { setUpiQrUrl(''); setUpiQrLoading(false); });
   }, [payment.selectedMethods, payment.methodAmounts.UPI, branchUpiId]);

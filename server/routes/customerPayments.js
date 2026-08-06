@@ -955,7 +955,7 @@ router.get('/stats/dashboard', authenticateToken, authorizeRoles('Admin', 'Accou
         const machinePromise = (async () => {
             const p = profile('machineReadings');
             const [result] = await pool.query(`
-                SELECT m.id, m.machine_name, (COALESCE(mr.closing_count, 0) - mr.opening_count) as total_copies, mr.reading_date
+                SELECT m.id, m.machine_name, GREATEST(0, COALESCE(mr.closing_count, 0) - mr.opening_count) as total_copies, mr.reading_date
                 FROM sarga_machine_readings mr
                 JOIN sarga_machines m ON mr.machine_id = m.id
                 WHERE DATE(mr.reading_date) = ? ${branchIds ? " AND m.branch_id IN (?)" : ""}

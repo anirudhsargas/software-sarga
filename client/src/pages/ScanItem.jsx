@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo, useId } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Camera, Search, Upload, Plus, Minus, Loader2,
@@ -14,14 +14,7 @@ import PermissionDeniedState from '../components/PermissionDeniedState';
 import toast from 'react-hot-toast';
 import './ScanItem.css';
 import PageContainer from '../components/ui/PageContainer';
-
-// ── Lazy-load html5-qrcode ──────────────────────────────────────────────────
-let html5QrcodePromise = null;
-const getHtml5QrcodeModule = () => {
-    if (html5QrcodePromise) return html5QrcodePromise;
-    html5QrcodePromise = import('html5-qrcode').then(mod => mod);
-    return html5QrcodePromise;
-};
+// \u2500\u2500 Native camera scanner (replaces html5-qrcode) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 // ── MRP Resolution (Priority: customSellingPrice → sellingPrice → mrp) ─────
 const resolvePrice = (item) => {
@@ -107,13 +100,12 @@ const ScanItem = () => {
     const [customersLoading, setCustomersLoading] = useState(false);
 
     // Scanner refs
-    const scannerRef = useRef(null);
-    const isStartedRef = useRef(false);
-    const isStoppingRef = useRef(false);
+    const streamRef = useRef(null);   // Active MediaStream
+    const videoRef = useRef(null);    // <video> element
+    const rafRef = useRef(null);      // requestAnimationFrame handle
     const mountedRef = useRef(true);
     const fileInputRef = useRef(null);
     const manualInputRef = useRef(null);
-    const camDivId = `qr-cam-page-${useId()}`;
     const camRetryRef = useRef(0);
     const scanLockRef = useRef(false);
 
@@ -131,10 +123,9 @@ const ScanItem = () => {
 
     useEffect(() => {
         mountedRef.current = true;
-        getHtml5QrcodeModule();
         return () => {
             mountedRef.current = false;
-            safeStop();
+            stopStream();
         };
     }, []);
 
@@ -146,7 +137,6 @@ const ScanItem = () => {
     }, [activeTab]);
 
     // ── Camera helpers ─────────────────────────────────────────────────────────
-    const streamRef = useRef(null);
     const startingRef = useRef(false);
 
     // Unified camera error handler with detailed messages
@@ -195,24 +185,21 @@ const ScanItem = () => {
         }
     }, []);
 
-    // Stop any held media tracks before starting a new session
-    const stopHeldStream = useCallback(() => {
+    // Stop any held media tracks
+    const stopStream = useCallback(() => {
+        if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
         if (streamRef.current) {
-            try {
-                streamRef.current.getTracks().forEach(t => {
-                    t.stop();
-                    console.log('[Camera] Stopped held track:', t.kind, t.label);
-                });
-            } catch (_) {}
+            streamRef.current.getTracks().forEach(t => t.stop());
             streamRef.current = null;
         }
+        if (videoRef.current) { videoRef.current.srcObject = null; }
     }, []);
 
     // Called synchronously from user gesture — requests camera + enumerates
     const requestCameraPermission = useCallback(async () => {
         if (startingRef.current) return false;
         startingRef.current = true;
-        stopHeldStream();
+        stopStream();
         setCameraError('');
         try {
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -223,64 +210,39 @@ const ScanItem = () => {
 
             let stream;
             try {
-                // Attempt 1: Environment facing mode with ideal resolution
                 stream = await navigator.mediaDevices.getUserMedia({
                     video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
                 });
             } catch (err1) {
-                console.warn('[Camera] getUserMedia environment failed, trying user camera:', err1.name, err1.message);
                 try {
-                    // Attempt 2: User facing mode with ideal resolution
                     stream = await navigator.mediaDevices.getUserMedia({
                         video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }
                     });
                 } catch (err2) {
-                    console.warn('[Camera] getUserMedia user failed, trying unconstrained video:', err2.name, err2.message);
-                    // Attempt 3: Completely unconstrained video
-                    stream = await navigator.mediaDevices.getUserMedia({
-                        video: true
-                    });
+                    stream = await navigator.mediaDevices.getUserMedia({ video: true });
                 }
             }
 
-            streamRef.current = stream;
-            console.log('[Camera] getUserMedia OK — stream active');
-            // Enumerate cameras now that permission is granted (labels are populated)
+            // Enumerate cameras now that permission is granted
             const { rear, allCams } = await enumerateCameras();
-            console.log('[Camera] Permission state: granted | Rear cam:', rear?.label || 'none');
-            if (rear) {
-                setSelectedCamId(rear.deviceId);
-                console.log('[Camera] Selected rear camera:', rear.deviceId.slice(0, 16) + '…');
-            } else if (allCams.length > 0) {
-                setSelectedCamId(allCams[0].deviceId);
-                console.log('[Camera] No rear cam found, using first:', allCams[0].deviceId.slice(0, 16) + '…');
-            }
+            if (rear) setSelectedCamId(rear.deviceId);
+            else if (allCams.length > 0) setSelectedCamId(allCams[0].deviceId);
             setCameras(allCams);
-            // Release our stream so html5-qrcode can acquire it
-            stopHeldStream();
+            // Release the test stream; startCamera will open a fresh one
+            stream.getTracks().forEach(t => t.stop());
             return true;
         } catch (err) {
-            console.error('[Camera] getUserMedia error:', err.name, err.message, err.stack);
             handleCameraError(err);
             return false;
         } finally {
             startingRef.current = false;
         }
-    }, [enumerateCameras, stopHeldStream, handleCameraError]);
+    }, [enumerateCameras, stopStream, handleCameraError]);
 
-    const safeStop = useCallback(async () => {
-        stopHeldStream();
-        const qr = scannerRef.current;
-        if (!qr || !isStartedRef.current || isStoppingRef.current) return;
-        isStoppingRef.current = true;
+    const safeStop = useCallback(() => {
+        stopStream();
         scanLockRef.current = false;
-        try { await qr.stop(); } catch (e) { console.warn('Camera stop error:', e); }
-        finally {
-            isStartedRef.current = false;
-            isStoppingRef.current = false;
-            scannerRef.current = null;
-        }
-    }, [stopHeldStream]);
+    }, [stopStream]);
 
 
     // ── Lookup ─────────────────────────────────────────────────────────────────
@@ -315,157 +277,104 @@ const ScanItem = () => {
         }
     }, []);
 
-    // ── Camera start ───────────────────────────────────────────────────────────
+    // ── Camera start (native getUserMedia + jsQR frame scan) ──────────────────
     const startCamera = useCallback(async () => {
         if (!mountedRef.current || activeTab !== 'camera' || !isCamActive) return;
-        if (startingRef.current) { console.warn('[Camera] Already starting — skipping'); return; }
+        if (startingRef.current) return;
         startingRef.current = true;
-        await safeStop();
+        stopStream();
         setCameraError('');
         setScanState('scanning');
 
         try {
-            const mod = await getHtml5QrcodeModule();
-            if (!mod || !mountedRef.current) return;
-            const { Html5Qrcode } = mod;
-            const qr = new Html5Qrcode(camDivId, { verbose: false });
-            scannerRef.current = qr;
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                const err = new Error('Camera API (getUserMedia) is not supported by this browser or connection. HTTPS is required.');
+                err.name = 'NotSupportedError';
+                throw err;
+            }
 
-            const config = {
-                fps: 10,
-                qrbox: { width: 220, height: 220 },
-                aspectRatio: 1.0
-            };
+            // Determine camera constraints
+            const constraints = selectedCamId
+                ? { video: { deviceId: { exact: selectedCamId } } }
+                : { video: { facingMode: { ideal: 'environment' } } };
 
-            const tryStart = (cameraId, currentConfig = config) => qr.start(
-                cameraId,
-                currentConfig,
-                (text) => {
-                    if (scanLockRef.current) return;
-                    scanLockRef.current = true;
-                    const normalized = normalizeCode(text);
-                    if (normalized) {
-                        handleLookup(normalized);
-                        setIsCamActive(false);
-                    } else {
-                        scanLockRef.current = false;
-                    }
-                },
-                () => {}
-            );
-
-            const tryStartWithFallback = async (cameraIdOrConfig) => {
+            let stream;
+            try {
+                stream = await navigator.mediaDevices.getUserMedia(constraints);
+            } catch {
                 try {
-                    await tryStart(cameraIdOrConfig, config);
-                } catch (err) {
-                    const isOverconstrained = err?.name === 'OverconstrainedError' || err?.name === 'ConstraintNotSatisfiedError';
-                    if (isOverconstrained) {
-                        console.warn('[Camera] OverconstrainedError, retrying without aspectRatio constraint:', err.message);
-                        await tryStart(cameraIdOrConfig, { fps: 10, qrbox: { width: 220, height: 220 } });
-                    } else {
-                        throw err;
-                    }
-                }
-            };
-
-            // Device-ID based start (most reliable on Android)
-            let lastErr = null;
-            const cameraId = selectedCamId;
-            if (cameraId) {
-                console.log('[Camera] Starting with device ID:', cameraId.slice(0, 16) + '…');
-                try {
-                    await tryStartWithFallback(cameraId);
-                    lastErr = null;
-                } catch (err) {
-                    console.warn('[Camera] Device-ID start failed:', err.name, err.message);
-                    lastErr = err;
+                    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+                } catch {
+                    stream = await navigator.mediaDevices.getUserMedia({ video: true });
                 }
             }
 
-            // Fallback 1: environment facing mode
-            if (lastErr) {
-                console.log('[Camera] Fallback to facingMode: environment');
-                try {
-                    await tryStartWithFallback({ facingMode: 'environment' });
-                    lastErr = null;
-                } catch (err) {
-                    console.warn('[Camera] environment fallback failed:', err.name, err.message);
-                    lastErr = err;
-                }
-            }
+            if (!mountedRef.current) { stream.getTracks().forEach(t => t.stop()); return; }
 
-            // Fallback 2: user facing mode
-            if (lastErr) {
-                console.log('[Camera] Fallback to facingMode: user');
-                try {
-                    await tryStartWithFallback({ facingMode: 'user' });
-                    lastErr = null;
-                } catch (err) {
-                    console.warn('[Camera] user fallback failed:', err.name, err.message);
-                    lastErr = err;
-                }
-            }
+            streamRef.current = stream;
+            const video = videoRef.current;
+            if (!video) { stream.getTracks().forEach(t => t.stop()); return; }
+            video.srcObject = stream;
+            await video.play().catch(() => {});
 
-            // Fallback 3: any enumerated camera device ID
-            if (lastErr) {
-                console.log('[Camera] Fallback to any enumerated camera device ID');
-                try {
-                    const devices = await Html5Qrcode.getCameras();
-                    if (devices && devices.length > 0) {
-                        const fallbackCamId = devices[0].id;
-                        console.log('[Camera] Attempting start with fallback camera device ID:', fallbackCamId.slice(0, 16) + '…');
-                        try {
-                            await tryStartWithFallback(fallbackCamId);
-                            lastErr = null;
-                        } catch (err) {
-                            console.warn('[Camera] Fallback camera device ID start failed:', err.name, err.message);
-                            lastErr = err;
+            // Load jsqr in parallel
+            const jsQR = await import('jsqr').then(m => m.default);
+
+            if (!mountedRef.current) { stopStream(); return; }
+
+            // Frame scan loop
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+            const scanFrame = () => {
+                if (!mountedRef.current || !isCamActive) return;
+                if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'attemptBoth' });
+                    if (code && !scanLockRef.current) {
+                        const normalized = normalizeCode(code.data);
+                        if (normalized) {
+                            scanLockRef.current = true;
+                            stopStream();
+                            handleLookup(normalized);
+                            setIsCamActive(false);
+                            return;
                         }
-                    } else {
-                        console.warn('[Camera] No cameras found during fallback enumeration');
                     }
-                } catch (err) {
-                    console.warn('[Camera] Enumeration inside startCamera failed:', err.name, err.message);
-                    lastErr = err;
                 }
-            }
-
-            if (lastErr) {
-                // Retry on NotReadableError (often false positive on Android)
-                const isNotReadable = lastErr?.name === 'NotReadableError' || lastErr?.name === 'TrackStartError';
-                if (isNotReadable && camRetryRef.current < 3) {
-                    camRetryRef.current += 1;
-                    console.warn(`[Camera] NotReadable retry ${camRetryRef.current}/3 after ${800 * camRetryRef.current}ms`);
-                    await new Promise(r => setTimeout(r, 800 * camRetryRef.current));
-                    startingRef.current = false;
-                    return startCamera();
-                }
-                throw lastErr;
-            }
-
+                rafRef.current = requestAnimationFrame(scanFrame);
+            };
+            rafRef.current = requestAnimationFrame(scanFrame);
             camRetryRef.current = 0;
-            isStartedRef.current = true;
-            console.log('[Camera] Started successfully');
         } catch (err) {
             if (!mountedRef.current) return;
+            // Retry on NotReadableError (transient on Android)
+            const isNotReadable = err?.name === 'NotReadableError' || err?.name === 'TrackStartError';
+            if (isNotReadable && camRetryRef.current < 3) {
+                camRetryRef.current += 1;
+                await new Promise(r => setTimeout(r, 800 * camRetryRef.current));
+                startingRef.current = false;
+                return startCamera();
+            }
             handleCameraError(err, 'startCamera');
             setIsCamActive(false);
             setScanState('idle');
-            isStartedRef.current = false;
-            scannerRef.current = null;
             camRetryRef.current = 0;
         } finally {
             startingRef.current = false;
         }
-    }, [activeTab, isCamActive, selectedCamId, safeStop, handleLookup, handleCameraError]);
+    }, [activeTab, isCamActive, selectedCamId, stopStream, handleLookup, handleCameraError]);
 
     useEffect(() => {
         if (activeTab === 'camera' && isCamActive) startCamera();
-        else safeStop();
+        else stopStream();
     }, [activeTab, isCamActive, selectedCamId]);
 
     useEffect(() => {
-        if (activeTab !== 'camera') { safeStop(); setScanState('idle'); }
+        if (activeTab !== 'camera') { stopStream(); setScanState('idle'); }
     }, [activeTab]);
 
     // ── File scan ──────────────────────────────────────────────────────────────
@@ -787,7 +696,13 @@ const ScanItem = () => {
                                 )}
 
                                 <div className={`si-viewport ${!isCamActive ? 'si-viewport--off' : ''}`}>
-                                    <div id={camDivId} className="si-video-container" />
+                                    <video
+                                        ref={videoRef}
+                                        playsInline
+                                        muted
+                                        className="si-video-container"
+                                        style={{ display: 'block', width: '100%' }}
+                                    />
 
                                     {/* Scan overlay when active */}
                                     {isCamActive && (

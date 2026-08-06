@@ -237,9 +237,8 @@ export default defineConfig({
             
             // qr-vendor (QR code generation/scanning, used on demand)
             if (
-              path.startsWith('qrcode/') ||
-              path.startsWith('jsqr/') ||
-              path.startsWith('html5-qrcode/')
+              path.startsWith('qr-creator/') ||
+              path.startsWith('jsqr/')
             ) {
               return 'qr-vendor';
             }

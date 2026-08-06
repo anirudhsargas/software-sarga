@@ -22,7 +22,7 @@ import { formatForDisplay } from '../utils/phone';
 import SectionErrorBoundary from '../components/SectionErrorBoundary';
 import PageContainer from '../components/ui/PageContainer';
 import NoInternetState from '../components/NoInternetState';
-import QRCode from 'qrcode';
+// qrcode replaced with lightweight qr-creator (loaded on demand)
 
 const ReceiptModal = lazyWithRetry(() => import('../components/ReceiptModal'));
 
@@ -1288,8 +1288,10 @@ const CustomerPayments = () => {
                       onClick={async () => {
                         try {
                           const upiLink = `upi://pay?pa=${encodeURIComponent(branchUpiId)}&pn=${encodeURIComponent('SARGA DIGITAL PRESS')}&am=${Number(payment.methodAmounts.UPI).toFixed(2)}&cu=INR&tn=Payment`;
-                          const url = await QRCode.toDataURL(upiLink, { width: 300, margin: 2 });
-                          setUpiQrDataUrl(url);
+                          const { default: QrCreator } = await import('qr-creator');
+                          const canvas = document.createElement('canvas');
+                          QrCreator.render({ text: upiLink, radius: 0.0, ecLevel: 'M', fill: '#000000', background: '#ffffff', size: 300 }, canvas);
+                          setUpiQrDataUrl(canvas.toDataURL('image/png'));
                           setShowUpiQr(true);
                         } catch { toast.error('Failed to generate QR code'); }
                       }}

@@ -651,7 +651,7 @@
 }
 
 .customer-outstanding--partial {
-  color: var(--warning);
+  color: #9a6300;
 }
 
 .customer-outstanding--due {

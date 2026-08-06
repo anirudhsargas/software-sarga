@@ -399,7 +399,7 @@ router.get('/:id', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant',
         );
 
         // Fetch recent readings (last 30 days)
-        const [readings] = await pool.query(
+        const [readingsRaw] = await pool.query(
             `SELECT mr.*, s.name as created_by_name
              FROM sarga_machine_readings mr
              LEFT JOIN sarga_staff s ON mr.created_by = s.id
@@ -407,6 +407,11 @@ router.get('/:id', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant',
              ORDER BY mr.reading_date DESC LIMIT 30`,
             [id]
         );
+        // Clamp total_copies so closing - opening never shows a negative value.
+        const readings = readingsRaw.map(r => ({
+            ...r,
+            total_copies: r.closing_count != null ? Math.max(0, Number(r.closing_count) - Number(r.opening_count)) : 0
+        }));
 
         // Fetch today's reading
         const today = new Date().toISOString().split('T')[0];
@@ -450,7 +455,7 @@ router.get('/:id', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant',
                 mr.reading_date,
                 mr.opening_count,
                 mr.closing_count,
-                (COALESCE(mr.closing_count, 0) - mr.opening_count) as total_copies,
+                GREATEST(0, COALESCE(mr.closing_count, 0) - mr.opening_count) as total_copies,
                 COALESCE(SUM(mwe.total_amount), 0) as day_revenue,
                 COALESCE(SUM(mwe.copies), 0) as work_copies,
                 COUNT(mwe.id) as work_entries_count
@@ -504,11 +509,27 @@ router.get('/:id', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant',
             [id, monthStartStr]
         );
 
+        // Total copies = closing - opening (never negative).
+        // If closing is not marked yet, fall back to the system total (sum of today's work entry copies).
+        const systemTodayCopies = todayWork.reduce((s, w) => s + Number(w.copies || 0), 0);
+        let today_reading = null;
+        if (todayReading.length > 0) {
+            const r = todayReading[0];
+            const closing = r.closing_count;
+            today_reading = {
+                ...r,
+                total_copies: closing != null
+                    ? Math.max(0, Number(closing) - Number(r.opening_count))
+                    : systemTodayCopies,
+                system_copies: systemTodayCopies
+            };
+        }
+
         res.json({
             ...machine,
             assigned_staff: assignedStaff,
             readings,
-            today_reading: todayReading.length > 0 ? todayReading[0] : null,
+            today_reading,
             expected_opening_count: expectedOpeningCount,
             pending_count_requests: pendingCountRequests,
             today_work: todayWork,
@@ -811,8 +832,8 @@ router.post('/:id/readings', auth.authenticate, async (req, res) => {
                     return res.status(400).json({ error: `Waste prints (${wastePrints}) + proof prints (${proofPrints}) cannot exceed total copies (${totalCopies})` });
                 }
                 await pool.query(
-                    `UPDATE sarga_machine_readings SET closing_count = ?, waste_prints = ?, proof_prints = ?, notes = NULL, updated_by = ? WHERE id = ?`,
-                    [closeCount, wastePrints, proofPrints, req.user.id, existing[0].id]
+                    `UPDATE sarga_machine_readings SET closing_count = ?, total_copies = ?, waste_prints = ?, proof_prints = ?, notes = NULL, updated_by = ? WHERE id = ?`,
+                    [closeCount, totalCopies, wastePrints, proofPrints, req.user.id, existing[0].id]
                 );
                 // Sync waste/proof to daily report
                 await pool.query(
@@ -871,16 +892,17 @@ router.post('/:id/readings', auth.authenticate, async (req, res) => {
         }
 
         await pool.query(
-            `INSERT INTO sarga_machine_readings (machine_id, reading_date, opening_count, closing_count, waste_prints, proof_prints, notes, created_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `INSERT INTO sarga_machine_readings (machine_id, reading_date, opening_count, closing_count, total_copies, waste_prints, proof_prints, notes, created_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE
                 opening_count = VALUES(opening_count),
                 closing_count = VALUES(closing_count),
+                total_copies = VALUES(total_copies),
                 waste_prints = VALUES(waste_prints),
                 proof_prints = VALUES(proof_prints),
                 notes = VALUES(notes),
                 updated_by = VALUES(created_by)`,
-            [id, reading_date, openCount, closeCount, wastePrints, proofPrints, notes || null, req.user.id]
+            [id, reading_date, openCount, closeCount, totalCopies, wastePrints, proofPrints, notes || null, req.user.id]
         );
         // Sync waste/proof to daily report master
         await pool.query(
@@ -1070,7 +1092,7 @@ router.get('/:id/production-summary', auth.authenticate, auth.authorizeRoles('Ad
                 mr.reading_date,
                 mr.opening_count,
                 mr.closing_count,
-                (COALESCE(mr.closing_count, 0) - mr.opening_count) as total_copies,
+                GREATEST(0, COALESCE(mr.closing_count, 0) - mr.opening_count) as total_copies,
                 COALESCE(mr.waste_prints, 0) as waste_prints,
                 COALESCE(mr.proof_prints, 0) as proof_prints,
                 GREATEST(0, COALESCE(mr.closing_count, 0) - mr.opening_count - COALESCE(mr.waste_prints, 0) - COALESCE(mr.proof_prints, 0)) as good_prints,
@@ -1298,7 +1320,7 @@ router.get('/:id/meter-comparison', auth.authenticate, auth.authorizeRoles('Admi
         
         // Get count requests for this machine (mismatches)
         const [requests] = await pool.query(
-            `SELECT mcr.*, mr.opening_count, mr.closing_count, (COALESCE(mr.closing_count, 0) - mr.opening_count) as total_copies,
+            `SELECT mcr.*, mr.opening_count, mr.closing_count, GREATEST(0, COALESCE(mr.closing_count, 0) - mr.opening_count) as total_copies,
                     s.name as submitted_by_name, rev.name as reviewed_by_name
              FROM sarga_machine_count_requests mcr
              LEFT JOIN sarga_machine_readings mr ON mcr.machine_id = mr.machine_id AND mcr.reading_date = mr.reading_date

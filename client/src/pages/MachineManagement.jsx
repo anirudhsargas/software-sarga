@@ -478,6 +478,7 @@ const MachineManagement = () => {
 
     const fmt = (n) => Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 0 });
     const fmtCur = formatCurrencyDecimal;
+    const systemTodayCopies = (machineDetails?.today_work || []).reduce((s, w) => s + (Number(w.copies) || 0), 0);
 
     const filteredMachines = filterType === 'All'
         ? machines
@@ -659,6 +660,11 @@ const MachineManagement = () => {
                                         parseInt(readingForm.closing_count) > parseInt(readingForm.opening_count) && (
                                         <div className="mm-reading-hint mm-reading-hint--accent">
                                             Total: {(parseInt(readingForm.closing_count) - parseInt(readingForm.opening_count)).toLocaleString('en-IN')}
+                                        </div>
+                                    )}
+                                    {readingForm.closing_count === '' && systemTodayCopies > 0 && (
+                                        <div className="mm-reading-hint mm-reading-hint--accent">
+                                            System Total: {systemTodayCopies.toLocaleString('en-IN')}
                                         </div>
                                     )}
                                 </div>

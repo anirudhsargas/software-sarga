@@ -115,7 +115,7 @@ async function fetchLaserData(date, branchId) {
 
     if (machineIds.length > 0) {
         const [readingRows] = await pool.query(
-            `SELECT mr.machine_id, mr.opening_count, mr.closing_count, mr.total_copies FROM sarga_machine_readings mr WHERE mr.reading_date = ? AND mr.machine_id IN (${machineIds.map(() => '?').join(',')})`,
+            `SELECT mr.machine_id, mr.opening_count, mr.closing_count, GREATEST(0, COALESCE(mr.closing_count, 0) - mr.opening_count) as total_copies FROM sarga_machine_readings mr WHERE mr.reading_date = ? AND mr.machine_id IN (${machineIds.map(() => '?').join(',')})`,
             [date, ...machineIds]
         );
         readings = readingRows;

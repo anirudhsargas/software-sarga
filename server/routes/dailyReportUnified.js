@@ -665,7 +665,7 @@ router.get('/laser-live', auth.authenticate, auth.authorizeRoles('Admin', 'Accou
         let readings = [];
         if (machineIds.length > 0) {
             const [readingRows] = await pool.query(
-                `SELECT mr.machine_id, mr.opening_count, mr.closing_count, (COALESCE(mr.closing_count, 0) - mr.opening_count) as total_copies,
+                `SELECT mr.machine_id, mr.opening_count, mr.closing_count, GREATEST(0, COALESCE(mr.closing_count, 0) - mr.opening_count) as total_copies,
                         COALESCE(mr.waste_prints, 0) as waste_prints, COALESCE(mr.proof_prints, 0) as proof_prints
                  FROM sarga_machine_readings mr
                  WHERE mr.reading_date = ? AND mr.machine_id IN (${machineIds.map(() => '?').join(',')})`,
@@ -788,6 +788,20 @@ router.get('/laser-live', auth.authenticate, auth.authorizeRoles('Admin', 'Accou
                 }
             }
         }
+
+        // Fallback: when a machine's reading has no closing count yet, show the system total
+        // (sum of today's work-entry copies) instead of 0 / negative meter difference.
+        const systemCopiesByMachine = {};
+        workEntries.forEach(e => {
+            if (e.machine_id != null) {
+                systemCopiesByMachine[e.machine_id] = (systemCopiesByMachine[e.machine_id] || 0) + Number(e.copies || 0);
+            }
+        });
+        machineData.forEach(m => {
+            if (m.closing_count === null) {
+                m.today_copies = systemCopiesByMachine[m.id] || 0;
+            }
+        });
 
         // 4. Billing payments tagged as Laser (from customer_payments)
         const [laserPayments] = await pool.query(
@@ -1296,7 +1310,7 @@ router.get('/live-counts', auth.authenticate, auth.authorizeRoles('Admin', 'Acco
 
         // Machine readings total copies today
         const [[machineCopies]] = await pool.query(
-            `SELECT COALESCE(SUM(COALESCE(mr.closing_count, 0) - mr.opening_count), 0) as total
+            `SELECT COALESCE(SUM(GREATEST(0, COALESCE(mr.closing_count, 0) - mr.opening_count)), 0) as total
              FROM sarga_machine_readings mr
              JOIN sarga_machines m ON mr.machine_id = m.id
              WHERE mr.reading_date = ? AND m.branch_id = ? AND m.machine_type = 'Digital'`,
