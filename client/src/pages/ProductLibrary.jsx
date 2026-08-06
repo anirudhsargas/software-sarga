@@ -540,32 +540,39 @@ const ProductLibrary = () => {
     const knownCompanies = React.useMemo(() => {
         const map = new Map();
         
-        // 1. Collect from existing product hierarchy
+        // 1. Collect from global vendors first (since they have official vendor_codes)
+        vendors.forEach(v => {
+            const name = (v.name || '').trim();
+            if (name) {
+                const code = (v.vendor_code || v.code || name.replace(/[^A-Z0-9]/g, '').substring(0, 3)).toUpperCase();
+                map.set(name.toUpperCase(), {
+                    name: name,
+                    code: code
+                });
+            }
+        });
+        
+        // 2. Collect from existing product hierarchy (only if not already added by vendors)
         hierarchy.forEach(cat =>
             cat.subcategories?.forEach(sub =>
                 sub.products?.forEach(p => {
-                    if (p.company_name && !map.has(p.company_name.toUpperCase())) {
-                        map.set(p.company_name.toUpperCase(), {
-                            name: p.company_name,
-                            code: p.company_code || ''
-                        });
+                    const name = (p.company_name || '').trim();
+                    if (name) {
+                        const normalizedName = name.toUpperCase();
+                        const existing = map.get(normalizedName);
+                        if (!existing) {
+                            map.set(normalizedName, {
+                                name: p.company_name,
+                                code: (p.company_code || name.replace(/[^A-Z0-9]/g, '').substring(0, 3)).toUpperCase()
+                            });
+                        } else if (!existing.code && p.company_code) {
+                            // Update code if it was missing
+                            existing.code = p.company_code.toUpperCase();
+                        }
                     }
                 })
             )
         );
-
-        // 2. Collect from global vendors (e.g. from Expense Manager)
-        vendors.forEach(v => {
-            const name = (v.name || '').trim();
-            if (name && !map.has(name.toUpperCase())) {
-                // If it's a new brand from the vendor list, we can suggest a code
-                const guessCode = name.replace(/[^A-Z0-9]/g, '').substring(0, 3).toUpperCase();
-                map.set(name.toUpperCase(), {
-                    name: name,
-                    code: guessCode
-                });
-            }
-        });
 
         return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
     }, [hierarchy, vendors]);
@@ -594,6 +601,22 @@ const ProductLibrary = () => {
         if (codeTimerRef.current) clearTimeout(codeTimerRef.current);
         const cleaned = (companyName || '').replace(/[^A-Z0-9]/gi, '');
         if (cleaned.length < 2) return;
+
+        // Try local matching first
+        const normalizedInput = companyName.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const localMatch = knownCompanies.find(c => c.name.toUpperCase().replace(/[^A-Z0-9]/g, '') === normalizedInput);
+        if (localMatch && localMatch.code) {
+            setNewProduct(prev => {
+                if (prev.isManualCompanyCode) return prev;
+                return {
+                    ...prev,
+                    company_code: localMatch.code,
+                    product_code: buildAutoSku(localMatch.code, prev.name, prev.size)
+                };
+            });
+            return;
+        }
+
         codeTimerRef.current = setTimeout(async () => {
             try {
                 const res = await api.get('/unique-company-code', { params: { name: companyName } });
@@ -619,7 +642,7 @@ const ProductLibrary = () => {
                 });
             }
         }, 400);
-    }, []);
+    }, [knownCompanies, buildAutoSku]);
 
     const hasProductChanges = () => {
         if (!isEditing || !originalProduct) return true;

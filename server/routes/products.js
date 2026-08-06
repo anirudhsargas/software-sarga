@@ -390,8 +390,17 @@ module.exports = (upload, removeUploadFile) => {
         if (!name) return res.json({ code: '' });
 
         try {
-            const [rows] = await pool.query(`SELECT DISTINCT source_code FROM sarga_inventory WHERE source_code IS NOT NULL AND source_code != ''`);
-            const usedCodes = new Set(rows.map(r => r.source_code.toUpperCase()));
+            // First: check if there's a vendor with this name in the database
+            const [vendorRows] = await pool.query(
+                `SELECT vendor_code FROM vendors WHERE LOWER(TRIM(name)) = LOWER(?) LIMIT 1`,
+                [rawName]
+            );
+            if (vendorRows.length > 0 && vendorRows[0].vendor_code) {
+                return res.json({ code: vendorRows[0].vendor_code.toUpperCase() });
+            }
+
+            const [rows] = await pool.query(`SELECT DISTINCT company_code FROM sarga_products WHERE company_code IS NOT NULL AND company_code != ''`);
+            const usedCodes = new Set(rows.map(r => r.company_code.toUpperCase()));
 
             // Strategy 1: first 3 letters
             const base3 = name.substring(0, 3);
@@ -731,8 +740,8 @@ module.exports = (upload, removeUploadFile) => {
         const checkCompCode = String(company_code || '').trim();
 
         if (checkName) {
-            let dupQuery = "SELECT id FROM sarga_products WHERE LOWER(TRIM(name)) = LOWER(?) AND is_deleted = 0";
-            let dupParams = [checkName];
+            let dupQuery = "SELECT id FROM sarga_products WHERE LOWER(TRIM(name)) = LOWER(?) AND subcategory_id = ? AND is_deleted = 0";
+            let dupParams = [checkName, subcategory_id];
 
             if (checkCompName || checkCompCode) {
                 dupQuery += " AND (";
@@ -926,9 +935,11 @@ module.exports = (upload, removeUploadFile) => {
         const checkCompName = String(company_name !== undefined ? company_name : product.company_name || '').trim();
         const checkCompCode = String(company_code !== undefined ? company_code : product.company_code || '').trim();
 
+        const subcategoryId = subcategory_id !== undefined ? subcategory_id : product.subcategory_id;
+
         if (checkName) {
-            let dupQuery = "SELECT id FROM sarga_products WHERE LOWER(TRIM(name)) = LOWER(?) AND id != ? AND is_deleted = 0";
-            let dupParams = [checkName, id];
+            let dupQuery = "SELECT id FROM sarga_products WHERE LOWER(TRIM(name)) = LOWER(?) AND subcategory_id = ? AND id != ? AND is_deleted = 0";
+            let dupParams = [checkName, subcategoryId, id];
 
             if (checkCompName || checkCompCode) {
                 dupQuery += " AND (";
@@ -1596,9 +1607,11 @@ module.exports = (upload, removeUploadFile) => {
                 const checkCompName = String(proposedData.company_name !== undefined ? proposedData.company_name : product.company_name || '').trim();
                 const checkCompCode = String(proposedData.company_code !== undefined ? proposedData.company_code : product.company_code || '').trim();
 
+                const subcategoryId = proposedData.subcategory_id !== undefined ? proposedData.subcategory_id : product.subcategory_id;
+
                 if (checkName) {
-                    let dupQuery = "SELECT id FROM sarga_products WHERE LOWER(TRIM(name)) = LOWER(?) AND id != ? AND is_deleted = 0";
-                    let dupParams = [checkName, productId];
+                    let dupQuery = "SELECT id FROM sarga_products WHERE LOWER(TRIM(name)) = LOWER(?) AND subcategory_id = ? AND id != ? AND is_deleted = 0";
+                    let dupParams = [checkName, subcategoryId, productId];
 
                     if (checkCompName || checkCompCode) {
                         dupQuery += " AND (";
@@ -1807,8 +1820,8 @@ module.exports = (upload, removeUploadFile) => {
                         const checkCompCode = String(proposed.company_code || '').trim();
 
                         if (checkName) {
-                            let dupQuery = "SELECT id FROM sarga_products WHERE LOWER(TRIM(name)) = LOWER(?) AND is_deleted = 0";
-                            let dupParams = [checkName];
+                            let dupQuery = "SELECT id FROM sarga_products WHERE LOWER(TRIM(name)) = LOWER(?) AND subcategory_id = ? AND is_deleted = 0";
+                            let dupParams = [checkName, proposed.subcategory_id];
 
                             if (checkCompName || checkCompCode) {
                                 dupQuery += " AND (";
@@ -1919,9 +1932,11 @@ module.exports = (upload, removeUploadFile) => {
                         const checkCompName = String(proposed.company_name !== undefined ? proposed.company_name : current.company_name || '').trim();
                         const checkCompCode = String(proposed.company_code !== undefined ? proposed.company_code : current.company_code || '').trim();
 
+                        const subcategoryId = proposed.subcategory_id !== undefined ? proposed.subcategory_id : current.subcategory_id;
+
                         if (checkName) {
-                            let dupQuery = "SELECT id FROM sarga_products WHERE LOWER(TRIM(name)) = LOWER(?) AND id != ? AND is_deleted = 0";
-                            let dupParams = [checkName, prodId];
+                            let dupQuery = "SELECT id FROM sarga_products WHERE LOWER(TRIM(name)) = LOWER(?) AND subcategory_id = ? AND id != ? AND is_deleted = 0";
+                            let dupParams = [checkName, subcategoryId, prodId];
 
                             if (checkCompName || checkCompCode) {
                                 dupQuery += " AND (";

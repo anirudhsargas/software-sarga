@@ -57,6 +57,40 @@ const isMachineCountLine = (line) =>
     /(photocopy|xerox)/i.test(String(line.category_name || ''))
   );
 
+const getRequiredMachineCategory = (line) => {
+  if (!line) return null;
+  const catName = String(line.category_name || '').toLowerCase();
+  if (/(colour|color)/i.test(catName) && /(photocopy|xerox)/i.test(catName)) {
+    return 'Colour Photocopy';
+  }
+  if (/(photocopy|xerox)/i.test(catName)) {
+    return 'Photocopy';
+  }
+  if (String(line.book_type || '').toLowerCase() === 'laser' || /laser/i.test(catName)) {
+    return 'Laser';
+  }
+  return null;
+};
+
+const matchMachineForLine = (m, line) => {
+  if (!m || !line) return false;
+  if (!m.is_active) return false;
+  const requiredCat = getRequiredMachineCategory(line);
+  if (!requiredCat) return false;
+  const mCat = String(m.machine_category || '').trim();
+  const mBookType = String(m.book_type || '').trim().toLowerCase();
+  if (requiredCat === 'Laser') {
+    return mCat === 'Laser' || mBookType === 'laser';
+  }
+  if (requiredCat === 'Photocopy') {
+    return mCat === 'Photocopy';
+  }
+  if (requiredCat === 'Colour Photocopy') {
+    return mCat === 'Colour Photocopy';
+  }
+  return false;
+};
+
 const defaultPayment = () => ({
   selectedMethods: ['Cash'],
   methodAmounts: { Cash: 0, UPI: 0, Cheque: 0, 'Account Transfer': 0 },
@@ -1909,7 +1943,7 @@ const Billing = () => {
                               >
                                 <option value="">-- Select Machine --</option>
                                 {branchMachines
-                                  .filter((m) => m.is_active && (m.book_type === 'Laser' || m.machine_type === 'Digital'))
+                                  .filter((m) => matchMachineForLine(m, line))
                                   .map((m) => (
                                     <option key={m.id} value={m.id}>
                                       {m.machine_name}
@@ -2264,7 +2298,7 @@ const Billing = () => {
                     >
                       <option value="">-- Select Machine --</option>
                       {branchMachines
-                        .filter((m) => m.is_active && (m.book_type === 'Laser' || m.machine_type === 'Digital'))
+                        .filter((m) => matchMachineForLine(m, line))
                         .map((m) => (
                           <option key={m.id} value={m.id}>
                             {m.machine_name}
@@ -3086,7 +3120,7 @@ const Billing = () => {
                   >
                     <option value="">-- Select Machine --</option>
                     {branchMachines
-                      .filter((m) => m.is_active && (m.book_type === 'Laser' || m.machine_type === 'Digital'))
+                      .filter((m) => matchMachineForLine(m, line))
                       .map((m) => (
                         <option key={m.id} value={m.id}>
                           {m.machine_name}
