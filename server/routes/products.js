@@ -74,7 +74,7 @@ module.exports = (upload, removeUploadFile) => {
             if (parts.length > 0) sku = `${parts.join('-')}-${productId}`;
         }
 
-        const sourceCode = String(companyCode || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '') || null;
+        const sourceCode = String(companyCode || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 50) || null;
         const sizeCode = String(size || '').trim().toUpperCase() || null;
 
         const [invResult] = await pool.query(
@@ -179,7 +179,7 @@ module.exports = (upload, removeUploadFile) => {
             sku = `${catPart}-${String(inventoryId).padStart(4, '0')}`;
         }
 
-        const sourceCode = String(companyCode || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 20) || null;
+        const sourceCode = String(companyCode || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 50) || null;
         const sizeCode = String(size || '').trim().toUpperCase() || null;
 
         // Update the inventory item
