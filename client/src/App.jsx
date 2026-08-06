@@ -150,7 +150,7 @@ const ConnectingScreen = () => (
     <div>
       <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>Waking up the server…</h2>
       <p style={{ margin: '6px 0 0', fontSize: 14, color: 'var(--muted,#6c757d)' }}>
-        This may take up to a minute on the first request.
+        This may take a few moments on the first request. You'll continue automatically.
       </p>
     </div>
   </div>
@@ -208,11 +208,21 @@ function App() {
     // Remove splash screen after app mounts
     document.body.classList.add('loaded');
 
-    // First ensure the backend is awake, then proceed with init
+    let cancelled = false;
+    const finishStartup = () => {
+      if (cancelled) return;
+      setServerStarting(false);
+      sessionStorage.removeItem('chunk-reload');
+    };
+
+    // First ensure the backend is awake, then proceed with init.
+    // The wait is bounded (see waitForServer) — we never want to block the
+    // whole app behind a cold server boot.
     (async () => {
       const ready = await waitForServer({
-        maxAttempts: 20,
-        initialDelayMs: 3000,
+        maxAttempts: 5,
+        initialDelayMs: 2000,
+        timeoutMs: 10000,
         onRetry: (delay, attempt) => {
           console.log(`[Server] Waiting for backend — attempt ${attempt}, retry in ${delay}ms`);
         },
@@ -220,9 +230,13 @@ function App() {
       if (!ready) {
         console.warn('[Server] Backend did not become healthy — continuing anyway');
       }
-      setServerStarting(false);
-      sessionStorage.removeItem('chunk-reload');
+      finishStartup();
     })();
+
+    // Hard fallback: never keep the user stuck on the warm-up screen, even
+    // if waitForServer somehow hangs. The app is offline-first and continues
+    // to work while the backend finishes booting.
+    const forceContinue = setTimeout(finishStartup, 30000);
 
     // Sync with server clock so staff cannot manipulate dates
     // (runs after waitForServer completes above)
@@ -270,6 +284,8 @@ function App() {
     }, 60000);
 
     return () => {
+      cancelled = true;
+      clearTimeout(forceContinue);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('pagehide', handlePageHide);

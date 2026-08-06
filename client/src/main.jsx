@@ -7,13 +7,46 @@ import "./styles/global-fixes.css";
 import App from "./App.jsx";
 import { API_URL } from "./services/api";
 
+// ── Auto-reload throttle ───────────────────────────
+// Every automatic reload path (service-worker takeover, stale chunk
+// detection, vite:preloadError) goes through allowAutoReload(). At most
+// 2 automatic reloads are permitted inside a 30s window; anything beyond
+// that is a pathological loop (SW churn, cached index.html pointing at
+// removed chunks, deploy mismatch) and must be stopped so the user is
+// never left on an endless refresh cycle.
+const RELOAD_KEY = 'sarga_chunk_reload';
+const RELOAD_WINDOW_MS = 30000;
+const RELOAD_MAX = 2;
+
+function getReloadCount() {
+  try {
+    const raw = sessionStorage.getItem(RELOAD_KEY);
+    if (!raw) return 0;
+    const data = JSON.parse(raw);
+    return Date.now() - data.t < RELOAD_WINDOW_MS ? data.c : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function setReloadCount(count) {
+  sessionStorage.setItem(RELOAD_KEY, JSON.stringify({ c: count, t: Date.now() }));
+}
+
+function allowAutoReload() {
+  const count = getReloadCount();
+  if (count >= RELOAD_MAX) return false;
+  setReloadCount(count + 1);
+  return true;
+}
+
 // Service worker — update detection via Workbox onNeedRefresh
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
-  let refreshing = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (refreshing) return;
-    refreshing = true;
-    window.location.reload();
+    // Only reload for a legitimate SW takeover, never in a loop.
+    if (allowAutoReload()) {
+      window.location.reload();
+    }
   });
 
   const updateSW = registerSW({
@@ -117,9 +150,12 @@ if (import.meta.env.PROD) {
 }
 
 // ── vite:preloadError — catches stale preload requests for chunk hashes
-// that were removed from the server after a new deployment.
+// that were removed from the server after a new deployment. Throttled so a
+// stale service worker / index.html can't loop reloads forever.
 window.addEventListener('vite:preloadError', () => {
-  window.location.reload();
+  if (allowAutoReload()) {
+    window.location.reload();
+  }
 });
 
 // Clear the chunk-reload flag on successful app load so it doesn't
@@ -179,53 +215,32 @@ window.addEventListener("error", (event) => {
   }
 }, true);
 
-const RELOAD_KEY = "sarga_chunk_reload";
-const RELOAD_WINDOW_MS = 30000;
-
-function getReloadCount() {
-  try {
-    const raw = sessionStorage.getItem(RELOAD_KEY);
-    if (!raw) return 0;
-    const data = JSON.parse(raw);
-    return Date.now() - data.t < RELOAD_WINDOW_MS ? data.c : 0;
-  } catch {
-    return 0;
-  }
-}
-
-function setReloadCount(count) {
-  sessionStorage.setItem(RELOAD_KEY, JSON.stringify({ c: count, t: Date.now() }));
-}
-
 function handleStaleChunk() {
-  const count = getReloadCount();
-  if (count < 2) {
-    setReloadCount(count + 1);
+  if (!allowAutoReload()) return;
 
-    const performCleanupAndReload = async () => {
-      if ("serviceWorker" in navigator) {
-        try {
-          const registrations = await navigator.serviceWorker.getRegistrations();
-          for (const r of registrations) {
-            await r.unregister();
-          }
-        } catch (e) {
-          console.error(e);
+  const performCleanupAndReload = async () => {
+    if ("serviceWorker" in navigator) {
+      try {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const r of registrations) {
+          await r.unregister();
         }
+      } catch (e) {
+        console.error(e);
       }
-      if ("caches" in window) {
-        try {
-          const names = await caches.keys();
-          await Promise.all(names.map(n => caches.delete(n)));
-        } catch (e) {
-          console.error(e);
-        }
+    }
+    if ("caches" in window) {
+      try {
+        const names = await caches.keys();
+        await Promise.all(names.map(n => caches.delete(n)));
+      } catch (e) {
+        console.error(e);
       }
-      window.location.reload();
-    };
+    }
+    window.location.reload();
+  };
 
-    performCleanupAndReload();
-  }
+  performCleanupAndReload();
 }
 
 // ── React Render ─────────────────────

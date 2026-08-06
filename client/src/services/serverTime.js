@@ -50,20 +50,26 @@ export async function checkHealth(timeoutMs = 8000) {
  * Resolves as soon as the server responds, rejects after max attempts.
  * Calls `onRetry(delayMs, attempt)` between each attempt so the caller
  * can update the UI.
+ *
+ * The budget is bounded on purpose: Render/railway free-tier cold boots
+ * can be slow, but we never want to block the whole app behind this for
+ * minutes. After ~maxAttempts the caller should continue with the
+ * offline-first app instead of waiting forever.
  */
 export async function waitForServer({
-    maxAttempts = 20,
-    initialDelayMs = 3000,
+    maxAttempts = 5,
+    initialDelayMs = 2000,
+    timeoutMs = 10000,
     onRetry = () => {}
 } = {}) {
     let delay = initialDelayMs;
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        const healthy = await checkHealth(8000);
+        const healthy = await checkHealth(timeoutMs);
         if (healthy) return true;
         if (attempt < maxAttempts) {
             onRetry(delay, attempt);
             await new Promise(r => setTimeout(r, delay));
-            delay = Math.min(delay * 1.3, 10000);
+            delay = Math.min(delay * 1.5, 5000);
         }
     }
     return false;
