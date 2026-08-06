@@ -780,6 +780,9 @@ module.exports = (upload, removeUploadFile) => {
                 return res.status(500).json({ message: 'Failed to upload image' });
             }
             imageUrl = cloudinaryResult.secure_url;
+        } else if (req.body.image_url) {
+            // Support copying an existing product image when duplicating a product.
+            imageUrl = req.body.image_url;
         }
 
         // Product creation no longer requires admin approval. Added products are inserted directly.

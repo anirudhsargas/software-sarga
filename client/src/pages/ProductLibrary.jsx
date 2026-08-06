@@ -519,7 +519,12 @@ const ProductLibrary = () => {
         result.sort((a, b) => {
             let av, bv;
             if (field === 'name') { av = (a.name || '').toLowerCase(); bv = (b.name || '').toLowerCase(); }
-            else if (field === 'price') { av = Number(a.sell_price || 0); bv = Number(b.sell_price || 0); }
+            else if (field === 'price') {
+                const aPrice = a.sell_price != null ? a.sell_price : (a.slabs && a.slabs.length > 0 ? a.slabs[0].unit_rate : 0);
+                const bPrice = b.sell_price != null ? b.sell_price : (b.slabs && b.slabs.length > 0 ? b.slabs[0].unit_rate : 0);
+                av = Number(aPrice || 0);
+                bv = Number(bPrice || 0);
+            }
             else if (field === 'created') { av = new Date(a.created_at || 0).getTime(); bv = new Date(b.created_at || 0).getTime(); }
             else return 0;
             return dir === 'asc' ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
@@ -840,7 +845,7 @@ const ProductLibrary = () => {
                 formData.append('inventory_item_id', newProduct.inventory_item_id);
             }
             if (productImage) formData.append('image', productImage);
-            else if (isEditing && newProduct.image_url) formData.append('image_url', newProduct.image_url);
+            else if (newProduct.image_url) formData.append('image_url', newProduct.image_url);
 
             let res;
             if (isEditing) {
@@ -1399,15 +1404,13 @@ const ProductLibrary = () => {
                 slabs: prod.slabs && prod.slabs.length > 0 ? prod.slabs.map(s => ({ ...s, id: undefined, product_id: undefined })) : [{ min_qty: 0, max_qty: '', base_value: 0, unit_rate: 0, offset_unit_rate: 0, double_side_unit_rate: 0 }],
                 extras: prod.extras ? prod.extras.map(e => ({ ...e, id: undefined, product_id: undefined })) : [],
                 links: prod.links ? prod.links.map(l => ({ ...l, id: undefined, product_id: undefined })) : [],
-                image_url: '',
+                image_url: prod.image_url || '',
                 isManualCompanyCode: false,
                 extraInv: { hsn: (prod.extraInv?.hsn || ''), quantity: (prod.extraInv?.quantity || ''), unit: (prod.extraInv?.unit || 'pcs'), gst_rate: (prod.extraInv?.gst_rate || '0'), cost_price: '', vendor_name: (prod.extraInv?.vendor_name || '') }
             };
             setNewProduct(duplicated);
-            // For duplicate, we might not want to carry over the image unless user explicitly re-uploads or we backend supports copying. 
-            // For now, let's keep it simple and NOT copy the image file itself to avoid complexity, but we can show it as "current" if we wanted.
-            // Actually, best to perform a clean start for image to avoid confusion.
-            setProductImagePreview('');
+            // Carry over the product image so the duplicate starts with the same image.
+            setProductImagePreview(prod.image_url ? imgUrl(prod.image_url) : '');
             setProductImage(null);
 
             setShowProdModal(true);
@@ -2313,7 +2316,14 @@ onClick={() => { setProductSearch(''); setFilterVendor('all'); setFilterCalcType
                                     <div className="product-card__content">
                                         <div className="product-card__name">{prod.name}</div>
                                         <div className="product-card__meta">
-                                            {prod.sell_price != null ? <span className="badge badge--sm badge--price">₹{Number(prod.sell_price).toLocaleString()}</span> : <span className="badge badge--sm badge--price">—</span>}
+                                            {(() => {
+                                                const displayPrice = prod.sell_price != null 
+                                                    ? prod.sell_price 
+                                                    : (prod.slabs && prod.slabs.length > 0 ? prod.slabs[0].unit_rate : null);
+                                                return displayPrice != null 
+                                                    ? <span className="badge badge--sm badge--price">₹{Number(displayPrice).toLocaleString()}</span> 
+                                                    : <span className="badge badge--sm badge--price">—</span>;
+                                            })()}
                                         </div>
                                         {prod.description && <p className="text-xs muted mb-8 line-clamp-2">{prod.description}</p>}
                                         {prod.links && prod.links.length > 0 && (
