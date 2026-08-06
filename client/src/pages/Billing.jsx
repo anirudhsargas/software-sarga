@@ -52,9 +52,10 @@ const bookTypeFromCategory = (catName) => {
 // photocopy/xerox service. Photocopy lines keep book_type 'Other' but still
 // need a machine picked for meter/count tracking.
 const isMachineCountLine = (line) =>
-  !!line &&
-  String(line.book_type || '').toLowerCase() === 'laser' ||
-  /(photocopy|xerox)/i.test(String(line.category_name || ''));
+  !!line && (
+    String(line.book_type || '').toLowerCase() === 'laser' ||
+    /(photocopy|xerox)/i.test(String(line.category_name || ''))
+  );
 
 const defaultPayment = () => ({
   selectedMethods: ['Cash'],
@@ -187,17 +188,17 @@ const Billing = () => {
     return all.filter(m => String(m.branch_id) === String(selectedBranchId));
   }, [_machines, selectedBranchId]);
 
-  // Laser items that still need a machine selected before billing can proceed
+  // Laser or Photocopy items that still need a machine selected before billing can proceed
   const machineRequiredLines = useMemo(() => {
     const missing = (Array.isArray(orderLines) ? orderLines : [])
-      .filter(line => line.book_type === 'Laser' && !line.machine_id && !line.quick_added);
+      .filter(line => isMachineCountLine(line) && !line.machine_id && !line.quick_added);
     const seen = new Set();
     return missing.filter(l => (seen.has(l.id) ? false : (seen.add(l.id), true)));
   }, [orderLines]);
 
   const handleGoToPayment = useCallback(() => {
     const missing = (Array.isArray(orderLines) ? orderLines : [])
-      .filter(line => line.book_type === 'Laser' && !line.machine_id && !line.quick_added);
+      .filter(line => isMachineCountLine(line) && !line.machine_id && !line.quick_added);
     if (missing.length > 0) {
       setMachineModalOpen(true);
       return;
@@ -756,16 +757,37 @@ const Billing = () => {
   }, [form.type]);
 
   const handleAddLineItem = useCallback(async (product, qty = 1, extras = [], catId, subId, catName, forceAddNew = false) => {
+    let resolvedCatId = catId;
+    let resolvedSubId = subId;
+    let resolvedCatName = catName;
+
+    if (!resolvedCatName && product && hierarchy) {
+      for (const cat of hierarchy) {
+        for (const sub of cat.subcategories || []) {
+          for (const prod of sub.products || []) {
+            if (prod.id === product.id) {
+              resolvedCatId = cat.id;
+              resolvedSubId = sub.id;
+              resolvedCatName = cat.name;
+              break;
+            }
+          }
+          if (resolvedCatName) break;
+        }
+        if (resolvedCatName) break;
+      }
+    }
+
     const quantity = Number(qty) || 1;
     const existing = !forceAddNew ? orderLinesRef.current.find(l => l.product_id && l.product_id === product.id) : null;
     if (existing) {
-      setDuplicateItemModal({ product, qty: quantity, extras, catId, subId, catName, existingLine: existing });
+      setDuplicateItemModal({ product, qty: quantity, extras, catId: resolvedCatId, subId: resolvedSubId, catName: resolvedCatName, existingLine: existing });
       setProductSearchQuery('');
       setProductSuggestions([]);
       return;
     }
 
-    const derivedBookType = bookTypeFromCategory(catName);
+    const derivedBookType = bookTypeFromCategory(resolvedCatName);
     const defaultPaperRate = product.has_paper_rate ? (Number(product.paper_rate) || 0) : 0;
     const isOffsetLine = String(form.type || '').trim().toLowerCase() === 'offset' || derivedBookType === 'Offset';
 
@@ -793,9 +815,9 @@ const Billing = () => {
       customPaperRate: defaultPaperRate,
       is_double_side: false,
       description: '',
-      category: catId || '',
-      category_name: catName || '',
-      subcategory: subId || '',
+      category: resolvedCatId || '',
+      category_name: resolvedCatName || '',
+      subcategory: resolvedSubId || '',
       machine_id: null,
       waste_prints: 0,
       proof_prints: 0,
@@ -812,7 +834,7 @@ const Billing = () => {
       localStorage.setItem('recentProducts', JSON.stringify(next));
       return next;
     });
-  }, [resolveProductUnitPrice, updateLine, form.type]);
+  }, [resolveProductUnitPrice, updateLine, form.type, hierarchy]);
 
   // Recalculate order line prices when Customer Type changes (e.g., to/from 'Offset')
   useEffect(() => {
@@ -3013,7 +3035,7 @@ const Billing = () => {
                     Machine is not selected
                   </h3>
                   <p style={{ margin: '2px 0 0', fontSize: 13, color: 'var(--text-muted)' }}>
-                    Select a machine for each laser item before continuing to payment.
+                    Select a machine for each laser or photocopy item before continuing to payment.
                   </p>
                 </div>
               </div>
@@ -3090,9 +3112,9 @@ const Billing = () => {
                   }}
                   onClick={() => {
                     const stillMissing = (Array.isArray(orderLines) ? orderLines : [])
-                      .filter(l => l.book_type === 'Laser' && !l.machine_id && !l.quick_added);
+                      .filter(l => isMachineCountLine(l) && !l.machine_id && !l.quick_added);
                     if (stillMissing.length > 0) {
-                      toast.error('Please select a machine for all laser items');
+                      toast.error('Please select a machine for all required items');
                       return;
                     }
                     setMachineModalOpen(false);
