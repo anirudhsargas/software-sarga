@@ -1054,102 +1054,100 @@ const MachineManagement = () => {
                 {/* Work Entry Modal */}
                 {showWorkModal && (
                     <div role="dialog" aria-modal="true" aria-labelledby="work-modal-title" className="modal-overlay" onClick={() => setShowWorkModal(false)}>
-                        <div className="modal mm-work-modal" onClick={e => e.stopPropagation()}>
+                        <form onSubmit={handleAddWork} className="modal mm-work-modal" onClick={e => e.stopPropagation()}>
                             <div className="modal-header">
                                 <h2 id="work-modal-title">Add Work Entry</h2>
-                                <button className="btn btn-ghost" onClick={() => setShowWorkModal(false)} aria-label="Close work entry modal">×</button>
+                                <button type="button" className="btn btn-ghost" onClick={() => setShowWorkModal(false)} aria-label="Close work entry modal">×</button>
                             </div>
-                            <form onSubmit={handleAddWork}>
-                                <div className="modal-body stack-md">
-                                    <div className="form-group">
-                                        <label className="form-label">Customer Name *</label>
-                                        <input type="text" className="input-field" required
-                                            value={workForm.customer_name}
-                                            onChange={e => setWorkForm({ ...workForm, customer_name: e.target.value })} />
+                            <div className="modal-body stack-md">
+                                <div className="form-group">
+                                    <label className="form-label">Customer Name *</label>
+                                    <input type="text" className="input-field" required
+                                        value={workForm.customer_name}
+                                        onChange={e => setWorkForm({ ...workForm, customer_name: e.target.value })} />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Work Details *</label>
+                                    <input type="text" className="input-field" required
+                                        value={workForm.work_details}
+                                        onChange={e => setWorkForm({ ...workForm, work_details: e.target.value })}
+                                        placeholder="e.g., A4 Print 2-side" />
+                                </div>
+                                <div className="row gap-md">
+                                    <div className="form-group flex-1">
+                                        <label className="form-label">Copies *</label>
+                                        <input type="number" className="input-field" required min="0"
+                                            value={workForm.copies}
+                                            onChange={e => setWorkForm({ ...workForm, copies: e.target.value })} />
                                     </div>
-                                    <div className="form-group">
-                                        <label className="form-label">Work Details *</label>
-                                        <input type="text" className="input-field" required
-                                            value={workForm.work_details}
-                                            onChange={e => setWorkForm({ ...workForm, work_details: e.target.value })}
-                                            placeholder="e.g., A4 Print 2-side" />
+                                    <div className="form-group flex-1">
+                                        <label className="form-label mm-work-input-label--error">Waste Copies</label>
+                                        <input type="number" className="input-field" min="0"
+                                            value={workForm.waste_copies}
+                                            onChange={e => setWorkForm({ ...workForm, waste_copies: e.target.value })}
+                                            placeholder="0"
+                                            style={{ borderColor: workForm.waste_copies ? 'var(--destructive)' : undefined }} />
                                     </div>
-                                    <div className="row gap-md">
-                                        <div className="form-group mm-work-input-group">
-                                            <label className="form-label">Copies *</label>
-                                            <input type="number" className="input-field" required min="0"
-                                                value={workForm.copies}
-                                                onChange={e => setWorkForm({ ...workForm, copies: e.target.value })} />
-                                        </div>
-                                        <div className="form-group mm-work-input-group">
-                                            <label className="form-label mm-work-input-label--error">Waste Copies</label>
-                                            <input type="number" className="input-field" min="0"
-                                                value={workForm.waste_copies}
-                                                onChange={e => setWorkForm({ ...workForm, waste_copies: e.target.value })}
-                                                placeholder="0"
-                                                style={{ borderColor: workForm.waste_copies ? 'var(--destructive)' : undefined }} />
-                                        </div>
-                                        <div className="form-group mm-work-input-group">
-                                            <label className="form-label mm-work-input-label--warning">Proof Copies</label>
-                                            <input type="number" className="input-field" min="0"
-                                                value={workForm.proof_copies}
-                                                onChange={e => setWorkForm({ ...workForm, proof_copies: e.target.value })}
-                                                placeholder="0"
-                                                style={{ borderColor: workForm.proof_copies ? 'var(--warning)' : undefined }} />
-                                        </div>
-                                        <div className="form-group mm-work-input-group">
-                                            <label className="form-label">Payment Type</label>
-                                            <select className="input-field" value={workForm.payment_type}
-                                                onChange={e => setWorkForm({ ...workForm, payment_type: e.target.value })}>
-                                                <option>Cash</option><option>UPI</option><option>Credit</option>
-                                            </select>
-                                        </div>
+                                    <div className="form-group flex-1">
+                                        <label className="form-label mm-work-input-label--warning">Proof Copies</label>
+                                        <input type="number" className="input-field" min="0"
+                                            value={workForm.proof_copies}
+                                            onChange={e => setWorkForm({ ...workForm, proof_copies: e.target.value })}
+                                            placeholder="0"
+                                            style={{ borderColor: workForm.proof_copies ? 'var(--warning)' : undefined }} />
                                     </div>
-                                    <div className="row gap-md">
-                                        {(workForm.payment_type === 'Cash' || workForm.payment_type === 'UPI') && (
-                                            <div className="form-group mm-work-input-group">
-                                                <label className="form-label">{workForm.payment_type} Amount</label>
-                                                <input type="number" className="input-field" step="0.01" min="0"
-                                                    value={workForm.payment_type === 'Cash' ? workForm.cash_amount : workForm.upi_amount}
-                                                    onChange={e => {
-                                                        const val = e.target.value;
-                                                        if (workForm.payment_type === 'Cash')
-                                                            setWorkForm({ ...workForm, cash_amount: val, total_amount: val });
-                                                        else
-                                                            setWorkForm({ ...workForm, upi_amount: val, total_amount: val });
-                                                    }} />
-                                            </div>
-                                        )}
-                                        {workForm.payment_type === 'Credit' && (
-                                            <div className="form-group mm-work-input-group">
-                                                <label className="form-label">Credit Amount</label>
-                                                <input type="number" className="input-field" step="0.01" min="0"
-                                                    value={workForm.credit_amount}
-                                                    onChange={e => setWorkForm({ ...workForm, credit_amount: e.target.value, total_amount: e.target.value })} />
-                                            </div>
-                                        )}
-                                        <div className="form-group mm-work-input-group">
-                                            <label className="form-label">Total Amount</label>
+                                    <div className="form-group flex-1">
+                                        <label className="form-label">Payment Type</label>
+                                        <select className="input-field" value={workForm.payment_type}
+                                            onChange={e => setWorkForm({ ...workForm, payment_type: e.target.value })}>
+                                            <option>Cash</option><option>UPI</option><option>Credit</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div className="row gap-md">
+                                    {(workForm.payment_type === 'Cash' || workForm.payment_type === 'UPI') && (
+                                        <div className="form-group flex-1">
+                                            <label className="form-label">{workForm.payment_type} Amount</label>
                                             <input type="number" className="input-field" step="0.01" min="0"
-                                                value={workForm.total_amount}
-                                                onChange={e => setWorkForm({ ...workForm, total_amount: e.target.value })} />
+                                                value={workForm.payment_type === 'Cash' ? workForm.cash_amount : workForm.upi_amount}
+                                                onChange={e => {
+                                                    const val = e.target.value;
+                                                    if (workForm.payment_type === 'Cash')
+                                                        setWorkForm({ ...workForm, cash_amount: val, total_amount: val });
+                                                    else
+                                                        setWorkForm({ ...workForm, upi_amount: val, total_amount: val });
+                                                }} />
                                         </div>
-                                    </div>
-                                    <div className="form-group">
-                                        <label className="form-label">Remarks</label>
-                                        <input type="text" className="input-field"
-                                            value={workForm.remarks}
-                                            onChange={e => setWorkForm({ ...workForm, remarks: e.target.value })} />
+                                    )}
+                                    {workForm.payment_type === 'Credit' && (
+                                        <div className="form-group flex-1">
+                                            <label className="form-label">Credit Amount</label>
+                                            <input type="number" className="input-field" step="0.01" min="0"
+                                                value={workForm.credit_amount}
+                                                onChange={e => setWorkForm({ ...workForm, credit_amount: e.target.value, total_amount: e.target.value })} />
+                                        </div>
+                                    )}
+                                    <div className="form-group flex-1">
+                                        <label className="form-label">Total Amount</label>
+                                        <input type="number" className="input-field" step="0.01" min="0"
+                                            value={workForm.total_amount}
+                                            onChange={e => setWorkForm({ ...workForm, total_amount: e.target.value })} />
                                     </div>
                                 </div>
-                                <div className="modal-footer">
-                                    <button type="button" className="btn btn-ghost" onClick={() => setShowWorkModal(false)}>Cancel</button>
-                                    <button type="submit" className="btn btn-primary" disabled={workSaving}>
-                                        {workSaving ? <Loader2 className="animate-spin" size={16} /> : 'Add Work'}
-                                    </button>
+                                <div className="form-group">
+                                    <label className="form-label">Remarks</label>
+                                    <input type="text" className="input-field"
+                                        value={workForm.remarks}
+                                        onChange={e => setWorkForm({ ...workForm, remarks: e.target.value })} />
                                 </div>
-                            </form>
-                        </div>
+                            </div>
+                            <div className="modal-footer">
+                                <button type="button" className="btn btn-ghost" onClick={() => setShowWorkModal(false)}>Cancel</button>
+                                <button type="submit" className="btn btn-primary" disabled={workSaving}>
+                                    {workSaving ? <Loader2 className="animate-spin" size={16} /> : 'Add Work'}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 )}
 
@@ -1369,50 +1367,53 @@ const MachineManagement = () => {
             {/* Add/Edit Machine Modal */}
             {showModal && (
                 <div className="modal-overlay" onClick={() => { setShowModal(false); resetForm(); }} role="dialog" aria-modal="true" aria-labelledby="machine-modal-title">
-                    <div className="modal" onClick={e => e.stopPropagation()}>
+                    <form onSubmit={handleSubmit} className="modal mm-modal" onClick={e => e.stopPropagation()}>
                         <div className="modal-header modal-header--flex">
                             <h2 id="machine-modal-title">{editingMachine ? 'Edit Machine' : 'Add New Machine'}</h2>
-                            <button className="btn btn-ghost ml-auto" onClick={() => { setShowModal(false); resetForm(); }} aria-label="Close machine modal">×</button>
+                            <button type="button" className="btn btn-ghost ml-auto" onClick={() => { setShowModal(false); resetForm(); }} aria-label="Close machine modal">×</button>
                         </div>
-                        <form onSubmit={handleSubmit}>
-                            <div className="modal-body stack-md">
-                                <div className="form-group">
-                                    <label className="form-label">Machine Name *</label>
-                                    <input type="text" className="input-field" required
-                                        value={formData.machine_name}
-                                        onChange={e => setFormData({ ...formData, machine_name: e.target.value })} />
+                        <div className="modal-body stack-md">
+                            <div className="form-group">
+                                <label className="form-label">Machine Name *</label>
+                                <input type="text" className="input-field" required
+                                    value={formData.machine_name}
+                                    onChange={e => setFormData({ ...formData, machine_name: e.target.value })} />
+                            </div>
+                            
+                            <div className="row gap-md">
+                                <div className="form-group flex-1">
+                                    <label className="form-label">Machine Type *</label>
+                                    <select className="input-field" required
+                                        value={formData.machine_type}
+                                        onChange={e => setFormData({ ...formData, machine_type: e.target.value })}>
+                                        {machineTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                                    </select>
                                 </div>
-                                <div className="row gap-md">
-                                    <div className="form-group flex-1">
-                                        <label className="form-label">Machine Type *</label>
-                                        <select className="input-field" required
-                                            value={formData.machine_type}
-                                            onChange={e => setFormData({ ...formData, machine_type: e.target.value })}>
-                                            {machineTypes.map(t => <option key={t} value={t}>{t}</option>)}
-                                        </select>
-                                    </div>
-                                    {formData.machine_type === 'Digital' && (
-                                        <div className="form-group flex-1">
-                                            <label className="form-label">Digital Category</label>
-                                            <select className="input-field"
-                                                value={formData.machine_category || ''}
-                                                onChange={e => setFormData({ ...formData, machine_category: e.target.value })}>
-                                                <option value="">Select Category</option>
-                                                {DIGITAL_CATEGORY_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
-                                            </select>
-                                        </div>
-                                    )}
-                                    <div className="form-group flex-1">
-                                        <label className="form-label">Counter Type *</label>
-                                        <select className="input-field" required
-                                            value={formData.counter_type}
-                                            onChange={e => setFormData({ ...formData, counter_type: e.target.value })}>
-                                            <option value="Manual">Manual</option>
-                                            <option value="Automatic">Automatic</option>
-                                        </select>
-                                    </div>
+                                <div className="form-group flex-1">
+                                    <label className="form-label">Counter Type *</label>
+                                    <select className="input-field" required
+                                        value={formData.counter_type}
+                                        onChange={e => setFormData({ ...formData, counter_type: e.target.value })}>
+                                        <option value="Manual">Manual</option>
+                                        <option value="Automatic">Automatic</option>
+                                    </select>
                                 </div>
-                                <div className="form-group">
+                            </div>
+
+                            {formData.machine_type === 'Digital' && (
+                                <div className="form-group animate-slide-down">
+                                    <label className="form-label">Digital Category</label>
+                                    <select className="input-field"
+                                        value={formData.machine_category || ''}
+                                        onChange={e => setFormData({ ...formData, machine_category: e.target.value })}>
+                                        <option value="">Select Category</option>
+                                        {DIGITAL_CATEGORY_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
+                                    </select>
+                                </div>
+                            )}
+
+                            <div className="row gap-md">
+                                <div className="form-group flex-1">
                                     <label className="form-label">Branch *</label>
                                     <BranchSelect className="input-field" required
                                         value={formData.branch_id}
@@ -1421,70 +1422,80 @@ const MachineManagement = () => {
                                         {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                                     </BranchSelect>
                                 </div>
-                                <div className="form-group">
+                                <div className="form-group flex-1">
                                     <label className="form-label">Location</label>
                                     <input type="text" className="input-field"
                                         value={formData.location}
                                         onChange={e => setFormData({ ...formData, location: e.target.value })}
                                         placeholder="e.g., Ground Floor, Room 101" />
                                 </div>
-                                <div className="form-group">
+                            </div>
+
+                            <div className="row gap-md">
+                                <div className="form-group flex-1">
                                     <label className="form-label">IP Address</label>
                                     <input type="text" className="input-field"
                                         value={formData.ip_address}
                                         onChange={e => setFormData({ ...formData, ip_address: e.target.value })}
                                         placeholder="e.g., 192.168.1.105" />
                                 </div>
-                                <div className="form-group">
+                                <div className="form-group flex-1">
                                     <label className="form-label">SNMP Community</label>
                                     <input type="text" className="input-field"
                                         value={formData.snmp_community}
                                         onChange={e => setFormData({ ...formData, snmp_community: e.target.value })}
                                         placeholder="public" />
-                                    <small className="mm-snmp-hint">For most printers: leave as "public". For Canon: skip this and use web login below instead. For Kyocera/others with non-standard SNMP: enter the community name.</small>
                                 </div>
-                                <div className="form-group">
-                                    <label className="row items-center gap-sm mm-label-checkbox">
-                                        <input type="checkbox" checked={formData.mpr_requires_login}
-                                            onChange={e => setFormData({ ...formData, mpr_requires_login: e.target.checked, mpr_username: e.target.checked ? formData.mpr_username : '', mpr_password: e.target.checked ? formData.mpr_password : '' })} />
-                                        <span className="form-label mm-label-checkbox-text">✓ Printer requires web login (Canon, some Ricoh)</span>
-                                    </label>
-                                    {formData.mpr_requires_login && (
-                                        <div className="mm-login-grid">
-                                            <div>
-                                                <label className="form-label mm-label-sm">👤 Username</label>
-                                                <input type="text" className="input-field"
-                                                    value={formData.mpr_username}
-                                                    onChange={e => setFormData({ ...formData, mpr_username: e.target.value })}
-                                                    placeholder="e.g., admin" autoComplete="off" />
-                                                <small className="mm-login-hint">Canon default: admin or your domain user</small>
-                                            </div>
-                                            <div>
-                                                <label className="form-label mm-label-sm">🔐 Password</label>
-                                                <input type="password" className="input-field"
-                                                    value={formData.mpr_password}
-                                                    onChange={e => setFormData({ ...formData, mpr_password: e.target.value })}
-                                                    placeholder="••••••••" autoComplete="new-password" />
-                                            </div>
+                            </div>
+
+                            <div className="form-group">
+                                <small className="mm-snmp-hint" style={{ marginTop: '-4px', display: 'block' }}>
+                                    For most printers: leave as "public". For Canon: skip this and use web login below instead. For Kyocera/others: enter community name.
+                                </small>
+                            </div>
+
+                            <div className="form-group">
+                                <label className="row items-center gap-sm mm-label-checkbox">
+                                    <input type="checkbox" checked={formData.mpr_requires_login}
+                                        onChange={e => setFormData({ ...formData, mpr_requires_login: e.target.checked, mpr_username: e.target.checked ? formData.mpr_username : '', mpr_password: e.target.checked ? formData.mpr_password : '' })} />
+                                    <span className="form-label mm-label-checkbox-text">✓ Printer requires web login (Canon, some Ricoh)</span>
+                                </label>
+                                {formData.mpr_requires_login && (
+                                    <div className="mm-login-grid">
+                                        <div>
+                                            <label className="form-label mm-label-sm">👤 Username</label>
+                                            <input type="text" className="input-field"
+                                                value={formData.mpr_username}
+                                                onChange={e => setFormData({ ...formData, mpr_username: e.target.value })}
+                                                placeholder="e.g., admin" autoComplete="off" />
+                                            <small className="mm-login-hint">Canon default: admin or domain user</small>
                                         </div>
-                                    )}
-                                </div>
-                                <div className="form-group">
-                                    <label className="row items-center gap-sm mm-label-checkbox">
-                                        <input type="checkbox" checked={formData.is_active}
-                                            onChange={e => setFormData({ ...formData, is_active: e.target.checked })} />
-                                        <span>Active</span>
-                                    </label>
-                                </div>
+                                        <div>
+                                            <label className="form-label mm-label-sm">🔐 Password</label>
+                                            <input type="password" className="input-field"
+                                                value={formData.mpr_password}
+                                                onChange={e => setFormData({ ...formData, mpr_password: e.target.value })}
+                                                placeholder="••••••••" autoComplete="new-password" />
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                            <div className="modal-footer">
-                                <button type="button" className="btn btn-ghost" onClick={() => { setShowModal(false); resetForm(); }}>Cancel</button>
-                                <button type="submit" className="btn btn-primary">
-                                    {editingMachine ? 'Update Machine' : 'Add Machine'}
-                                </button>
+
+                            <div className="form-group">
+                                <label className="row items-center gap-sm mm-label-checkbox">
+                                    <input type="checkbox" checked={formData.is_active}
+                                        onChange={e => setFormData({ ...formData, is_active: e.target.checked })} />
+                                    <span>Active</span>
+                                </label>
                             </div>
-                        </form>
-                    </div>
+                        </div>
+                        <div className="modal-footer">
+                            <button type="button" className="btn btn-ghost" onClick={() => { setShowModal(false); resetForm(); }}>Cancel</button>
+                            <button type="submit" className="btn btn-primary">
+                                {editingMachine ? 'Update Machine' : 'Add Machine'}
+                            </button>
+                        </div>
+                    </form>
                 </div>
             )}
 
