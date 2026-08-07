@@ -70,24 +70,40 @@ router.get('/:id/work-history', authenticateToken, async (req, res) => {
         const { id } = req.params;
         const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
 
-        // Include both direct assignments (staff_id = ?) and role-based assignments (staff_id IS NULL AND role = ?)
-        let staffRole = req.user.role || '';
-        if (id && !isNaN(id)) {
-            const [[staffRow]] = await pool.query('SELECT role FROM sarga_staff WHERE id = ?', [id]);
-            if (staffRow?.role) {
-                staffRole = staffRow.role;
+        let numericStaffId = null;
+        let staffRole = req.query.userRole || req.user.role || '';
+
+        if (id === 'me') {
+            numericStaffId = req.user.id;
+            staffRole = req.user.role || staffRole;
+        } else if (id) {
+            const [staffRows] = await pool.query(
+                'SELECT id, role FROM sarga_staff WHERE id = ? OR user_id = ?',
+                [id, id]
+            );
+            if (staffRows.length > 0) {
+                numericStaffId = staffRows[0].id;
+                if (staffRows[0].role) staffRole = staffRows[0].role;
+            } else if (!isNaN(id)) {
+                numericStaffId = Number(id);
             }
         }
 
+        const queryRole = (req.query.userRole || req.user.role || staffRole || '').trim();
         const baseFrom = `
             FROM sarga_job_staff_assignments jsa
             INNER JOIN sarga_jobs j ON j.id = jsa.job_id
             LEFT JOIN sarga_customers c ON j.customer_id = c.id
-            WHERE jsa.staff_id = ? OR (jsa.staff_id IS NULL AND (jsa.role = ? OR jsa.role = ?))
+            WHERE (jsa.staff_id IS NOT NULL AND jsa.staff_id = ?) 
+               OR (jsa.staff_id IS NULL AND (
+                   LOWER(jsa.role) = LOWER(?) 
+                OR LOWER(jsa.role) = LOWER(?) 
+                OR LOWER(jsa.role) = LOWER(?)
+               ))
         `;
 
-        const userRole = req.user.role || '';
-        const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, [id, staffRole, userRole]);
+        const sqlParams = [numericStaffId, staffRole, queryRole, req.user.role || ''];
+        const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, sqlParams);
         const [jobs] = await pool.query(`
             SELECT 
                 j.id,
@@ -111,7 +127,7 @@ router.get('/:id/work-history', authenticateToken, async (req, res) => {
             ${baseFrom}
             ORDER BY j.created_at DESC
             LIMIT ? OFFSET ?
-        `, [id, staffRole, userRole, limit, offset]);
+        `, [...sqlParams, limit, offset]);
 
         res.json(response(jobs, total));
     } catch (err) {

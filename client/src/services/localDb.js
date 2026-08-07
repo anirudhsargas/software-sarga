@@ -186,7 +186,8 @@ export async function getFrontOfficeDashboard() {
 export async function getStaffWorkHistory(staffId, userRole) {
     if (navigator.onLine && staffId) {
         try {
-            const res = await api.get(`/staff/${staffId}/work-history?limit=500`);
+            const roleParam = userRole ? `&userRole=${encodeURIComponent(userRole)}` : '';
+            const res = await api.get(`/staff/${staffId}/work-history?limit=500${roleParam}`);
             const rawData = res.data?.data || res.data || [];
             if (Array.isArray(rawData)) {
                 const formatted = rawData.map(job => ({
