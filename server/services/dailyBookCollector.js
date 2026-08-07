@@ -12,10 +12,12 @@ async function fetchDailyBookData(startDateStr, endDateStr, branchId = null) {
     const results = {};
 
     // 1. Sales (Invoices generated today)
+    const branchFilterSales = branchId ? 'AND cp.branch_id = ?' : '';
     const [sales] = await pool.query(
-        `SELECT id, invoice_number, total_amount, branch_id, created_at
-         FROM sarga_invoices
-         WHERE created_at BETWEEN ? AND ? ${branchFilter}`,
+        `SELECT i.id, i.invoice_number, i.total_amount, cp.branch_id, i.created_at
+         FROM sarga_invoices i
+         LEFT JOIN sarga_customer_payments cp ON i.payment_id = cp.id
+         WHERE i.created_at BETWEEN ? AND ? ${branchFilterSales}`,
         params
     );
     results.sales = sales;
