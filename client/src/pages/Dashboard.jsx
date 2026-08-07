@@ -1243,7 +1243,7 @@ const Dashboard = () => {
                             <Route path="admin/translations" element={<ProtectedSubRoute roles={['Admin']}><TranslationsManager /></ProtectedSubRoute>} />
                             <Route path="admin/audit-trail" element={<ProtectedSubRoute roles={['Admin']}><AuditTrail /></ProtectedSubRoute>} />
                             <Route path="admin/audit-dashboard" element={<ProtectedSubRoute roles={['Admin']}><AuditDashboard /></ProtectedSubRoute>} />
-                            <Route path="web-inquiries" element={<ProtectedSubRoute roles={['Admin', 'Front Office']}><WebInquiries /></ProtectedSubRoute>} />
+                            
                             <Route path="blog-cms" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Designer']}><BlogCMS /></ProtectedSubRoute>} />
                             <Route path="sample-requests" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><SampleRequestsCMS /></ProtectedSubRoute>} />
                             <Route path="design-bookings" element={
