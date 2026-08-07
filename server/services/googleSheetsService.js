@@ -3,16 +3,36 @@ const { google } = require('googleapis');
 // Parse service account key from env
 function getAuth() {
   let keyString = process.env.GOOGLE_SA_KEY || process.env.GOOGLE_SERVICE_ACCOUNT;
-  
-  if (!keyString && process.env.GOOGLE_SERVICE_ACCOUNT_BASE64) {
-    keyString = Buffer.from(process.env.GOOGLE_SERVICE_ACCOUNT_BASE64, 'base64').toString('utf8');
+  let key;
+
+  // Try parsing direct keyString if it looks like JSON
+  if (keyString && keyString.trim().startsWith('{')) {
+    try {
+      key = JSON.parse(keyString);
+    } catch (e) {
+      // ignore and fallback
+    }
   }
-  
-  if (!keyString) {
-    throw new Error('Google Service Account Key is not set in environment (GOOGLE_SA_KEY, GOOGLE_SERVICE_ACCOUNT, or GOOGLE_SERVICE_ACCOUNT_BASE64)');
+
+  // Fallback to base64 if available
+  if (!key && process.env.GOOGLE_SERVICE_ACCOUNT_BASE64) {
+    try {
+      const decoded = Buffer.from(process.env.GOOGLE_SERVICE_ACCOUNT_BASE64, 'base64').toString('utf8');
+      key = JSON.parse(decoded);
+    } catch (e) {
+      // ignore
+    }
   }
-  
-  const key = JSON.parse(keyString);
+
+  // If still not parsed, try raw keyString to throw parsing error
+  if (!key && keyString) {
+    key = JSON.parse(keyString);
+  }
+
+  if (!key) {
+    throw new Error('Google Service Account Key is not set or invalid in environment (GOOGLE_SA_KEY, GOOGLE_SERVICE_ACCOUNT, or GOOGLE_SERVICE_ACCOUNT_BASE64)');
+  }
+
   return new google.auth.GoogleAuth({
     credentials: key,
     scopes: [
@@ -228,21 +248,39 @@ async function runBackup(db, triggeredBy = 'cron') {
 }
 
 async function checkGoogleConnection() {
-  const keyString = process.env.GOOGLE_SA_KEY || process.env.GOOGLE_SERVICE_ACCOUNT;
-  const fallback = !keyString && process.env.GOOGLE_SERVICE_ACCOUNT_BASE64
-    ? Buffer.from(process.env.GOOGLE_SERVICE_ACCOUNT_BASE64, 'base64').toString('utf8')
-    : null;
-  const resolved = keyString || fallback;
+  let keyString = process.env.GOOGLE_SA_KEY || process.env.GOOGLE_SERVICE_ACCOUNT;
+  let key;
 
-  if (!resolved) {
-    return { status: 'credentials_missing', message: 'Google Service Account Key is not set (GOOGLE_SA_KEY, GOOGLE_SERVICE_ACCOUNT, or GOOGLE_SERVICE_ACCOUNT_BASE64)' };
+  // Try parsing direct keyString if it looks like JSON
+  if (keyString && keyString.trim().startsWith('{')) {
+    try {
+      key = JSON.parse(keyString);
+    } catch (e) {
+      // ignore and fallback
+    }
   }
 
-  let key;
-  try {
-    key = JSON.parse(resolved);
-  } catch (e) {
-    return { status: 'credentials_invalid', message: 'Service account JSON is malformed: ' + e.message };
+  // Fallback to base64 if available
+  if (!key && process.env.GOOGLE_SERVICE_ACCOUNT_BASE64) {
+    try {
+      const decoded = Buffer.from(process.env.GOOGLE_SERVICE_ACCOUNT_BASE64, 'base64').toString('utf8');
+      key = JSON.parse(decoded);
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  // Try to parse raw keyString to get proper error message if nothing else worked
+  if (!key && keyString) {
+    try {
+      key = JSON.parse(keyString);
+    } catch (e) {
+      return { status: 'credentials_invalid', message: 'Service account JSON is malformed: ' + e.message };
+    }
+  }
+
+  if (!key) {
+    return { status: 'credentials_missing', message: 'Google Service Account Key is not set or invalid in environment (GOOGLE_SA_KEY, GOOGLE_SERVICE_ACCOUNT, or GOOGLE_SERVICE_ACCOUNT_BASE64)' };
   }
 
   if (!process.env.GOOGLE_SHEET_ID) {
