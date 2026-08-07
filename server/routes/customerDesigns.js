@@ -76,6 +76,12 @@ const removeFile = async (fileUrl) => {
 // ═══════════════════════════════════════════════════════════════
 router.get('/customers/:id/designs', authenticateToken, async (req, res) => {
     try {
+        if (req.user.role !== 'Admin') {
+            const [[cust]] = await pool.query('SELECT branch_id FROM sarga_customers WHERE id = ?', [req.params.id]);
+            if (cust && Number(cust.branch_id) !== Number(req.user.branch_id)) {
+                return res.status(403).json({ error: 'Access denied: customer belongs to a different branch.' });
+            }
+        }
         const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
         const baseFrom = `
              FROM sarga_customer_designs d
@@ -122,13 +128,20 @@ router.post('/customers/:id/designs', authenticateToken, (req, res, next) => {
 
     try {
         // Verify customer exists and has valid ID
-        const [customerCheck] = await pool.query('SELECT id FROM sarga_customers WHERE id = ?', [customerId]);
+        const [customerCheck] = await pool.query('SELECT id, branch_id FROM sarga_customers WHERE id = ?', [customerId]);
         if (customerCheck.length === 0) {
             for (const file of req.files) {
                 await removeFile(`/uploads/designs/${file.filename}`);
             }
             console.error(`Customer ${customerId} not found`);
             return res.status(404).json({ message: 'Customer not found. Please check the customer ID.' });
+        }
+
+        if (req.user.role !== 'Admin' && Number(customerCheck[0].branch_id) !== Number(req.user.branch_id)) {
+            for (const file of req.files) {
+                await removeFile(`/uploads/designs/${file.filename}`);
+            }
+            return res.status(403).json({ error: 'Access denied: customer belongs to a different branch.' });
         }
 
         // If job_id is provided, verify it exists and belongs to this customer
@@ -198,6 +211,12 @@ router.post('/customers/:id/designs', authenticateToken, (req, res, next) => {
 router.put('/customers/:customerId/designs/:designId', authenticateToken, async (req, res) => {
     const { title, notes, tags, job_id } = req.body;
     try {
+        if (req.user.role !== 'Admin') {
+            const [[cust]] = await pool.query('SELECT branch_id FROM sarga_customers WHERE id = ?', [req.params.customerId]);
+            if (cust && Number(cust.branch_id) !== Number(req.user.branch_id)) {
+                return res.status(403).json({ error: 'Access denied: customer belongs to a different branch.' });
+            }
+        }
         await pool.query(
             `UPDATE sarga_customer_designs SET title = ?, notes = ?, tags = ?, job_id = ? WHERE id = ? AND customer_id = ?`,
             [title || null, notes || null, tags || null, job_id || null, req.params.designId, req.params.customerId]
@@ -213,6 +232,12 @@ router.put('/customers/:customerId/designs/:designId', authenticateToken, async 
 // ═══════════════════════════════════════════════════════════════
 router.delete('/customers/:customerId/designs/:designId', authenticateToken, async (req, res) => {
     try {
+        if (req.user.role !== 'Admin') {
+            const [[cust]] = await pool.query('SELECT branch_id FROM sarga_customers WHERE id = ?', [req.params.customerId]);
+            if (cust && Number(cust.branch_id) !== Number(req.user.branch_id)) {
+                return res.status(403).json({ error: 'Access denied: customer belongs to a different branch.' });
+            }
+        }
         const [rows] = await pool.query(
             'SELECT file_url FROM sarga_customer_designs WHERE id = ? AND customer_id = ?',
             [req.params.designId, req.params.customerId]
@@ -276,7 +301,7 @@ router.post('/jobs/:jobId/designs', authenticateToken, (req, res, next) => {
 
     try {
         // Look up the job's customer_id
-        const [jobRows] = await pool.query('SELECT id, customer_id, job_number FROM sarga_jobs WHERE id = ?', [jobId]);
+        const [jobRows] = await pool.query('SELECT id, customer_id, job_number, branch_id FROM sarga_jobs WHERE id = ?', [jobId]);
         if (!jobRows || jobRows.length === 0) {
             for (const file of req.files) {
                 await removeFile(`/uploads/designs/${file.filename}`);
@@ -285,6 +310,12 @@ router.post('/jobs/:jobId/designs', authenticateToken, (req, res, next) => {
         }
 
         const job = jobRows[0];
+        if (req.user.role !== 'Admin' && Number(job.branch_id) !== Number(req.user.branch_id)) {
+            for (const file of req.files) {
+                await removeFile(`/uploads/designs/${file.filename}`);
+            }
+            return res.status(403).json({ error: 'Access denied: job belongs to a different branch.' });
+        }
         if (!job.customer_id) {
             for (const file of req.files) {
                 await removeFile(`/uploads/designs/${file.filename}`);

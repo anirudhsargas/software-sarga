@@ -59,13 +59,23 @@ async function isSessionRevoked(token) {
 }
 
 /**
- * Mark a token as revoked — adds to in-memory blacklist.
- * Works without Redis by using an in-memory Set of revoked token hashes.
+ * Mark a token as revoked — adds to in-memory blacklist AND persists to database.
  */
 async function revokeSessionInCache(token) {
     const hash = crypto.createHash('sha256').update(token).digest('hex');
     revokedTokens.add(hash);
     revokedTimestamps.set(hash, Date.now());
+
+    try {
+        await pool.query(
+            `INSERT INTO sarga_user_sessions (session_token, is_revoked, revoked_at)
+             VALUES (?, 1, NOW())
+             ON DUPLICATE KEY UPDATE is_revoked = 1, revoked_at = NOW()`,
+            [token]
+        );
+    } catch (_err) {
+        // Fallback: in-memory set remains populated
+    }
 }
 
 const JWT_SECRET = process.env.JWT_SECRET;

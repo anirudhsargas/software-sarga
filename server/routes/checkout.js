@@ -26,17 +26,6 @@ function getCustomerId(req) {
   } catch { return null; }
 }
 
-// Razorpay client
-function getRazorpay() {
-  const Razorpay = require('razorpay');
-  const keyId = process.env.RAZORPAY_KEY_ID;
-  const keySecret = process.env.RAZORPAY_KEY_SECRET;
-  if (!keyId || !keySecret) {
-    throw new Error('Razorpay credentials not configured');
-  }
-  return new Razorpay({ key_id: keyId, key_secret: keySecret });
-}
-
 // ─── CART API ───
 
 // POST /api/checkout/cart - Create/get cart session
@@ -237,108 +226,101 @@ router.post('/checkout/create-order', asyncHandler(async (req, res) => {
 
   if (!cart_id) return res.status(400).json({ error: 'cart_id required' });
 
-  const [[cart]] = await pool.query('SELECT * FROM sarga_carts WHERE id = ? AND status = "active"', [cart_id]);
-  if (!cart) return res.status(404).json({ error: 'Cart not found or already converted' });
-
-  const [items] = await pool.query('SELECT * FROM sarga_cart_items WHERE cart_id = ?', [cart_id]);
-  if (items.length === 0) return res.status(400).json({ error: 'Cart is empty' });
-
-  // Get customer info
-  let name = customer_name;
-  let phone = customer_phone;
-  let email = customer_email;
-  if (!name && customerId) {
-    const [[cust]] = await pool.query('SELECT name, mobile, email FROM sarga_customers WHERE id = ?', [customerId]);
-    if (cust) { name = name || cust.name; phone = phone || cust.mobile; email = email || cust.email; }
-  }
-
-  if (!name || !phone) return res.status(400).json({ error: 'Customer name and phone required' });
-
-  const orderNumber = generateOrderNumber();
-  const paymentType = payment_method === 'partial' ? 'partial' : 'full';
-  const advancePercent = paymentType === 'partial' ? 0.5 : 1;
-  const advanceAmount = Number(cart.total) * advancePercent;
-
-  const [result] = await pool.query(
-    `INSERT INTO sarga_orders 
-     (order_number, customer_id, customer_name, customer_phone, customer_email, branch_id, cart_id,
-      items, subtotal, gst_amount, discount_amount, total, advance_paid, balance_amount,
-      payment_method, gst_number, billing_address, delivery_address, delivery_method, pickup_slot_id, notes)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [orderNumber, customerId, name, phone, email, cart.branch_id || 1, cart_id,
-     JSON.stringify(items), cart.subtotal, cart.gst_amount, cart.discount_amount, cart.total,
-     paymentType === 'full' ? cart.total : advanceAmount,
-     paymentType === 'full' ? 0 : Number(cart.total) - advanceAmount,
-     paymentType, gst_number || null, billing_address || null,
-     delivery_address || null, delivery_method || 'pickup', pickup_slot_id || null, notes || null]
-  );
-
-  const orderId = result.insertId;
-
-  // Mark cart as converted
-  await pool.query('UPDATE sarga_carts SET status = "converted" WHERE id = ?', [cart_id]);
-
-  // Create Razorpay order
-  const razorpayAmount = Math.round(Number(cart.total) * 100); // paise
-  let razorpayOrder = null;
+  const conn = await pool.getConnection();
   try {
-    const razorpay = getRazorpay();
-    razorpayOrder = await razorpay.orders.create({
-      amount: razorpayAmount,
-      currency: 'INR',
-      receipt: orderNumber,
-      notes: { order_id: orderId, customer_name: name, customer_phone: phone }
-    });
+    await conn.beginTransaction();
 
-    await pool.query(
-      'UPDATE sarga_orders SET razorpay_order_id = ? WHERE id = ?',
-      [razorpayOrder.id, orderId]
-    );
-
-    await pool.query(
-      'INSERT INTO sarga_payment_transactions (order_id, razorpay_order_id, amount, status) VALUES (?, ?, ?, ?)',
-      [orderId, razorpayOrder.id, cart.total, 'created']
-    );
-  } catch (err) {
-    logger.error('[Checkout] Razorpay order creation failed:', err.message);
-    // Order still created, payment can be done manually
-  }
-
-  // Create job entries for each cart item
-  for (const item of items) {
-    try {
-      const [[product]] = await pool.query(
-        'SELECT id, name, subcategory_id FROM sarga_products WHERE id = ?', [item.product_id]
-      );
-      if (product) {
-        await pool.query(
-          `INSERT INTO sarga_jobs (customer_id, product_id, branch_id, job_number, job_name, quantity, unit_price, total_amount, advance_paid, balance_amount, status, payment_status, description, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'pending', ?, NOW())`,
-          [customerId, product.id, cart.branch_id || 1,
-           `WEB-${orderNumber}-${item.id}`, item.product_name || product.name,
-           item.quantity, item.unit_price, item.line_total,
-           paymentType === 'full' ? item.line_total : item.line_total * 0.5,
-           paymentType === 'full' ? 0 : item.line_total * 0.5,
-           `Web order ${orderNumber}: ${item.design_notes || ''}`
-          ]
-        );
-      }
-    } catch (err) {
-      logger.error('[Checkout] Job creation error:', err.message);
+    const [[cart]] = await conn.query('SELECT * FROM sarga_carts WHERE id = ? AND status = "active"', [cart_id]);
+    if (!cart) {
+      await conn.rollback();
+      return res.status(404).json({ error: 'Cart not found or already converted' });
     }
-  }
 
-  res.status(201).json({
-    order_id: orderId,
-    order_number: orderNumber,
-    amount: cart.total,
-    advance_amount: advanceAmount,
-    payment_type: paymentType,
-    razorpay_order_id: razorpayOrder ? razorpayOrder.id : null,
-    razorpay_key_id: process.env.RAZORPAY_KEY_ID || null,
-    razorpay_amount: razorpayAmount,
-    message: 'Order created successfully'
-  });
+    const [items] = await conn.query('SELECT * FROM sarga_cart_items WHERE cart_id = ?', [cart_id]);
+    if (items.length === 0) {
+      await conn.rollback();
+      return res.status(400).json({ error: 'Cart is empty' });
+    }
+
+    // Get customer info
+    let name = customer_name;
+    let phone = customer_phone;
+    let email = customer_email;
+    if (!name && customerId) {
+      const [[cust]] = await conn.query('SELECT name, mobile, email FROM sarga_customers WHERE id = ?', [customerId]);
+      if (cust) { name = name || cust.name; phone = phone || cust.mobile; email = email || cust.email; }
+    }
+
+    if (!name || !phone) {
+      await conn.rollback();
+      return res.status(400).json({ error: 'Customer name and phone required' });
+    }
+
+    const orderNumber = generateOrderNumber();
+    const paymentType = payment_method === 'partial' ? 'partial' : 'full';
+    const advancePercent = paymentType === 'partial' ? 0.5 : 1;
+    const advanceAmount = Number(cart.total) * advancePercent;
+
+    const [result] = await conn.query(
+      `INSERT INTO sarga_orders 
+       (order_number, customer_id, customer_name, customer_phone, customer_email, branch_id, cart_id,
+        items, subtotal, gst_amount, discount_amount, total, advance_paid, balance_amount,
+        payment_method, gst_number, billing_address, delivery_address, delivery_method, pickup_slot_id, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [orderNumber, customerId, name, phone, email, cart.branch_id || 1, cart_id,
+       JSON.stringify(items), cart.subtotal, cart.gst_amount, cart.discount_amount, cart.total,
+       paymentType === 'full' ? cart.total : advanceAmount,
+       paymentType === 'full' ? 0 : Number(cart.total) - advanceAmount,
+       paymentType, gst_number || null, billing_address || null,
+       delivery_address || null, delivery_method || 'pickup', pickup_slot_id || null, notes || null]
+    );
+
+    const orderId = result.insertId;
+
+    // Mark cart as converted
+    await conn.query('UPDATE sarga_carts SET status = "converted" WHERE id = ?', [cart_id]);
+
+    // Create job entries for each cart item
+    for (const item of items) {
+      try {
+        const [[product]] = await conn.query(
+          'SELECT id, name, subcategory_id FROM sarga_products WHERE id = ?', [item.product_id]
+        );
+        if (product) {
+          await conn.query(
+            `INSERT INTO sarga_jobs (customer_id, product_id, branch_id, job_number, job_name, quantity, unit_price, total_amount, advance_paid, balance_amount, status, payment_status, description, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'pending', ?, NOW())`,
+            [customerId, product.id, cart.branch_id || 1,
+             `WEB-${orderNumber}-${item.id}`, item.product_name || product.name,
+             item.quantity, item.unit_price, item.line_total,
+             paymentType === 'full' ? item.line_total : item.line_total * 0.5,
+             paymentType === 'full' ? 0 : item.line_total * 0.5,
+             `Web order ${orderNumber}: ${item.design_notes || ''}`
+            ]
+          );
+        }
+      } catch (err) {
+        logger.error('[Checkout] Job creation error:', err.message);
+      }
+    }
+
+    await conn.commit();
+
+    res.status(201).json({
+      order_id: orderId,
+      order_number: orderNumber,
+      amount: cart.total,
+      advance_amount: advanceAmount,
+      payment_type: paymentType,
+      message: 'Order created successfully'
+    });
+  } catch (err) {
+    await conn.rollback();
+    logger.error('[Checkout] create-order transaction failed:', err);
+    res.status(500).json({ error: 'Checkout failed, no changes were saved.' });
+  } finally {
+    conn.release();
+  }
 }));
 
 // POST /api/checkout/verify-payment - Verify Razorpay payment

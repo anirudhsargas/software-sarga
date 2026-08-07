@@ -111,7 +111,6 @@ function createTestApp() {
   app.use('/api', require('../../routes/quotes'));
   app.use('/api', require('../../routes/invoiceFeatures'));
   app.use('/api', require('../../routes/passwordReset'));
-  app.use('/api', require('../../routes/websiteInquiries'));
   app.use('/api', require('../../routes/premiumFeatures')());
   app.use('/api/blog', require('../../routes/blog')(upload));
   app.use('/api', require('../../routes/portfolio'));
@@ -121,14 +120,11 @@ function createTestApp() {
   app.use('/api', require('../../routes/artworkUploads'));
   app.use('/api', require('../../routes/pickupSlots'));
   app.use('/api', require('../../routes/deliveryEstimates'));
-  app.use('/api', require('../../routes/websiteReviews'));
   app.use('/api', require('../../routes/whatsappAnalytics'));
   app.use('/api', require('../../routes/checkout'));
   app.use('/api', require('../../routes/businessHub'));
   app.use('/api', require('../../routes/preflight'));
   app.use('/api', require('../../routes/pricing'));
-  app.use('/api/website', require('../../routes/website')(upload));
-  app.use('/api/website', require('../../routes/websiteDesigns'));
 
   // Ping
   app.get('/api/ping', async (req, res) => {

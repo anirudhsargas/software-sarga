@@ -3,7 +3,6 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-route
 import { Toaster } from 'react-hot-toast';
 import AppShellSkeleton from './components/ui/AppShellSkeleton';
 import './bones/registry';
-import './pages/public/public.css';
 const Login = lazyWithRetry(() => import('./pages/Login'));
 const Dashboard = lazyWithRetry(() => import('./pages/Dashboard'));
 const ChangePassword = lazyWithRetry(() => import('./pages/ChangePassword'));
@@ -23,11 +22,8 @@ import { lazyWithRetry } from './utils/errorUtils';
 import { ConfirmProvider } from './contexts/ConfirmContext';
 import { BranchProvider } from './contexts/BranchContext';
 import { AuthProvider, AuthContext } from './hooks/useAuth';
-
 import { HelmetProvider } from 'react-helmet-async';
-
 import { ThemeProvider } from './theme/ThemeProvider';
-
 import { syncManager } from './services/syncWorkerManager';
 import { preloadStaticDataWithRetry } from './services/api';
 import { SyncStatusBar } from './components/SyncStatusBar';
@@ -36,16 +32,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import TooltipProvider from './components/ui/TooltipProvider';
 import GlobalKeyboardShortcuts from './components/GlobalKeyboardShortcuts';
 import KeyboardShortcutsHelp from './components/KeyboardShortcutsHelp';
-
-const PublicLayout = lazyWithRetry(() => import('./pages/public/PublicLayout'));
-const HomePage = lazyWithRetry(() => import('./pages/public/HomePage'));
-const ServicesPage = lazyWithRetry(() => import('./pages/public/ServicesPage'));
-const ProductsPage = lazyWithRetry(() => import('./pages/public/ProductsPage'));
-const DesignPage = lazyWithRetry(() => import('./pages/public/DesignPage'));
-const TrackPage = lazyWithRetry(() => import('./pages/public/TrackPage'));
-const ContactPage = lazyWithRetry(() => import('./pages/public/ContactPage'));
-const PrivacyPage = lazyWithRetry(() => import('./pages/public/PrivacyPage'));
-const TermsPage = lazyWithRetry(() => import('./pages/public/TermsPage'));
 
 const AccountantLayout = lazyWithRetry(() => import('./layouts/AccountantLayout'));
 const StaffLayout = lazyWithRetry(() => import('./layouts/StaffLayout'));
@@ -336,18 +322,9 @@ function App() {
           <RouteErrorBoundary>
           <Suspense fallback={<AppShellSkeleton />}>
             <Routes>
-              {/* Public routes */}
-              <Route element={<PublicLayout />}>
-                <Route path="/" element={<HomePage />} />
-                <Route path="/services" element={<ServicesPage />} />
-                <Route path="/products" element={<ProductsPage />} />
-                <Route path="/design" element={<DesignPage />} />
-                <Route path="/track" element={<TrackPage />} />
-                <Route path="/contact" element={<ContactPage />} />
-                <Route path="/signin" element={<Navigate to="/login" replace />} />
-                <Route path="/privacy" element={<PrivacyPage />} />
-                <Route path="/terms" element={<TermsPage />} />
-              </Route>
+              {/* Root redirect */}
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/signin" element={<Navigate to="/login" replace />} />
 
               {/* Auth routes */}
               <Route path="/login" element={<Login />} />
@@ -372,7 +349,7 @@ function App() {
               <Route
                 path="/staff-settings"
                 element={
-                  <ProtectedRoute roles={['Other Staff', 'Designer', 'Printer', 'Front Office', 'Accountant']}>
+                  <ProtectedRoute roles={['Admin', 'Accountant', 'Front Office', 'Designer', 'Printer', 'Other Staff']}>
                     <StaffSettingsPage />
                   </ProtectedRoute>
                 }

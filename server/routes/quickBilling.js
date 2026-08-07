@@ -100,7 +100,8 @@ router.post('/shortcuts', authenticateToken, async (req, res) => {
 
 // 3. CHECKOUT (Create jobs & payments)
 router.post('/checkout', authenticateToken, async (req, res) => {
-    const { items, customer_id, payment_mode, branch_id } = req.body;
+    const { items, customer_id, payment_mode, branch_id: bodyBranchId } = req.body;
+    const branch_id = req.user.role === 'Admin' ? (bodyBranchId || req.user.branch_id) : req.user.branch_id;
     
     if (!items || !items.length) {
         return res.status(400).json({ message: 'Cart is empty' });

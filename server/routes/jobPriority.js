@@ -136,13 +136,13 @@ function computePriorityScore(job, now = new Date()) {
 // ───────── GET /job-priority/queue — Full prioritized queue ─────────
 router.get('/queue', authenticateToken, async (req, res) => {
     try {
-        const { branch_id } = req.query;
+        const effectiveBranchId = req.user.role === 'Admin' ? (req.query.branch_id || null) : req.user.branch_id;
 
         let branchFilter = '';
         const params = [];
-        if (branch_id) {
+        if (effectiveBranchId) {
             branchFilter = ' AND j.branch_id = ?';
-            params.push(branch_id);
+            params.push(effectiveBranchId);
         }
 
         const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit, 100);

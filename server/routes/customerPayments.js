@@ -119,7 +119,7 @@ router.get('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Acc
 });
 
 // Debug Logs Endpoint
-router.get('/customer-payments/debug-logs', (req, res) => {
+router.get('/customer-payments/debug-logs', authenticateToken, authorizeRoles('Admin'), (req, res) => {
     res.json(global.recentValidationErrors || []);
 });
 

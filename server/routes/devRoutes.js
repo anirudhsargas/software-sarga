@@ -55,10 +55,11 @@ router.get('/token', (req, res) => {
     }
 });
 
+const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { getCacheStats } = require('../services/cacheService');
 
 // Metrics endpoint for infrastructure monitoring
-router.get('/metrics', (req, res) => {
+router.get('/metrics', authenticateToken, authorizeRoles('Admin'), (req, res) => {
     try {
         const cacheStats = getCacheStats();
         res.json({

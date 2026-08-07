@@ -1444,12 +1444,15 @@ router.delete('/credits/:id', auth.authenticate, auth.authorizeRoles('Admin', 'A
         const creditId = req.params.id;
         
         // Fetch before delete for logging
-        const [existing] = await pool.query('SELECT id, customer_name, amount FROM sarga_daily_credit_transactions WHERE id = ?', [creditId]);
-        if (existing.length === 0) return res.status(404).json({ error: 'Credit transaction not found' });
+        const [[existing]] = await pool.query('SELECT id, customer_name, amount, branch_id FROM sarga_daily_credit_transactions WHERE id = ?', [creditId]);
+        if (!existing) return res.status(404).json({ error: 'Credit transaction not found' });
+        if (req.user.role !== 'Admin' && Number(existing.branch_id) !== Number(req.user.branch_id)) {
+            return res.status(403).json({ error: 'Access denied: credit transaction belongs to a different branch.' });
+        }
 
         await pool.query('DELETE FROM sarga_daily_credit_transactions WHERE id = ?', [creditId]);
 
-        auditLog(req.user.id, 'CREDIT_TXN_DELETE', `Deleted credit transaction for ${existing[0].customer_name} of ₹${existing[0].amount}`, { entity_type: 'credit_transaction', entity_id: creditId });
+        auditLog(req.user.id, 'CREDIT_TXN_DELETE', `Deleted credit transaction for ${existing.customer_name} of ₹${existing.amount}`, { entity_type: 'credit_transaction', entity_id: creditId });
         res.json({ message: 'Credit transaction deleted' });
     } catch (error) {
         console.error('Error deleting credit:', error);

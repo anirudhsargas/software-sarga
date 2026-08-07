@@ -16,7 +16,6 @@ import { registerJobTools } from './tools/jobs.js';
 import { registerCustomerTools } from './tools/customers.js';
 import { registerPaymentTools } from './tools/payments.js';
 import { registerAnalyticsTools } from './tools/analytics.js';
-import { registerWebsiteTools } from './tools/website.js';
 
 // Create MCP Server
 export const server = new McpServer({
@@ -32,7 +31,6 @@ registerJobTools(server);
 registerCustomerTools(server);
 registerPaymentTools(server);
 registerAnalyticsTools(server);
-registerWebsiteTools(server);
 
 // Start server based on transport mode
 const transportMode = process.env.MCP_TRANSPORT || 'stdio';

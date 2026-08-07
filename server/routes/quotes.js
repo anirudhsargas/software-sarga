@@ -25,6 +25,10 @@ router.get('/quotes', authenticateToken, async (req, res) => {
         const { limit, offset, _page, response } = paginate(req.query);
         let where = '1=1';
         const params = [];
+        if (req.user.role !== 'Admin') {
+            where += ' AND q.branch_id = ?';
+            params.push(req.user.branch_id);
+        }
         if (status) { where += ' AND q.status = ?'; params.push(status); }
         if (search) {
             where += ' AND (q.quote_number LIKE ? OR q.customer_name LIKE ?)';
@@ -47,6 +51,9 @@ router.get('/quotes/:id', authenticateToken, async (req, res) => {
     try {
         const [[quote]] = await pool.query('SELECT * FROM sarga_quotes WHERE id = ?', [req.params.id]);
         if (!quote) return res.status(404).json({ message: 'Quote not found' });
+        if (req.user.role !== 'Admin' && Number(quote.branch_id) !== Number(req.user.branch_id)) {
+            return res.status(403).json({ error: 'Access denied: quote belongs to a different branch.' });
+        }
         const [items] = await pool.query('SELECT * FROM sarga_quote_items WHERE quote_id = ?', [req.params.id]);
         res.json({ ...quote, items });
     } catch (err) {
@@ -61,8 +68,9 @@ router.post('/quotes', authenticateToken, async (req, res) => {
     try {
         await conn.beginTransaction();
         const { customer_id, customer_name, customer_mobile, customer_email, customer_address, customer_gst,
-            date, valid_until, notes, items = [], discount_percent = 0, tax_rate = 0, branch_id } = req.body;
+            date, valid_until, notes, items = [], discount_percent = 0, tax_rate = 0, branch_id: bodyBranchId } = req.body;
 
+        const branch_id = req.user.role === 'Admin' ? (bodyBranchId || req.user.branch_id) : req.user.branch_id;
         const quote_number = await nextQuoteNumber();
         const subtotal = items.reduce((s, it) => s + (it.quantity || 1) * (it.unit_price || 0), 0);
         const discount_amount = subtotal * (discount_percent / 100);
@@ -71,13 +79,13 @@ router.post('/quotes', authenticateToken, async (req, res) => {
         const total = after_discount + tax_amount;
 
         const [result] = await conn.query(
-            `INSERT INTO sarga_quotes (quote_number, customer_id, customer_name, customer_mobile, customer_email, customer_address, customer_gst,
+            `INSERT INTO sarga_quotes (quote_number, customer_id, customer_name, customer_phone, customer_email, customer_address, customer_gst,
              date, valid_until, notes, subtotal, discount_percent, discount_amount, tax_rate, tax_amount, total, branch_id, created_by)
              VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
             [quote_number, customer_id || null, customer_name, customer_mobile, customer_email, customer_address, customer_gst,
                 date || new Date().toISOString().slice(0, 10), valid_until || null, notes,
                 subtotal, discount_percent, discount_amount, tax_rate, tax_amount, total,
-                branch_id || req.user.branch_id || null, req.user.id]
+                branch_id || null, req.user.id]
         );
         const quoteId = result.insertId;
         for (const it of items) {
@@ -102,6 +110,16 @@ router.put('/quotes/:id', authenticateToken, async (req, res) => {
     const conn = await pool.getConnection();
     try {
         await conn.beginTransaction();
+        const [[existingQuote]] = await conn.query('SELECT branch_id FROM sarga_quotes WHERE id = ?', [req.params.id]);
+        if (!existingQuote) {
+            await conn.rollback();
+            return res.status(404).json({ message: 'Quote not found' });
+        }
+        if (req.user.role !== 'Admin' && Number(existingQuote.branch_id) !== Number(req.user.branch_id)) {
+            await conn.rollback();
+            return res.status(403).json({ error: 'Access denied: quote belongs to a different branch.' });
+        }
+
         const { customer_id, customer_name, customer_mobile, customer_email, customer_address, customer_gst,
             date, valid_until, status, notes, items = [], discount_percent = 0, tax_rate = 0 } = req.body;
 
@@ -140,6 +158,12 @@ router.put('/quotes/:id', authenticateToken, async (req, res) => {
 // ── DELETE quote ─────────────────────────────────────────────
 router.delete('/quotes/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
     try {
+        const [[existingQuote]] = await pool.query('SELECT branch_id FROM sarga_quotes WHERE id = ?', [req.params.id]);
+        if (!existingQuote) return res.status(404).json({ message: 'Quote not found' });
+        if (req.user.role !== 'Admin' && Number(existingQuote.branch_id) !== Number(req.user.branch_id)) {
+            return res.status(403).json({ error: 'Access denied: quote belongs to a different branch.' });
+        }
+
         await pool.query('DELETE FROM sarga_quotes WHERE id = ?', [req.params.id]);
         res.json({ message: 'Quote deleted' });
     } catch (err) {

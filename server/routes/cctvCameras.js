@@ -4,6 +4,8 @@ const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { auditLog: _auditLog } = require('../helpers');
 const { uploadBufferToCloudinary, deleteFromCloudinary: _deleteFromCloudinary } = require('../helpers/cloudinaryUpload');
 
+const { encrypt, decrypt } = require('../utils/crypto');
+
 const VALID_BRANCHES = ['perambra', 'meppayur_main', 'meppayur_room'];
 
 // ─── GET /cameras — list all cameras ─────────────────────────────────────────
@@ -28,7 +30,9 @@ router.get('/cameras/:id', authenticateToken, authorizeRoles('Admin'), async (re
        FROM sarga_cctv_cameras WHERE id = ?`, [req.params.id]
     );
     if (rows.length === 0) return res.status(404).json({ message: 'Camera not found' });
-    res.json(rows[0]);
+    const camera = rows[0];
+    camera.password = decrypt(camera.password);
+    res.json(camera);
   } catch (err) {
     console.error('CCTV camera get error:', err);
     res.status(500).json({ message: 'Database error' });
@@ -51,10 +55,11 @@ router.post('/cameras', authenticateToken, authorizeRoles('Admin'), async (req, 
   }
 
   try {
+    const encryptedPassword = encrypt(password);
     const [result] = await pool.query(
       `INSERT INTO sarga_cctv_cameras (name, branch, ip_address, port, username, password, rtsp_path)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [name, branch, ip_address, port || 554, username || 'admin', password, rtsp_path || '/Streaming/Channels/101']
+      [name, branch, ip_address, port || 554, username || 'admin', encryptedPassword, rtsp_path || '/Streaming/Channels/101']
     );
     res.status(201).json({ id: result.insertId, message: 'Camera added' });
   } catch (err) {
@@ -85,7 +90,7 @@ router.put('/cameras/:id', authenticateToken, authorizeRoles('Admin'), async (re
     if (ip_address !== undefined) { updates.push('ip_address = ?'); params.push(ip_address); }
     if (port !== undefined) { updates.push('port = ?'); params.push(port); }
     if (username !== undefined) { updates.push('username = ?'); params.push(username); }
-    if (password !== undefined) { updates.push('password = ?'); params.push(password); }
+    if (password !== undefined) { updates.push('password = ?'); params.push(encrypt(password)); }
     if (rtsp_path !== undefined) { updates.push('rtsp_path = ?'); params.push(rtsp_path); }
     if (is_active !== undefined) { updates.push('is_active = ?'); params.push(is_active ? 1 : 0); }
 

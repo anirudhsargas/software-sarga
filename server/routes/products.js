@@ -277,7 +277,7 @@ module.exports = (upload, removeUploadFile) => {
     });
 
     // Get all products for catalogue generation with comprehensive filters
-    router.get('/products/catalogue', authenticateToken, async (req, res) => {
+    router.get('/products/catalogue', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
         try {
             const {
                 category_id, subcategory_id, brand, vendor,

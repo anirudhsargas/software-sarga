@@ -793,6 +793,12 @@ router.put('/office-expenses/:id', authenticateToken, authorizeRoles('Admin', 'A
     const { id } = req.params;
     const { expense_type, vendor_name, amount, payment_method, reference_number, description, expense_date, bill_number } = req.body;
 
+    const [[expense]] = await pool.query('SELECT branch_id FROM sarga_office_expenses WHERE id = ?', [id]);
+    if (!expense) return res.status(404).json({ error: 'Expense not found' });
+    if (req.user.role !== 'Admin' && Number(expense.branch_id) !== Number(req.user.branch_id)) {
+      return res.status(403).json({ error: 'Access denied: expense belongs to a different branch.' });
+    }
+
     await pool.query(
       `UPDATE sarga_office_expenses 
        SET expense_type=?, vendor_name=?, amount=?, payment_method=?, reference_number=?, description=?, expense_date=?, bill_number=?
@@ -816,6 +822,12 @@ router.delete('/office-expenses/:id', authenticateToken, authorizeRoles('Admin',
     }
 
     const { id } = req.params;
+    const [[expense]] = await pool.query('SELECT branch_id FROM sarga_office_expenses WHERE id = ?', [id]);
+    if (!expense) return res.status(404).json({ error: 'Expense not found' });
+    if (req.user.role !== 'Admin' && Number(expense.branch_id) !== Number(req.user.branch_id)) {
+      return res.status(403).json({ error: 'Access denied: expense belongs to a different branch.' });
+    }
+
     await pool.query('DELETE FROM sarga_office_expenses WHERE id = ?', [id]);
     auditLog(req.user.id, 'OFFICE_EXPENSE_DELETE', `Deleted office expense #${id}`, { entity_type: 'office_expense', entity_id: id });
     res.json({ success: true });
@@ -1009,6 +1021,12 @@ router.put('/transport-expenses/:id', authenticateToken, authorizeRoles('Admin',
       from_location, to_location, distance_km
     } = req.body;
 
+    const [[expense]] = await pool.query('SELECT branch_id FROM sarga_transport_expenses WHERE id = ?', [id]);
+    if (!expense) return res.status(404).json({ error: 'Expense not found' });
+    if (req.user.role !== 'Admin' && Number(expense.branch_id) !== Number(req.user.branch_id)) {
+      return res.status(403).json({ error: 'Access denied: expense belongs to a different branch.' });
+    }
+
     await pool.query(
       `UPDATE sarga_transport_expenses 
        SET transport_type=?, vehicle_number=?, driver_name=?, amount=?, payment_method=?, reference_number=?, 
@@ -1034,6 +1052,12 @@ router.delete('/transport-expenses/:id', authenticateToken, authorizeRoles('Admi
     }
 
     const { id } = req.params;
+    const [[expense]] = await pool.query('SELECT branch_id FROM sarga_transport_expenses WHERE id = ?', [id]);
+    if (!expense) return res.status(404).json({ error: 'Expense not found' });
+    if (req.user.role !== 'Admin' && Number(expense.branch_id) !== Number(req.user.branch_id)) {
+      return res.status(403).json({ error: 'Access denied: expense belongs to a different branch.' });
+    }
+
     await pool.query('DELETE FROM sarga_transport_expenses WHERE id = ?', [id]);
     auditLog(req.user.id, 'TRANSPORT_EXPENSE_DELETE', `Deleted transport expense #${id}`, { entity_type: 'transport_expense', entity_id: id });
     res.json({ success: true });

@@ -20,8 +20,8 @@ router.post('/run', authenticateToken, authorizeRoles('Admin'), async (req, res)
   }
 });
 
-// POST /api/backup/run-now — unauthenticated trigger via X-Run-Secret header for external/curl testing
-router.post('/run-now', async (req, res) => {
+// POST /api/backup/run-now — manual trigger via X-Run-Secret header for external/curl testing (Admin only)
+router.post('/run-now', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
   const secret = req.headers['x-run-secret'];
   if (process.env.BACKUP_RUN_SECRET && secret !== process.env.BACKUP_RUN_SECRET) {
     return res.status(401).json({ success: false, error: 'Invalid or missing X-Run-Secret header' });

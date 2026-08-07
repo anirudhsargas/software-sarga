@@ -117,10 +117,30 @@ router.get('/', authenticateToken,
       stageGroups[stage].push(job);
     }
 
-    // Summary counts
+    // Summary counts & Bottleneck detection
     const stageCounts = {};
-    for (const [stage, jobs] of Object.entries(stageGroups)) {
-      if (jobs.length > 0) stageCounts[stage] = jobs.length;
+    let totalPipelineValue = 0;
+    let totalUnpaidBalance = 0;
+    let bottleneckStage = null;
+    let maxStageHoursAvg = 0;
+
+    for (const [stage, stageJobs] of Object.entries(stageGroups)) {
+      if (stageJobs.length > 0) {
+        stageCounts[stage] = stageJobs.length;
+        const stageTotalHours = stageJobs.reduce((acc, j) => acc + (j.hours_in_stage || 0), 0);
+        const avgHours = stageTotalHours / stageJobs.length;
+
+        // Bottleneck criteria: non-completed stage with highest average hours in stage
+        if (stage !== 'Completed' && (avgHours > maxStageHoursAvg || (avgHours === maxStageHoursAvg && stageJobs.length > (stageGroups[bottleneckStage]?.length || 0)))) {
+          maxStageHoursAvg = avgHours;
+          bottleneckStage = stage;
+        }
+      }
+    }
+
+    for (const j of enriched) {
+      totalPipelineValue += j.total_amount || 0;
+      totalUnpaidBalance += j.balance_amount || 0;
     }
 
     const totalActive = enriched.length;
@@ -130,14 +150,67 @@ router.get('/', authenticateToken,
     res.json({
       stages: stageGroups,
       stage_order: PRODUCTION_STAGES.filter(s => stageGroups[s]?.length > 0),
+      all_stages: PRODUCTION_STAGES,
       summary: {
         total_active: totalActive,
         overdue: overdueCount,
         urgent: urgentCount,
         stage_counts: stageCounts,
+        total_revenue: totalPipelineValue,
+        total_unpaid: totalUnpaidBalance,
+        bottleneck_stage: bottleneckStage,
+        bottleneck_avg_hours: Math.round(maxStageHoursAvg),
       },
     });
   })
 );
 
+/**
+ * PATCH /production-tracker/:id/status
+ * Quick update stage status for a job
+ */
+router.patch('/:id/status', authenticateToken,
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!status || (!PRODUCTION_STAGES.includes(status) && status !== 'Delivered' && status !== 'Cancelled')) {
+      return res.status(400).json({ error: 'Invalid or missing status stage' });
+    }
+
+    const [existing] = await pool.query('SELECT id, status, job_number, job_name FROM sarga_jobs WHERE id = ?', [id]);
+    if (!existing || existing.length === 0) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    const oldStatus = existing[0].status;
+    if (oldStatus === status) {
+      return res.json({ success: true, message: 'Status is already set to ' + status });
+    }
+
+    await pool.query(
+      'UPDATE sarga_jobs SET status = ?, updated_at = NOW() WHERE id = ?',
+      [status, id]
+    );
+
+    // Record status history if table exists
+    try {
+      await pool.query(
+        'INSERT INTO sarga_job_status_history (job_id, status, changed_at, changed_by) VALUES (?, ?, NOW(), ?)',
+        [id, status, req.user?.id || null]
+      );
+    } catch (_) {
+      // Ignore if table/columns differ
+    }
+
+    res.json({
+      success: true,
+      message: `Job #${existing[0].job_number} updated from ${oldStatus} to ${status}`,
+      oldStatus,
+      newStatus: status,
+    });
+  })
+);
+
 module.exports = router;
+

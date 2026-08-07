@@ -525,8 +525,7 @@ registerRoute('quotes', '/api', () => require('./routes/quotes'));
 registerRoute('invoiceFeatures', '/api', () => require('./routes/invoiceFeatures'));
 registerRoute('passwordReset', '/api', () => require('./routes/passwordReset'));
 
-// Phase 1 Commerce and Website Routes
-registerRoute('websiteInquiries', '/api', () => require('./routes/websiteInquiries'));
+// Phase 1 Commerce Routes
 registerRoute('premiumFeatures', '/api', () => require('./routes/premiumFeatures')());
 registerRoute('blog', '/api/blog', () => require('./routes/blog')(upload));
 registerRoute('portfolio', '/api', () => require('./routes/portfolio'));
@@ -536,7 +535,6 @@ registerRoute('proofs', '/api', () => require('./routes/proofs'));
 registerRoute('artworkUploads', '/api', () => require('./routes/artworkUploads'));
 registerRoute('pickupSlots', '/api', () => require('./routes/pickupSlots'));
 registerRoute('deliveryEstimates', '/api', () => require('./routes/deliveryEstimates'));
-registerRoute('websiteReviews', '/api', () => require('./routes/websiteReviews'));
 registerRoute('whatsappAnalytics', '/api', () => require('./routes/whatsappAnalytics'));
 registerRoute('checkout', '/api', () => require('./routes/checkout'));
 registerRoute('businessHub', '/api', () => require('./routes/businessHub'));
@@ -546,10 +544,6 @@ registerRootRoute('seo', () => require('./routes/seo'));
 
 // Audit Trail System
 registerRoute('auditTrail', '/api', () => require('./routes/auditTrail'));
-
-// Customer-facing Website Routes (public, no auth required — shares same DB)
-registerRoute('website', '/api/website', () => require('./routes/website')(upload));
-registerRoute('websiteDesigns', '/api/website', () => require('./routes/websiteDesigns'));
 
 // Health check with DB ping (must be before the error handler)
 app.get('/api/ping', async (req, res) => {

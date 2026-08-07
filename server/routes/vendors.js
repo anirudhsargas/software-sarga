@@ -213,7 +213,7 @@ router.get('/vendors', authenticateToken, async (req, res) => {
 });
 
 // GET /api/vendors/summary → total payables, overdue, all vendors
-router.get('/vendors/summary', authenticateToken, async (req, res) => {
+router.get('/vendors/summary', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
   try {
     const [summary] = await pool.query(`
       SELECT 
@@ -244,7 +244,7 @@ router.get('/vendors/summary', authenticateToken, async (req, res) => {
 });
 
 // GET /api/vendors/payables/summary → payables dashboard data with aging buckets
-router.get('/vendors/payables/summary', authenticateToken, async (req, res) => {
+router.get('/vendors/payables/summary', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
   try {
     const [rows] = await pool.query(`
       SELECT
@@ -328,7 +328,7 @@ router.get('/vendors/payables/summary', authenticateToken, async (req, res) => {
 });
 
 // GET /api/vendors/:id/credit-status → credit utilization and overdue info
-router.get('/vendors/:id/credit-status', authenticateToken, async (req, res) => {
+router.get('/vendors/:id/credit-status', authenticateToken, authorizeRoles('Admin', 'Accountant'), async (req, res) => {
   try {
     const { id } = req.params;
 
