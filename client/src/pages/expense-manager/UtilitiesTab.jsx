@@ -1,9 +1,10 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Zap, Wifi, Phone, Droplets, ArrowLeft,
   Calendar, TrendingUp, TrendingDown, AlertTriangle, Loader2,
-  Plus, Trash2, X, PlusCircle, ShoppingCart, IndianRupee, FileText, ChevronDown, ChevronRight, ExternalLink, Edit3, Check
+  Plus, Trash2, X, PlusCircle, ShoppingCart, IndianRupee, FileText, ChevronDown, ChevronRight, ExternalLink, Edit3, Check,
+  Building2, Building, CheckCircle2, ShieldCheck, CreditCard, AlertCircle, MapPin, Hash, Search
 } from 'lucide-react';
 import api from '../../services/api';
 import auth from '../../services/auth';
@@ -221,7 +222,10 @@ const UtilitiesTab = ({ refreshKey, dashboard, onPayment, onRefresh }) => {
       bill_date: serverToday(),
       description: '',
       connection_record_id: connRecordId || '',
-      connection_id: connLabel || ''
+      connection_id: connLabel || '',
+      payment_method: 'Cash',
+      payment_ref: '',
+      is_paid: true
     });
     setBillError('');
     setBillSuccess('');
@@ -230,6 +234,14 @@ const UtilitiesTab = ({ refreshKey, dashboard, onPayment, onRefresh }) => {
     setBillEntries([{ connection_id: '', amount: '', bill_number: '' }]);
     if (utilType) fetchConnections(utilType);
   };
+
+  const activeConnectionMatch = useMemo(() => {
+    if (!billForm.connection_record_id && !billForm.connection_id) return null;
+    return connections.find(c => 
+      String(c.id) === String(billForm.connection_record_id) ||
+      (billForm.connection_id && String(c.connection_id).toLowerCase().trim() === String(billForm.connection_id).toLowerCase().trim())
+    ) || null;
+  }, [connections, billForm.connection_record_id, billForm.connection_id]);
 
   const fetchConnections = async (utilityType) => {
     setConnectionsLoading(true);
@@ -328,8 +340,10 @@ const UtilitiesTab = ({ refreshKey, dashboard, onPayment, onRefresh }) => {
   };
 
   /* ── Submit Bill ── */
-  const handleBillSubmit = async (e) => {
-    e.preventDefault();
+  const handleBillSubmit = async (e, isPaidParam) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const isPaid = isPaidParam !== undefined ? isPaidParam : billForm.is_paid;
+
     if (multipleConsumers && billForm.utility_type === 'Electricity') {
       if (!billEntries || billEntries.length === 0) { setBillError('Please add at least one consumer entry'); return; }
       for (const entry of billEntries) {
@@ -345,7 +359,10 @@ const UtilitiesTab = ({ refreshKey, dashboard, onPayment, onRefresh }) => {
             bill_date: billForm.bill_date,
             description: billForm.description,
             connection_id: entry.connection_id,
-            connection_record_id: billForm.connection_record_id || undefined
+            connection_record_id: billForm.connection_record_id || undefined,
+            is_paid: isPaid,
+            payment_method: billForm.payment_method || 'Cash',
+            payment_ref: billForm.payment_ref || null
           };
           return api.post('/utility-bills', payload);
         });
@@ -353,7 +370,7 @@ const UtilitiesTab = ({ refreshKey, dashboard, onPayment, onRefresh }) => {
         const successCount = results.filter(r => r.status === 'fulfilled').length;
         const failCount = results.filter(r => r.status === 'rejected').length;
         if (successCount > 0) {
-          setBillSuccess(`${successCount} bills recorded${failCount ? `; ${failCount} failed` : ''}`);
+          setBillSuccess(`${successCount} bills recorded (${isPaid ? 'Paid' : 'Pending'})`);
           setTimeout(() => {
             setShowBillForm(false);
             if (selectedUtility) openUtilityDetail(selectedUtility);
@@ -375,8 +392,9 @@ const UtilitiesTab = ({ refreshKey, dashboard, onPayment, onRefresh }) => {
     if (!dateResult.valid) { setBillError(dateResult.error); return; }
     setBillSaving(true); setBillError(''); setBillSuccess('');
     try {
-      await api.post('/utility-bills', billForm);
-      setBillSuccess('Bill recorded successfully!');
+      const payload = { ...billForm, is_paid: isPaid };
+      await api.post('/utility-bills', payload);
+      setBillSuccess(isPaid ? 'Bill recorded and payment logged successfully!' : 'Bill recorded as pending!');
       setTimeout(() => {
         setShowBillForm(false);
         if (selectedUtility) openUtilityDetail(selectedUtility);
@@ -1140,117 +1158,210 @@ const UtilitiesTab = ({ refreshKey, dashboard, onPayment, onRefresh }) => {
         </div>
       )}
 
-      {/* ── Bill Recording Modal ── */}
+      {/* ── Elevated Bill Recording Modal ── */}
       {showBillForm && (
         <div role="button" tabIndex={0} className="em-modal-backdrop" onClick={() => setShowBillForm(false)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowBillForm(false); } }}>
-          <div role="button" tabIndex={0} className="em-modal" onClick={e => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
-            <form onSubmit={handleBillSubmit}>
-              <div className="em-modal__header">
-                <h3><ShoppingCart size={18} /> Record Bill — {billForm.utility_type}</h3>
+          <div role="button" tabIndex={0} className="em-modal em-modal--bill-record" onClick={e => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
+            <form onSubmit={(e) => handleBillSubmit(e, true)}>
+              <div className="em-modal__header utility-modal-header">
+                <div className="utility-modal-header-info">
+                  <div className="utility-badge-chip">
+                    <Building size={14} /> Non-Vendor Direct Expense / Utility Bill
+                  </div>
+                  <h3>Record Expense Bill — {billForm.utility_type}</h3>
+                </div>
                 <button type="button" className="em-modal__close" onClick={() => setShowBillForm(false)}>×</button>
               </div>
+
               <div className="em-modal__body">
-                {billError && <div className="em-alert em-alert--danger">{billError}</div>}
-                {billSuccess && <div className="em-alert em-alert--success">{billSuccess}</div>}
+                {billError && <div className="em-alert em-alert--danger"><AlertCircle size={16} /> {billError}</div>}
+                {billSuccess && <div className="em-alert em-alert--success"><CheckCircle2 size={16} /> {billSuccess}</div>}
+
+                {/* Consumer Verification & Branch Connection Card */}
+                {activeConnectionMatch ? (
+                  <div className="connection-verification-card connection-verification-card--matched">
+                    <div className="conn-verify-header">
+                      <div className="conn-verify-badge"><ShieldCheck size={14} /> Verified System Connection</div>
+                      <span className="conn-type-tag">{activeConnectionMatch.utility_type}</span>
+                    </div>
+                    <div className="conn-verify-grid">
+                      <div className="conn-stat">
+                        <span className="conn-stat-label"><Building2 size={12} /> Building / Branch</span>
+                        <span className="conn-stat-val">{activeConnectionMatch.branch_name || 'Main Press Building'}</span>
+                      </div>
+                      <div className="conn-stat">
+                        <span className="conn-stat-label"><MapPin size={12} /> Service Location</span>
+                        <span className="conn-stat-val">{activeConnectionMatch.label || activeConnectionMatch.connection_id}</span>
+                      </div>
+                      <div className="conn-stat">
+                        <span className="conn-stat-label"><Zap size={12} /> Provider & No.</span>
+                        <span className="conn-stat-val">{activeConnectionMatch.provider ? `${activeConnectionMatch.provider} (${activeConnectionMatch.connection_id})` : activeConnectionMatch.connection_id}</span>
+                      </div>
+                      <div className="conn-stat">
+                        <span className="conn-stat-label"><Calendar size={12} /> Billing Cycle</span>
+                        <span className="conn-stat-val" style={{ textTransform: 'capitalize' }}>{activeConnectionMatch.billing_cycle || 'Monthly'}</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : billForm.connection_id ? (
+                  <div className="connection-verification-card connection-verification-card--unlinked">
+                    <div className="conn-verify-header">
+                      <div className="conn-verify-badge conn-verify-badge--warn"><AlertCircle size={14} /> Unlinked Consumer Number</div>
+                      <button type="button" className="btn btn-xs btn-outline" onClick={() => openManageConnections(billForm.utility_type)}>
+                        + Link Connection to Branch
+                      </button>
+                    </div>
+                    <p className="conn-verify-desc">
+                      Consumer Number <strong>{billForm.connection_id}</strong> is not yet registered to a specific building branch. It will be saved with this expense record.
+                    </p>
+                  </div>
+                ) : null}
+
                 <div className="em-form-grid">
-                  {billForm.utility_type === 'Electricity' ? (
-                    <>
-                      <div className="em-form-group em-form-group--full">
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <input name="multiple_consumers" type="checkbox" checked={multipleConsumers} onChange={e => setMultipleConsumers(e.target.checked)} />
-                          Record multiple consumer numbers
-                        </label>
-                      </div>
-
-                      {!multipleConsumers && (
-                        <div className="em-form-group">
-                          <label>Amount (₹) *</label>
-                          <input name="bill_amount" className="em-input" type="number" step="0.01" min="0" required value={billForm.amount} onChange={e => setBillForm(p => ({ ...p, amount: e.target.value }))} placeholder="Enter bill amount" />
-                        </div>
-                      )}
-
-                      <div className="em-form-group">
-                        <label>Bill Number</label>
-                        <input name="bill_number" className="em-input" value={billForm.bill_number} onChange={e => setBillForm(p => ({ ...p, bill_number: e.target.value }))} placeholder="e.g. ELEC-2026-001" />
-                      </div>
-
-                      <div className="em-form-group">
-                        <label>Bill Date</label>
-                        <label htmlFor="date-pljnfp" className="sr-only">Select Date</label>
-                        <input id="date-pljnfp" name="bill_date" className="em-input" type="date" value={billForm.bill_date} onChange={e => setBillForm(p => ({ ...p, bill_date: e.target.value }))} />
-                      </div>
-
-                      {multipleConsumers ? (
-                        <div className="em-form-group em-form-group--full">
-                          <label>Consumers</label>
-                          {billEntries.map((entry, idx) => (
-                            <div key={idx} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                              <input name="entry_connection_id" className="em-input" list="connections-list" placeholder="Connection ID" value={entry.connection_id} onChange={e => updateBillEntry(idx, 'connection_id', e.target.value)} />
-                              <input name="entry_amount" className="em-input" placeholder="Amount (₹)" type="number" step="0.01" min="0" value={entry.amount} onChange={e => updateBillEntry(idx, 'amount', e.target.value)} />
-                              <input name="entry_bill_number" className="em-input" placeholder="Bill Number (optional)" value={entry.bill_number} onChange={e => updateBillEntry(idx, 'bill_number', e.target.value)} />
-                              <button type="button" className="btn btn-ghost btn-icon btn-sm" onClick={() => removeBillEntry(idx)} title="Remove"><Trash2 size={14} /></button>
-                            </div>
-                          ))}
-                          <div>
-                            <button type="button" className="btn btn-sm" onClick={addBillEntry}><Plus size={14} /> Add Consumer</button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="em-form-group">
-                          <label>Connection</label>
-                          <select name="connection_record_id" className="em-input" value={billForm.connection_record_id} onChange={e => {
-                            const connId = e.target.value;
-                            const conn = connections.find(c => String(c.id) === connId);
-                            setBillForm(p => ({ ...p, connection_record_id: connId, connection_id: conn?.connection_id || '' }));
-                          }}>
-                            <option value="">— Select connection —</option>
-                            {connections.filter(c => c.is_active).map(c => (
-                              <option key={c.id} value={c.id}>{c.label || c.connection_id}{c.provider ? ` (${c.provider})` : ''}</option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <div className="em-form-group">
-                        <label>Amount (₹) *</label>
-                        <input name="bill_amount" className="em-input" type="number" step="0.01" min="0" required value={billForm.amount} onChange={e => setBillForm(p => ({ ...p, amount: e.target.value }))} placeholder="Enter bill amount" />
-                      </div>
-                      <div className="em-form-group">
-                        <label>Bill Number</label>
-                        <input name="bill_number" className="em-input" value={billForm.bill_number} onChange={e => setBillForm(p => ({ ...p, bill_number: e.target.value }))} placeholder="e.g. ELEC-2026-001" />
-                      </div>
-                      <div className="em-form-group">
-                        <label>Bill Date</label>
-                        <label htmlFor="date-5o5u4c" className="sr-only">Select Date</label>
-                        <input id="date-5o5u4c" name="bill_date" className="em-input" type="date" value={billForm.bill_date} onChange={e => setBillForm(p => ({ ...p, bill_date: e.target.value }))} />
-                      </div>
-                      <div className="em-form-group">
-                        <label>Connection</label>
-                        <select name="connection_record_id" className="em-input" value={billForm.connection_record_id} onChange={e => {
-                          const connId = e.target.value;
-                          const conn = connections.find(c => String(c.id) === connId);
-                          setBillForm(p => ({ ...p, connection_record_id: connId, connection_id: conn?.connection_id || '' }));
-                        }}>
-                          <option value="">— Select connection —</option>
-                          {connections.filter(c => c.is_active).map(c => (
-                            <option key={c.id} value={c.id}>{c.label || c.connection_id}{c.provider ? ` (${c.provider})` : ''}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </>
+                  {billForm.utility_type === 'Electricity' && (
+                    <div className="em-form-group em-form-group--full">
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                        <input name="multiple_consumers" type="checkbox" checked={multipleConsumers} onChange={e => setMultipleConsumers(e.target.checked)} />
+                        <span>Record multiple consumer numbers in batch</span>
+                      </label>
+                    </div>
                   )}
 
+                  {!multipleConsumers && (
+                    <div className="em-form-group">
+                      <label><IndianRupee size={12} /> Bill Amount (₹) *</label>
+                      <input 
+                        name="bill_amount" 
+                        className="em-input em-input--highlight" 
+                        type="number" 
+                        step="0.01" 
+                        min="0" 
+                        required 
+                        onWheel={e => e.target.blur()}
+                        value={billForm.amount} 
+                        onChange={e => setBillForm(p => ({ ...p, amount: e.target.value }))} 
+                        placeholder="Enter bill amount" 
+                      />
+                    </div>
+                  )}
+
+                  <div className="em-form-group">
+                    <label><Hash size={12} /> Bill / Invoice Number</label>
+                    <input 
+                      name="bill_number" 
+                      className="em-input" 
+                      value={billForm.bill_number} 
+                      onChange={e => setBillForm(p => ({ ...p, bill_number: e.target.value }))} 
+                      placeholder="e.g. ELEC-2026-001" 
+                    />
+                  </div>
+
+                  <div className="em-form-group">
+                    <label><Calendar size={12} /> Bill Date</label>
+                    <input 
+                      name="bill_date" 
+                      className="em-input" 
+                      type="date" 
+                      value={billForm.bill_date} 
+                      onChange={e => setBillForm(p => ({ ...p, bill_date: e.target.value }))} 
+                    />
+                  </div>
+
+                  {multipleConsumers ? (
+                    <div className="em-form-group em-form-group--full">
+                      <label>Consumers & Amounts</label>
+                      {billEntries.map((entry, idx) => (
+                        <div key={idx} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                          <input name="entry_connection_id" className="em-input" list="connections-list" placeholder="Consumer Number" value={entry.connection_id} onChange={e => updateBillEntry(idx, 'connection_id', e.target.value)} />
+                          <input name="entry_amount" className="em-input" placeholder="Amount (₹)" type="number" step="0.01" min="0" onWheel={e => e.target.blur()} value={entry.amount} onChange={e => updateBillEntry(idx, 'amount', e.target.value)} />
+                          <input name="entry_bill_number" className="em-input" placeholder="Bill No. (optional)" value={entry.bill_number} onChange={e => updateBillEntry(idx, 'bill_number', e.target.value)} />
+                          <button type="button" className="btn btn-ghost btn-icon btn-sm" onClick={() => removeBillEntry(idx)} title="Remove"><Trash2 size={14} /></button>
+                        </div>
+                      ))}
+                      <div>
+                        <button type="button" className="btn btn-sm" onClick={addBillEntry}><Plus size={14} /> Add Consumer</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="em-form-group">
+                      <label><Building2 size={12} /> Consumer Number / Meter Connection</label>
+                      <select name="connection_record_id" className="em-input" value={billForm.connection_record_id} onChange={e => {
+                        const connId = e.target.value;
+                        const conn = connections.find(c => String(c.id) === connId);
+                        setBillForm(p => ({ ...p, connection_record_id: connId, connection_id: conn?.connection_id || '' }));
+                      }}>
+                        <option value="">— Select Building / Consumer Connection —</option>
+                        {connections.filter(c => c.is_active).map(c => (
+                          <option key={c.id} value={c.id}>
+                            {c.connection_id} — {c.label || 'Building Meter'}{c.branch_name ? ` (${c.branch_name})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Payment Details Section */}
+                  <div className="em-form-group">
+                    <label><CreditCard size={12} /> Payment Mode</label>
+                    <select 
+                      className="em-input" 
+                      value={billForm.payment_method} 
+                      onChange={e => setBillForm(p => ({ ...p, payment_method: e.target.value }))}
+                    >
+                      <option value="Cash">Cash</option>
+                      <option value="UPI">UPI / GPay / PhonePe</option>
+                      <option value="Bank Transfer">Bank Transfer / NEFT</option>
+                      <option value="Cheque">Cheque</option>
+                    </select>
+                  </div>
+
+                  <div className="em-form-group">
+                    <label><Hash size={12} /> Payment Reference / UTR Number</label>
+                    <input 
+                      name="payment_ref" 
+                      className="em-input" 
+                      value={billForm.payment_ref || ''} 
+                      onChange={e => setBillForm(p => ({ ...p, payment_ref: e.target.value }))} 
+                      placeholder="e.g. UTR / Transaction / Cheque No." 
+                    />
+                  </div>
+
                   <div className="em-form-group em-form-group--full">
-                    <label>Description</label>
-                    <textarea name="description" className="em-input" rows={3} value={billForm.description} onChange={e => setBillForm(p => ({ ...p, description: e.target.value }))} placeholder="Bill details, period, meter reading etc." />
+                    <label>Description & Notes</label>
+                    <textarea 
+                      name="description" 
+                      className="em-input" 
+                      rows={2} 
+                      value={billForm.description} 
+                      onChange={e => setBillForm(p => ({ ...p, description: e.target.value }))} 
+                      placeholder="Bill period, units consumed, meter reading notes etc." 
+                    />
                   </div>
                 </div>
               </div>
-              <div className="em-modal__footer">
+
+              <div className="em-modal__footer utility-bill-modal-footer">
                 <button type="button" className="btn btn-ghost" onClick={() => setShowBillForm(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary" disabled={billSaving}>{billSaving ? 'Saving...' : 'Record Bill'}</button>
+                <div className="utility-bill-footer-actions">
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary btn-record-unpaid" 
+                    disabled={billSaving}
+                    onClick={(e) => handleBillSubmit(e, false)}
+                    title="Save bill as unpaid pending due"
+                  >
+                    <FileText size={15} /> {billSaving ? 'Saving...' : 'Record Bill'}
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn btn-primary btn-record-paid" 
+                    disabled={billSaving}
+                    onClick={(e) => handleBillSubmit(e, true)}
+                    title="Save bill and record immediate payout in accounts"
+                  >
+                    <CheckCircle2 size={15} /> {billSaving ? 'Saving...' : 'Paid and Record Bill'}
+                  </button>
+                </div>
               </div>
             </form>
           </div>

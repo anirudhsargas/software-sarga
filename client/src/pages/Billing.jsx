@@ -1043,6 +1043,7 @@ const Billing = () => {
         customer_id: customerId || null,
         customer_name: form.name.trim() || 'Walk-in Customer',
         customer_mobile: form.mobile || null,
+        customer_email: (form.email || existingCustomer?.email || '').trim(),
         customer_type: isWalkIn ? 'Walk-in' : (form.type || 'Retail'),
         bill_amount: totals.subtotal,
         total_amount: totals.gross,
@@ -2366,27 +2367,28 @@ const Billing = () => {
                     </div>
                   )}
 
-                  <div className="billing-summary-details__field">
-                    <label><Hash size={12} /> Numbering From</label>
-                    <input 
-                      type="text" 
-                      inputMode="numeric" 
-                      placeholder="e.g. 0001" 
-                      value={line.numbering_from || ''}
-                      onChange={e => updateLine(line.id, 'numbering_from', e.target.value)} 
-                    />
-                  </div>
-                  <div className="billing-summary-details__field">
-                    <label>
-                      <Hash size={12} /> Numbering To {numCount ? <span className="numbering-count-chip">({numCount} total)</span> : null}
-                    </label>
-                    <input 
-                      type="text" 
-                      inputMode="numeric" 
-                      placeholder="e.g. 0500" 
-                      value={line.numbering_to || ''}
-                      onChange={e => updateLine(line.id, 'numbering_to', e.target.value)} 
-                    />
+                  <div className="billing-summary-details__field billing-summary-details__field--full-row">
+                    <div className="numbering-header-label">
+                      <label><Hash size={12} /> Numbering Range (From → To)</label>
+                      {numCount ? <span className="numbering-count-chip">({numCount.toLocaleString('en-IN')} total numbers)</span> : null}
+                    </div>
+                    <div className="numbering-inputs-group">
+                      <input 
+                        type="text" 
+                        inputMode="numeric" 
+                        placeholder="From e.g. 0001" 
+                        value={line.numbering_from || ''}
+                        onChange={e => updateLine(line.id, 'numbering_from', e.target.value)} 
+                      />
+                      <span className="numbering-arrow-separator">→</span>
+                      <input 
+                        type="text" 
+                        inputMode="numeric" 
+                        placeholder="To e.g. 0500" 
+                        value={line.numbering_to || ''}
+                        onChange={e => updateLine(line.id, 'numbering_to', e.target.value)} 
+                      />
+                    </div>
                   </div>
                 </div>
 

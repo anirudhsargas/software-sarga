@@ -42,7 +42,7 @@ const KeyboardShortcutsHelp = () => {
     { key: 'Alt + C', name: 'Add New Customer', roles: ['Admin', 'Front Office', 'Accountant'] },
     { key: 'Alt + N', name: 'Create Invoice', roles: ['Admin', 'Front Office', 'Accountant'] },
     { key: 'Alt + P', name: 'Payments', roles: ['Admin', 'Front Office', 'Accountant'] },
-    { key: 'Alt + S', name: 'Shortcuts Page', roles: ['Admin', 'Front Office', 'Accountant', 'Designer', 'Printer', 'Other Staff'] },
+    { key: 'Alt + S', name: 'Shortcuts Page', roles: ['Admin', 'Front Office', 'Accountant', 'Designer', 'Printer'] },
   ];
 
   const handleClose = () => setIsOpen(false);

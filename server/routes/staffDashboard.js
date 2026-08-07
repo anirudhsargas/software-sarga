@@ -71,15 +71,23 @@ router.get('/:id/work-history', authenticateToken, async (req, res) => {
         const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
 
         // Include both direct assignments (staff_id = ?) and role-based assignments (staff_id IS NULL AND role = ?)
-        const userRole = req.user.role || '';
+        let staffRole = req.user.role || '';
+        if (id && !isNaN(id)) {
+            const [[staffRow]] = await pool.query('SELECT role FROM sarga_staff WHERE id = ?', [id]);
+            if (staffRow?.role) {
+                staffRole = staffRow.role;
+            }
+        }
+
         const baseFrom = `
             FROM sarga_job_staff_assignments jsa
             INNER JOIN sarga_jobs j ON j.id = jsa.job_id
             LEFT JOIN sarga_customers c ON j.customer_id = c.id
-            WHERE jsa.staff_id = ? OR (jsa.staff_id IS NULL AND jsa.role = ?)
+            WHERE jsa.staff_id = ? OR (jsa.staff_id IS NULL AND (jsa.role = ? OR jsa.role = ?))
         `;
 
-        const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, [id, userRole]);
+        const userRole = req.user.role || '';
+        const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, [id, staffRole, userRole]);
         const [jobs] = await pool.query(`
             SELECT 
                 j.id,
@@ -99,11 +107,11 @@ router.get('/:id/work-history', authenticateToken, async (req, res) => {
                 jsa.\`role\` as assignment_role,
                 jsa.assigned_date,
                 jsa.completed_date,
-                jsa.status as assignment_status
+                COALESCE(jsa.status, j.status, 'Pending') as assignment_status
             ${baseFrom}
             ORDER BY j.created_at DESC
             LIMIT ? OFFSET ?
-        `, [id, userRole, limit, offset]);
+        `, [id, staffRole, userRole, limit, offset]);
 
         res.json(response(jobs, total));
     } catch (err) {

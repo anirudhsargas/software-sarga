@@ -9,22 +9,22 @@ const nodemailer = require('nodemailer');
 // ──────────────────────────────────────────────────────────────
 // FEATURE 2: Email Invoice to Client
 // ──────────────────────────────────────────────────────────────
-function getTransporter() {
-    return nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-            user: process.env.EMAIL_FROM || '',
-            pass: process.env.EMAIL_PASS || ''
-        }
-    });
+async function getTransporter(config = {}) {
+    const emailFrom = process.env.EMAIL_FROM || config.email_from || config.smtp_user || 'sargadailyreport@gmail.com';
+    const emailPass = process.env.EMAIL_PASS || config.email_pass || config.smtp_pass || '';
+    return {
+        transporter: nodemailer.createTransport({
+            service: 'gmail',
+            auth: { user: emailFrom, pass: emailPass }
+        }),
+        emailFrom
+    };
 }
 
 router.post('/invoices/:paymentId/send-email', authenticateToken, async (req, res) => {
     try {
         const { paymentId } = req.params;
         const { email, subject, message } = req.body;
-
-        if (!email) return res.status(400).json({ message: 'Email address is required' });
 
         const [[payment]] = await pool.query(
             `SELECT cp.*, c.email as customer_email_db
@@ -33,6 +33,9 @@ router.post('/invoices/:paymentId/send-email', authenticateToken, async (req, re
              WHERE cp.id = ?`, [paymentId]
         );
         if (!payment) return res.status(404).json({ message: 'Invoice not found' });
+
+        const targetEmail = (email || payment.customer_email || payment.customer_email_db || payment.email || '').trim();
+        if (!targetEmail) return res.status(400).json({ message: 'Email address is required' });
 
         // Get company settings for branding
         const [settings] = await pool.query('SELECT setting_key, setting_value FROM sarga_company_settings');
@@ -67,10 +70,10 @@ router.post('/invoices/:paymentId/send-email', authenticateToken, async (req, re
             </div>
         </div>`;
 
-        const transporter = getTransporter();
+        const { transporter, emailFrom } = await getTransporter(config);
         await transporter.sendMail({
-            from: `"${companyName}" <${process.env.EMAIL_FROM}>`,
-            to: email,
+            from: `"${companyName}" <${emailFrom}>`,
+            to: targetEmail,
             subject: invoiceSubject,
             text: invoiceMessage,
             html: htmlBody
@@ -81,7 +84,7 @@ router.post('/invoices/:paymentId/send-email', authenticateToken, async (req, re
             `INSERT INTO sarga_invoice_tracking (payment_id, status, sent_at, sent_to_email)
              VALUES (?, 'sent', NOW(), ?)
              ON DUPLICATE KEY UPDATE status='sent', sent_at=NOW(), sent_to_email=?`,
-            [paymentId, email, email]
+            [paymentId, targetEmail, targetEmail]
         );
 
         res.json({ message: 'Invoice sent successfully' });

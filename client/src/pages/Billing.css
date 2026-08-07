@@ -1512,6 +1512,39 @@
   letter-spacing: normal;
 }
 
+.billing-summary-details__field--full-row {
+  grid-column: 1 / -1;
+}
+
+.numbering-header-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.numbering-header-label label {
+  margin: 0;
+}
+
+.numbering-inputs-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.numbering-inputs-group input {
+  flex: 1;
+}
+
+.numbering-arrow-separator {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-muted, #64748b);
+  flex-shrink: 0;
+}
+
 .billing-summary-details__card-footer {
   padding: 0 18px 16px 18px;
 }

@@ -129,6 +129,7 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
         customer_id,
         customer_name,
         customer_mobile,
+        customer_email: req_customer_email,
         total_amount,
         bill_amount: req_bill_amount,
         net_amount,
@@ -256,6 +257,17 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
                     [normalizedMobile]
                 );
                 resolvedCustomerId = rows[0]?.id || null;
+            }
+        }
+
+        if (resolvedCustomerId && req_customer_email && String(req_customer_email).trim()) {
+            try {
+                await connection.query(
+                    "UPDATE sarga_customers SET email = ? WHERE id = ? AND (email IS NULL OR email = '' OR email != ?)",
+                    [String(req_customer_email).trim(), resolvedCustomerId, String(req_customer_email).trim()]
+                );
+            } catch (emailErr) {
+                console.warn('[Payment] Update customer email warning:', emailErr.message);
             }
         }
 
@@ -661,10 +673,10 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
 
         await connection.commit();
 
-        // Auto-send the invoice to the customer's email (fire-and-forget) if they have one on file
-        if (invoiceNumber && resolvedCustomerId && !isInternal) {
+        // Auto-send the invoice to the customer's email (fire-and-forget) if available
+        if (invoiceNumber && !isInternal) {
             const { sendInvoiceEmail } = require('../services/invoiceEmailService');
-            sendInvoiceEmail(paymentId).catch((e) => console.error('[InvoiceEmail] Auto-send error:', e?.message || e));
+            sendInvoiceEmail(paymentId, req_customer_email).catch((e) => console.error('[InvoiceEmail] Auto-send error:', e?.message || e));
         }
 
         res.status(201).json({ id: paymentId, invoice_number: invoiceNumber, balance_amount: balance, message: 'Customer payment recorded' });

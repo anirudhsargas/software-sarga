@@ -3888,4 +3888,214 @@ select.em-input {
   height: 1px;
   background: var(--border, #e2e4e9);
   margin: 4px 8px;
+}
+
+/* ── Elevated Non-Vendor Expense Bill & Connection Verification Card Styles ── */
+.em-modal--bill-record {
+  max-width: 680px;
+  width: 95%;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+}
+
+.utility-modal-header {
+  padding: 16px 20px;
+  background: linear-gradient(135deg, var(--surface, #ffffff) 0%, var(--surface-2, #f8fafc) 100%);
+  border-bottom: 1px solid var(--border, #e2e8f0);
+}
+
+.utility-badge-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent, #4361ee);
+  background: color-mix(in srgb, var(--accent, #4361ee), transparent 90%);
+  padding: 3px 10px;
+  border-radius: 999px;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.utility-modal-header-info h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text, #0f172a);
+}
+
+/* Connection Verification Card */
+.connection-verification-card {
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: all 0.2s ease;
+}
+
+.connection-verification-card--matched {
+  background: linear-gradient(180deg, #ecfdf5 0%, #f0fdf4 100%);
+  border: 1px solid #a7f3d0;
+}
+
+.dark .connection-verification-card--matched {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.connection-verification-card--unlinked {
+  background: #fffbeb;
+  border: 1px dashed #fcd34d;
+}
+
+.dark .connection-verification-card--unlinked {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.conn-verify-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.conn-verify-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #065f46;
+}
+
+.dark .conn-verify-badge {
+  color: #34d399;
+}
+
+.conn-verify-badge--warn {
+  color: #92400e;
+}
+
+.dark .conn-verify-badge--warn {
+  color: #fbbf24;
+}
+
+.conn-type-tag {
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 2px 8px;
+  border-radius: 6px;
+  color: #065f46;
+}
+
+.conn-verify-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+}
+
+.conn-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.conn-stat-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #047857;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dark .conn-stat-label {
+  color: #6ee7b7;
+}
+
+.conn-stat-val {
+  font-size: 13px;
+  font-weight: 700;
+  color: #064e3b;
+}
+
+.dark .conn-stat-val {
+  color: #f0fdf4;
+}
+
+.conn-verify-desc {
+  margin: 0;
+  font-size: 12px;
+  color: #92400e;
+  line-height: 1.4;
+}
+
+.em-input--highlight {
+  font-size: 16px !important;
+  font-weight: 800 !important;
+  color: var(--accent, #4361ee) !important;
+}
+
+/* Modal Footer Action Buttons */
+.utility-bill-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px;
+  background: var(--surface-2, #f8fafc);
+  border-top: 1px solid var(--border, #e2e8f0);
+}
+
+.utility-bill-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.btn-record-unpaid {
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--border, #cbd5e1);
+  color: var(--text, #0f172a);
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+}
+
+.btn-record-unpaid:hover {
+  background: var(--surface-2, #f1f5f9);
+  border-color: var(--accent, #4361ee);
+}
+
+.btn-record-paid {
+  background: #10b981;
+  color: #ffffff;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: none;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25);
+  transition: all 0.15s ease;
+}
+
+.btn-record-paid:hover {
+  background: #059669;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
 }

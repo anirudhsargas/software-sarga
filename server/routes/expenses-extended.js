@@ -2731,14 +2731,30 @@ router.get('/reports/utility-summary-by-connection', authenticateToken, authoriz
 
 // Record a utility bill
 router.post('/utility-bills', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
-  const { utility_type, amount, bill_number, bill_date, description, connection_id, connection_record_id, branch_id, force_duplicate } = req.body;
+  const { 
+    utility_type, amount, bill_number, bill_date, description, connection_id, connection_record_id, 
+    branch_id, force_duplicate, is_paid, payment_method, payment_ref 
+  } = req.body;
   const finalBranchId = ['Admin', 'Accountant'].includes(req.user.role) ? (branch_id || req.user.branch_id) : req.user.branch_id;
 
   if (!utility_type || !amount || Number(amount) <= 0) {
     return res.status(400).json({ message: 'Utility type and amount are required' });
   }
 
+  const isPaid = is_paid !== undefined ? Boolean(is_paid) : true;
+  const payMethod = payment_method || 'Cash';
+  const payRef = payment_ref || null;
+
   try {
+    // Ensure columns exist on sarga_utility_bills dynamically
+    try {
+      await pool.query(`ALTER TABLE sarga_utility_bills ADD COLUMN IF NOT EXISTS is_paid TINYINT(1) DEFAULT 1`);
+      await pool.query(`ALTER TABLE sarga_utility_bills ADD COLUMN IF NOT EXISTS payment_method VARCHAR(50) DEFAULT 'Cash'`);
+      await pool.query(`ALTER TABLE sarga_utility_bills ADD COLUMN IF NOT EXISTS payment_ref VARCHAR(100) DEFAULT NULL`);
+    } catch (colErr) {
+      // Ignore column addition error if existing
+    }
+
     // Period-based duplicate check for utility bills (soft block)
     if (connection_record_id && bill_date && Number(amount) > 0 && !force_duplicate) {
       try {
@@ -2772,44 +2788,55 @@ router.post('/utility-bills', authenticateToken, authorizeRoles('Admin', 'Accoun
     }
 
     const [result] = await pool.query(
-      "INSERT INTO sarga_utility_bills (utility_type, branch_id, bill_number, bill_date, amount, description, connection_id, connection_record_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-      [utility_type, finalBranchId, bill_number || null, bill_date || new Date().toISOString().split('T')[0], Number(amount), description || null, connection_id || null, connection_record_id || null]
+      "INSERT INTO sarga_utility_bills (utility_type, branch_id, bill_number, bill_date, amount, description, connection_id, connection_record_id, is_paid, payment_method, payment_ref) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      [
+        utility_type, finalBranchId, bill_number || null, bill_date || new Date().toISOString().split('T')[0], 
+        Number(amount), description || null, connection_id || null, connection_record_id || null, 
+        isPaid ? 1 : 0, payMethod, payRef
+      ]
     );
 
-      // Persist connection in utility connections table for easy reuse/search
-      if (connection_id) {
-        try {
-          const [[{ cnt }]] = await pool.query(
-            'SELECT COUNT(*) as cnt FROM sarga_utility_connections WHERE branch_id = ? AND utility_type = ? AND connection_id = ?',
-            [finalBranchId, utility_type, connection_id]
+    // Persist connection in utility connections table for easy reuse/search
+    if (connection_id) {
+      try {
+        const [[{ cnt }]] = await pool.query(
+          'SELECT COUNT(*) as cnt FROM sarga_utility_connections WHERE branch_id = ? AND utility_type = ? AND connection_id = ?',
+          [finalBranchId, utility_type, connection_id]
+        );
+        if (Number(cnt) === 0) {
+          await pool.query(
+            'INSERT INTO sarga_utility_connections (branch_id, utility_type, connection_id, label, created_at) VALUES (?, ?, ?, ?, NOW())',
+            [finalBranchId, utility_type, connection_id, connection_id]
           );
-          if (Number(cnt) === 0) {
-            await pool.query(
-              'INSERT INTO sarga_utility_connections (branch_id, utility_type, connection_id, label, created_at) VALUES (?, ?, ?, ?, NOW())',
-              [finalBranchId, utility_type, connection_id, connection_id]
-            );
-          }
-        } catch (connErr) {
-          console.warn('Failed to upsert utility connection:', connErr.message);
         }
+      } catch (connErr) {
+        console.warn('Failed to upsert utility connection:', connErr.message);
       }
+    }
 
-    // SYNC WITH GLOBAL PAYMENTS TABLE (Assuming utility bill record is also a payment in this context)
-    await pool.query(`
-      INSERT INTO sarga_payments 
-      (branch_id, type, payee_name, amount, payment_method, cash_amount, upi_amount, description, payment_date) 
-      VALUES (?, 'Utility', ?, ?, 'Cash', ?, 0, ?, ?)
-    `, [
-      finalBranchId,
-      utility_type,
-      amount,
-      amount,
-      `Utility Bill Payment: ${utility_type}${description ? ' - ' + description : ''}`,
-      bill_date || new Date()
-    ]);
+    // SYNC WITH GLOBAL PAYMENTS TABLE ONLY WHEN BILL IS MARKED AS PAID
+    if (isPaid) {
+      const cashAmt = payMethod === 'Cash' ? Number(amount) : 0;
+      const upiAmt = (payMethod === 'UPI' || payMethod === 'Online' || payMethod === 'Bank Transfer') ? Number(amount) : 0;
+      await pool.query(`
+        INSERT INTO sarga_payments 
+        (branch_id, type, payee_name, amount, payment_method, cash_amount, upi_amount, description, payment_date, reference_number) 
+        VALUES (?, 'Utility', ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        finalBranchId,
+        utility_type,
+        Number(amount),
+        payMethod,
+        cashAmt,
+        upiAmt,
+        `Utility Bill Payment: ${utility_type}${description ? ' - ' + description : ''}${payRef ? ' (Ref: ' + payRef + ')' : ''}`,
+        bill_date || new Date(),
+        payRef
+      ]);
+    }
 
-    auditLog(req.user.id, 'UTILITY_BILL', `Utility bill ₹${amount} for ${utility_type}`);
-    res.status(201).json({ id: result.insertId, message: 'Utility bill recorded' });
+    auditLog(req.user.id, 'UTILITY_BILL', `Utility bill ₹${amount} for ${utility_type} (${isPaid ? 'Paid' : 'Unpaid/Recorded'})`);
+    res.status(201).json({ id: result.insertId, is_paid: isPaid, message: isPaid ? 'Bill recorded and payment logged' : 'Bill recorded as pending' });
   } catch (err) {
     console.error('Utility bill error:', err);
     res.status(500).json({ message: 'Database error' });

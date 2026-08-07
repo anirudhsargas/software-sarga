@@ -52,18 +52,14 @@ async function buildEmailPayload(payment) {
 
 /**
  * Auto-send an invoice email for a payment.
- * Only sends when the customer has an email address on file.
+ * Only sends when the customer has an email address on file or provided.
  * Safe to call fire-and-forget; never throws to the caller.
  * Returns { sent: boolean, email, reason? }.
  */
-async function sendInvoiceEmail(paymentId) {
+async function sendInvoiceEmail(paymentId, overrideEmail) {
     try {
-        if (!process.env.EMAIL_FROM || !process.env.EMAIL_PASS) {
-            return { sent: false, reason: 'Email not configured (EMAIL_FROM/EMAIL_PASS missing)' };
-        }
-
         const [[payment]] = await pool.query(
-            `SELECT cp.*, c.email AS customer_email
+            `SELECT cp.*, c.email AS customer_email_db
              FROM sarga_customer_payments cp
              LEFT JOIN sarga_customers c ON c.id = cp.customer_id
              WHERE cp.id = ?`,
@@ -71,15 +67,41 @@ async function sendInvoiceEmail(paymentId) {
         );
         if (!payment) return { sent: false, reason: 'Payment not found' };
 
-        const email = (payment.customer_email || '').trim();
-        if (!email) return { sent: false, email, reason: 'No customer email on file' };
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { sent: false, email, reason: 'Invalid customer email' };
+        const email = (overrideEmail || payment.customer_email || payment.customer_email_db || payment.email || '').trim();
+        if (!email) {
+            console.log(`[InvoiceEmail] No customer email available for payment #${paymentId}`);
+            return { sent: false, email, reason: 'No customer email on file' };
+        }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            console.log(`[InvoiceEmail] Invalid email address "${email}" for payment #${paymentId}`);
+            return { sent: false, email, reason: 'Invalid customer email' };
+        }
+
+        // Get company settings for SMTP credentials & branding fallback
+        const [settings] = await pool.query('SELECT setting_key, setting_value FROM sarga_company_settings');
+        const config = {};
+        (settings || []).forEach((s) => { config[s.setting_key] = s.setting_value; });
+
+        const emailFrom = process.env.EMAIL_FROM || config.email_from || config.smtp_user || 'sargadailyreport@gmail.com';
+        const emailPass = process.env.EMAIL_PASS || config.email_pass || config.smtp_pass || '';
+
+        if (!emailPass) {
+            console.warn(`[InvoiceEmail] EMAIL_PASS not configured. Skipping email send for payment #${paymentId}`);
+            return { sent: false, reason: 'Email SMTP password not configured' };
+        }
+
+        const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: {
+                user: emailFrom,
+                pass: emailPass
+            }
+        });
 
         const { invoiceSubject, invoiceMessage, htmlBody, companyName } = await buildEmailPayload(payment);
 
-        const transporter = getTransporter();
         await transporter.sendMail({
-            from: `"${companyName}" <${process.env.EMAIL_FROM}>`,
+            from: `"${companyName}" <${emailFrom}>`,
             to: email,
             subject: invoiceSubject,
             text: invoiceMessage,

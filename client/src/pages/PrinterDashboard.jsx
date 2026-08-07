@@ -99,9 +99,10 @@ const PrinterDashboard = () => {
   // Filter jobs based on tab, search, branch, type, and priority
   const filteredJobs = useMemo(() => {
     return workHistory.filter(job => {
-      // Tab filter - active vs completed/cancelled based on ASSIGNMENT status
-      const isActive = ['Pending', 'In Progress'].includes(job.assignment_status);
-      const isCompleted = ['Completed', 'Cancelled'].includes(job.assignment_status);
+      // Tab filter - active vs completed/cancelled based on ASSIGNMENT or JOB status
+      const st = String(job.assignment_status || job.status || 'Pending').trim();
+      const isCompleted = ['Completed', 'Cancelled', 'Delivered', 'completed', 'cancelled', 'delivered'].includes(st);
+      const isActive = !isCompleted;
       
       const matchesTab = activeTab === 'active' ? isActive : isCompleted;
 
@@ -128,11 +129,11 @@ const PrinterDashboard = () => {
   }, [workHistory, activeTab, search, selectedBranch, selectedType, selectedPriority]);
 
   const activeCount = useMemo(() => {
-    return workHistory.filter(j => ['Pending', 'In Progress'].includes(j.assignment_status)).length;
+    return workHistory.filter(j => !['Completed', 'Cancelled', 'Delivered', 'completed', 'cancelled', 'delivered'].includes(String(j.assignment_status || j.status || 'Pending').trim())).length;
   }, [workHistory]);
 
   const completedCount = useMemo(() => {
-    return workHistory.filter(j => ['Completed', 'Cancelled'].includes(j.assignment_status)).length;
+    return workHistory.filter(j => ['Completed', 'Cancelled', 'Delivered', 'completed', 'cancelled', 'delivered'].includes(String(j.assignment_status || j.status || 'Pending').trim())).length;
   }, [workHistory]);
 
   if (loading && workHistory.length === 0) {

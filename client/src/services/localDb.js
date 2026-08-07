@@ -184,6 +184,31 @@ export async function getFrontOfficeDashboard() {
  * Get work history for a specific staff member
  */
 export async function getStaffWorkHistory(staffId, userRole) {
+    if (navigator.onLine && staffId) {
+        try {
+            const res = await api.get(`/staff/${staffId}/work-history?limit=500`);
+            const rawData = res.data?.data || res.data || [];
+            if (Array.isArray(rawData)) {
+                const formatted = rawData.map(job => ({
+                    ...job,
+                    assignment_id: job.assignment_id || job.id,
+                    assignment_status: job.assignment_status || job.status || 'Pending',
+                    customer_name: job.customer_name || 'No Customer',
+                    customer_mobile: job.customer_mobile || ''
+                }));
+                // Best-effort cache to IndexedDB
+                try {
+                    for (const item of formatted) {
+                        if (item.id) await offlineDb.save('jobs', item).catch(() => {});
+                    }
+                } catch (_) {}
+                return formatted;
+            }
+        } catch (err) {
+            console.warn('[localDb] Failed to fetch staff work history from server, falling back to IndexedDB:', err?.message || err);
+        }
+    }
+
     try {
         const sId = isNaN(staffId) ? staffId : Number(staffId);
         // Get all assignments for this staff (direct + role-based)
@@ -211,7 +236,7 @@ export async function getStaffWorkHistory(staffId, userRole) {
             return {
                 ...job,
                 assignment_id: a.id,
-                assignment_status: a.status,
+                assignment_status: a.status || job.status || 'Pending',
                 customer_name: customer ? (customer.name || customer.company_name) : 'No Customer',
                 customer_mobile: customer?.mobile
             };
@@ -1145,6 +1170,7 @@ export async function createBill(billData, matterFiles = []) {
             customer_id: billData.customerId || billData.customer_id || null,
             customer_name: billData.customerName || billData.customer_name,
             customer_mobile: billData.customerMobile || billData.customer_mobile || null,
+            customer_email: billData.customerEmail || billData.customer_email || billData.email || (billData.customer?.email) || null,
             total_amount: billData.totalAmount != null ? billData.totalAmount : (billData.total_amount != null ? billData.total_amount : 0),
             net_amount: billData.netAmount != null ? billData.netAmount : (billData.net_amount != null ? billData.net_amount : 0),
             bill_amount: billData.bill_amount != null ? billData.bill_amount : (billData.billAmount != null ? billData.billAmount : (billData.total_amount != null ? billData.total_amount : 0)),

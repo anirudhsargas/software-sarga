@@ -610,7 +610,7 @@ const Dashboard = () => {
         { key: 'sales_orders', name: 'Orders', icon: ClipboardList, path: '/dashboard/sales/orders', roles: ['Admin', 'Front Office', 'Accountant'], group: 'sales' },
         { key: 'sales_quotes', name: 'Quotations', icon: Receipt, path: '/dashboard/sales/quotes', roles: ['Admin', 'Front Office', 'Accountant'], group: 'sales' },
         { key: 'sales_invoices', name: 'Invoices', icon: FileText, path: '/dashboard/sales/invoices', roles: ['Admin', 'Front Office', 'Accountant'], group: 'sales' },
-        { key: 'shortcuts', name: 'Shortcuts', icon: Zap, path: '/dashboard/shortcuts', roles: ['Admin', 'Front Office', 'Accountant', 'Designer', 'Printer', 'Other Staff'], group: 'sales' },
+        { key: 'shortcuts', name: 'Shortcuts', icon: Zap, path: '/dashboard/shortcuts', roles: ['Admin', 'Front Office', 'Accountant', 'Designer', 'Printer'], group: 'sales' },
         { key: 'sales_payments', name: 'Payments', icon: Receipt, path: '/dashboard/sales/payments', roles: ['Admin', 'Front Office', 'Accountant'], group: 'sales' },
         { key: 'jobs', name: 'Assigned Jobs', icon: ClipboardList, path: '/dashboard/designer-dashboard', roles: ['Designer'], group: 'sales' },
         { key: 'jobs', name: 'Assigned Jobs', icon: ClipboardList, path: '/dashboard/printer-dashboard', roles: ['Printer'], group: 'sales' },
@@ -1253,7 +1253,7 @@ const Dashboard = () => {
                                     </SectionErrorBoundary>
                                 </ProtectedSubRoute>
                             } />
-                            <Route path="shortcuts" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant', 'Designer', 'Printer', 'Other Staff']}><ShortcutsPage /></ProtectedSubRoute>} />
+                            <Route path="shortcuts" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant', 'Designer', 'Printer']}><ShortcutsPage /></ProtectedSubRoute>} />
                             <Route path="*" element={<NotFound />} />
 
                         </Routes>
