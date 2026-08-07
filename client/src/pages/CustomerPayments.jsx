@@ -1168,7 +1168,7 @@ const CustomerPayments = () => {
 
           {/* Amount to collect hero */}
           <div className="cp-amount-hero">
-            <span className="cp-amount-hero-label">Amount to Collect</span>
+            <span className="cp-amount-hero-label">Total Amount Due</span>
             <span className="cp-amount-hero-value">₹{totals.gross.toFixed(2)}</span>
           </div>
 
@@ -1207,16 +1207,16 @@ const CustomerPayments = () => {
             {/* Amount paid / Balance / Date */}
             <div className="cp-form-grid cp-form-grid--3">
               <div>
-                <label className="label">Amount Paid</label>
+                <label className="label">Amount Collecting Now</label>
                 <div className="cp-display-field cp-display-field--accent">
                   ₹{Number(formData.advance_paid).toFixed(2)}
                 </div>
               </div>
               <div>
-                <label className="label">Balance Due</label>
+                <label className="label">Remaining Due After Payment</label>
                 <div className={`cp-display-field cp-display-field--${balanceStatus === 'Paid' ? 'success' : balanceStatus === 'Partial' ? 'warning' : 'error'}`}>
                   <span>₹{Number(formData.balance_amount).toFixed(2)}</span>
-                  <span className="cp-balance-badge">{balanceStatus}</span>
+                  <span className="cp-balance-badge">{balanceStatus === 'Paid' ? 'Paid in Full' : balanceStatus}</span>
                 </div>
               </div>
               <div>
@@ -1227,6 +1227,54 @@ const CustomerPayments = () => {
                 </div>
               </div>
             </div>
+
+            {/* Quick preset collection buttons */}
+            {totals.gross > 0 && (
+              <div className="row gap-xs items-center my-2" style={{ flexWrap: 'wrap' }}>
+                <span className="text-xs muted font-medium">Quick Fill Amount:</span>
+                <button
+                  type="button"
+                  className="btn btn-xs btn-outline"
+                  onClick={() => {
+                    const primaryMethod = payment.selectedMethods[0] || 'Cash';
+                    setPayment(prev => ({
+                      ...prev,
+                      selectedMethods: prev.selectedMethods.length ? prev.selectedMethods : ['Cash'],
+                      methodAmounts: { ...prev.methodAmounts, [primaryMethod]: totals.gross }
+                    }));
+                  }}
+                >
+                  Pay Full (₹{totals.gross.toFixed(2)})
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-xs btn-outline"
+                  onClick={() => {
+                    const primaryMethod = payment.selectedMethods[0] || 'Cash';
+                    const half = Math.round((totals.gross / 2) * 100) / 100;
+                    setPayment(prev => ({
+                      ...prev,
+                      selectedMethods: prev.selectedMethods.length ? prev.selectedMethods : ['Cash'],
+                      methodAmounts: { ...prev.methodAmounts, [primaryMethod]: half }
+                    }));
+                  }}
+                >
+                  Pay 50% (₹{(totals.gross / 2).toFixed(2)})
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-xs btn-ghost"
+                  onClick={() => {
+                    setPayment(prev => ({
+                      ...prev,
+                      methodAmounts: { Cash: 0, UPI: 0, Cheque: 0, 'Account Transfer': 0 }
+                    }));
+                  }}
+                >
+                  Clear Amount
+                </button>
+              </div>
+            )}
 
             {/* Payment method toggles - multi-select like Billing */}
             <div>
