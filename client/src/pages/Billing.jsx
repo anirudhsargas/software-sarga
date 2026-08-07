@@ -8,7 +8,7 @@ import {
   ChevronDown, ChevronUp, ShoppingCart, User, CreditCard, Save, Eye, Check, AlertCircle,
   Loader2, Building2, Hash, Calendar, UserCheck, Phone, Mail, MapPin, Percent, IndianRupee,
   RotateCcw, MessageSquare, Zap, ScanLine, Image, Package, Tag, Upload, ArrowLeft, Users,
-  ChevronRight, Circle, CheckCircle2
+  ChevronRight, Circle, CheckCircle2, Sliders, Palette, Layers, Cpu, FileEdit
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import api from '../services/api';
@@ -2219,116 +2219,192 @@ const Billing = () => {
 
       {/* SUMMARY SECTION */}
       <div className="billing-section billing-section--summary" style={{ display: activeTab === 'summary' ? 'flex' : 'none' }}>
-        <div className="billing-section__header"><FileText size={16} aria-hidden="true" /> <h2>Summary</h2></div>
+        <div className="billing-section__header">
+          <FileText size={18} aria-hidden="true" style={{ color: 'var(--accent)' }} /> 
+          <h2>Order & Payment Summary</h2>
+        </div>
 
-        {/* Totals breakdown */}
-        <div className="billing-summary-final">
-          <div className="billing-summary-final__row">
-            <span>Subtotal</span>
-            <span>₹{totals.subtotal.toFixed(2)}</span>
-          </div>
-          {totals.discountAmount > 0 && (
-            <div className="billing-summary-final__row billing-summary-final__row--discount">
-              <span>Discount</span>
-              <span>−₹{totals.discountAmount.toFixed(2)}</span>
+        {/* High-Fidelity Totals Breakdown Card */}
+        <div className="billing-summary-final-card">
+          <div className="billing-summary-final-header">
+            <div className="billing-summary-status-tag">
+              <span className={`status-dot ${advancePaid >= totals.gross ? 'status-dot--paid' : advancePaid > 0 ? 'status-dot--partial' : 'status-dot--pending'}`} />
+              <span>{advancePaid >= totals.gross ? 'Paid in Full' : advancePaid > 0 ? 'Partial Advance Paid' : 'Payment Pending'}</span>
             </div>
-          )}
-          <div className="billing-summary-final__row">
-            <span className="text-muted" style={{ fontSize: 11, fontStyle: 'italic' }}>GST included in price</span>
-            <span />
+            <div className="billing-summary-final-total">
+              <span className="total-label">Grand Total</span>
+              <span className="total-amount">₹{totals.gross.toFixed(2)}</span>
+            </div>
           </div>
-          <div className="billing-summary-final__divider" />
-          <div className="billing-summary-final__row billing-summary-final__row--total">
-            <span>Final Amount</span>
-            <span>₹{totals.gross.toFixed(2)}</span>
-          </div>
-          <div className="billing-summary-final__row">
-            <span>Paid</span>
-            <span className="text-success font-bold">₹{advancePaid.toFixed(2)}</span>
-          </div>
-          <div className="billing-summary-final__row billing-summary-final__row--balance">
-            <span>Balance Due</span>
-            <span className={advancePaid >= totals.gross ? 'text-success font-bold' : 'font-bold'}>
-              {advancePaid >= totals.gross ? '✓ Paid in Full' : `₹${Math.max(totals.gross - advancePaid, 0).toFixed(2)}`}
-            </span>
+
+          <div className="billing-summary-final-grid">
+            <div className="summary-stat-box">
+              <span className="stat-label">Subtotal</span>
+              <span className="stat-value">₹{totals.subtotal.toFixed(2)}</span>
+            </div>
+            {totals.discountAmount > 0 && (
+              <div className="summary-stat-box summary-stat-box--discount">
+                <span className="stat-label">Discount</span>
+                <span className="stat-value">−₹{totals.discountAmount.toFixed(2)}</span>
+              </div>
+            )}
+            <div className="summary-stat-box">
+              <span className="stat-label">GST (Estimated)</span>
+              <span className="stat-value">Included</span>
+            </div>
+            <div className="summary-stat-box summary-stat-box--paid">
+              <span className="stat-label">Paid / Advance</span>
+              <span className="stat-value">₹{advancePaid.toFixed(2)}</span>
+            </div>
+            <div className={`summary-stat-box ${advancePaid >= totals.gross ? 'summary-stat-box--paid-full' : 'summary-stat-box--balance'}`}>
+              <span className="stat-label">Balance Due</span>
+              <span className="stat-value">
+                {advancePaid >= totals.gross ? '₹0.00 ✓' : `₹${Math.max(totals.gross - advancePaid, 0).toFixed(2)}`}
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* Order Description Details */}
-        <div className="billing-summary-details" style={{ marginTop: 16 }}>
+        {/* Order Job Details & Specifications */}
+        <div className="billing-summary-details">
           <div className="billing-summary-details__header">
-            <FileText size={16} aria-hidden="true" />
-            <span>Job Details</span>
-            <span className="billing-summary-details__count">{orderLines.length} item{orderLines.length !== 1 ? 's' : ''}</span>
+            <Sliders size={16} aria-hidden="true" style={{ color: 'var(--accent)' }} />
+            <span>Job Specifications & Production Instructions</span>
+            <span className="billing-summary-details__count">{orderLines.length} Job Item{orderLines.length !== 1 ? 's' : ''}</span>
           </div>
-          {orderLines.map((line, idx) => (
-            <div key={line.id} className="billing-summary-details__card">
-              <div className="billing-summary-details__card-title">
-                <span className="billing-summary-details__card-number">#{idx + 1}</span>
-                {line.product_name}
-              </div>
-              <div className="billing-summary-details__card-body">
-                <div className="billing-summary-details__field">
-                  <label>Colour / Finish</label>
-                  <input type="text" placeholder="e.g. Full Colour, B&W" value={line.colour || ''}
-                    onChange={e => updateLine(line.id, 'colour', e.target.value)} />
+
+          {orderLines.map((line, idx) => {
+            const lineQty = Number(line.quantity) || 1;
+            const linePrice = Number(line.unit_price) || 0;
+            const lineTotal = Number(line.total_amount) || (lineQty * linePrice);
+            const numFrom = Number(line.numbering_from);
+            const numTo = Number(line.numbering_to);
+            const numCount = (!isNaN(numFrom) && !isNaN(numTo) && numTo >= numFrom) ? (numTo - numFrom + 1) : null;
+
+            return (
+              <div key={line.id} className="billing-summary-details__card">
+                {/* Header with Item Name, Rate & Line Total */}
+                <div className="billing-summary-details__card-title">
+                  <div className="title-left">
+                    <span className="billing-summary-details__card-number">#{idx + 1}</span>
+                    <span className="item-name-heading">{line.product_name || 'Printing Job'}</span>
+                    <span className="item-qty-pill">{lineQty.toLocaleString('en-IN')} Qty</span>
+                  </div>
+                  <div className="title-right">
+                    <span className="item-rate">@ ₹{linePrice.toFixed(2)}</span>
+                    <span className="item-subtotal">₹{lineTotal.toFixed(2)}</span>
+                  </div>
                 </div>
-                <div className="billing-summary-details__field">
-                  <label>Paper Type</label>
-                  <input type="text" placeholder="e.g. Art Card, Maplitho" value={line.paper_preference || ''}
-                    onChange={e => updateLine(line.id, 'paper_preference', e.target.value)} />
-                </div>
-                {line._product?.has_paper_rate && (
+
+                {/* Card Fields Grid */}
+                <div className="billing-summary-details__card-body">
                   <div className="billing-summary-details__field">
-                    <label>Paper Rate (Add-on)</label>
-                    <input type="number" step="0.01" min="0" value={line.customPaperRate}
-                      onChange={e => updateLine(line.id, 'customPaperRate', Number(e.target.value) || 0)} />
+                    <label><Palette size={12} /> Colour / Finish</label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. Full Colour, Multi-color, B&W" 
+                      value={line.colour || ''}
+                      onChange={e => updateLine(line.id, 'colour', e.target.value)} 
+                    />
                   </div>
-                )}
-                {line._product?.has_double_side_rate && (
-                  <div className="billing-summary-details__field" style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingTop: '12px' }}>
-                    <input type="checkbox" id={`ds-${line.id}`} checked={!!line.is_double_side}
-                      onChange={e => updateLine(line.id, 'is_double_side', e.target.checked)} style={{ cursor: 'pointer', width: '16px', height: '16px' }} />
-                    <label htmlFor={`ds-${line.id}`} style={{ cursor: 'pointer', margin: 0, fontSize: '0.8rem' }}>Double Side</label>
-                  </div>
-                )}
-                {isMachineCountLine(line) && !line.quick_added && (
                   <div className="billing-summary-details__field">
-                    <label>Machine (for count)</label>
-                    <select
-                      value={line.machine_id || ''}
-                      onChange={e => updateLine(line.id, 'machine_id', e.target.value ? Number(e.target.value) : null)}
-                      style={{ cursor: 'pointer', padding: '4px 8px', fontSize: '0.8rem', height: '32px', width: '100%', border: '1px solid var(--border)', borderRadius: '6px', background: 'var(--bg)', outline: 'none' }}
-                      aria-label="Select machine for count"
-                    >
-                      <option value="">-- Select Machine --</option>
-                      {branchMachines
-                        .filter((m) => matchMachineForLine(m, line))
-                        .map((m) => (
-                          <option key={m.id} value={m.id}>
-                            {m.machine_name}
-                          </option>
-                        ))}
-                    </select>
+                    <label><Layers size={12} /> Paper Type / Stock</label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. 300 GSM Art Card, Maplitho 70 GSM" 
+                      value={line.paper_preference || ''}
+                      onChange={e => updateLine(line.id, 'paper_preference', e.target.value)} 
+                    />
                   </div>
-                )}
-                <div className="billing-summary-details__field">
-                  <label>Numbering From</label>
-                  <input type="text" inputMode="numeric" placeholder="From" value={line.numbering_from || ''}
-                    onChange={e => updateLine(line.id, 'numbering_from', e.target.value)} />
+
+                  {line._product?.has_paper_rate && (
+                    <div className="billing-summary-details__field">
+                      <label><IndianRupee size={12} /> Paper Add-on Rate (₹)</label>
+                      <input 
+                        type="number" 
+                        step="0.01" 
+                        min="0" 
+                        value={line.customPaperRate || ''}
+                        onWheel={e => e.target.blur()}
+                        onChange={e => updateLine(line.id, 'customPaperRate', Number(e.target.value) || 0)} 
+                      />
+                    </div>
+                  )}
+
+                  {line._product?.has_double_side_rate && (
+                    <div className="billing-summary-details__field billing-summary-details__field--checkbox">
+                      <label className="checkbox-label" htmlFor={`ds-${line.id}`}>
+                        <input 
+                          type="checkbox" 
+                          id={`ds-${line.id}`} 
+                          checked={!!line.is_double_side}
+                          onChange={e => updateLine(line.id, 'is_double_side', e.target.checked)} 
+                        />
+                        <span>Double Side Printing</span>
+                      </label>
+                    </div>
+                  )}
+
+                  {isMachineCountLine(line) && !line.quick_added && (
+                    <div className="billing-summary-details__field">
+                      <label><Cpu size={12} /> Production Machine Assignment</label>
+                      <select
+                        value={line.machine_id || ''}
+                        onChange={e => updateLine(line.id, 'machine_id', e.target.value ? Number(e.target.value) : null)}
+                        className="machine-select-input"
+                        aria-label="Select machine for count"
+                      >
+                        <option value="">-- Select Machine --</option>
+                        {branchMachines
+                          .filter((m) => matchMachineForLine(m, line))
+                          .map((m) => (
+                            <option key={m.id} value={m.id}>
+                              {m.machine_name}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <div className="billing-summary-details__field">
+                    <label><Hash size={12} /> Numbering From</label>
+                    <input 
+                      type="text" 
+                      inputMode="numeric" 
+                      placeholder="e.g. 0001" 
+                      value={line.numbering_from || ''}
+                      onChange={e => updateLine(line.id, 'numbering_from', e.target.value)} 
+                    />
+                  </div>
+                  <div className="billing-summary-details__field">
+                    <label>
+                      <Hash size={12} /> Numbering To {numCount ? <span className="numbering-count-chip">({numCount} total)</span> : null}
+                    </label>
+                    <input 
+                      type="text" 
+                      inputMode="numeric" 
+                      placeholder="e.g. 0500" 
+                      value={line.numbering_to || ''}
+                      onChange={e => updateLine(line.id, 'numbering_to', e.target.value)} 
+                    />
+                  </div>
                 </div>
-                <div className="billing-summary-details__field">
-                  <label>Numbering To</label>
-                  <input type="text" inputMode="numeric" placeholder="To" value={line.numbering_to || ''}
-                    onChange={e => updateLine(line.id, 'numbering_to', e.target.value)} />
+
+                {/* Card Footer: Special Instructions */}
+                <div className="billing-summary-details__card-footer">
+                  <div className="instructions-input-wrap">
+                    <FileEdit size={13} className="instructions-icon" />
+                    <input 
+                      type="text" 
+                      placeholder="Special instructions for press operator / finishing..." 
+                      value={line.special_instructions || ''}
+                      onChange={e => updateLine(line.id, 'special_instructions', e.target.value)} 
+                    />
+                  </div>
                 </div>
               </div>
-              <div className="billing-summary-details__card-footer">
-                <input type="text" placeholder="Special instructions..." value={line.special_instructions || ''}
-                  onChange={e => updateLine(line.id, 'special_instructions', e.target.value)} />
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Draft + Preview actions */}
