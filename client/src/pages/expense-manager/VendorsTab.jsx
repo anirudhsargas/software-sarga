@@ -458,7 +458,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
 
   /* ── Purchase submit ── */
   const openPurchaseForm = (v) => {
-    setPurchaseForm({ vendor_id: v.id, amount: '', bill_number: '', bill_date: serverToday(), description: '' });
+    setPurchaseForm({ vendor_id: v.id, vendor_name: v.name || '', amount: '', bill_number: '', bill_date: serverToday(), description: '' });
     setPurchaseError('');
     setPurchaseSuccess('');
     setShowPurchaseForm(true);
@@ -690,7 +690,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
       const params = new URLSearchParams();
       if (statementFrom) params.append('from', statementFrom);
       if (statementTo)   params.append('to',   statementTo);
-      const url = `/api/vendors/${selectedVendor.id}/ledger/pdf${params.toString() ? `?${params.toString()}` : ''}`;
+      const url = `/vendors/${selectedVendor.id}/ledger/pdf${params.toString() ? `?${params.toString()}` : ''}`;
       const res = await api.get(url, { responseType: 'blob' });
       const blob = new Blob([res.data], { type: 'application/pdf' });
       const blobUrl = URL.createObjectURL(blob);
@@ -698,7 +698,9 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
       a.href = blobUrl;
       const safeName = (selectedVendor.name || String(selectedVendor.id)).replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_.-]/g, '');
       a.download = `vendor-statement-${safeName}-${new Date().toISOString().slice(0,10)}.pdf`;
+      document.body.appendChild(a);
       a.click();
+      a.remove();
       setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
       toast.success('PDF downloaded');
     } catch (err) {
@@ -707,23 +709,46 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
     }
   };
 
-  // ── Print vendor statement — opens the same server PDF in a new tab ────
+  // ── Print vendor statement — triggers browser print dialog reliably ────
   const printVendorStatementPdf = async () => {
     if (!selectedVendor) { toast.error('No vendor selected'); return; }
     try {
       const params = new URLSearchParams();
       if (statementFrom) params.append('from', statementFrom);
       if (statementTo)   params.append('to',   statementTo);
-      const url = `/api/vendors/${selectedVendor.id}/ledger/pdf${params.toString() ? `?${params.toString()}` : ''}`;
+      const url = `/vendors/${selectedVendor.id}/ledger/pdf${params.toString() ? `?${params.toString()}` : ''}`;
       const res = await api.get(url, { responseType: 'blob' });
       const blob = new Blob([res.data], { type: 'application/pdf' });
       const blobUrl = URL.createObjectURL(blob);
-      // Open PDF in a new tab — user can use browser’s Print dialog (Ctrl+P)
-      const tab = window.open(blobUrl, '_blank');
-      if (!tab) { toast.error('Popup blocked — please allow popups for this site'); URL.revokeObjectURL(blobUrl); return; }
-      // Clean up blob URL after the tab has loaded
-      tab.addEventListener('load', () => setTimeout(() => URL.revokeObjectURL(blobUrl), 5000));
-      toast.success('Statement opened — use Ctrl+P / ⌘P to print');
+
+      // Create invisible iframe to trigger browser print dialog without popup blocker
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      iframe.src = blobUrl;
+      document.body.appendChild(iframe);
+
+      iframe.onload = () => {
+        setTimeout(() => {
+          try {
+            iframe.contentWindow.focus();
+            iframe.contentWindow.print();
+          } catch (e) {
+            console.error('Iframe print error:', e);
+            window.open(blobUrl, '_blank');
+          } finally {
+            setTimeout(() => {
+              try { document.body.removeChild(iframe); } catch (_) {}
+              URL.revokeObjectURL(blobUrl);
+            }, 60000);
+          }
+        }, 300);
+      };
+      toast.success('Opening print dialog...');
     } catch (err) {
       console.error('Print PDF error', err);
       toast.error('Failed to open PDF for printing');

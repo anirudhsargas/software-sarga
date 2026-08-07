@@ -344,33 +344,71 @@ const CustomerPayments = () => {
 
   async function fetchCustomers() {
     try {
-      const data = await localDb.getCustomers();
+      let data = [];
+      try {
+        const res = await api.get('/customers');
+        data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+        if (Array.isArray(data) && data.length > 0) {
+          data.forEach((c) => {
+            if (localDb.saveCustomer) localDb.saveCustomer(c).catch(() => {});
+          });
+        }
+      } catch (apiErr) {
+        console.warn('[CustomerPayments] API fetchCustomers error, falling back to localDb:', apiErr);
+        data = await localDb.getCustomers();
+      }
       setCustomers(data || []);
     } catch {
-      setError('Failed to fetch customers from local storage');
+      setError('Failed to fetch customers');
     }
-  };
+  }
 
   async function fetchCustomerJobs(customerId) {
+    if (!customerId) {
+      setCustomerJobs([]);
+      setSelectedJobId(null);
+      return;
+    }
     try {
-      const jobs = await localDb.getCustomerJobs(customerId);
-      setCustomerJobs(jobs || []);
+      let jobs = [];
+      try {
+        const res = await api.get(`/customers/${customerId}/jobs`);
+        jobs = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+        if (Array.isArray(jobs) && jobs.length > 0) {
+          jobs.forEach((j) => {
+            if (localDb.saveJob) localDb.saveJob(j).catch(() => {});
+          });
+        }
+      } catch (apiErr) {
+        console.warn('[CustomerPayments] API fetchCustomerJobs error, falling back to localDb:', apiErr);
+        jobs = await localDb.getCustomerJobs(customerId);
+      }
+
+      const activeJobs = (jobs || []).filter((j) => j && j.status !== 'Cancelled');
+      setCustomerJobs(activeJobs);
 
       const prefilledJobId = location.state?.job_id;
-      if (prefilledJobId && (jobs || []).some(j => String(j.id) === String(prefilledJobId))) {
+      const jobsWithBalance = activeJobs.filter((j) => getJobBalance(j) > 0);
+
+      if (prefilledJobId && activeJobs.some((j) => String(j.id) === String(prefilledJobId))) {
         setSelectedJobId(prefilledJobId);
-      } else if ((jobs || []).length > 1) {
+      } else if (jobsWithBalance.length > 1) {
         setSelectedJobId('all');
-      } else if ((jobs || []).length === 1) {
-        setSelectedJobId(jobs[0].id);
+      } else if (jobsWithBalance.length === 1) {
+        setSelectedJobId(jobsWithBalance[0].id);
+      } else if (activeJobs.length > 1) {
+        setSelectedJobId('all');
+      } else if (activeJobs.length === 1) {
+        setSelectedJobId(activeJobs[0].id);
       } else {
         setSelectedJobId(null);
       }
-    } catch {
+    } catch (err) {
+      console.error('[CustomerPayments] Error fetching customer jobs:', err);
       setCustomerJobs([]);
       setSelectedJobId(null);
     }
-  };
+  }
 
   const filteredCustomers = useMemo(() => {
     const hasPendingBalance = (c) => Number(c.due_amount) > 0 || Number(c.outstanding_balance) > 0;

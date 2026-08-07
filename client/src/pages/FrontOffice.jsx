@@ -493,21 +493,51 @@ const FrontOffice = () => {
     return statusMap[job.status] || 0;
   };
 
-  const matchesCategory = (categoryValue) => {
-    if (activeJobFilter === 'all' || !activeJobFilter) return true;
-    const raw = categoryValue || {};
-    // Prefer the server-resolved category name; fall back to the raw value.
-    const rawValue = typeof raw === 'string' ? raw : (raw.name ?? raw.category_name ?? raw.category ?? '');
-    const name = String(rawValue).trim().toUpperCase();
+  const matchesCategory = (jobOrCategory, filterTarget = activeJobFilter) => {
+    if (!filterTarget || filterTarget === 'all') return true;
+    if (!jobOrCategory) return false;
+
+    let candidateStrings = [];
+
+    if (typeof jobOrCategory === 'string' || typeof jobOrCategory === 'number') {
+      candidateStrings.push(String(jobOrCategory));
+    } else if (typeof jobOrCategory === 'object') {
+      if (jobOrCategory.category_name) candidateStrings.push(String(jobOrCategory.category_name));
+      if (jobOrCategory.category) {
+        if (typeof jobOrCategory.category === 'string' || typeof jobOrCategory.category === 'number') {
+          candidateStrings.push(String(jobOrCategory.category));
+        } else if (typeof jobOrCategory.category === 'object') {
+          if (jobOrCategory.category.name) candidateStrings.push(String(jobOrCategory.category.name));
+          if (jobOrCategory.category.category_name) candidateStrings.push(String(jobOrCategory.category.category_name));
+        }
+      }
+      if (jobOrCategory.subcategory) candidateStrings.push(String(jobOrCategory.subcategory));
+      if (jobOrCategory.subcategory_name) candidateStrings.push(String(jobOrCategory.subcategory_name));
+      if (jobOrCategory.job_name) candidateStrings.push(String(jobOrCategory.job_name));
+      if (jobOrCategory.description) candidateStrings.push(String(jobOrCategory.description));
+
+      if (Array.isArray(jobOrCategory.items)) {
+        jobOrCategory.items.forEach(item => {
+          if (item.category_name) candidateStrings.push(String(item.category_name));
+          if (item.category) candidateStrings.push(String(typeof item.category === 'object' ? item.category.name : item.category));
+          if (item.product_name) candidateStrings.push(String(item.product_name));
+          if (item.name) candidateStrings.push(String(item.name));
+        });
+      }
+    }
+
+    const combinedText = candidateStrings.join(' ').toUpperCase();
+
     const CATEGORY_KEYWORDS = {
       OFFSET: /OFFSET/,
       LASER: /LASER/,
       DIGITAL: /DIGITAL/,
       FRAMES: /FRAME/,
-      MEMENTOS: /MEMENTO/
+      MEMENTOS: /(MEMENTO|TROPHY|PLAQUE|AWARD|GIFT)/
     };
-    const kw = CATEGORY_KEYWORDS[activeJobFilter];
-    return kw ? kw.test(name) : false;
+
+    const kw = CATEGORY_KEYWORDS[filterTarget];
+    return kw ? kw.test(combinedText) : false;
   };
 
   const { stats } = data || {};
@@ -851,7 +881,7 @@ const FrontOffice = () => {
                   { header: 'Actions', width: '1.5fr' }
                 ]} />
               ) : (() => {
-                const filteredJobs = activeQueueJobs.filter(job => matchesCategory(job.category));
+                const filteredJobs = activeQueueJobs.filter(job => matchesCategory(job));
                 return filteredJobs.length === 0 ? (
                   <div className="fo-empty"><Package size={32} aria-hidden="true" /><p>{activeJobFilter !== 'all' ? 'No jobs in this category' : 'No active jobs right now'}</p></div>
                 ) : (
@@ -1055,7 +1085,7 @@ const FrontOffice = () => {
                   <table className="fo-table">
                     <thead><tr><th scope="col">Job</th><th scope="col">Customer</th><th scope="col">Status</th><th scope="col">Delivery Was</th><th scope="col">Overdue By</th><th scope="col">Balance</th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead>
                     <tbody>
-                      {overdueJobs.filter(job => !categoryFilter || matchesCategory(job.category)).map(job => {
+                      {overdueJobs.filter(job => !categoryFilter || matchesCategory(job, categoryFilter)).map(job => {
                         const days = Math.abs(daysUntil(job.delivery_date));
                         const balance = Number(job.balance_amount ?? job.balance ?? 0);
                         return (

@@ -1952,7 +1952,8 @@ function fmtINR(n) {
   const lastThree = int.slice(-3);
   const rest = int.slice(0, -3);
   const formatted = rest ? rest.replace(/\B(?=(\d{2})+(?!\d))/g, ',') + ',' + lastThree : lastThree;
-  return '\u20B9' + formatted + '.' + dec;
+  const prefix = Number(n) < 0 ? '-Rs. ' : 'Rs. ';
+  return prefix + formatted + '.' + dec;
 }
 
 // GET /api/vendors/:id/ledger/pdf → styled PDFKit statement
@@ -2028,21 +2029,21 @@ router.get('/vendors/:id/ledger/pdf', authenticateToken, async (req, res) => {
     const closingBalance = runBal;
 
     // ── 4. Build PDF ────────────────────────────────────────────────────────
-    const MARGIN  = 40;
-    const PAGE_W  = 595.28;   // A4 pt width
-    const PAGE_H  = 841.89;   // A4 pt height
-    const CONTENT_W = PAGE_W - MARGIN * 2;
-    const BRAND   = '#1a1a2e'; // dark navy for headers
-    const ACCENT  = '#16213e'; // slightly lighter for rows
-    const GRAY_ROW = '#f7f7f7';
-    const BORDER  = '#d1d5db';
+    const MARGIN = 36;
+    const PAGE_W = 595.28;   // A4 pt width
+    const PAGE_H = 841.89;   // A4 pt height
+    const CONTENT_W = PAGE_W - (MARGIN * 2); // 523.28
+
+    const BRAND_DARK = '#1e293b';
+    const SLATE_BG   = '#f8fafc';
+    const HEADER_BG  = '#334155';
+    const BORDER_CLR = '#cbd5e1';
 
     const PDFDocument = getPdfDocument();
     const doc = new PDFDocument({ size: 'A4', margin: MARGIN, bufferPages: true });
     res.setHeader('Content-Type', 'application/pdf');
     const safeName = (vendor.name || String(id)).replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_.-]/g, '');
-    res.setHeader('Content-Disposition',
-      `inline; filename="vendor-statement-${safeName}-${new Date().toISOString().slice(0,10)}.pdf"`);
+    res.setHeader('Content-Disposition', `inline; filename="vendor-statement-${safeName}-${new Date().toISOString().slice(0,10)}.pdf"`);
     doc.pipe(res);
 
     let pageNum = 0;
@@ -2050,165 +2051,190 @@ router.get('/vendors/:id/ledger/pdf', authenticateToken, async (req, res) => {
       pageNum++;
       const top = MARGIN;
 
-      // Brand bar
-      doc.rect(MARGIN, top, CONTENT_W, 2).fill(BRAND);
+      // Header Banner Box
+      doc.rect(MARGIN, top, CONTENT_W, 54).fill(BRAND_DARK);
 
-      // Company name
-      doc.fontSize(18).font('Helvetica-Bold').fillColor(BRAND)
-         .text(companyName, MARGIN, top + 8, { width: CONTENT_W / 2 });
+      // Company Title & Info
+      doc.fontSize(16).font('Helvetica-Bold').fillColor('#ffffff')
+         .text(companyName, MARGIN + 12, top + 10);
 
-      // Company details (right side)
-      let ry = top + 8;
-      doc.fontSize(8).font('Helvetica').fillColor('#444');
-      if (companyAddress) { doc.text(companyAddress, MARGIN + CONTENT_W / 2, ry, { align: 'right', width: CONTENT_W / 2 }); ry += 12; }
-      if (companyGst)     { doc.text('GSTIN: ' + companyGst, MARGIN + CONTENT_W / 2, ry, { align: 'right', width: CONTENT_W / 2 }); ry += 12; }
-      if (companyPhone)   { doc.text('Ph: ' + companyPhone,  MARGIN + CONTENT_W / 2, ry, { align: 'right', width: CONTENT_W / 2 }); }
+      let subtitle = companyAddress || 'Perambra, Kozhikode, Kerala';
+      if (companyPhone) subtitle += ` | Ph: ${companyPhone}`;
+      if (companyGst) subtitle += ` | GSTIN: ${companyGst}`;
 
-      // Bottom border of header block
-      const afterHeader = Math.max(doc.y + 10, top + 50);
-      doc.rect(MARGIN, afterHeader, CONTENT_W, 1).fill(ACCENT);
-      return afterHeader + 10;
+      doc.fontSize(8).font('Helvetica').fillColor('#cbd5e1')
+         .text(subtitle, MARGIN + 12, top + 32, { width: CONTENT_W - 180 });
+
+      // Statement Banner Badge on Right
+      doc.fontSize(11).font('Helvetica-Bold').fillColor('#fbbf24')
+         .text('VENDOR STATEMENT', MARGIN + CONTENT_W - 170, top + 14, { width: 160, align: 'right' });
+      doc.fontSize(8).font('Helvetica').fillColor('#e2e8f0')
+         .text('ACCOUNT LEDGER', MARGIN + CONTENT_W - 170, top + 30, { width: 160, align: 'right' });
+
+      return top + 62;
     };
 
     let y = drawHeader();
 
-    // ── Statement title & metadata ──────────────────────────────────────────
-    doc.fontSize(14).font('Helvetica-Bold').fillColor(BRAND)
-       .text('VENDOR STATEMENT OF ACCOUNT', MARGIN, y, { align: 'center', width: CONTENT_W });
-    y = doc.y + 8;
+    // Vendor & Period Details Cards (Two side-by-side boxes)
+    const cardW = (CONTENT_W - 12) / 2;
+    const cardH = 54;
+    const leftX = MARGIN;
+    const rightX = MARGIN + cardW + 12;
 
-    // Meta block: two columns
-    const metaL = MARGIN;
-    const metaR = MARGIN + CONTENT_W / 2 + 10;
-    doc.fontSize(9).font('Helvetica-Bold').fillColor('#111');
-    doc.text('To:', metaL, y);
-    doc.font('Helvetica').text(vendor.name, metaL + 20, y);
-    y = doc.y + 2;
-    if (vendor.phone) {
-      doc.font('Helvetica').fillColor('#555').text('Phone: ' + vendor.phone, metaL, y);
-      y = doc.y + 2;
-    }
-    if (vendor.gst_number) {
-      doc.text('GSTIN: ' + vendor.gst_number, metaL, y);
-      y = doc.y + 2;
-    }
+    // Left Card (Vendor Info)
+    doc.rect(leftX, y, cardW, cardH).fillAndStroke(SLATE_BG, BORDER_CLR);
+    doc.fontSize(8).font('Helvetica-Bold').fillColor('#64748b').text('VENDOR DETAILS', leftX + 8, y + 6);
+    doc.fontSize(10).font('Helvetica-Bold').fillColor('#0f172a').text(vendor.name, leftX + 8, y + 18, { width: cardW - 16 });
+    let vMeta = [];
+    if (vendor.vendor_type || vendor.type) vMeta.push(vendor.vendor_type || vendor.type);
+    if (vendor.phone) vMeta.push(`Ph: ${vendor.phone}`);
+    if (vendor.gst_number) vMeta.push(`GST: ${vendor.gst_number}`);
+    doc.fontSize(8).font('Helvetica').fillColor('#475569').text(vMeta.join('  |  ') || 'Vendor Account', leftX + 8, y + 34, { width: cardW - 16 });
 
-    // Right meta
-    const metaRY = y - (vendor.phone ? 24 : 12);
-    doc.fontSize(9).font('Helvetica').fillColor('#555')
-       .text('Generated: ' + new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' }),
-             metaR, metaRY, { align: 'right', width: CONTENT_W / 2 - 10 });
-    if (from || to) {
-      doc.text('Period: ' + (from || '—') + ' to ' + (to || '—'),
-               metaR, metaRY + 14, { align: 'right', width: CONTENT_W / 2 - 10 });
-    }
+    // Right Card (Statement Info)
+    doc.rect(rightX, y, cardW, cardH).fillAndStroke(SLATE_BG, BORDER_CLR);
+    doc.fontSize(8).font('Helvetica-Bold').fillColor('#64748b').text('STATEMENT PERIOD & DATE', rightX + 8, y + 6);
+    const todayFormatted = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    doc.fontSize(9).font('Helvetica').fillColor('#0f172a').text(`Generated Date: ${todayFormatted}`, rightX + 8, y + 18);
+    const periodStr = (from || to) ? `${from || 'Beginning'} to ${to || 'Present'}` : 'All Recorded Transactions';
+    doc.fontSize(8).font('Helvetica').fillColor('#475569').text(`Period: ${periodStr}`, rightX + 8, y + 34);
 
-    y = doc.y + 14;
-    doc.rect(MARGIN, y, CONTENT_W, 1).fill(BORDER);
-    y += 10;
+    y += cardH + 12;
 
-    // ── Table ───────────────────────────────────────────────────────────────
-    // Column layout (x positions)
+    // KPI Summary Bar (3 Columns)
+    const kpiW = (CONTENT_W - 16) / 3;
+    const kpiH = 36;
+
+    // KPI 1: Purchases
+    doc.rect(MARGIN, y, kpiW, kpiH).fillAndStroke('#eff6ff', '#bfdbfe');
+    doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#1e40af').text('TOTAL PURCHASES (DEBIT)', MARGIN + 6, y + 5);
+    doc.fontSize(10).font('Helvetica-Bold').fillColor('#1e3a8a').text(fmtINR(totalDebit), MARGIN + 6, y + 18);
+
+    // KPI 2: Payments
+    const kpi2X = MARGIN + kpiW + 8;
+    doc.rect(kpi2X, y, kpiW, kpiH).fillAndStroke('#f0fdf4', '#bbf7d0');
+    doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#166534').text('TOTAL PAYMENTS (CREDIT)', kpi2X + 6, y + 5);
+    doc.fontSize(10).font('Helvetica-Bold').fillColor('#065f46').text(fmtINR(totalCredit), kpi2X + 6, y + 18);
+
+    // KPI 3: Closing Balance
+    const kpi3X = MARGIN + (kpiW * 2) + 16;
+    const isDue = closingBalance > 0;
+    doc.rect(kpi3X, y, kpiW, kpiH).fillAndStroke(isDue ? '#fef2f2' : '#f0fdf4', isDue ? '#fecaca' : '#bbf7d0');
+    doc.fontSize(7.5).font('Helvetica-Bold').fillColor(isDue ? '#991b1b' : '#166534').text('NET BALANCE DUE', kpi3X + 6, y + 5);
+    doc.fontSize(10).font('Helvetica-Bold').fillColor(isDue ? '#dc2626' : '#16a34a').text(fmtINR(Math.abs(closingBalance)), kpi3X + 6, y + 18);
+
+    y += kpiH + 14;
+
+    // Table Column Layout (Total Width = 523.28 pt)
     const C = {
       date:   { x: MARGIN,                w: 65,  align: 'left'  },
-      desc:   { x: MARGIN + 65,           w: 170, align: 'left'  },
-      ref:    { x: MARGIN + 235,          w: 75,  align: 'left'  },
-      debit:  { x: MARGIN + 310,         w: 75,  align: 'right' },
-      credit: { x: MARGIN + 385,         w: 75,  align: 'right' },
-      bal:    { x: MARGIN + 460,         w: 75,  align: 'right' },
+      ref:    { x: MARGIN + 65,           w: 80,  align: 'left'  },
+      desc:   { x: MARGIN + 145,          w: 168.28, align: 'left' },
+      debit:  { x: MARGIN + 313.28,       w: 70,  align: 'right' },
+      credit: { x: MARGIN + 383.28,       w: 70,  align: 'right' },
+      bal:    { x: MARGIN + 453.28,       w: 70,  align: 'right' },
     };
 
     const drawTableHeader = (topY) => {
-      // Header fill
-      doc.rect(MARGIN, topY, CONTENT_W, 18).fill(BRAND);
+      doc.rect(MARGIN, topY, CONTENT_W, 20).fill(HEADER_BG);
       doc.fontSize(8).font('Helvetica-Bold').fillColor('#ffffff');
-      const ly = topY + 5;
-      doc.text('DATE',        C.date.x + 2,  ly, { width: C.date.w,   align: 'left'  });
-      doc.text('DESCRIPTION', C.desc.x + 2,  ly, { width: C.desc.w,   align: 'left'  });
-      doc.text('REF / TYPE',  C.ref.x  + 2,  ly, { width: C.ref.w,    align: 'left'  });
-      doc.text('DEBIT',       C.debit.x + 2, ly, { width: C.debit.w,  align: 'right' });
-      doc.text('CREDIT',      C.credit.x + 2,ly, { width: C.credit.w, align: 'right' });
-      doc.text('BALANCE',     C.bal.x + 2,   ly, { width: C.bal.w,    align: 'right' });
-      return topY + 18 + 2;
+      const ly = topY + 6;
+      doc.text('DATE',        C.date.x + 4,  ly, { width: C.date.w - 6,   align: 'left'  });
+      doc.text('TYPE / REF',  C.ref.x  + 4,  ly, { width: C.ref.w - 6,    align: 'left'  });
+      doc.text('DESCRIPTION', C.desc.x + 4,  ly, { width: C.desc.w - 6,   align: 'left'  });
+      doc.text('DEBIT',       C.debit.x,     ly, { width: C.debit.w - 4,  align: 'right' });
+      doc.text('CREDIT',      C.credit.x,    ly, { width: C.credit.w - 4, align: 'right' });
+      doc.text('BALANCE',     C.bal.x,       ly, { width: C.bal.w - 4,    align: 'right' });
+      return topY + 20;
     };
 
     y = drawTableHeader(y);
 
-    // Opening balance row
-    doc.rect(MARGIN, y, CONTENT_W, 16).fill('#eef0f7');
-    doc.fontSize(8).font('Helvetica-Bold').fillColor('#333');
-    doc.text('Opening Balance', C.desc.x + 2, y + 4, { width: C.desc.w, align: 'left' });
-    doc.text(fmtINR(openingBalance), C.bal.x + 2, y + 4, { width: C.bal.w, align: 'right' });
-    y += 16;
+    // Opening Balance Row
+    doc.rect(MARGIN, y, CONTENT_W, 18).fill('#f1f5f9');
+    doc.fontSize(8).font('Helvetica-Bold').fillColor('#334155');
+    doc.text('Opening Balance', C.desc.x + 4, y + 5, { width: C.desc.w - 6, align: 'left' });
+    doc.text(fmtINR(openingBalance), C.bal.x, y + 5, { width: C.bal.w - 4, align: 'right' });
+    y += 18;
 
-    // Transaction rows
-    const ROW_H = 16;
+    // Transaction Rows
+    const ROW_H = 18;
     ledger.forEach((r, i) => {
-      // New page if needed
-      if (y + ROW_H > PAGE_H - 80) {
+      if (y + ROW_H > PAGE_H - 65) {
         doc.addPage();
         y = drawHeader();
         y = drawTableHeader(y);
       }
 
-      // Alternating fill
-      if (i % 2 === 0) doc.rect(MARGIN, y, CONTENT_W, ROW_H).fill(GRAY_ROW);
-      else             doc.rect(MARGIN, y, CONTENT_W, ROW_H).fill('#ffffff');
+      if (i % 2 === 0) doc.rect(MARGIN, y, CONTENT_W, ROW_H).fill('#ffffff');
+      else             doc.rect(MARGIN, y, CONTENT_W, ROW_H).fill('#f8fafc');
 
       const dateStr = r.date ? new Date(r.date).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'2-digit' }) : '';
-      const desc    = String(r.description || '').substring(0, 45);
+      const desc    = String(r.description || '').substring(0, 42);
       const refType = r.type === 'bill' ? 'Invoice' : 'Payment';
 
-      doc.fontSize(7.5).font('Helvetica').fillColor('#222');
-      doc.text(dateStr, C.date.x  + 2, y + 4, { width: C.date.w,   align: 'left'  });
-      doc.text(desc,    C.desc.x  + 2, y + 4, { width: C.desc.w,   align: 'left'  });
-      doc.text(refType, C.ref.x   + 2, y + 4, { width: C.ref.w,    align: 'left'  });
+      doc.fontSize(8).font('Helvetica').fillColor('#1e293b');
+      doc.text(dateStr, C.date.x + 4, y + 5, { width: C.date.w - 6, align: 'left' });
+      doc.text(refType, C.ref.x  + 4, y + 5, { width: C.ref.w - 6,  align: 'left' });
+      doc.text(desc,    C.desc.x + 4, y + 5, { width: C.desc.w - 6, align: 'left' });
 
-      if (r.debit  > 0) { doc.fillColor('#c53030').text(fmtINR(r.debit),  C.debit.x  + 2, y + 4, { width: C.debit.w,  align: 'right' }); }
-      if (r.credit > 0) { doc.fillColor('#276749').text(fmtINR(r.credit), C.credit.x + 2, y + 4, { width: C.credit.w, align: 'right' }); }
-      doc.fillColor('#111').text(fmtINR(r.balance), C.bal.x + 2, y + 4, { width: C.bal.w, align: 'right' });
+      if (r.debit > 0) {
+        doc.fillColor('#dc2626').text(fmtINR(r.debit), C.debit.x, y + 5, { width: C.debit.w - 4, align: 'right' });
+      } else {
+        doc.fillColor('#94a3b8').text('-', C.debit.x, y + 5, { width: C.debit.w - 4, align: 'right' });
+      }
+
+      if (r.credit > 0) {
+        doc.fillColor('#16a34a').text(fmtINR(r.credit), C.credit.x, y + 5, { width: C.credit.w - 4, align: 'right' });
+      } else {
+        doc.fillColor('#94a3b8').text('-', C.credit.x, y + 5, { width: C.credit.w - 4, align: 'right' });
+      }
+
+      doc.fontSize(8).font('Helvetica-Bold').fillColor('#0f172a').text(fmtINR(r.balance), C.bal.x, y + 5, { width: C.bal.w - 4, align: 'right' });
 
       y += ROW_H;
     });
 
-    // Bottom border of table
-    doc.rect(MARGIN, y, CONTENT_W, 1).fill(BORDER);
-    y += 8;
+    // Table Bottom Border Line
+    doc.rect(MARGIN, y, CONTENT_W, 1).fill(BORDER_CLR);
+    y += 10;
 
-    // ── Totals summary box ──────────────────────────────────────────────────
-    if (y + 70 > PAGE_H - 60) { doc.addPage(); y = drawHeader() + 10; }
+    // Totals Summary Box (Right aligned)
+    if (y + 70 > PAGE_H - 50) {
+      doc.addPage();
+      y = drawHeader() + 10;
+    }
 
-    const boxX = MARGIN + CONTENT_W * 0.55;
-    const boxW = CONTENT_W * 0.45;
-    doc.rect(boxX, y, boxW, 62).stroke(BORDER);
+    const boxW = 230;
+    const boxX = MARGIN + CONTENT_W - boxW;
+    doc.rect(boxX, y, boxW, 64).fillAndStroke(SLATE_BG, BORDER_CLR);
 
-    doc.fontSize(8).font('Helvetica').fillColor('#444');
-    const lbl = boxX + 8;
-    const val = boxX + boxW - 8;
-    doc.text('Total Debits (Bills):',  lbl, y + 8,  { width: boxW - 16, align: 'left' });
-    doc.fillColor('#c53030').text(fmtINR(totalDebit),  val, y + 8,  { align: 'right' });
+    doc.fontSize(8).font('Helvetica').fillColor('#475569');
+    const lblX = boxX + 8;
+    const valW = boxW - 16;
 
-    doc.fillColor('#444').text('Total Credits (Payments):', lbl, y + 22, { width: boxW - 16, align: 'left' });
-    doc.fillColor('#276749').text(fmtINR(totalCredit), val, y + 22, { align: 'right' });
+    doc.text('Total Purchases (Debit):', lblX, y + 8, { width: valW, align: 'left' });
+    doc.fillColor('#dc2626').text(fmtINR(totalDebit), boxX, y + 8, { width: valW, align: 'right' });
 
-    // Closing balance — bold separator
-    doc.rect(boxX, y + 38, boxW, 1).fill(BORDER);
-    doc.fontSize(9).font('Helvetica-Bold').fillColor('#111');
-    doc.text('Closing Balance:', lbl, y + 44, { width: boxW - 16, align: 'left' });
-    doc.fillColor(closingBalance > 0 ? '#c53030' : '#276749')
-       .text(fmtINR(Math.abs(closingBalance)), val, y + 44, { align: 'right' });
+    doc.fillColor('#475569').text('Total Payments (Credit):', lblX, y + 24, { width: valW, align: 'left' });
+    doc.fillColor('#16a34a').text(fmtINR(totalCredit), boxX, y + 24, { width: valW, align: 'right' });
 
-    // ── Footer (all pages) ──────────────────────────────────────────────────
+    doc.rect(boxX + 4, y + 40, boxW - 8, 1).fill(BORDER_CLR);
+    doc.fontSize(9).font('Helvetica-Bold').fillColor('#0f172a');
+    doc.text('Closing Balance Due:', lblX, y + 46, { width: valW, align: 'left' });
+    doc.fillColor(closingBalance > 0 ? '#dc2626' : '#16a34a')
+       .text(fmtINR(Math.abs(closingBalance)), boxX, y + 46, { width: valW, align: 'right' });
+
+    // Footer (all pages)
     const totalPages = doc.bufferedPageRange().count;
     for (let p = 0; p < totalPages; p++) {
       doc.switchToPage(p);
-      const footerY = PAGE_H - 30;
-      doc.rect(MARGIN, footerY - 4, CONTENT_W, 1).fill(BORDER);
-      doc.fontSize(7).font('Helvetica').fillColor('#888')
-         .text('This is a system-generated statement. No signature required.',
-               MARGIN, footerY, { width: CONTENT_W / 2, align: 'left' })
-         .text(`Page ${p + 1} of ${totalPages}`,
-               MARGIN + CONTENT_W / 2, footerY, { width: CONTENT_W / 2, align: 'right' });
+      const footerY = PAGE_H - 28;
+      doc.rect(MARGIN, footerY - 4, CONTENT_W, 1).fill(BORDER_CLR);
+      doc.fontSize(7.5).font('Helvetica').fillColor('#64748b')
+         .text('This is a computer-generated vendor statement of account.', MARGIN, footerY, { width: CONTENT_W / 2, align: 'left' })
+         .text(`Page ${p + 1} of ${totalPages}`, MARGIN + CONTENT_W / 2, footerY, { width: CONTENT_W / 2, align: 'right' });
     }
 
     doc.flushPages();

@@ -319,3 +319,161 @@
     position: static;
   }
 }
+
+/* ───── Invoice-Style Line Items Enhancements ───── */
+.stock-invoice-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.stock-invoice-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.stock-invoice-table th {
+  background: var(--table-header-bg, var(--surface-2));
+  padding: var(--space-10) var(--space-12);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.stock-invoice-table td {
+  padding: var(--space-10) var(--space-12);
+  vertical-align: middle;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--text-sm);
+}
+
+.stock-invoice-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.stock-item-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-10);
+}
+
+.stock-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.stock-item-name {
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.stock-item-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  flex-wrap: wrap;
+  font-size: var(--text-xs);
+}
+
+.stock-meta-sep {
+  color: var(--border-hover);
+}
+
+.stock-avail-pill {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.stock-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.stock-badge--ok {
+  background: rgba(34, 197, 94, 0.12);
+  color: #16a34a;
+}
+
+.stock-badge--low {
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+}
+
+.stock-badge--default {
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+
+.stock-qty-input-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--surface-2);
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  width: fit-content;
+}
+
+.stock-qty-field {
+  width: 54px !important;
+  text-align: center;
+  padding: 2px 4px !important;
+  height: 28px !important;
+  font-weight: 700;
+  border: none !important;
+  background: transparent !important;
+}
+
+.stock-notes-field {
+  width: 100%;
+  height: 32px !important;
+  padding: 4px 8px !important;
+  font-size: var(--text-xs) !important;
+}
+
+.transfer-summary-box {
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+  padding: var(--space-12) var(--space-16);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  border: 1px dashed var(--border);
+}
+
+.transfer-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--text-sm);
+}
+
+.stock-dropdown-invoice {
+  position: absolute;
+  width: 100%;
+  z-index: 100;
+  margin-top: 4px;
+  top: 100%;
+  left: 0;
+  max-height: 320px;
+}
+
+.stock-dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-8) var(--space-12);
+}
+

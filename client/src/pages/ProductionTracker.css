@@ -119,6 +119,34 @@
   color: #10b981;
 }
 
+/* ── Live Indicator ── */
+.live-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+  padding: 4px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+  animation: livePulse 1.8s infinite;
+}
+
+@keyframes livePulse {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
 /* ── Control Bar & View Switcher ── */
 .production-controls-bar {
   display: flex;
@@ -228,10 +256,10 @@
   display: flex;
   gap: 16px;
   overflow-x: auto;
-  padding-bottom: 20px;
-  min-height: calc(100vh - 280px);
+  padding: 4px 4px 20px 4px;
   scrollbar-width: thin;
   -webkit-overflow-scrolling: touch;
+  align-items: flex-start;
 }
 
 .production-kanban-board::-webkit-scrollbar {
@@ -244,14 +272,15 @@
 
 .kanban-column {
   flex: 0 0 320px;
+  width: 320px;
   max-width: 320px;
   display: flex;
   flex-direction: column;
   background: var(--surface-2, #f8fafc);
   border: 1px solid var(--border, rgba(0,0,0,0.08));
   border-radius: 14px;
-  max-height: calc(100vh - 270px);
-  overflow: hidden;
+  max-height: calc(100vh - 220px);
+  min-height: 250px;
   transition: box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
@@ -297,6 +326,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  max-height: calc(100vh - 280px);
   scrollbar-width: thin;
 }
 
@@ -311,16 +341,68 @@
   margin: 10px 0;
 }
 
-/* ── KANBAN / CARD DESIGN ENHANCEMENTS ── */
+/* ── ACCORDION GROUPED VIEW ── */
+.production-stage-section {
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--border, rgba(0,0,0,0.08));
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+}
+
+.production-stage-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  background: var(--surface-2, #f8fafc);
+  border: none;
+  border-bottom: 1px solid var(--border, rgba(0,0,0,0.06));
+  cursor: pointer;
+  transition: background 0.15s ease;
+  text-align: left;
+}
+
+.production-stage-header:hover {
+  background: color-mix(in srgb, var(--surface-2, #f8fafc), var(--accent, #4361ee) 5%);
+}
+
+.production-stage-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.production-stage-badge {
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.production-jobs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+  padding: 16px;
+}
+
+/* ── CARD SUPREME DESIGN (PREVENT PARTIAL CUTOFF) ── */
 .production-job-card-supreme {
   background: var(--surface, #ffffff);
   border: 1px solid var(--border, rgba(0,0,0,0.08));
   border-radius: 12px;
-  padding: 14px;
+  padding: 14px 16px;
   cursor: pointer;
   position: relative;
   transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  word-break: break-word;
 }
 
 .production-job-card-supreme:hover {
@@ -334,18 +416,14 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 8px;
 }
 
 .card-job-title {
   font-weight: 700;
-  font-size: 13px;
-  line-height: 1.35;
+  font-size: 13.5px;
+  line-height: 1.4;
   color: var(--text, #0f172a);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  word-break: break-word;
 }
 
 .card-job-number {
@@ -359,7 +437,50 @@
   white-space: nowrap;
 }
 
-/* Priority & Overdue Pills */
+.production-overdue-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 800;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.12);
+  padding: 2px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.production-customer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted, #64748b);
+  flex-wrap: wrap;
+}
+
+.production-tags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.production-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted, #475569);
+  background: var(--surface-2, #f1f5f9);
+  padding: 3px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+/* Priority Pills */
 .priority-pill {
   font-size: 10px;
   font-weight: 800;
@@ -367,6 +488,7 @@
   border-radius: 4px;
   text-transform: uppercase;
   letter-spacing: 0.4px;
+  white-space: nowrap;
 }
 .priority-pill--urgent { background: rgba(220, 38, 38, 0.12); color: #dc2626; }
 .priority-pill--high { background: rgba(245, 158, 11, 0.12); color: #d97706; }
@@ -378,7 +500,7 @@
   display: flex;
   align-items: center;
   gap: 3px;
-  margin: 10px 0 8px;
+  margin: 4px 0;
 }
 .mini-stage-dot {
   flex: 1;
@@ -396,7 +518,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-top: 12px;
+  margin-top: 4px;
   padding-top: 10px;
   border-top: 1px solid var(--border, rgba(0,0,0,0.06));
 }
@@ -433,12 +555,14 @@
   background: var(--surface, #ffffff);
   border: 1px solid var(--border, rgba(0,0,0,0.08));
   border-radius: 14px;
-  overflow: hidden;
+  overflow-x: auto;
   box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+  -webkit-overflow-scrolling: touch;
 }
 
 .production-table {
   width: 100%;
+  min-width: 800px;
   border-collapse: collapse;
   text-align: left;
   font-size: 13px;
@@ -566,11 +690,15 @@
 @media (max-width: 768px) {
   .production-kanban-board {
     flex-direction: column;
-    min-height: auto;
+    overflow-x: visible;
   }
   .kanban-column {
     max-width: 100%;
+    width: 100%;
     flex: 1 1 auto;
+    max-height: none;
+  }
+  .kanban-column-body {
     max-height: none;
   }
   .job-inspector-drawer {

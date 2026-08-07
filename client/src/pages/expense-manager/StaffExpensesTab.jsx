@@ -22,7 +22,8 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
   const [salaryInfo, setSalaryInfo] = useState(null);
   const [loadingInfo, setLoadingInfo] = useState(false);
   const [showPayModal, setShowPayModal] = useState(false);
-  const [, setPayForm] = useState(DEFAULT_PAY_FORM);
+  const [payForm, setPayForm] = useState(DEFAULT_PAY_FORM);
+  const [paySubmitting, setPaySubmitting] = useState(false);
   const [month, setMonth] = useState(thisMonth());
   const [payDirty, setPayDirty] = useState(false);
   const [selectedStaffIds, setSelectedStaffIds] = useState([]);
@@ -32,6 +33,15 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
   const [bulkDirty, setBulkDirty] = useState(false);
 
   const hasUnsavedChanges = (showPayModal && payDirty) || (showBulkModal && bulkDirty && !bulkSubmitting);
+
+  const closePayModal = (force = false) => {
+    if (!force && payDirty && !paySubmitting) {
+      const shouldClose = window.confirm('You have unsaved payment changes. Discard them?');
+      if (!shouldClose) return;
+    }
+    setShowPayModal(false);
+    setPayDirty(false);
+  };
 
   const closeBulkModal = (force = false) => {
     if (!force && bulkDirty && !bulkSubmitting) {
@@ -110,6 +120,55 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
       window.URL.revokeObjectURL(url);
     } catch (err) {
       if (onError) onError(err.response?.data?.message || 'Failed to download salary slip');
+    }
+  };
+
+  const submitSinglePayPayment = async (e) => {
+    e.preventDefault();
+    if (!selectedStaff) return;
+    if (!payForm.amount || Number(payForm.amount) <= 0) {
+      if (onError) onError('Payment amount must be greater than 0');
+      return;
+    }
+    const dateResult = validateDate(payForm.payment_date, { label: 'Payment date' });
+    if (!dateResult.valid) { if (onError) onError(dateResult.error); return; }
+
+    setPaySubmitting(true);
+    try {
+      const idempotencyKey = `sal_pay_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      const payload = {
+        base_salary: selectedStaff.base_salary || 0,
+        payment_amount: Number(payForm.amount),
+        amount: Number(payForm.amount),
+        payment_month: `${month}-01`,
+        payment_method: payForm.payment_method,
+        payment_date: payForm.payment_date,
+        reference_number: payForm.reference_number,
+        notes: payForm.notes,
+        bonus: Number(payForm.bonus || 0),
+        deduction: Number(payForm.deduction || 0),
+        idempotency_key: idempotencyKey
+      };
+
+      await api.post(`/staff/${selectedStaff.id}/pay-salary`, payload, {
+        headers: { 'Idempotency-Key': idempotencyKey }
+      });
+
+      closePayModal(true);
+      if (selectedStaff) openStaffSalary(selectedStaff);
+      fetchStaff(page);
+
+      if (onPayment) {
+        onPayment({
+          type: 'Salary',
+          amount: Number(payForm.amount),
+          notes: `Salary payment for ${selectedStaff.name}`
+        });
+      }
+    } catch (err) {
+      if (onError) onError(err.response?.data?.message || 'Salary payment failed');
+    } finally {
+      setPaySubmitting(false);
     }
   };
 
@@ -251,6 +310,64 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
             )}
 
             {/* Recent Payments - Placeholder or logic for recent payments for this staff */}
+            {showPayModal && (
+              <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) closePayModal(); }}>
+                <div role="button" tabIndex={0} className="em-modal em-modal--sm" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
+                  <div className="em-modal__header">
+                    <h2>Pay Salary — {staff.name}</h2>
+                    <button className="btn btn-ghost btn-icon" aria-label="Close salary modal" onClick={() => closePayModal()}><X size={18} /></button>
+                  </div>
+                  {payDirty && <div className="alert alert--warning mb-12">Unsaved changes</div>}
+                  <form onSubmit={submitSinglePayPayment}>
+                    <div className="em-modal__body">
+                      <div className="em-form-grid">
+                        <div className="em-form-group">
+                          <label>For Month</label>
+                          <input name="month" className="em-input" type="month" value={month} onChange={e => { setMonth(e.target.value); setPayDirty(true); }} required />
+                        </div>
+                        <div className="em-form-group">
+                          <label>Amount (₹) *</label>
+                          <input name="amount" className="em-input" type="number" step="0.01" min="1" value={payForm.amount} onChange={e => { setPayForm(p => ({ ...p, amount: e.target.value })); setPayDirty(true); }} required />
+                        </div>
+                        <div className="em-form-group">
+                          <label>Payment Date</label>
+                          <input name="payment_date" className="em-input" type="date" value={payForm.payment_date} onChange={e => { setPayForm(p => ({ ...p, payment_date: e.target.value })); setPayDirty(true); }} required />
+                        </div>
+                        <div className="em-form-group">
+                          <label>Method</label>
+                          <select name="payment_method" className="em-input" value={payForm.payment_method} onChange={e => { setPayForm(p => ({ ...p, payment_method: e.target.value })); setPayDirty(true); }}>
+                            <option>Cash</option>
+                            <option>UPI</option>
+                            <option>Bank Transfer</option>
+                            <option>Cheque</option>
+                          </select>
+                        </div>
+                        <div className="em-form-group">
+                          <label>Reference #</label>
+                          <input name="reference_number" className="em-input" value={payForm.reference_number} onChange={e => { setPayForm(p => ({ ...p, reference_number: e.target.value })); setPayDirty(true); }} placeholder="e.g. UTR / Check #" />
+                        </div>
+                        <div className="em-form-group">
+                          <label>Bonus (₹)</label>
+                          <input name="bonus" className="em-input" type="number" min="0" value={payForm.bonus} onChange={e => { setPayForm(p => ({ ...p, bonus: e.target.value })); setPayDirty(true); }} />
+                        </div>
+                        <div className="em-form-group">
+                          <label>Deduction (₹)</label>
+                          <input name="deduction" className="em-input" type="number" min="0" value={payForm.deduction} onChange={e => { setPayForm(p => ({ ...p, deduction: e.target.value })); setPayDirty(true); }} />
+                        </div>
+                        <div className="em-form-group em-form-group--full">
+                          <label>Notes</label>
+                          <input name="notes" className="em-input" value={payForm.notes} onChange={e => { setPayForm(p => ({ ...p, notes: e.target.value })); setPayDirty(true); }} placeholder="Optional remarks" />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="em-modal__footer">
+                      <button type="button" className="btn btn-ghost" onClick={() => closePayModal()}>Cancel</button>
+                      <button type="submit" className="btn btn-primary" disabled={paySubmitting}>{paySubmitting ? 'Processing...' : 'Record Payment'}</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>
@@ -345,6 +462,8 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
         </div>
       )}
 
+
+
       {showBulkModal && (
         <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) closeBulkModal(); }}>
           <div role="button" tabIndex={0}  className="em-modal em-modal--sm" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
@@ -370,6 +489,64 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
               <div className="em-modal__footer">
                 <button type="button" className="btn btn-ghost" onClick={() => closeBulkModal()}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={bulkSubmitting}>{bulkSubmitting ? 'Processing...' : 'Process Bulk Payment'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {showPayModal && selectedStaff && (
+        <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) closePayModal(); }}>
+          <div role="button" tabIndex={0} className="em-modal em-modal--sm" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); } }}>
+            <div className="em-modal__header">
+              <h2>Pay Salary — {selectedStaff.name}</h2>
+              <button className="btn btn-ghost btn-icon" aria-label="Close salary modal" onClick={() => closePayModal()}><X size={18} /></button>
+            </div>
+            {payDirty && <div className="alert alert--warning mb-12">Unsaved changes</div>}
+            <form onSubmit={submitSinglePayPayment}>
+              <div className="em-modal__body">
+                <div className="em-form-grid">
+                  <div className="em-form-group">
+                    <label>For Month</label>
+                    <input name="month" className="em-input" type="month" value={month} onChange={e => { setMonth(e.target.value); setPayDirty(true); }} required />
+                  </div>
+                  <div className="em-form-group">
+                    <label>Amount (₹) *</label>
+                    <input name="amount" className="em-input" type="number" step="0.01" min="1" value={payForm.amount} onChange={e => { setPayForm(p => ({ ...p, amount: e.target.value })); setPayDirty(true); }} required />
+                  </div>
+                  <div className="em-form-group">
+                    <label>Payment Date</label>
+                    <input name="payment_date" className="em-input" type="date" value={payForm.payment_date} onChange={e => { setPayForm(p => ({ ...p, payment_date: e.target.value })); setPayDirty(true); }} required />
+                  </div>
+                  <div className="em-form-group">
+                    <label>Method</label>
+                    <select name="payment_method" className="em-input" value={payForm.payment_method} onChange={e => { setPayForm(p => ({ ...p, payment_method: e.target.value })); setPayDirty(true); }}>
+                      <option>Cash</option>
+                      <option>UPI</option>
+                      <option>Bank Transfer</option>
+                      <option>Cheque</option>
+                    </select>
+                  </div>
+                  <div className="em-form-group">
+                    <label>Reference #</label>
+                    <input name="reference_number" className="em-input" value={payForm.reference_number} onChange={e => { setPayForm(p => ({ ...p, reference_number: e.target.value })); setPayDirty(true); }} placeholder="e.g. UTR / Check #" />
+                  </div>
+                  <div className="em-form-group">
+                    <label>Bonus (₹)</label>
+                    <input name="bonus" className="em-input" type="number" min="0" value={payForm.bonus} onChange={e => { setPayForm(p => ({ ...p, bonus: e.target.value })); setPayDirty(true); }} />
+                  </div>
+                  <div className="em-form-group">
+                    <label>Deduction (₹)</label>
+                    <input name="deduction" className="em-input" type="number" min="0" value={payForm.deduction} onChange={e => { setPayForm(p => ({ ...p, deduction: e.target.value })); setPayDirty(true); }} />
+                  </div>
+                  <div className="em-form-group em-form-group--full">
+                    <label>Notes</label>
+                    <input name="notes" className="em-input" value={payForm.notes} onChange={e => { setPayForm(p => ({ ...p, notes: e.target.value })); setPayDirty(true); }} placeholder="Optional remarks" />
+                  </div>
+                </div>
+              </div>
+              <div className="em-modal__footer">
+                <button type="button" className="btn btn-ghost" onClick={() => closePayModal()}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={paySubmitting}>{paySubmitting ? 'Processing...' : 'Record Payment'}</button>
               </div>
             </form>
           </div>

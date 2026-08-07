@@ -332,8 +332,8 @@
   border-radius: var(--radius);
   overflow: hidden;
   box-shadow: var(--shadow-sm);
-  margin-bottom: var(--space-16);
-  min-height: 520px; /* Reserve height for dynamic content to avoid CLS */
+  margin-bottom: var(--space-12);
+  min-height: auto;
 }
 
 .inv-table-scroll {

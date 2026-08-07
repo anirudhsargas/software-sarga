@@ -474,7 +474,12 @@ export async function createVendorBill(billData) {
     // Try to sync to server in background (non-blocking)
     if (navigator.onLine) {
         tryServer(async () => {
-            await api.post('vendor-bills', billData);
+            const vendorId = billData.vendor_id || billData.vendorId;
+            if (vendorId) {
+                await api.post(`vendors/${vendorId}/bills`, billData);
+            } else {
+                await api.post('vendor-bills', billData);
+            }
         });
     }
 

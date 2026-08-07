@@ -1,6 +1,6 @@
 import { useSEO } from '../hooks/useSEO';
 import React, {useEffect, useState, useRef, useMemo} from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Briefcase, IndianRupee, User, Clock, AlertCircle, Loader2, CheckCircle, Phone, Mail, MapPin, Building, Edit3, UserX, ShieldCheck, X, Calendar } from 'lucide-react';
 import auth from '../services/auth';
 import api from '../services/api';
@@ -185,6 +185,8 @@ const EmployeeDetail = () => {
 
     const lastFetchedRef = useRef({ staffId: null, currentMonth: null });
 
+    const location = useLocation();
+
     useEffect(() => {
         if (lastFetchedRef.current.staffId === staffId && lastFetchedRef.current.currentMonth === currentMonth) {
             return;
@@ -195,6 +197,12 @@ const EmployeeDetail = () => {
         fetchSalaryCalculation();
         fetchBranches();
     }, [staffId, currentMonth]);
+
+    useEffect(() => {
+        if (location.state?.openPaySalary) {
+            setShowPaySalaryModal(true);
+        }
+    }, [location.state]);
 
     async function fetchBranches() {
         try {

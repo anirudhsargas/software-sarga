@@ -65,7 +65,7 @@ const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEdit
               <button className="btn-icon" onClick={() => handleMarkAttendance(s.id)} title={isPresent ? "Mark Gone" : "Mark Attendance"}>
                 {isPresent ? <LogOut size={15} /> : <LogIn size={15} />}
               </button>
-              <button className="btn-icon" onClick={() => navigate('/dashboard/attendance-salary', { state: { paymentPrefill: { type: 'Salary', staff_id: s.id, payee_name: s.name, description: `Salary for ${new Date().toLocaleString('default', { month: 'long' })}` } } })} title="Pay Salary">
+              <button className="btn-icon" onClick={() => navigate(`/dashboard/employee/${s.id}`, { state: { openPaySalary: true } })} title="Pay Salary">
                 <Banknote size={15} />
               </button>
               <button className="btn-icon" onClick={() => navigate(`/dashboard/employee/${s.id}`)} title="View Dashboard">
