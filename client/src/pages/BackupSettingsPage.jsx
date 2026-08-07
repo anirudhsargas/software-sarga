@@ -533,13 +533,16 @@ const BackupSettingsPage = () => {
                   <option value="RAW_Jobs">RAW_Jobs (sarga_jobs)</option>
                   <option value="RAW_Bills">RAW_Bills (sarga_bills_documents)</option>
                   <option value="RAW_Inventory">RAW_Inventory (sarga_inventory)</option>
-                  <option value="RAW_Expenses">RAW_Expenses (sarga_payments)</option>
+                  <option value="RAW_Expenses">RAW_Expenses (sarga_daily_expenses)</option>
                   <option value="RAW_Vendors">RAW_Vendors (vendors)</option>
                   <option value="RAW_Staff">RAW_Staff (sarga_staff)</option>
                   <option value="RAW_Attendance">RAW_Attendance (sarga_staff_attendance)</option>
                   <option value="RAW_Payments">RAW_Payments (sarga_customer_payments)</option>
                   <option value="RAW_Orders">RAW_Orders (sarga_orders)</option>
                   <option value="RAW_Designs">RAW_Designs (sarga_customer_designs)</option>
+                  <option value="RAW_Invoices">RAW_Invoices (sarga_invoices)</option>
+                  <option value="RAW_Products">RAW_Products (sarga_products)</option>
+                  <option value="RAW_Machines">RAW_Machines (sarga_machines)</option>
                 </select>
               </div>
               <div className="backup-input-group">

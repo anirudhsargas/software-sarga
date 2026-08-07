@@ -35,17 +35,20 @@ When the sync engine runs, it automatically verifies the existence of the follow
 
 | Tab Name | Data Source Table | Sync Threshold column |
 | :--- | :--- | :--- |
-| `RAW_Customers` | `sarga_customers` | `updated_at` |
-| `RAW_Jobs` | `sarga_jobs` | `updated_at` |
+| `RAW_Customers` | `sarga_customers` | — (Full replace) |
+| `RAW_Jobs` | `sarga_jobs` | `created_at` |
 | `RAW_Bills` | `sarga_bills_documents` | `created_at` |
-| `RAW_Inventory` | `sarga_inventory` | `created_at` |
-| `RAW_Expenses` | `sarga_payments` (`type = 'Expense'`) | `created_at` |
-| `RAW_Vendors` | `vendors` | `updated_at` |
-| `RAW_Staff` | `sarga_staff` | `created_at` |
-| `RAW_Attendance` | `sarga_staff_attendance` | `created_at` |
+| `RAW_Inventory` | `sarga_inventory` | — (Full replace) |
+| `RAW_Expenses` | `sarga_daily_expenses` | `created_at` |
+| `RAW_Vendors` | `vendors` | — (Full replace) |
+| `RAW_Staff` | `sarga_staff` | — (Full replace) |
+| `RAW_Attendance` | `sarga_staff_attendance` | `attendance_date` |
 | `RAW_Payments` | `sarga_customer_payments` | `created_at` |
-| `RAW_Orders` | `sarga_orders` | `updated_at` |
+| `RAW_Orders` | `sarga_orders` | `created_at` |
 | `RAW_Designs` | `sarga_customer_designs` | `created_at` |
+| `RAW_Invoices` | `sarga_invoices` | `created_at` |
+| `RAW_Products` | `sarga_products` | — (Full replace) |
+| `RAW_Machines` | `sarga_machines` | — (Full replace) |
 | `CONTROL` | Last sync timestamp lookup table | — |
 | `AUDIT` | Sync latencies, rows synced, lock status logs | — |
 | `DASHBOARD` | Realtime formulas & low-stock alerts | — |

@@ -65,9 +65,16 @@ router.get('/status', authenticateToken, authorizeRoles('Admin'), async (req, re
       'sarga_daily_expenses',
       'sarga_staff_attendance',
       'sarga_daily_credit_transactions',
+      'sarga_invoices',
+      'sarga_customer_payments',
+      'sarga_orders',
+      'sarga_customer_designs',
       'sarga_customers',
       'sarga_inventory',
-      'sarga_staff'
+      'sarga_staff',
+      'vendors',
+      'sarga_products',
+      'sarga_machines'
     ];
 
     // Initialize with fallback values

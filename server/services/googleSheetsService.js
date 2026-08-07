@@ -52,10 +52,17 @@ const TABLE_CONFIG = [
   { table: 'sarga_daily_expenses',          sheet: 'RAW_Expenses',     strategy: 'append',  dateCol: 'created_at' },
   { table: 'sarga_staff_attendance',        sheet: 'RAW_Attendance',   strategy: 'append',  dateCol: 'attendance_date' },
   { table: 'sarga_daily_credit_transactions', sheet: 'RAW_CreditTxns', strategy: 'append',  dateCol: 'created_at' },
+  { table: 'sarga_invoices',                sheet: 'RAW_Invoices',     strategy: 'append',  dateCol: 'created_at' },
+  { table: 'sarga_customer_payments',       sheet: 'RAW_Payments',     strategy: 'append',  dateCol: 'created_at' },
+  { table: 'sarga_orders',                  sheet: 'RAW_Orders',       strategy: 'append',  dateCol: 'created_at' },
+  { table: 'sarga_customer_designs',        sheet: 'RAW_Designs',      strategy: 'append',  dateCol: 'created_at' },
   // Full replace strategy: clear sheet and rewrite all rows
   { table: 'sarga_customers',              sheet: 'RAW_Customers',    strategy: 'replace' },
   { table: 'sarga_inventory',             sheet: 'RAW_Inventory',    strategy: 'replace' },
   { table: 'sarga_staff',                 sheet: 'RAW_Staff',        strategy: 'replace' },
+  { table: 'vendors',                     sheet: 'RAW_Vendors',      strategy: 'replace' },
+  { table: 'sarga_products',              sheet: 'RAW_Products',     strategy: 'replace' },
+  { table: 'sarga_machines',              sheet: 'RAW_Machines',     strategy: 'replace' },
 ];
 
 // Ensure a sheet tab exists; create it if not
@@ -147,6 +154,7 @@ function rowsTo2DArray(dbRows) {
       const val = row[h];
       if (val === null || val === undefined) return '';
       if (val instanceof Date) return val.toISOString();
+      if (typeof val === 'object') return JSON.stringify(val);
       return String(val);
     })
   );
