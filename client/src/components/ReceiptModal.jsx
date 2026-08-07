@@ -85,7 +85,7 @@ const ReceiptModal = ({ isOpen, onClose, paymentData, branchInfo }) => {
                     <div className="receipt-brand">
                         <img loading="lazy" src="/logo.png" alt="Sarga" className="receipt-brand__logo" />
                         <div className="receipt-brand__info">
-                            <h3>{branchInfo?.business_name || 'SARGA DIGITAL PRESS'}</h3>
+                            <h3>{branchInfo?.business_name || 'SARGA OFFSET'}</h3>
                             <p>{branchInfo?.location || 'Digital Printing & Services'}</p>
                             {branchInfo?.phone && <p>Ph: {branchInfo.phone}</p>}
                         </div>
@@ -186,13 +186,13 @@ const ReceiptModal = ({ isOpen, onClose, paymentData, branchInfo }) => {
                             <p>Receiver's Signature</p>
                         </div>
                         <div className="receipt-sign-box text-right">
-                            <p>For Sarga Digital Press</p>
+                            <p>For Sarga Offset</p>
                             <div className="mt-32">Authorized Signatory</div>
                         </div>
                     </div>
 
                     <div className="receipt-thank-you">
-                        <p>Thank you for choosing Sarga Digital Press!</p>
+                        <p>Thank you for choosing Sarga Offset!</p>
                         <p className="text-xs">This is a computer generated receipt.</p>
                     </div>
                 </div>

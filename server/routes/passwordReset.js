@@ -67,7 +67,7 @@ router.post('/auth/forgot-password', resetLimiter, async (req, res) => {
         // Send email
         const transporter = getTransporter();
         await transporter.sendMail({
-            from: `"Sarga Digital Press" <${process.env.EMAIL_FROM}>`,
+            from: `"Sarga Offset" <${process.env.EMAIL_FROM}>`,
             to: user.email,
             subject: 'Password Reset Request',
             html: `

@@ -786,7 +786,7 @@ const CustomerPayments = () => {
 
       doc.setFontSize(11);
       doc.setTextColor(100);
-      doc.text(`SARGA DIGITAL PRESS`, 14, 30);
+      doc.text(`SARGA OFFSET`, 14, 30);
       doc.text(`Period: ${statementRange.start} to ${statementRange.end}`, 14, 35);
       doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 40);
 
@@ -1355,6 +1355,7 @@ const CustomerPayments = () => {
                     step="0.01"
                     placeholder="0.00"
                     value={payment.methodAmounts.Cash}
+                    onWheel={(e) => e.target.blur()}
                     onChange={(e) => updateMethodAmount('Cash', e.target.value)}
                   />
                 </div>
@@ -1370,6 +1371,7 @@ const CustomerPayments = () => {
                     step="0.01"
                     placeholder="0.00"
                     value={payment.methodAmounts.UPI}
+                    onWheel={(e) => e.target.blur()}
                     onChange={(e) => updateMethodAmount('UPI', e.target.value)}
                     aria-label="UPI payment amount"
                   />
@@ -1380,7 +1382,7 @@ const CustomerPayments = () => {
                       style={{ marginTop: 8, width: '100%' }}
                       onClick={async () => {
                         try {
-                          const upiLink = `upi://pay?pa=${encodeURIComponent(branchUpiId)}&pn=${encodeURIComponent('SARGA DIGITAL PRESS')}&am=${Number(payment.methodAmounts.UPI).toFixed(2)}&cu=INR&tn=Payment`;
+                          const upiLink = `upi://pay?pa=${encodeURIComponent(branchUpiId)}&pn=${encodeURIComponent('SARGA OFFSET')}&am=${Number(payment.methodAmounts.UPI).toFixed(2)}&cu=INR&tn=Payment`;
                           const { default: QrCreator } = await import('qr-creator');
                           const canvas = document.createElement('canvas');
                           QrCreator.render({ text: upiLink, radius: 0.0, ecLevel: 'M', fill: '#000000', background: '#ffffff', size: 300 }, canvas);
@@ -1405,6 +1407,7 @@ const CustomerPayments = () => {
                     step="0.01"
                     placeholder="0.00"
                     value={payment.methodAmounts.Cheque}
+                    onWheel={(e) => e.target.blur()}
                     onChange={(e) => updateMethodAmount('Cheque', e.target.value)}
                     aria-label="Cheque payment amount"
                   />
@@ -1421,6 +1424,7 @@ const CustomerPayments = () => {
                     step="0.01"
                     placeholder="0.00"
                     value={payment.methodAmounts['Account Transfer']}
+                    onWheel={(e) => e.target.blur()}
                     onChange={(e) => updateMethodAmount('Account Transfer', e.target.value)}
                     aria-label="Account transfer amount"
                   />

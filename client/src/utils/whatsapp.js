@@ -30,7 +30,9 @@ export function workStatusMessage({ customerName, jobNumber, jobName, status, de
   return lines.join('\n');
 }
 
-export function paymentReminderMessage({ customerName, jobNumber, jobName, totalAmount, balance, dueDate }) {
+export function paymentReminderMessage({ customerName, jobNumber, jobName, totalAmount, balance, dueDate, upiId }) {
+  const numBalance = Number(balance) || 0;
+  const targetUpiId = upiId || '9495177283@upi';
   const lines = [
     `Dear ${customerName || 'Customer'},`,
     '',
@@ -38,10 +40,15 @@ export function paymentReminderMessage({ customerName, jobNumber, jobName, total
     '',
     `Order: *${jobNumber || ''}* — _${jobName || ''}_`,
     `Total Amount: *${fmtCurrency(totalAmount)}*`,
-    `Balance Due: *${fmtCurrency(balance)}*`,
+    `Balance Due: *${fmtCurrency(numBalance)}*`,
   ];
   if (dueDate) lines.push(`Due Date: *${fmtDate(dueDate)}*`);
-  lines.push('', 'Kindly arrange the payment at your earliest convenience.', '', 'Thank you! 🙏');
+  lines.push('', 'Kindly arrange the payment at your earliest convenience.');
+  if (numBalance > 0 && targetUpiId) {
+    const upiLink = `upi://pay?pa=${encodeURIComponent(targetUpiId)}&pn=${encodeURIComponent('SARGA OFFSET')}&am=${numBalance.toFixed(2)}&cu=INR&tn=${encodeURIComponent(`Order ${jobNumber || ''}`.trim())}`;
+    lines.push('', '📲 *Click link to pay using any UPI App (GPay / PhonePe / Paytm / BHIM):*', upiLink);
+  }
+  lines.push('', 'Thank you! 🙏');
   return lines.join('\n');
 }
 
@@ -57,27 +64,34 @@ export function orderReadyMessage({ customerName, jobNumber, jobName }) {
   ].join('\n');
 }
 
-export function dueCollectionMessage({ customerName, totalDue, jobCount }) {
-  return [
+export function dueCollectionMessage({ customerName, totalDue, jobCount, upiId }) {
+  const numDue = Number(totalDue) || 0;
+  const targetUpiId = upiId || '9495177283@upi';
+  const lines = [
     `Dear ${customerName || 'Customer'},`,
     '',
-    `You have *${fmtCurrency(totalDue)}* outstanding across *${jobCount || 1}* order(s).`,
+    `You have *${fmtCurrency(numDue)}* outstanding across *${jobCount || 1}* order(s).`,
     '',
     'Kindly arrange the payment at your earliest convenience.',
-    '',
-    'Thank you! 🙏',
-  ].join('\n');
+  ];
+  if (numDue > 0 && targetUpiId) {
+    const upiLink = `upi://pay?pa=${encodeURIComponent(targetUpiId)}&pn=${encodeURIComponent('SARGA OFFSET')}&am=${numDue.toFixed(2)}&cu=INR&tn=${encodeURIComponent('Outstanding Due Payment')}`;
+    lines.push('', '📲 *Click link to pay using any UPI App (GPay / PhonePe / Paytm / BHIM):*', upiLink);
+  }
+  lines.push('', 'Thank you! 🙏');
+  return lines.join('\n');
 }
 
-export function invoiceTextMessage({ customerName, invoiceNumber, orderLines, totals, payment, jobs }) {
+export function invoiceTextMessage({ customerName, invoiceNumber, orderLines, totals, payment, jobs, upiId }) {
   const totalAmount = Number(totals?.gross || 0);
   const paidAmount = Number(payment?.advancePaid || payment?.paid || 0);
   const balanceDue = Math.max(totalAmount - paidAmount, 0);
+  const targetUpiId = upiId || payment?.upiId || '9495177283@upi';
 
   const lines = [
     `Dear ${customerName || 'Customer'},`,
     '',
-    `Here is your invoice from *Sarga Digital Press*:`,
+    `Here is your invoice from *Sarga Offset*:`,
     '',
     `*Invoice:* ${invoiceNumber || '—'}`,
     `*Total Amount:* ${fmtCurrency(totalAmount)}`,
@@ -109,6 +123,10 @@ export function invoiceTextMessage({ customerName, invoiceNumber, orderLines, to
 
   if (balanceDue > 0) {
     lines.push('', 'Kindly clear the balance at your earliest convenience.');
+    if (targetUpiId) {
+      const upiLink = `upi://pay?pa=${encodeURIComponent(targetUpiId)}&pn=${encodeURIComponent('SARGA OFFSET')}&am=${balanceDue.toFixed(2)}&cu=INR&tn=${encodeURIComponent(`Invoice ${invoiceNumber || ''}`.trim())}`;
+      lines.push('', '📲 *Click link below to pay using any UPI App (GPay / PhonePe / Paytm / BHIM):*', upiLink);
+    }
   }
 
   lines.push('', 'Thank you for choosing Sarga! 🙏');

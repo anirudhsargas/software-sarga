@@ -761,6 +761,7 @@ const Payments = () => {
                                         type="number"
                                         className="input-field"
                                         value={formData.amount}
+                                        onWheel={(e) => e.target.blur()}
                                         onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                                         required
                                         autoComplete="off"
@@ -789,6 +790,7 @@ const Payments = () => {
                                                     className="input-field"
                                                     placeholder="e.g. 95000"
                                                     value={formData.bill_total_amount}
+                                                    onWheel={(e) => e.target.blur()}
                                                     onChange={(e) => setFormData({ ...formData, bill_total_amount: e.target.value })}
                                                 />
                                                 <small className="text-xs muted" style={{ marginTop: '4px', display: 'block' }}>

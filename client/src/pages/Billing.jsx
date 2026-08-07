@@ -547,7 +547,7 @@ const Billing = () => {
     }
 
     setUpiQrLoading(true);
-    const upiStr = `upi://pay?pa=${encodeURIComponent(branchUpiId)}&pn=${encodeURIComponent('SARGA')}&am=${upiAmt.toFixed(2)}&cu=INR&tn=${encodeURIComponent('Invoice Payment')}`;
+    const upiStr = `upi://pay?pa=${encodeURIComponent(branchUpiId)}&pn=${encodeURIComponent('SARGA OFFSET')}&am=${upiAmt.toFixed(2)}&cu=INR&tn=${encodeURIComponent('Invoice Payment')}`;
     import('qr-creator')
       .then(mod => {
         const canvas = document.createElement('canvas');
@@ -1275,6 +1275,7 @@ const Billing = () => {
       amountPaid: paidAmount,
       balanceDue,
       paymentMethod,
+      upiId: branchUpiId || billData.upiId || billData.branch_upi_id,
     };
   }, []);
 
@@ -1345,7 +1346,7 @@ const Billing = () => {
     try {
       await api.post(`/invoices/${paymentId}/send-email`, {
         email,
-        subject: `Invoice #${lastBillData.invoiceNumber} from Sarga Digital Press`,
+        subject: `Invoice #${lastBillData.invoiceNumber} from Sarga Offset`,
         message: `Dear ${lastBillData.customer?.name || 'Customer'},\n\nPlease find your invoice #${lastBillData.invoiceNumber} below.\n\nThank you for your business!`
       });
       toast.success('Invoice sent via email successfully!');

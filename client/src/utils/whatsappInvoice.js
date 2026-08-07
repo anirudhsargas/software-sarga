@@ -16,16 +16,21 @@ export function generateWhatsAppInvoiceMessage(invoice) {
     paymentStatus = 'PENDING',
     amountPaid = 0, balanceDue = 0,
     paymentMethod = 'UPI',
+    upiId, branchUpiId, upi_id,
   } = invoice;
 
   const numSubtotal = Number(subtotal) || 0;
   const numDiscount = Number(discount) || 0;
   const numGst = Number(gst) || 0;
   const numTotal = Number(total) || 0;
+  const numPaid = Number(amountPaid) || 0;
+  const numBalance = Number(balanceDue) > 0 ? Number(balanceDue) : Math.max(numTotal - numPaid, 0);
+
+  const targetUpiId = upiId || branchUpiId || upi_id || '9495177283@upi';
 
   const lines = [];
 
-  lines.push('🧾 *SARGA PRINTING*');
+  lines.push('🧾 *SARGA OFFSET*');
   lines.push(`Invoice No : ${invoiceNo || '—'}`);
   lines.push(`Date       : ${fmtDate(date)}`);
   lines.push(`Customer   : ${customerName || '—'}`);
@@ -53,21 +58,29 @@ export function generateWhatsAppInvoiceMessage(invoice) {
   lines.push(`💰 TOTAL : ${fmt(numTotal)}`);
   lines.push(DIVIDER);
 
-  switch (paymentStatus) {
-    case 'PAID':
-      lines.push(`✅ *PAID* via ${paymentMethod}`);
-      lines.push('Thank you for choosing *Sarga Printing*');
-      break;
-    case 'PARTIAL':
-      lines.push(`✅ Paid       : ${fmt(Number(amountPaid) || 0)}`);
-      lines.push(`⏳ Balance Due : ${fmt(Number(balanceDue) || 0)}`);
-      break;
-    case 'PENDING':
-    default:
-      lines.push('⏳ *PAYMENT PENDING*');
-      lines.push(`Amount Due : ${fmt(numTotal)}`);
-      lines.push('Please pay via UPI/Cash at pickup');
-      break;
+  const isPaid = paymentStatus === 'PAID' || (numBalance <= 0 && numPaid >= numTotal && numTotal > 0);
+  const dueAmountToPay = isPaid ? 0 : (numBalance > 0 ? numBalance : numTotal);
+
+  if (isPaid) {
+    lines.push(`✅ *PAID* via ${paymentMethod}`);
+    lines.push('Thank you for choosing *Sarga Offset*! 🙏');
+  } else if (numPaid > 0) {
+    lines.push(`✅ Paid       : ${fmt(numPaid)}`);
+    lines.push(`⏳ Balance Due : ${fmt(numBalance)}`);
+  } else {
+    lines.push('⏳ *PAYMENT PENDING*');
+    lines.push(`Amount Due : ${fmt(numTotal)}`);
+  }
+
+  if (dueAmountToPay > 0) {
+    lines.push('');
+    lines.push('Kindly clear the balance at your earliest convenience.');
+    if (targetUpiId) {
+      const upiPayUrl = `upi://pay?pa=${encodeURIComponent(targetUpiId)}&pn=${encodeURIComponent('SARGA OFFSET')}&am=${dueAmountToPay.toFixed(2)}&cu=INR&tn=${encodeURIComponent(`Invoice ${invoiceNo || ''}`.trim())}`;
+      lines.push('');
+      lines.push('📲 *Click link below to pay using any UPI App (GPay / PhonePe / Paytm / BHIM):*');
+      lines.push(upiPayUrl);
+    }
   }
 
   lines.push('');

@@ -1192,7 +1192,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
                 <div className="em-form-grid">
                   <div className="em-form-group">
                     <label>Amount (₹) *</label>
-                    <input name="purchase_amount" className="em-input" type="number" step="0.01" min="0" required value={purchaseForm.amount} onChange={e => setPurchaseForm(p => ({ ...p, amount: e.target.value }))} placeholder="Enter purchase amount" />
+                    <input name="purchase_amount" className="em-input" type="number" step="0.01" min="0" required value={purchaseForm.amount} onWheel={(e) => e.target.blur()} onChange={e => setPurchaseForm(p => ({ ...p, amount: e.target.value }))} placeholder="Enter purchase amount" />
                   </div>
                   <div className="em-form-group">
                     <label>Bill Number</label>

@@ -39,7 +39,7 @@ router.post('/invoices/:paymentId/send-email', authenticateToken, async (req, re
         const config = {};
         settings.forEach(s => { config[s.setting_key] = s.setting_value; });
 
-        const companyName = config.company_name || 'Sarga Digital Press';
+        const companyName = config.company_name || 'Sarga Offset';
         const footerText = config.invoice_footer_text || 'Thank you for your business!';
 
         const invoiceSubject = subject || `Invoice #${payment.id} from ${companyName}`;

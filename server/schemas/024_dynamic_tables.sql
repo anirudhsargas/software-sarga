@@ -189,7 +189,7 @@ INSERT IGNORE INTO sarga_tax_settings (name, rate, is_default, applies_to) VALUE
     ('No Tax', 0, FALSE, 'all');
 
 INSERT IGNORE INTO sarga_company_settings (setting_key, setting_value) VALUES
-    ('company_name', 'Sarga Digital Press'),
+    ('company_name', 'Sarga Offset'),
     ('company_address', ''),
     ('company_phone', ''),
     ('company_email', ''),

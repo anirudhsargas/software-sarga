@@ -228,7 +228,7 @@ router.post('/quotes/:id/send-email', authenticateToken, async (req, res) => {
         const [settings] = await pool.query('SELECT setting_key, setting_value FROM sarga_company_settings').catch(() => [[]]);
         const cfg = {};
         (settings || []).forEach(s => { cfg[s.setting_key] = s.setting_value; });
-        const companyName = cfg.company_name || 'Sarga Digital Press';
+        const companyName = cfg.company_name || 'Sarga Offset';
 
         const nodemailer = require('nodemailer');
         const transporter = nodemailer.createTransport({

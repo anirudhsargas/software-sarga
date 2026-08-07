@@ -282,3 +282,21 @@ document.addEventListener(
 window.addEventListener("beforeunload", () => {
   rippleController.abort();
 });
+
+// ── Global Mouse Wheel Scroll Protection for Number Inputs ──
+// Prevents accidental value mutations when scrolling over numeric fields in payment/billing forms.
+document.addEventListener("focusin", (e) => {
+  if (e.target && e.target.tagName === "INPUT" && e.target.type === "number") {
+    if (!e.target.dataset.wheelDisabled) {
+      e.target.dataset.wheelDisabled = "true";
+      e.target.addEventListener(
+        "wheel",
+        (event) => {
+          event.preventDefault();
+          e.target.blur();
+        },
+        { passive: false }
+      );
+    }
+  }
+});

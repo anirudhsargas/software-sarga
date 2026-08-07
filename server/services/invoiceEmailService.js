@@ -18,7 +18,7 @@ async function buildEmailPayload(payment) {
     const config = {};
     settings.forEach((s) => { config[s.setting_key] = s.setting_value; });
 
-    const companyName = config.company_name || 'Sarga Digital Press';
+    const companyName = config.company_name || 'Sarga Offset';
     const footerText = config.invoice_footer_text || 'Thank you for your business!';
     const amount = Number(payment.total_amount || payment.net_amount || 0);
 
