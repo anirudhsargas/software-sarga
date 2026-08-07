@@ -29,6 +29,20 @@ const CATEGORY_TABS = [
 
 const UNIT_OPTIONS = ['litre', 'kg', 'piece', 'box', 'set', 'sheet', 'roll', 'meter', 'pair', 'pack'];
 
+const VISUAL_CATEGORIES = [
+    { value: 'ink', label: 'Ink & Toner', icon: '🎨', defaultUnit: 'litre' },
+    { value: 'chemical', label: 'Chemicals', icon: '🧪', defaultUnit: 'litre' },
+    { value: 'plate', label: 'Printing Plates', icon: '💿', defaultUnit: 'piece' },
+    { value: 'spare_part', label: 'Spare Parts', icon: '⚙️', defaultUnit: 'piece' },
+    { value: 'paper', label: 'Paper & Board', icon: '📄', defaultUnit: 'sheet' },
+    { value: 'binding', label: 'Binding Mat.', icon: '📚', defaultUnit: 'roll' },
+    { value: 'packaging', label: 'Packaging', icon: '📦', defaultUnit: 'box' },
+    { value: 'other', label: 'Other Items', icon: '🏷️', defaultUnit: 'piece' }
+];
+
+const COMMON_SUPPLIERS = ['Central Warehouse', 'Technova Imaging', 'Micro Inks', 'PaperTech India', 'Local Vendor'];
+const COMMON_LOCATIONS = ['Rack A - Shelf 1', 'Chemical Room', 'Plate Storage', 'Main Stockroom', 'Floor Area'];
+
 const emptyForm = {
     name: '', category: 'other', unit: 'piece',
     gsm: '', size_name: '', brand: '', finish: '', color: '',
@@ -140,10 +154,13 @@ const ConsumablesManagement = () => {
         return { totalItems: items.length, lowStock: lowStock.length, totalValue };
     }, [items]);
 
+    const [modalStepTab, setModalStepTab] = useState('basic');
+
     const handleOpenAdd = () => {
         clearErrors();
         setModalMode('add');
         setSelectedItem(null);
+        setModalStepTab('basic');
         setFormData({ ...emptyForm, branch: user?.branch_name || 'Perambra' });
         setShowModal(true);
     };
@@ -152,6 +169,7 @@ const ConsumablesManagement = () => {
         clearErrors();
         setModalMode('edit');
         setSelectedItem(item);
+        setModalStepTab('basic');
         setFormData({
             name: item.name || '', category: item.category || 'other', unit: item.unit || 'piece',
             gsm: item.gsm || '', size_name: item.size_name || '', brand: item.brand || '',
@@ -717,111 +735,249 @@ const ConsumablesManagement = () => {
                 )}
             </div>
 
-            {/* Add/Edit Modal */}
+            {/* Redesigned Add/Edit Modal System */}
             {showModal && (
                 <div className="modal-backdrop">
-                    <div className="modal" style={{ maxWidth: '750px' }}>
-                        <div className="modal-header">
-                            <h2 className="section-title">{modalMode === 'add' ? 'Add Consumable' : 'Edit Consumable'}</h2>
+                    <div className="modal" style={{ maxWidth: '800px', padding: 0, overflow: 'hidden', borderRadius: 16 }}>
+                        <div className="add-consumable-modal-header">
+                            <div>
+                                <h2 className="section-title" style={{ margin: 0, fontSize: 18 }}>
+                                    {modalMode === 'add' ? '✨ Add New Consumable' : '✏️ Edit Consumable'}
+                                </h2>
+                                <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+                                    {modalMode === 'add' ? 'Register new raw materials, spare parts, or printing chemicals' : `Editing ${formData.name}`}
+                                </p>
+                            </div>
                             <button className="modal-close" onClick={() => { setShowModal(false); clearErrors(); }}><X size={20} /></button>
                         </div>
-                        <form onSubmit={handleSubmit} ref={formRef} className="stack-md" noValidate>
-                            <div className="grid grid--3 gap-md">
-                                <div className={`span-3 form-group ${errors.name ? 'validated-field--error' : ''}`}>
-                                    <label className="label">Name *</label>
-                                    <input className={`input-field ${errors.name ? 'field-error' : ''}`} required aria-invalid={!!errors.name} value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
-                                    {errors.name && <span style={{ color: 'var(--error, #ef4444)', fontSize: '11px', marginTop: '4px', display: 'block' }}>{errors.name}</span>}
+
+                        {/* Stepper Tabs Navigation */}
+                        <div className="add-consumable-stepper-tabs">
+                            <button 
+                                type="button"
+                                className={`stepper-tab-btn ${modalStepTab === 'basic' ? 'stepper-tab-btn--active' : ''}`}
+                                onClick={() => setModalStepTab('basic')}
+                            >
+                                <Tag size={14} /> 1. Category & Name
+                            </button>
+                            <button 
+                                type="button"
+                                className={`stepper-tab-btn ${modalStepTab === 'stock' ? 'stepper-tab-btn--active' : ''}`}
+                                onClick={() => setModalStepTab('stock')}
+                            >
+                                <Package size={14} /> 2. Stock & Thresholds
+                            </button>
+                            <button 
+                                type="button"
+                                className={`stepper-tab-btn ${modalStepTab === 'pricing' ? 'stepper-tab-btn--active' : ''}`}
+                                onClick={() => setModalStepTab('pricing')}
+                            >
+                                <IndianRupee size={14} /> 3. Cost, Specs & Supplier
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleSubmit} ref={formRef} className="stack-md" style={{ padding: '20px 24px' }} noValidate>
+                            {/* STEP 1: CATEGORY & NAME */}
+                            {modalStepTab === 'basic' && (
+                                <div className="stack-md">
+                                    <div className="form-group">
+                                        <label className="label" style={{ fontWeight: 700 }}>Select Item Category *</label>
+                                        <div className="category-picker-grid">
+                                            {VISUAL_CATEGORIES.map(cat => {
+                                                const isSelected = formData.category === cat.value;
+                                                return (
+                                                    <div
+                                                        key={cat.value}
+                                                        className={`category-picker-card ${isSelected ? 'category-picker-card--active' : ''}`}
+                                                        onClick={() => {
+                                                            setFormData(prev => ({
+                                                                ...prev,
+                                                                category: cat.value,
+                                                                unit: prev.unit || cat.defaultUnit
+                                                            }));
+                                                        }}
+                                                    >
+                                                        <span className="category-picker-icon">{cat.icon}</span>
+                                                        <span className="category-picker-label">{cat.label}</span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid--2 gap-md" style={{ marginTop: 10 }}>
+                                        <div className={`span-2 form-group ${errors.name ? 'validated-field--error' : ''}`}>
+                                            <label className="label">Item Name *</label>
+                                            <input 
+                                                className={`input-field ${errors.name ? 'field-error' : ''}`} 
+                                                required 
+                                                placeholder="e.g. Cyan Solvent Ink 5L, Offset Plate 605x745"
+                                                value={formData.name} 
+                                                onChange={e => setFormData({ ...formData, name: e.target.value })} 
+                                            />
+                                            {errors.name && <span style={{ color: 'var(--error, #ef4444)', fontSize: '11px', marginTop: '4px', display: 'block' }}>{errors.name}</span>}
+                                        </div>
+
+                                        <div className={`form-group ${errors.unit ? 'validated-field--error' : ''}`}>
+                                            <label className="label">Unit of Measurement *</label>
+                                            <select className={`input-field ${errors.unit ? 'field-error' : ''}`} value={formData.unit} onChange={e => setFormData({ ...formData, unit: e.target.value })}>
+                                                {UNIT_OPTIONS.map(u => <option key={u} value={u}>{u}</option>)}
+                                            </select>
+                                        </div>
+
+                                        <div className={`form-group ${errors.branch ? 'validated-field--error' : ''}`}>
+                                            <label className="label">Branch *</label>
+                                            <select className={`input-field ${errors.branch ? 'field-error' : ''}`} value={formData.branch} onChange={e => setFormData({ ...formData, branch: e.target.value })}>
+                                                <option value="Perambra">Perambra</option>
+                                                <option value="Meppayur">Meppayur</option>
+                                            </select>
+                                        </div>
+
+                                        <div className={`form-group ${errors.sku ? 'validated-field--error' : ''}`}>
+                                            <label className="label">SKU / Item Code</label>
+                                            <input className={`input-field ${errors.sku ? 'field-error' : ''}`} placeholder="e.g. INK-CY-01" value={formData.sku} onChange={e => setFormData({ ...formData, sku: e.target.value })} />
+                                        </div>
+
+                                        <div className="form-group">
+                                            <label className="label">Brand / Manufacturer</label>
+                                            <input className="input-field" placeholder="e.g. Toyo, DIC, Technova" value={formData.brand} onChange={e => setFormData({ ...formData, brand: e.target.value })} />
+                                        </div>
+                                    </div>
+
+                                    <div className="row justify-end" style={{ marginTop: 16 }}>
+                                        <button type="button" className="btn btn-primary" onClick={() => setModalStepTab('stock')}>
+                                            Next: Stock & Location ➔
+                                        </button>
+                                    </div>
                                 </div>
-                                <div className={`form-group ${errors.category ? 'validated-field--error' : ''}`}>
-                                    <label className="label">Category</label>
-                                    <select className={`input-field ${errors.category ? 'field-error' : ''}`} aria-invalid={!!errors.category} value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
-                                        {CATEGORY_TABS.filter(c => c.value !== 'all').map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-                                    </select>
-                                    {errors.category && <span style={{ color: 'var(--error, #ef4444)', fontSize: '11px', marginTop: '4px', display: 'block' }}>{errors.category}</span>}
+                            )}
+
+                            {/* STEP 2: STOCK & THRESHOLDS */}
+                            {modalStepTab === 'stock' && (
+                                <div className="stack-md">
+                                    <div className="grid grid--2 gap-md">
+                                        <div className={`form-group ${errors.quantity_in_stock ? 'validated-field--error' : ''}`}>
+                                            <label className="label">Initial Stock Quantity *</label>
+                                            <input type="number" step="0.001" className={`input-field ${errors.quantity_in_stock ? 'field-error' : ''}`} value={formData.quantity_in_stock} onChange={e => setFormData({ ...formData, quantity_in_stock: e.target.value })} />
+                                            <div className="quick-chips-wrapper">
+                                                <span style={{ fontSize: 10, color: 'var(--muted)' }}>Quick add:</span>
+                                                {[5, 10, 25, 50, 100].map(val => (
+                                                    <button key={val} type="button" className="quick-chip" onClick={() => setFormData(prev => ({ ...prev, quantity_in_stock: (Number(prev.quantity_in_stock) || 0) + val }))}>
+                                                        +{val}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div className={`form-group ${errors.reorder_level ? 'validated-field--error' : ''}`}>
+                                            <label className="label">Reorder Level Alert Threshold</label>
+                                            <input type="number" step="0.001" className={`input-field ${errors.reorder_level ? 'field-error' : ''}`} value={formData.reorder_level} onChange={e => setFormData({ ...formData, reorder_level: e.target.value })} placeholder="Trigger alert when stock drops below" />
+                                        </div>
+
+                                        <div className={`form-group ${errors.min_stock_level ? 'validated-field--error' : ''}`}>
+                                            <label className="label">Min Stock Level</label>
+                                            <input type="number" step="0.001" className="input-field" value={formData.min_stock_level} onChange={e => setFormData({ ...formData, min_stock_level: e.target.value })} />
+                                        </div>
+
+                                        <div className={`form-group ${errors.max_stock_level ? 'validated-field--error' : ''}`}>
+                                            <label className="label">Max Stock Capacity</label>
+                                            <input type="number" step="0.001" className="input-field" value={formData.max_stock_level} onChange={e => setFormData({ ...formData, max_stock_level: e.target.value })} />
+                                        </div>
+
+                                        <div className="span-2 form-group">
+                                            <label className="label">Storage Location / Rack</label>
+                                            <input className="input-field" placeholder="e.g. Shelf A-2, Chemical Store" value={formData.location} onChange={e => setFormData({ ...formData, location: e.target.value })} />
+                                            <div className="quick-chips-wrapper">
+                                                {COMMON_LOCATIONS.map(loc => (
+                                                    <button key={loc} type="button" className="quick-chip" onClick={() => setFormData(prev => ({ ...prev, location: loc }))}>
+                                                        {loc}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="row justify-between" style={{ marginTop: 16 }}>
+                                        <button type="button" className="btn btn-ghost" onClick={() => setModalStepTab('basic')}>
+                                            🠔 Back
+                                        </button>
+                                        <button type="button" className="btn btn-primary" onClick={() => setModalStepTab('pricing')}>
+                                            Next: Pricing & Specs ➔
+                                        </button>
+                                    </div>
                                 </div>
-                                <div className={`form-group ${errors.unit ? 'validated-field--error' : ''}`}>
-                                    <label className="label">Unit</label>
-                                    <select className={`input-field ${errors.unit ? 'field-error' : ''}`} aria-invalid={!!errors.unit} value={formData.unit} onChange={e => setFormData({ ...formData, unit: e.target.value })}>
-                                        {UNIT_OPTIONS.map(u => <option key={u} value={u}>{u}</option>)}
-                                    </select>
-                                    {errors.unit && <span style={{ color: 'var(--error, #ef4444)', fontSize: '11px', marginTop: '4px', display: 'block' }}>{errors.unit}</span>}
+                            )}
+
+                            {/* STEP 3: COST, SPECS & SUPPLIER */}
+                            {modalStepTab === 'pricing' && (
+                                <div className="stack-md">
+                                    <div className="grid grid--2 gap-md">
+                                        <div className={`form-group ${errors.unit_cost ? 'validated-field--error' : ''}`}>
+                                            <label className="label">Unit Cost Price (₹)</label>
+                                            <input type="number" step="0.01" className={`input-field ${errors.unit_cost ? 'field-error' : ''}`} value={formData.unit_cost} onChange={e => setFormData({ ...formData, unit_cost: e.target.value })} placeholder="Cost per unit" />
+                                        </div>
+
+                                        <div className="form-group">
+                                            <label className="label">Supplier Name</label>
+                                            <input className="input-field" placeholder="Supplier / Vendor" value={formData.supplier_name} onChange={e => setFormData({ ...formData, supplier_name: e.target.value })} />
+                                            <div className="quick-chips-wrapper">
+                                                {COMMON_SUPPLIERS.map(sup => (
+                                                    <button key={sup} type="button" className="quick-chip" onClick={() => setFormData(prev => ({ ...prev, supplier_name: sup }))}>
+                                                        {sup}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div className="form-group">
+                                            <label className="label">GSM (if applicable)</label>
+                                            <input type="number" className="input-field" placeholder="e.g. 80, 130, 300" value={formData.gsm} onChange={e => setFormData({ ...formData, gsm: e.target.value })} />
+                                        </div>
+
+                                        <div className="form-group">
+                                            <label className="label">Size / Dimension</label>
+                                            <input className="input-field" placeholder="e.g. 23x36, A4, 5L Can" value={formData.size_name} onChange={e => setFormData({ ...formData, size_name: e.target.value })} />
+                                        </div>
+
+                                        <div className="form-group">
+                                            <label className="label">Finish</label>
+                                            <input className="input-field" placeholder="e.g. Gloss, Matt, Solvent" value={formData.finish} onChange={e => setFormData({ ...formData, finish: e.target.value })} />
+                                        </div>
+
+                                        <div className="form-group">
+                                            <label className="label">Color</label>
+                                            <input className="input-field" placeholder="e.g. Cyan, Magenta, Clear" value={formData.color} onChange={e => setFormData({ ...formData, color: e.target.value })} />
+                                        </div>
+
+                                        <div className="span-2 form-group">
+                                            <label className="label">Notes / Remarks</label>
+                                            <textarea className="input-field" rows="2" placeholder="Additional details, handling instructions..." value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} />
+                                        </div>
+                                    </div>
+
+                                    {/* Live Inventory Valuation Preview */}
+                                    <div className="live-valuation-banner">
+                                        <div className="valuation-label">
+                                            <IndianRupee size={16} /> Total Stock Valuation Preview
+                                        </div>
+                                        <div className="valuation-value">
+                                            ₹{((Number(formData.quantity_in_stock) || 0) * (Number(formData.unit_cost) || 0)).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                                        </div>
+                                    </div>
+
+                                    <div className="row justify-between gap-sm mt-md">
+                                        <button type="button" className="btn btn-ghost" onClick={() => setModalStepTab('stock')}>
+                                            🠔 Back
+                                        </button>
+                                        <div style={{ display: 'flex', gap: 8 }}>
+                                            <button type="button" className="btn btn-ghost" onClick={() => { setShowModal(false); clearErrors(); }}>Cancel</button>
+                                            <button type="submit" className="btn btn-primary">
+                                                {modalMode === 'add' ? '✨ Create Consumable Item' : 'Save Changes'}
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className={`form-group ${errors.gsm ? 'validated-field--error' : ''}`}>
-                                    <label className="label">GSM</label>
-                                    <input type="number" className={`input-field ${errors.gsm ? 'field-error' : ''}`} aria-invalid={!!errors.gsm} value={formData.gsm} onChange={e => setFormData({ ...formData, gsm: e.target.value })} placeholder="e.g. 80" />
-                                    {errors.gsm && <span style={{ color: 'var(--error, #ef4444)', fontSize: '11px', marginTop: '4px', display: 'block' }}>{errors.gsm}</span>}
-                                </div>
-                                <div className="form-group">
-                                    <label className="label">Size</label>
-                                    <input className="input-field" value={formData.size_name} onChange={e => setFormData({ ...formData, size_name: e.target.value })} placeholder="e.g. A4, 8.5x11" />
-                                </div>
-                                <div className="form-group">
-                                    <label className="label">Brand</label>
-                                    <input className="input-field" value={formData.brand} onChange={e => setFormData({ ...formData, brand: e.target.value })} />
-                                </div>
-                                <div className="form-group">
-                                    <label className="label">Finish</label>
-                                    <input className="input-field" value={formData.finish} onChange={e => setFormData({ ...formData, finish: e.target.value })} placeholder="e.g. Glossy, Matte" />
-                                </div>
-                                <div className="form-group">
-                                    <label className="label">Color</label>
-                                    <input className="input-field" value={formData.color} onChange={e => setFormData({ ...formData, color: e.target.value })} />
-                                </div>
-                                <div className={`form-group ${errors.sku ? 'validated-field--error' : ''}`}>
-                                    <label className="label">SKU</label>
-                                    <input className={`input-field ${errors.sku ? 'field-error' : ''}`} aria-invalid={!!errors.sku} value={formData.sku} onChange={e => setFormData({ ...formData, sku: e.target.value })} />
-                                    {errors.sku && <span style={{ color: 'var(--error, #ef4444)', fontSize: '11px', marginTop: '4px', display: 'block' }}>{errors.sku}</span>}
-                                </div>
-                                <div className={`form-group ${errors.quantity_in_stock ? 'validated-field--error' : ''}`}>
-                                    <label className="label">Quantity *</label>
-                                    <input type="number" step="0.001" className={`input-field ${errors.quantity_in_stock ? 'field-error' : ''}`} aria-invalid={!!errors.quantity_in_stock} value={formData.quantity_in_stock} onChange={e => setFormData({ ...formData, quantity_in_stock: e.target.value })} />
-                                    {errors.quantity_in_stock && <span style={{ color: 'var(--error, #ef4444)', fontSize: '11px', marginTop: '4px', display: 'block' }}>{errors.quantity_in_stock}</span>}
-                                </div>
-                                <div className={`form-group ${errors.reorder_level ? 'validated-field--error' : ''}`}>
-                                    <label className="label">Reorder Level</label>
-                                    <input type="number" step="0.001" className={`input-field ${errors.reorder_level ? 'field-error' : ''}`} aria-invalid={!!errors.reorder_level} value={formData.reorder_level} onChange={e => setFormData({ ...formData, reorder_level: e.target.value })} />
-                                    {errors.reorder_level && <span style={{ color: 'var(--error, #ef4444)', fontSize: '11px', marginTop: '4px', display: 'block' }}>{errors.reorder_level}</span>}
-                                </div>
-                                <div className={`form-group ${errors.min_stock_level ? 'validated-field--error' : ''}`}>
-                                    <label className="label">Min Stock</label>
-                                    <input type="number" step="0.001" className={`input-field ${errors.min_stock_level ? 'field-error' : ''}`} aria-invalid={!!errors.min_stock_level} value={formData.min_stock_level} onChange={e => setFormData({ ...formData, min_stock_level: e.target.value })} />
-                                    {errors.min_stock_level && <span style={{ color: 'var(--error, #ef4444)', fontSize: '11px', marginTop: '4px', display: 'block' }}>{errors.min_stock_level}</span>}
-                                </div>
-                                <div className={`form-group ${errors.max_stock_level ? 'validated-field--error' : ''}`}>
-                                    <label className="label">Max Stock</label>
-                                    <input type="number" step="0.001" className={`input-field ${errors.max_stock_level ? 'field-error' : ''}`} aria-invalid={!!errors.max_stock_level} value={formData.max_stock_level} onChange={e => setFormData({ ...formData, max_stock_level: e.target.value })} />
-                                    {errors.max_stock_level && <span style={{ color: 'var(--error, #ef4444)', fontSize: '11px', marginTop: '4px', display: 'block' }}>{errors.max_stock_level}</span>}
-                                </div>
-                                <div className="form-group">
-                                    <label className="label">Location</label>
-                                    <input className="input-field" value={formData.location} onChange={e => setFormData({ ...formData, location: e.target.value })} placeholder="e.g. Rack A, Shelf 3" />
-                                </div>
-                                <div className={`form-group ${errors.unit_cost ? 'validated-field--error' : ''}`}>
-                                    <label className="label">Unit Cost (₹)</label>
-                                    <input type="number" step="0.01" className={`input-field ${errors.unit_cost ? 'field-error' : ''}`} aria-invalid={!!errors.unit_cost} value={formData.unit_cost} onChange={e => setFormData({ ...formData, unit_cost: e.target.value })} />
-                                    {errors.unit_cost && <span style={{ color: 'var(--error, #ef4444)', fontSize: '11px', marginTop: '4px', display: 'block' }}>{errors.unit_cost}</span>}
-                                </div>
-                                <div className="form-group">
-                                    <label className="label">Supplier</label>
-                                    <input className="input-field" value={formData.supplier_name} onChange={e => setFormData({ ...formData, supplier_name: e.target.value })} />
-                                </div>
-                                <div className={`form-group ${errors.branch ? 'validated-field--error' : ''}`}>
-                                    <label className="label">Branch *</label>
-                                    <select className={`input-field ${errors.branch ? 'field-error' : ''}`} aria-invalid={!!errors.branch} value={formData.branch} onChange={e => setFormData({ ...formData, branch: e.target.value })}>
-                                        <option value="Perambra">Perambra</option>
-                                        <option value="Meppayur">Meppayur</option>
-                                    </select>
-                                    {errors.branch && <span style={{ color: 'var(--error, #ef4444)', fontSize: '11px', marginTop: '4px', display: 'block' }}>{errors.branch}</span>}
-                                </div>
-                                <div className="span-3 form-group">
-                                    <label className="label">Notes</label>
-                                    <textarea className="input-field" rows="2" value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} />
-                                </div>
-                            </div>
-                            <div className="row justify-end gap-sm mt-md">
-                                <button type="button" className="btn btn-ghost" onClick={() => { setShowModal(false); clearErrors(); }}>Cancel</button>
-                                <button type="submit" className="btn btn-primary">{modalMode === 'add' ? 'Create Item' : 'Save Changes'}</button>
-                            </div>
+                            )}
                         </form>
                     </div>
                 </div>

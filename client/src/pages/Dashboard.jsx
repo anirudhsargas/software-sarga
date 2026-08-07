@@ -74,6 +74,7 @@ const Invoices = lazyWithRetry(() => import('./Invoices'));
 const SalesLayout = lazyWithRetry(() => import('./SalesLayout'));
 const InternalTransfers = lazyWithRetry(() => import('./InternalTransfers'));
 const StockTransfer = lazyWithRetry(() => import('./StockTransfer'));
+const ConnectionLedger = lazyWithRetry(() => import('./ConnectionLedger'));
 const ConsumablesManagement = lazyWithRetry(() => import('./ConsumablesManagement'));
 const PaperStockDashboard = lazyWithRetry(() => import('./PaperStockDashboard'));
 const PaperInward = lazyWithRetry(() => import('./PaperInward'));

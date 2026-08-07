@@ -88,6 +88,29 @@ const FrontOffice = () => {
   const [deliveredJobs, setDeliveredJobs] = useState([]);
   const [deliveredLoading, setDeliveredLoading] = useState(false);
   const [deliveredPage, setDeliveredPage] = useState(1);
+
+  const handleJobPaymentNavigate = (job, e) => {
+    if (e) e.stopPropagation();
+    const bal = Number(job.balance_amount ?? job.balance ?? 0) || Number(job.total_amount) || 0;
+    const prefill = {
+      job_id: job.id,
+      customer_id: job.customer_id || null,
+      customer_name: job.customer_name || 'Walk-in',
+      customer_mobile: job.customer_mobile || '',
+      amount: bal,
+      total_amount: Number(job.total_amount) || bal,
+      balance_amount: bal,
+      job_number: job.job_number,
+      job_name: job.job_name,
+      description: `Payment for Job #${job.job_number || job.id} - ${job.job_name || ''}`
+    };
+
+    try {
+      sessionStorage.setItem('billingPaymentDraft', JSON.stringify(prefill));
+    } catch (_) {}
+
+    navigate('/dashboard/sales/payments', { state: prefill });
+  };
   const [deliveredTotal, setDeliveredTotal] = useState(0);
   const [deliveredTotalPages, setDeliveredTotalPages] = useState(1);
 
@@ -910,7 +933,7 @@ const FrontOffice = () => {
                                     <button
                                       className="fo-action-btn fo-action-btn--pay"
                                       aria-label="Quick payment"
-                                      onClick={(e) => { e.stopPropagation(); navigate(`/dashboard/sales/payments?job=${job.id}`); }}
+                                      onClick={(e) => handleJobPaymentNavigate(job, e)}
                                     >
                                       <CreditCard size={13} aria-hidden="true" />
                                     </button>
@@ -1045,6 +1068,11 @@ const FrontOffice = () => {
                             <td>{balance > 0 ? <span className="fo-due-amount">{fmt(balance)}</span> : <span className="fo-paid-tag"><CheckCircle2 size={12} aria-hidden="true" /> Paid</span>}</td>
                             <td>
                               <div className="fo-row-actions">
+                                {balance > 0 && (
+                                  <button className="fo-action-btn fo-action-btn--pay" aria-label="Quick payment" onClick={(e) => handleJobPaymentNavigate(job, e)}>
+                                    <CreditCard size={13} aria-hidden="true" />
+                                  </button>
+                                )}
                                 {job.customer_mobile && <a href={`tel:${job.customer_mobile}`} className="fo-action-btn" aria-label="Call customer" onClick={e => e.stopPropagation()}><Phone size={13} aria-hidden="true" /></a>}
                                 <button className="fo-action-btn fo-action-btn--view" aria-label="View job" onClick={(e) => { e.stopPropagation(); navigate(`/dashboard/jobs/${job.id}`); }}><Eye size={13} aria-hidden="true" /></button>
                               </div>
@@ -1206,7 +1234,16 @@ const FrontOffice = () => {
                           <td className="fo-amount">{fmt(job.total_amount)}</td>
                           <td>{(Number(job.balance_amount ?? job.balance ?? 0)) > 0 ? <span className="fo-due-amount">{fmt(Number(job.balance_amount ?? job.balance ?? 0))}</span> : <span className="fo-paid-tag"><CheckCircle2 size={12} /> Paid</span>}</td>
                           <td>{fmtDate(job.delivery_date || job.updated_at)}</td>
-                          <td><button className="fo-action-btn fo-action-btn--view" onClick={() => navigate(`/dashboard/jobs/${job.id}`)}><Eye size={13} /></button></td>
+                          <td>
+                            <div className="fo-row-actions">
+                              {(Number(job.balance_amount ?? job.balance ?? 0)) > 0 && (
+                                <button className="fo-action-btn fo-action-btn--pay" aria-label="Quick payment" onClick={(e) => handleJobPaymentNavigate(job, e)}>
+                                  <CreditCard size={13} aria-hidden="true" />
+                                </button>
+                              )}
+                              <button className="fo-action-btn fo-action-btn--view" onClick={() => navigate(`/dashboard/jobs/${job.id}`)}><Eye size={13} /></button>
+                            </div>
+                          </td>
                         </tr>
                       ))}
                     </tbody>

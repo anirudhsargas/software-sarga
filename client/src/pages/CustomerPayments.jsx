@@ -107,31 +107,38 @@ const CustomerPayments = () => {
       }
     }
 
-    // Prefill from job payment modal or navigation
-    if (draft && draft.job_id) {
-      const amountToPrefill = draft.amount || 0;
+    const searchParams = new URLSearchParams(location.search);
+    const queryJobId = searchParams.get('job') || searchParams.get('job_id');
+    const queryCustomerId = searchParams.get('customer') || searchParams.get('customer_id');
+
+    const targetDraft = draft?.paymentPrefill || draft || {};
+    const effectiveJobId = targetDraft.job_id || queryJobId;
+    const effectiveCustomerId = targetDraft.customer_id || queryCustomerId;
+
+    if (effectiveJobId || targetDraft.amount || targetDraft.customer_name || effectiveCustomerId) {
+      const amountToPrefill = Number(targetDraft.amount ?? targetDraft.balance_amount ?? targetDraft.total_amount ?? 0);
       setFormData((prev) => ({
         ...prev,
-        customer_id: draft.customer_id || null,
-        customer_name: draft.customer_name || prev.customer_name || 'Walk-in',
-        customer_mobile: draft.customer_mobile || prev.customer_mobile,
+        customer_id: effectiveCustomerId ? Number(effectiveCustomerId) : (targetDraft.customer_id || prev.customer_id || null),
+        customer_name: targetDraft.customer_name || prev.customer_name || 'Walk-in',
+        customer_mobile: targetDraft.customer_mobile || prev.customer_mobile,
         advance_paid: amountToPrefill,
-        balance_amount: amountToPrefill,
-        // Optionally prefill total_amount if present
-        total_amount: draft.total_amount || amountToPrefill,
-        net_amount: draft.net_amount || prev.net_amount,
-        sgst_amount: draft.sgst_amount || prev.sgst_amount,
-        cgst_amount: draft.cgst_amount || prev.cgst_amount,
-        job_id: draft.job_id || prev.job_id
+        balance_amount: Number(targetDraft.balance_amount ?? amountToPrefill),
+        total_amount: Number(targetDraft.total_amount ?? amountToPrefill),
+        description: targetDraft.description || (targetDraft.job_number ? `Payment for Job #${targetDraft.job_number} - ${targetDraft.job_name || ''}` : prev.description),
+        job_id: effectiveJobId || prev.job_id
       }));
-      setPayment((prev) => ({
-        ...prev,
-        methodAmounts: { ...prev.methodAmounts, Cash: amountToPrefill }
-      }));
-      if (draft.customer_name) {
-        setCustomerSearch(draft.customer_name);
-      } else {
-        setCustomerSearch('Walk-in');
+      if (amountToPrefill > 0) {
+        setPayment((prev) => ({
+          ...prev,
+          methodAmounts: { ...prev.methodAmounts, Cash: amountToPrefill }
+        }));
+      }
+      if (targetDraft.customer_name) {
+        setCustomerSearch(targetDraft.customer_name);
+      }
+      if (effectiveJobId) {
+        setSelectedJobId(effectiveJobId);
       }
     }
 

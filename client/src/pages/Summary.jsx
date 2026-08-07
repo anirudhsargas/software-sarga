@@ -13,7 +13,6 @@ import { lazyWithRetry } from '../utils/errorUtils';
 
 import BranchSelect from '../components/ui/BranchSelect';
 import PageContainer from '../components/ui/PageContainer';
-const AIMonitoring = lazyWithRetry(() => import('./AIMonitoring'));
 
 // Cache variable outside component for immediate render on revisit
 let cachedStats = null;
@@ -52,7 +51,6 @@ const Summary = () => {
   usePageTitle('Dashboard');
 
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('overview');
   const [stats, setStats] = useState(cachedStats);
   const { branches, selectedBranchId, selectBranch } = useBranches();
   const [loading, setLoading] = useState(!cachedStats);
@@ -121,11 +119,6 @@ const Summary = () => {
   const _topCustomers = useMemo(() => stats?.top_customers || [], [stats]);
   const _staffProd = useMemo(() => stats?.staff_productivity || [], [stats]);
 
-  const tabs = useMemo(() => [
-    { id: 'overview', label: 'Overview', icon: BarChart3 },
-    { id: 'ai-monitoring', label: 'AI Monitoring', icon: ShieldAlert },
-  ], []);
-
   if (error && !stats) {
     return (
       <PageContainer>
@@ -165,10 +158,7 @@ const Summary = () => {
           </div>
         </div>
 
-        {/* Skeleton Tabs */}
-        <div className="summary-tabs">
-          <div className="skeleton-box" style={{ height: 34, width: '100%', borderRadius: 10 }}></div>
-        </div>
+
 
         {/* Skeleton KPI Grid */}
         <div className="kpi-grid">
@@ -253,17 +243,7 @@ const Summary = () => {
         <span className="summary-selected-branch-label">{branchName}</span>
       </div>
 
-      <div className="summary-tabs">
-        {tabs.map(t => (
-          <button key={t.id} className={`summary-tab ${activeTab === t.id ? 'active' : ''}`} onClick={() => setActiveTab(t.id)}>
-            <t.icon size={14} /> {t.label}
-          </button>
-        ))}
-      </div>
-
-      {activeTab === 'overview' && (
-        <>
-          {/* ROW 1: KPI Cards */}
+      {/* ROW 1: KPI Cards */}
           <div className="kpi-grid">
             <KpiCard title="Sales Today" value={fmt(stats?.jobs?.total_sales_today)} subtitle={`${fmtNum(stats?.jobs?.new_today)} jobs`} icon={TrendingUp} color='var(--success)' onClick={() => setDrilldownMetric('todays_jobs')} />
             <KpiCard title="Collections" value={fmt(stats?.payments?.total_collected_today)} subtitle={`Cash ${fmt(stats?.payments?.cash_today)} · UPI ${fmt(stats?.payments?.upi_today)}`} icon={Wallet} color='var(--accent)' onClick={() => setDrilldownMetric('todays_collection')} />
@@ -395,14 +375,7 @@ const Summary = () => {
             </div>
           </div>
 
-        </>
-      )}
 
-      {activeTab === 'ai-monitoring' && (
-        <Suspense fallback={<div className="suspense-loader"><Loader2 className="animate-spin" size={24} /></div>}>
-          <AIMonitoring />
-        </Suspense>
-      )}
 
       <DrillDownModal
         metric={drilldownMetric}
