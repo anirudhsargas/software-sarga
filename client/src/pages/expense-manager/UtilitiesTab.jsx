@@ -701,7 +701,9 @@ const UtilitiesTab = ({ refreshKey, dashboard, onPayment, onRefresh }) => {
                 <div key={u.key} className="em-utility-category">
                   {/* Category Header Card */}
                   <div className={`em-utility-card em-utility-card--${cardTypeClass}`}
+                    title="Click to toggle connections • Double-click for full category dashboard"
                     onClick={() => setExpandedCategory(expandedCategory === u.key ? null : u.key)}
+                    onDoubleClick={() => openUtilityDetail(u.key)}
                   >
                     <div className="em-utility-card__header">
                       <div className="em-utility-icon-wrap" style={{ background: `${u.color}15`, color: u.color }}>
@@ -748,8 +750,11 @@ const UtilitiesTab = ({ refreshKey, dashboard, onPayment, onRefresh }) => {
                       <button type="button" className="btn btn-primary btn-sm em-utility-card__btn-pay" onClick={() => onPayment({ type: 'Utility', payee_name: u.key })}>
                         <IndianRupee size={13} style={{ marginRight: 4 }} /> Pay
                       </button>
+                      <button type="button" className="btn btn-ghost btn-sm em-utility-card__btn-dash" title="Open Full Dashboard" onClick={() => openUtilityDetail(u.key)}>
+                        <Zap size={13} style={{ marginRight: 4 }} /> Dashboard
+                      </button>
                       {isAdmin && (
-                        <button type="button" className="btn btn-ghost btn-sm" title="Manage Connections" onClick={() => openManageConnections(u.key)}>
+                        <button type="button" className="btn btn-ghost btn-sm em-utility-card__btn-conn" title="Manage Connections" onClick={() => openManageConnections(u.key)}>
                           <FileText size={13} style={{ marginRight: 4 }} /> Connections
                         </button>
                       )}
@@ -779,7 +784,9 @@ const UtilitiesTab = ({ refreshKey, dashboard, onPayment, onRefresh }) => {
                           </div>
                           {activeConns.map(conn => (
                             <div key={conn.id} className="em-connection-row-grid"
+                              title="Double-click to open full connection dashboard (ledger, payment due, etc.)"
                               onClick={() => navigate(`/dashboard/utilities/connections/${conn.id}`)}
+                              onDoubleClick={() => navigate(`/dashboard/utilities/connections/${conn.id}`)}
                             >
                               <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
                                 <span className={`em-connection-indicator ${conn.is_active ? 'em-connection-indicator--active' : 'em-connection-indicator--inactive'}`} />

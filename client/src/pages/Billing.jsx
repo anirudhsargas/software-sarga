@@ -291,6 +291,14 @@ const Billing = () => {
   // UPI QR state
   const [upiQrUrl, setUpiQrUrl] = useState('');
   const [upiQrLoading, setUpiQrLoading] = useState(false);
+  const [expandedJobs, setExpandedJobs] = useState({});
+
+  const toggleJobExpanded = (lineId) => {
+    setExpandedJobs(prev => ({
+      ...prev,
+      [lineId]: !prev[lineId]
+    }));
+  };
 
   const fetchRecentBills = useCallback(async () => {
     setLoadingRecentBills(true);
@@ -2285,125 +2293,141 @@ const Billing = () => {
             return (
               <div key={line.id} className="billing-summary-details__card">
                 {/* Header with Item Name, Rate & Line Total */}
-                <div className="billing-summary-details__card-title">
+                <div 
+                  className={`billing-summary-details__card-title ${expandedJobs[line.id] ? '' : 'collapsed'}`}
+                  onClick={() => toggleJobExpanded(line.id)}
+                  style={{ cursor: 'pointer', userSelect: 'none' }}
+                >
                   <div className="title-left">
                     <span className="billing-summary-details__card-number">#{idx + 1}</span>
                     <span className="item-name-heading">{line.product_name || 'Printing Job'}</span>
                     <span className="item-qty-pill">{lineQty.toLocaleString('en-IN')} Qty</span>
                   </div>
-                  <div className="title-right">
+                  <div className="title-right" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <span className="item-rate">@ ₹{linePrice.toFixed(2)}</span>
                     <span className="item-subtotal">₹{lineTotal.toFixed(2)}</span>
+                    <ChevronDown 
+                      size={16} 
+                      style={{ 
+                        transform: expandedJobs[line.id] ? 'rotate(180deg)' : 'rotate(0deg)', 
+                        transition: 'transform 0.2s',
+                        color: 'var(--text-muted)'
+                      }} 
+                    />
                   </div>
                 </div>
 
-                {/* Card Fields Grid */}
-                <div className="billing-summary-details__card-body">
-                  <div className="billing-summary-details__field">
-                    <label><Palette size={12} /> Colour / Finish</label>
-                    <input 
-                      type="text" 
-                      placeholder="e.g. Full Colour, Multi-color, B&W" 
-                      value={line.colour || ''}
-                      onChange={e => updateLine(line.id, 'colour', e.target.value)} 
-                    />
-                  </div>
-                  <div className="billing-summary-details__field">
-                    <label><Layers size={12} /> Paper Type / Stock</label>
-                    <input 
-                      type="text" 
-                      placeholder="e.g. 300 GSM Art Card, Maplitho 70 GSM" 
-                      value={line.paper_preference || ''}
-                      onChange={e => updateLine(line.id, 'paper_preference', e.target.value)} 
-                    />
-                  </div>
-
-                  {line._product?.has_paper_rate && (
-                    <div className="billing-summary-details__field">
-                      <label><IndianRupee size={12} /> Paper Add-on Rate (₹)</label>
-                      <input 
-                        type="number" 
-                        step="0.01" 
-                        min="0" 
-                        value={line.customPaperRate || ''}
-                        onWheel={e => e.target.blur()}
-                        onChange={e => updateLine(line.id, 'customPaperRate', Number(e.target.value) || 0)} 
-                      />
-                    </div>
-                  )}
-
-                  {line._product?.has_double_side_rate && (
-                    <div className="billing-summary-details__field billing-summary-details__field--checkbox">
-                      <label className="checkbox-label" htmlFor={`ds-${line.id}`}>
+                {expandedJobs[line.id] && (
+                  <>
+                    {/* Card Fields Grid */}
+                    <div className="billing-summary-details__card-body">
+                      <div className="billing-summary-details__field">
+                        <label><Palette size={12} /> Colour / Finish</label>
                         <input 
-                          type="checkbox" 
-                          id={`ds-${line.id}`} 
-                          checked={!!line.is_double_side}
-                          onChange={e => updateLine(line.id, 'is_double_side', e.target.checked)} 
+                          type="text" 
+                          placeholder="e.g. Full Colour, Multi-color, B&W" 
+                          value={line.colour || ''}
+                          onChange={e => updateLine(line.id, 'colour', e.target.value)} 
                         />
-                        <span>Double Side Printing</span>
-                      </label>
-                    </div>
-                  )}
+                      </div>
+                      <div className="billing-summary-details__field">
+                        <label><Layers size={12} /> Paper Type / Stock</label>
+                        <input 
+                          type="text" 
+                          placeholder="e.g. 300 GSM Art Card, Maplitho 70 GSM" 
+                          value={line.paper_preference || ''}
+                          onChange={e => updateLine(line.id, 'paper_preference', e.target.value)} 
+                        />
+                      </div>
 
-                  {isMachineCountLine(line) && !line.quick_added && (
-                    <div className="billing-summary-details__field">
-                      <label><Cpu size={12} /> Production Machine Assignment</label>
-                      <select
-                        value={line.machine_id || ''}
-                        onChange={e => updateLine(line.id, 'machine_id', e.target.value ? Number(e.target.value) : null)}
-                        className="machine-select-input"
-                        aria-label="Select machine for count"
-                      >
-                        <option value="">-- Select Machine --</option>
-                        {branchMachines
-                          .filter((m) => matchMachineForLine(m, line))
-                          .map((m) => (
-                            <option key={m.id} value={m.id}>
-                              {m.machine_name}
-                            </option>
-                          ))}
-                      </select>
-                    </div>
-                  )}
+                      {line._product?.has_paper_rate && (
+                        <div className="billing-summary-details__field">
+                          <label><IndianRupee size={12} /> Paper Add-on Rate (₹)</label>
+                          <input 
+                            type="number" 
+                            step="0.01" 
+                            min="0" 
+                            value={line.customPaperRate || ''}
+                            onWheel={e => e.target.blur()}
+                            onChange={e => updateLine(line.id, 'customPaperRate', Number(e.target.value) || 0)} 
+                          />
+                        </div>
+                      )}
 
-                  <div className="billing-summary-details__field billing-summary-details__field--full-row">
-                    <div className="numbering-header-label">
-                      <label><Hash size={12} /> Numbering Range (From → To)</label>
-                      {numCount ? <span className="numbering-count-chip">({numCount.toLocaleString('en-IN')} total numbers)</span> : null}
-                    </div>
-                    <div className="numbering-inputs-group">
-                      <input 
-                        type="text" 
-                        inputMode="numeric" 
-                        placeholder="From e.g. 0001" 
-                        value={line.numbering_from || ''}
-                        onChange={e => updateLine(line.id, 'numbering_from', e.target.value)} 
-                      />
-                      <span className="numbering-arrow-separator">→</span>
-                      <input 
-                        type="text" 
-                        inputMode="numeric" 
-                        placeholder="To e.g. 0500" 
-                        value={line.numbering_to || ''}
-                        onChange={e => updateLine(line.id, 'numbering_to', e.target.value)} 
-                      />
-                    </div>
-                  </div>
-                </div>
+                      {line._product?.has_double_side_rate && (
+                        <div className="billing-summary-details__field billing-summary-details__field--checkbox">
+                          <label className="checkbox-label" htmlFor={`ds-${line.id}`}>
+                            <input 
+                              type="checkbox" 
+                              id={`ds-${line.id}`} 
+                              checked={!!line.is_double_side}
+                              onChange={e => updateLine(line.id, 'is_double_side', e.target.checked)} 
+                            />
+                            <span>Double Side Printing</span>
+                          </label>
+                        </div>
+                      )}
 
-                {/* Card Footer: Special Instructions */}
-                <div className="billing-summary-details__card-footer">
-                  <div className="instructions-input-wrap">
-                    <FileEdit size={13} className="instructions-icon" />
-                    <input 
-                      type="text" 
-                      placeholder="Special instructions for press operator / finishing..." 
-                      value={line.special_instructions || ''}
-                      onChange={e => updateLine(line.id, 'special_instructions', e.target.value)} 
-                    />
-                  </div>
-                </div>
+                      {isMachineCountLine(line) && !line.quick_added && (
+                        <div className="billing-summary-details__field">
+                          <label><Cpu size={12} /> Production Machine Assignment</label>
+                          <select
+                            value={line.machine_id || ''}
+                            onChange={e => updateLine(line.id, 'machine_id', e.target.value ? Number(e.target.value) : null)}
+                            className="machine-select-input"
+                            aria-label="Select machine for count"
+                          >
+                            <option value="">-- Select Machine --</option>
+                            {branchMachines
+                              .filter((m) => matchMachineForLine(m, line))
+                              .map((m) => (
+                                <option key={m.id} value={m.id}>
+                                  {m.machine_name}
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+                      )}
+
+                      <div className="billing-summary-details__field billing-summary-details__field--full-row">
+                        <div className="numbering-header-label">
+                          <label><Hash size={12} /> Numbering Range (From → To)</label>
+                          {numCount ? <span className="numbering-count-chip">({numCount.toLocaleString('en-IN')} total numbers)</span> : null}
+                        </div>
+                        <div className="numbering-inputs-group">
+                          <input 
+                            type="text" 
+                            inputMode="numeric" 
+                            placeholder="From e.g. 0001" 
+                            value={line.numbering_from || ''}
+                            onChange={e => updateLine(line.id, 'numbering_from', e.target.value)} 
+                          />
+                          <span className="numbering-arrow-separator">→</span>
+                          <input 
+                            type="text" 
+                            inputMode="numeric" 
+                            placeholder="To e.g. 0500" 
+                            value={line.numbering_to || ''}
+                            onChange={e => updateLine(line.id, 'numbering_to', e.target.value)} 
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Card Footer: Special Instructions */}
+                    <div className="billing-summary-details__card-footer">
+                      <div className="instructions-input-wrap">
+                        <FileEdit size={13} className="instructions-icon" />
+                        <input 
+                          type="text" 
+                          placeholder="Special instructions for press operator / finishing..." 
+                          value={line.special_instructions || ''}
+                          onChange={e => updateLine(line.id, 'special_instructions', e.target.value)} 
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             );
           })}

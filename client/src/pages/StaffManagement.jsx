@@ -535,22 +535,24 @@ const StaffManagement = () => {
                         onChange={e => setSearchInput(e.target.value)}
                     />
                 </div>
-                <label htmlFor="branch-filter-select" className="sr-only">Filter by branch</label>
-                <select
-                    id="branch-filter-select"
-                    className="form-select branch-filter-select"
-                    value={selectedBranchFilter}
-                    onChange={e => setSelectedBranchFilter(e.target.value)}
-                >
-                    <option value="">All Branches</option>
-                    {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                </select>
-                {isAdmin && (
-                    <button onClick={() => setShowAddModal(true)} className="btn btn-primary" style={{ whiteSpace: 'nowrap' }}>
-                        <Plus size={18} aria-hidden="true" />
-                        <span>Add Staff</span>
-                    </button>
-                )}
+                <div className="staff-toolbar-actions">
+                    <label htmlFor="branch-filter-select" className="sr-only">Filter by branch</label>
+                    <select
+                        id="branch-filter-select"
+                        className="form-select branch-filter-select"
+                        value={selectedBranchFilter}
+                        onChange={e => setSelectedBranchFilter(e.target.value)}
+                    >
+                        <option value="">All Branches</option>
+                        {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                    </select>
+                    {isAdmin && (
+                        <button onClick={() => setShowAddModal(true)} className="btn btn-primary" style={{ whiteSpace: 'nowrap' }}>
+                            <Plus size={18} aria-hidden="true" />
+                            <span>Add Staff</span>
+                        </button>
+                    )}
+                </div>
             </div>
 
             <div className="table-scroll">

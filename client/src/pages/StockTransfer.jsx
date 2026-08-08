@@ -125,6 +125,10 @@ const StockTransfer = () => {
         ).slice(0, 50);
     }, [inventory, searchQuery]);
 
+    const totalTransferQty = useMemo(() => {
+        return transferItems.reduce((sum, line) => sum + (Number(line.quantity) || 0), 0);
+    }, [transferItems]);
+
     // Add item to invoice line items list
     const addItemToTransfer = (item) => {
         setTransferItems(prev => {
@@ -296,10 +300,6 @@ const StockTransfer = () => {
         
         return <div className="badge" style={{ backgroundColor: color, color: 'white', fontWeight: 700 }}>{status}</div>;
     };
-
-    const totalTransferQty = useMemo(() => {
-        return transferItems.reduce((sum, line) => sum + (Number(line.quantity) || 0), 0);
-    }, [transferItems]);
 
     return (
         <PageContainer>

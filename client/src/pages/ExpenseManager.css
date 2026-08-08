@@ -3647,15 +3647,28 @@ select.em-input {
 .em-utility-card__actions {
     display: flex;
     align-items: center;
-    gap: var(--space-8);
+    flex-wrap: wrap;
+    gap: 6px;
     margin-top: var(--space-12);
     border-top: 1px solid var(--border);
-    padding-top: var(--space-14);
+    padding-top: var(--space-12);
     width: 100%;
 }
 
+.em-utility-card__actions .btn {
+    font-size: 11px !important;
+    padding: 4px 8px !important;
+    height: 30px !important;
+    border-radius: 6px !important;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
 .em-utility-card__btn-bill {
-    flex: 1;
     background: rgba(245, 158, 11, 0.08) !important;
     color: #d97706 !important;
     border: 1px solid rgba(245, 158, 11, 0.2) !important;
@@ -3669,7 +3682,6 @@ select.em-input {
 }
 
 .em-utility-card__btn-pay {
-    flex: 1;
     background: rgba(99, 102, 241, 0.08) !important;
     color: #4f46e5 !important;
     border: 1px solid rgba(99, 102, 241, 0.2) !important;
@@ -3680,6 +3692,31 @@ select.em-input {
     background: #6366f1 !important;
     color: #ffffff !important;
     border-color: #6366f1 !important;
+}
+
+.em-utility-card__btn-dash {
+    background: rgba(16, 185, 129, 0.08) !important;
+    color: #059669 !important;
+    border: 1px solid rgba(16, 185, 129, 0.2) !important;
+    font-weight: 600;
+    transition: all var(--transition-fast) var(--ease-out);
+}
+.em-utility-card__btn-dash:hover {
+    background: #10b981 !important;
+    color: #ffffff !important;
+    border-color: #10b981 !important;
+}
+
+.em-utility-card__btn-conn {
+    background: var(--surface-2, #f1f5f9) !important;
+    color: var(--text-secondary, #475569) !important;
+    border: 1px solid var(--border, #cbd5e1) !important;
+    font-weight: 600;
+    transition: all var(--transition-fast) var(--ease-out);
+}
+.em-utility-card__btn-conn:hover {
+    background: var(--border, #cbd5e1) !important;
+    color: var(--text-primary, #0f172a) !important;
 }
 
 /* --- Expandable Connections Accordion List --- */

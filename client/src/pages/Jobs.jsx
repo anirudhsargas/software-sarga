@@ -73,6 +73,14 @@ const _canDeleteOrder = (role) => ['Admin', 'Accountant'].includes(role);
 const isFinanceRole = (role) => ['Admin', 'Accountant', 'Front Office', 'front office'].includes(role);
 const getTableColumnCount = (sortByPriority, financialsVisible) => 8 + (sortByPriority ? 1 : 0) + (financialsVisible ? 1 : 0);
 
+const getBranchShortName = (name) => {
+    if (!name) return 'Main';
+    const lower = name.toLowerCase();
+    if (lower.includes('perambra') || lower.includes('permbra')) return 'PBA';
+    if (lower.includes('meppayur')) return 'MPR';
+    return name;
+};
+
 const getDisplayJobs = (items, sortByPriority) => {
     if (!sortByPriority) return items;
     return [...items]
@@ -913,7 +921,7 @@ const Jobs = () => {
                                                 </div>
                                             </td>
                                             <td className="job-branch">
-                                                {j.branch_name || 'Main'}
+                                                {getBranchShortName(j.branch_name)}
                                             </td>
                                             <td>
                                                 {isSummaryRow ? (

@@ -21,7 +21,7 @@ import EmptyState from '../components/EmptyState';
 import './Customers.css';
 import PageContainer from '../components/ui/PageContainer';
 
-const CUSTOMER_TYPES = ['Retail', 'Offset', 'Walk-in'];
+const CUSTOMER_TYPES = ['Retail', 'Offset'];
 const ADD_CUSTOMER_TYPES = ['Retail', 'Offset'];
 const ADMIN_ROLES = ['admin', 'super_admin'];
 

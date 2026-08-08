@@ -267,9 +267,9 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 12px;
+  padding: 2px 8px;
   border-radius: var(--radius-full);
-  font-size: var(--text-xs);
+  font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.02em;
   white-space: nowrap;
@@ -330,9 +330,9 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 12px 4px 8px;
+  padding: 2px 20px 2px 6px;
   border-radius: var(--radius-full);
-  font-size: var(--text-xs);
+  font-size: 10px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
@@ -341,9 +341,9 @@
   -webkit-appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 8px center;
+  background-position: right 6px center;
   background-size: 10px;
-  padding-right: 24px;
+  padding-right: 20px;
   transition: all var(--transition-fast);
 }
 
@@ -484,6 +484,10 @@
 .job-customer-name {
   font-weight: 500;
   color: var(--text-heading);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
 }
 
 .job-customer-link {
@@ -499,9 +503,11 @@
 }
 
 .job-customer-phone {
-  font-size: var(--text-xs);
+  font-size: 10px;
   color: var(--text-muted);
   font-family: var(--font-mono);
+  white-space: nowrap;
+  display: block;
 }
 
 /* Branch Cell */

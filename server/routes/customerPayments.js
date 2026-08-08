@@ -526,10 +526,10 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
                 const effectiveAdvance = effectiveBalance === 0 ? effectiveJobTotal : Math.round(nextAdvance * 100) / 100;
                 const nextStatus = effectiveBalance === 0 ? 'Paid' : (effectiveAdvance > 0 ? 'Partial' : 'Unpaid');
 
-                // If auto_deliver (walk-in), mark job as Completed on payment
+                // If auto_deliver (walk-in), mark job as Delivered on payment
                 if (auto_deliver) {
                     await connection.query(
-                        "UPDATE sarga_jobs SET advance_paid = ?, balance_amount = ?, payment_status = ?, status = 'Completed' WHERE id = ?",
+                        "UPDATE sarga_jobs SET advance_paid = ?, balance_amount = ?, payment_status = ?, status = 'Delivered' WHERE id = ?",
                         [effectiveAdvance, effectiveBalance, nextStatus, job.id]
                     );
                 } else {
@@ -569,13 +569,13 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
                 }
             }
 
-            // If auto_deliver, also mark any remaining jobs (e.g. zero-total) as Completed
+            // If auto_deliver, also mark any remaining jobs (e.g. zero-total) as Delivered
             if (auto_deliver) {
                 const processedIds = unpaidJobs.map(j => j.id);
                 const remainingJobs = jobs.filter(j => !processedIds.includes(j.id));
                 for (const job of remainingJobs) {
                     await connection.query(
-                        "UPDATE sarga_jobs SET status = 'Completed' WHERE id = ? AND status != 'Completed'",
+                        "UPDATE sarga_jobs SET status = 'Delivered' WHERE id = ? AND status != 'Delivered'",
                         [job.id]
                     );
                 }

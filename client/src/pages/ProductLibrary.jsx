@@ -1,6 +1,6 @@
 import { useSEO } from '../hooks/useSEO';
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import api, { imgUrl } from '../services/api';
+import api, { imgUrl, fetchRetry } from '../services/api';
 import SecureImage from '../components/SecureImage';
 import useAuth from '../hooks/useAuth';
 import auth from '../services/auth';
@@ -262,7 +262,7 @@ const ProductLibrary = () => {
             if (forceRefresh) {
                 await api.post('/product-hierarchy/refresh').catch(() => {});
             }
-            const res = await api.get('/product-hierarchy?include_inactive=true');
+            const res = await fetchRetry(() => api.get('/product-hierarchy?include_inactive=true'), 3);
             if (Array.isArray(res.data) && res.data.length > 0) {
                 setHierarchy(res.data);
                 setLoading(false);

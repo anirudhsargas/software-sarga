@@ -237,6 +237,10 @@ api.interceptors.response.use(
             return Promise.resolve(error.response);
         }
 
+        if (axios.isCancel(error)) {
+            return Promise.reject(error);
+        }
+
         if (!error.response) {
             try { sessionStorage.setItem('sarga_network_error', '1'); } catch {}
             
@@ -247,10 +251,11 @@ api.interceptors.response.use(
                 fallbackData = [];
             }
 
-            if (error.code === 'ECONNABORTED' || error.message === 'Network Error') {
+            if (fallbackData !== null) {
                 return Promise.resolve({ data: fallbackData, offline: true });
             }
-            return Promise.resolve({ data: fallbackData, offline: true });
+
+            return Promise.reject(error);
         }
 
         return Promise.reject(error);

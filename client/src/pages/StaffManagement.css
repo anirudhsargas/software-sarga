@@ -489,6 +489,13 @@ select.staff-input {
   gap: 16px;
 }
 
+.staff-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
 /* ── Mobile Layout Overrides ── */
 @media (max-width: 768px) {
   /* Toolbar styling */
@@ -498,15 +505,23 @@ select.staff-input {
     gap: var(--space-12) !important;
   }
   
-  .staff-toolbar .row {
-    flex-direction: column !important;
-    align-items: stretch !important;
-    gap: var(--space-8) !important;
+  .staff-toolbar-actions {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: var(--space-12) !important;
     width: 100% !important;
   }
   
-  .staff-toolbar .btn-primary {
-    width: 100% !important;
+  .staff-toolbar-actions .branch-filter-select {
+    flex: 1 !important;
+    width: auto !important;
+    min-width: 0 !important;
+  }
+  
+  .staff-toolbar-actions .btn-primary {
+    flex: 1 !important;
+    width: auto !important;
     justify-content: center !important;
   }
 
