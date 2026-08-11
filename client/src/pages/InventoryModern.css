@@ -330,16 +330,17 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  overflow: hidden;
   box-shadow: var(--shadow-sm);
   margin-bottom: var(--space-12);
   min-height: auto;
+  overflow: visible;
 }
 
 .inv-table-scroll {
   overflow-x: auto;
-  overflow-y: auto;
-  max-height: calc(100vh - 250px);
+  overflow-y: visible;
+  max-height: none;
+  width: 100%;
 }
 
 .inv-table {
