@@ -360,6 +360,15 @@ const initDb = async () => {
       appliedMigrations.add(migrateMachineCategoryName);
     }
 
+    // Add total_copies to sarga_machine_readings if missing
+    const migrateTotalCopiesName = '041_add_total_copies_to_machine_readings.js';
+    if (!appliedMigrations.has(migrateTotalCopiesName)) {
+      const migrateTotalCopies = require('./migrations/041_add_total_copies_to_machine_readings');
+      await migrateTotalCopies(connection);
+      await connection.query('INSERT IGNORE INTO schema_migrations (migration_name) VALUES (?)', [migrateTotalCopiesName]);
+      appliedMigrations.add(migrateTotalCopiesName);
+    }
+
     // Create paper_rate_history table and add current_rate_id to paper_types (was never wired into initDb)
     const migratePaperRateHistoryName = '2026_07_15_paper_rate_history.sql';
     if (!appliedMigrations.has(migratePaperRateHistoryName)) {
