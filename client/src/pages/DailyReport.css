@@ -1527,3 +1527,43 @@ textarea.input-field {
   gap: 6px;
   opacity: 0.7;
 }
+
+/* ── Mobile Responsiveness ── */
+@media (max-width: 768px) {
+  .dr-header,
+  .dr-controls,
+  .dr-date-selector {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+    width: 100% !important;
+  }
+
+  .dr-kpi-grid,
+  .dr-summary-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  .credit-list-table-container,
+  .daily-report-table-container,
+  .entry-table-container {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    width: 100% !important;
+    display: block !important;
+  }
+
+  .entry-table,
+  .credit-list-table {
+    min-width: 600px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .dr-kpi-grid,
+  .dr-summary-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+

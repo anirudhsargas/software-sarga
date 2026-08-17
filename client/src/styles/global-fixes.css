@@ -221,3 +221,180 @@ span.sv-status-badge--partial {
   font-size: var(--text-sm);
   color: var(--muted);
 }
+
+/* ══════════════════════════════════════════════════
+   MOBILE UI RESPONSIVENESS REPAIR OVERRIDES
+   ══════════════════════════════════════════════════ */
+
+/* 1. Prevent Horizontal Body Scroll on Mobile */
+@media (max-width: 768px) {
+  html, body {
+    overflow-x: hidden !important;
+    max-width: 100vw !important;
+  }
+
+  #root, .dashboard-layout, .app-layout, .page-container, .main-content, .dashboard-content {
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+  }
+
+  /* 2. Global Mobile Table Responsiveness */
+  .table-responsive,
+  .table-container,
+  .table-wrapper,
+  .inv-table-wrap,
+  .fo-table-wrap,
+  .accounts-table-wrapper,
+  .jobs-table-container,
+  .customer-table-container,
+  .daily-report-table-container,
+  .expense-table-wrap,
+  .inv-modal__table-wrap,
+  .production-table-container,
+  .vendor-table-wrapper,
+  .cctv-table-wrap,
+  .stock-table-container {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    max-width: 100% !important;
+    display: block !important;
+    width: 100% !important;
+  }
+
+  .table-responsive table,
+  .table-container table,
+  .table-wrapper table,
+  .accounts-table-wrapper table,
+  .jobs-table-container table,
+  .customer-table-container table,
+  .daily-report-table-container table,
+  .expense-table-wrap table,
+  .fo-table,
+  .inv-table {
+    min-width: 580px;
+  }
+
+  .table-responsive th,
+  .table-responsive td,
+  .table-container th,
+  .table-container td,
+  .fo-table th,
+  .fo-table td,
+  .inv-table th,
+  .inv-table td {
+    padding: 8px 10px !important;
+    font-size: 13px !important;
+  }
+
+  /* 3. Header, Filter Bar, and Toolbar Stack on Mobile */
+  .page-header,
+  .action-bar,
+  .filter-bar,
+  .toolbar,
+  .search-filter-row,
+  .date-filter-row,
+  .controls-row,
+  .header-actions {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+    width: 100% !important;
+  }
+
+  .filter-group,
+  .search-group,
+  .btn-group-mobile,
+  .header-left,
+  .header-right {
+    width: 100% !important;
+    flex-wrap: wrap !important;
+  }
+
+  .filter-group input,
+  .filter-group select,
+  .search-group input,
+  .search-input,
+  .date-picker-input {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* 4. Modals & Dialog Mobile Fitting */
+  .modal,
+  .modal-dialog,
+  .modal-content,
+  .modal-container,
+  .custom-modal,
+  .setup-modal,
+  .receipt-modal-content,
+  .drill-down-modal,
+  .catalogue-modal,
+  .modal--large,
+  .modal--xlarge,
+  .modal--profile {
+    width: calc(100vw - 20px) !important;
+    max-width: calc(100vw - 20px) !important;
+    max-height: calc(100vh - 24px) !important;
+    margin: 12px auto !important;
+    padding: 14px !important;
+    box-sizing: border-box !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .modal-body {
+    max-height: calc(100vh - 120px) !important;
+    overflow-y: auto !important;
+    padding: 12px 4px !important;
+  }
+
+  .modal-footer {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  .modal-footer .btn {
+    flex: 1 1 auto !important;
+    min-width: 90px !important;
+  }
+}
+
+/* 5. Mobile Grid Controls (KPIs, Stat cards, Cards) */
+@media (max-width: 640px) {
+  .stats-grid,
+  .kpi-grid,
+  .metrics-grid,
+  .dashboard-grid,
+  .fo-kpi-grid,
+  .fo-quick-actions__grid,
+  .accountant-stats-grid,
+  .billing-summary-grid,
+  .form-grid-3,
+  .form-grid-4 {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-grid,
+  .kpi-grid,
+  .metrics-grid,
+  .fo-kpi-grid,
+  .accountant-stats-grid,
+  .form-grid-2,
+  .form-grid-3,
+  .form-grid-4 {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+
+  /* Drilldown table header & row on small smartphones */
+  .drilldown-table-header,
+  .drilldown-row {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 4px !important;
+  }
+}
