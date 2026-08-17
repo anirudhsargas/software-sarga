@@ -634,63 +634,83 @@
 
 @media (max-width: 768px) {
   .inv-tabs {
-    flex-direction: column;
-    gap: var(--space-6);
+    flex-direction: row;
+    overflow-x: auto;
+    width: 100%;
+    padding-bottom: var(--space-4);
   }
 
-  .inv-toolbar-row {
-    flex-wrap: wrap;
+  .inv-toolbar-row,
+  .inv-filters-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: var(--space-10) !important;
+    width: 100% !important;
   }
 
   .inv-search {
-    min-width: 100%;
+    min-width: 100% !important;
+    width: 100% !important;
+  }
+
+  .inv-chips-row {
+    flex-wrap: wrap !important;
+    gap: var(--space-8) !important;
+    width: 100% !important;
+  }
+
+  .inv-chip select,
+  .inv-chip input {
+    max-width: 100% !important;
   }
 
   .inv-kpi-row {
     grid-template-columns: 1fr 1fr;
   }
 
+  .inv-table-container,
+  .inv-table-scroll {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    width: 100% !important;
+    display: block !important;
+  }
+
+  .inv-table {
+    min-width: 580px !important;
+    width: 100% !important;
+  }
+
   .inv-table thead {
-    display: none;
+    display: table-header-group !important;
   }
 
-  .inv-table,
-  .inv-table tbody,
-  .inv-table tr,
-  .inv-table td {
-    display: block;
+  .inv-table tr {
+    display: table-row !important;
   }
 
-  .inv-table tbody tr {
-    padding: var(--space-12);
-    border-bottom: 1px solid var(--border);
-    position: relative;
+  .inv-table td,
+  .inv-table th {
+    display: table-cell !important;
+    padding: var(--space-8) var(--space-10) !important;
+    font-size: 13px !important;
+    white-space: nowrap !important;
   }
 
-  .inv-table td {
-    padding: var(--space-4) 0;
-    border: none;
+  .inv-table td.checkbox-cell,
+  .inv-table th.checkbox-cell {
+    display: table-cell !important;
+  }
+
+  .inv-item-info {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    min-width: 120px;
   }
 
-  .inv-table td::before {
-    content: attr(data-label);
-    font-size: var(--text-xs);
+  .inv-item-name {
     font-weight: 600;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-  }
-
-  .inv-table .checkbox-cell {
-    display: none;
-  }
-
-  .inv-item-thumb {
-    width: 28px;
-    height: 28px;
+    white-space: normal !important;
   }
 }
 

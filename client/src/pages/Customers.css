@@ -1135,14 +1135,19 @@
 
   .customer-last-order,
   .customer-last-order--empty,
-  .customer-actions,
   .customer-table-header-cell:nth-child(5),
   .customer-table-header-cell:nth-child(6) {
     display: none;
   }
 
+  .customer-actions {
+    display: flex !important;
+    align-items: center;
+    gap: var(--space-4);
+  }
+
   .customer-detail-content {
-    padding-left: 20px;
+    padding-left: 12px;
   }
 }
 

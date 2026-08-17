@@ -525,60 +525,35 @@ select.staff-input {
     justify-content: center !important;
   }
 
-  /* Card-ify Table */
-  .table-scroll thead {
-    display: none !important;
-  }
-  
-  .table-scroll table,
-  .table-scroll tbody,
-  .table-scroll tr,
-  .table-scroll td {
+  /* Mobile Table Touch Scroll & Visibility */
+  .table-scroll {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    width: 100% !important;
     display: block !important;
+  }
+
+  .table-scroll table {
+    min-width: 580px !important;
     width: 100% !important;
   }
 
+  .table-scroll thead {
+    display: table-header-group !important;
+  }
+
   .table-scroll tr {
-    background: var(--surface) !important;
-    border: 1px solid var(--border-subtle) !important;
-    border-radius: var(--radius-lg) !important;
-    margin-bottom: var(--space-16) !important;
-    padding: var(--space-16) !important;
-    box-shadow: var(--shadow-sm) !important;
+    display: table-row !important;
   }
 
-  .dark .table-scroll tr {
-    background: var(--surface-2) !important;
+  .table-scroll td,
+  .table-scroll th {
+    display: table-cell !important;
+    padding: var(--space-10) var(--space-12) !important;
+    font-size: 13px !important;
+    white-space: nowrap !important;
+    vertical-align: middle !important;
   }
-
-  .table-scroll td {
-    display: flex !important;
-    justify-content: space-between !important;
-    align-items: center !important;
-    border-bottom: 1px solid color-mix(in srgb, var(--border) 30%, transparent) !important;
-    padding: var(--space-8) 0 !important;
-    text-align: right !important;
-  }
-
-  .table-scroll td:last-child {
-    border-bottom: none !important;
-    padding-bottom: 0 !important;
-    justify-content: flex-end !important;
-  }
-
-  .table-scroll td::before {
-    font-weight: 600 !important;
-    color: var(--muted) !important;
-    font-size: var(--text-xs) !important;
-    text-align: left !important;
-    margin-right: var(--space-16) !important;
-  }
-
-  .table-scroll td:nth-of-type(1)::before { content: "Staff Member"; }
-  .table-scroll td:nth-of-type(2)::before { content: "Branch"; }
-  .table-scroll td:nth-of-type(3)::before { content: "Mobile (User ID)"; }
-  .table-scroll td:nth-of-type(4)::before { content: "Joined Date"; }
-  .table-scroll td:nth-of-type(5)::before { content: "Actions"; }
 
   /* Actions wrapper */
   .staff-actions {

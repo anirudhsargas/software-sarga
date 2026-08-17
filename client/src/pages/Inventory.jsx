@@ -1437,7 +1437,7 @@ const Inventory = () => {
                                                         onChange={() => toggleSelect(item.id)}
                                                     />
                                                 </td>
-                                                <td>
+                                                <td data-label="Item">
                                                     <div role="button" tabIndex={0} className="inv-item-cell" onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); } }}>
                                                         <InventoryImage item={item} onUpdate={handleImageUpdate} isAdmin={isAdmin} size={40} />
                                                         <div className="inv-item-info" onClick={() => openItemDetail(item.id)}>
