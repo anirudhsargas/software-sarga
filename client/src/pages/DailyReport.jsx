@@ -1282,18 +1282,19 @@ const DailyReport = () => {
                 <table className="data-table entry-table">
                     <thead>
                         <tr>
-                            <th>Time</th>
+                            <th style={{ width: '85px' }}>Time</th>
                             <th>{isLaser ? 'Customer / Work' : 'Description'}</th>
-                            {isLaser && <th>Machine</th>}
+                            {isLaser && <th style={{ minWidth: '135px' }}>Machine</th>}
+                            {isOther && <th style={{ minWidth: '120px' }}>Category</th>}
                             {isLaser
-                                ? <th>Copies</th>
-                                : <th>Type</th>
+                                ? <th style={{ width: '70px', textAlign: 'right' }}>Copies</th>
+                                : <th style={{ width: '95px' }}>Type</th>
                             }
-                            {isLaser && <th>Type</th>}
-                            <th>Mode</th>
-                            <th>Cash</th>
-                            <th>UPI</th>
-                            <th>Total</th>
+                            {isLaser && <th style={{ width: '90px' }}>Type</th>}
+                            <th style={{ width: '80px' }}>Mode</th>
+                            <th style={{ width: '100px', textAlign: 'right' }}>Cash</th>
+                            <th style={{ width: '100px', textAlign: 'right' }}>UPI</th>
+                            <th style={{ width: '110px', textAlign: 'right' }}>Total</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1302,28 +1303,29 @@ const DailyReport = () => {
                             const isInternal = !!entry.is_internal;
                             const hasLines = entry.order_lines?.length > 1;
                             const isExpanded = expandedIds.has(entry.id);
+                            const categoryText = entry.category || entry.category_name || (entry.order_lines && entry.order_lines[0]?.category) || 'Other Products';
                             return (
                                 <React.Fragment key={`${type}-${entry.id}-${i}`}>
                                     <tr className={hasLines ? 'entry-table tr--clickable' : ''} onClick={hasLines ? () => toggleExpand(entry.id) : undefined} role={hasLines ? "button" : "row"} aria-expanded={hasLines ? expandedIds.has(entry.id) : undefined} tabIndex={hasLines ? 0 : undefined} onKeyDown={hasLines ? (e) => { if(e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleExpand(entry.id); } } : undefined}>
-                                        <td>
+                                        <td style={{ whiteSpace: 'nowrap' }}>
                                             <span className="entry-table-time">
                                                 <Clock size={11} /> {formatTime(entry.time)}
                                             </span>
                                         </td>
                                         <td>
-                                            <div className="entry-table-description">
+                                            <div className="entry-table-description" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: isOther ? '220px' : '260px' }}>
                                                 {hasLines && (
                                                     <ChevronRight size={14} className={`entry-table-chevron ${isExpanded ? 'entry-table-chevron--expanded' : ''}`} />
                                                 )}
-                                                <span>{entry.description}</span>
+                                                <span title={entry.description}>{entry.description}</span>
                                                 {hasLines && (
-                                                    <span className="badge badge--default entry-table-badge" style={{ padding: '2px 6px', fontSize: 10 }}>{entry.order_lines.length} items</span>
+                                                    <span className="badge badge--default entry-table-badge" style={{ padding: '2px 6px', fontSize: 10, marginLeft: 4 }}>{entry.order_lines.length} items</span>
                                                 )}
                                                 {entry.is_local_pending && (
-                                                    <span className="badge badge--warning entry-table-badge" style={{ padding: '2px 6px', fontSize: 10 }}>Pending Sync</span>
+                                                    <span className="badge badge--warning entry-table-badge" style={{ padding: '2px 6px', fontSize: 10, marginLeft: 4 }}>Pending Sync</span>
                                                 )}
                                             </div>
-                                            {!hasLines && entry.details && <div className="entry-table-details">{entry.details}</div>}
+                                            {!hasLines && entry.details && <div className="entry-table-details" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '240px' }}>{entry.details}</div>}
                                             {(entry.waste_prints > 0 || entry.proof_prints > 0) && (
                                                 <div className="entry-table-waste-proof">
                                                     {entry.waste_prints > 0 && <span className="entry-table-waste">Waste: {entry.waste_prints}</span>}
@@ -1337,16 +1339,23 @@ const DailyReport = () => {
                                             )}
                                         </td>
                                         {isLaser && (
-                                            <td>
+                                            <td style={{ minWidth: '135px', maxWidth: '180px' }}>
                                                 <div className="entry-table-machine">
                                                     {entry.machine_name || '—'}
                                                 </div>
                                             </td>
                                         )}
+                                        {isOther && (
+                                            <td style={{ whiteSpace: 'nowrap' }}>
+                                                <span className="badge badge--info entry-table-category-badge" style={{ fontSize: '11px', padding: '2px 8px', fontWeight: 500, background: 'rgba(99, 102, 241, 0.1)', color: 'var(--primary, #6366f1)', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
+                                                    {categoryText}
+                                                </span>
+                                            </td>
+                                        )}
                                         {isLaser ? (
-                                            <td className="entry-table-copies">{entry.copies}</td>
+                                            <td className="entry-table-copies" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{entry.copies}</td>
                                         ) : (
-                                            <td>
+                                            <td style={{ whiteSpace: 'nowrap' }}>
                                                 <span className={`badge ${isExpense ? 'badge--danger' : 'badge--success'} entry-table-badge`}>
                                                     {isExpense
                                                         ? <><ArrowDownRight size={10} /> Expense</>
@@ -1356,7 +1365,7 @@ const DailyReport = () => {
                                             </td>
                                         )}
                                         {isLaser && (
-                                            <td>
+                                            <td style={{ whiteSpace: 'nowrap' }}>
                                                 {isInternal ? (
                                                     <span className="badge entry-table-internal-badge">🏠 Internal</span>
                                                 ) : (
@@ -1364,7 +1373,7 @@ const DailyReport = () => {
                                                 )}
                                             </td>
                                         )}
-                                        <td>
+                                        <td style={{ whiteSpace: 'nowrap' }}>
                                             {(() => {
                                                 const m = (entry.payment_method || 'Cash').toLowerCase();
                                                 if (m.includes('upi')) {
@@ -1376,13 +1385,13 @@ const DailyReport = () => {
                                                 }
                                             })()}
                                         </td>
-                                        <td className={`entry-table-amount ${isExpense ? 'entry-table-amount--expense' : 'entry-table-amount--income'}`}>
+                                        <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }} className={`entry-table-amount ${isExpense ? 'entry-table-amount--expense' : 'entry-table-amount--income'}`}>
                                             {isExpense ? '-' : '+'}{formatCurrency(entry.cash_amount)}
                                         </td>
-                                        <td className={`entry-table-amount ${isExpense ? 'entry-table-amount--expense' : 'entry-table-amount--income'}`}>
+                                        <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }} className={`entry-table-amount ${isExpense ? 'entry-table-amount--expense' : 'entry-table-amount--income'}`}>
                                             {isExpense ? '-' : '+'}{formatCurrency(entry.upi_amount)}
                                         </td>
-                                        <td className="entry-table-total">
+                                        <td style={{ whiteSpace: 'nowrap', textAlign: 'right', fontWeight: 700 }} className="entry-table-total">
                                             {isExpense ? '-' : ''}{formatCurrency(entry.total)}
                                         </td>
                                     </tr>
@@ -1890,6 +1899,8 @@ const DailyReport = () => {
                             openingBalances={openingBalances}
                             creditTotals={creditTotals}
                             creditTransactions={creditTransactions}
+                            laserCredits={laserCredits}
+                            otherCredits={otherCredits}
                             attendanceData={attendanceData}
                             isFrontOffice={isFrontOffice}
                             user={user}

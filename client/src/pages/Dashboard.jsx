@@ -27,6 +27,7 @@ import BranchSelect from '../components/ui/BranchSelect';
 import useTranslation from '../hooks/useTranslation';
 import { useBranches } from '../contexts/BranchContext';
 import PermissionDeniedState from '../components/PermissionDeniedState';
+import AttendanceReminderBanner from '../components/AttendanceReminderBanner';
 import '../styles/profile-edit.css';
 import '../styles/dashboard-redesign.css';
 
@@ -1153,7 +1154,9 @@ const Dashboard = () => {
                     </div>
                 </header>
 
-                    <div className={`content-container ${isNavigating ? 'page-enter' : 'page-enter-active'}`} key={location.pathname}>
+                <AttendanceReminderBanner />
+
+                <div className={`content-container ${isNavigating ? 'page-enter' : 'page-enter-active'}`} key={location.pathname}>
 
                     <Suspense fallback={<SuspenseFallback />}>
                         <ErrorBoundary>

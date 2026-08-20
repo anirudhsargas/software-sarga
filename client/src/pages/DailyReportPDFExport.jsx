@@ -8,33 +8,37 @@ import { FileText } from 'lucide-react';
 const formatCurrency = formatCurrencyDecimal;
 const formatNum = (val) => (Number(val) || 0).toLocaleString('en-IN');
 const formatTime = (ts) => {
-    if (!ts) return '';
+    if (!ts) return '—';
     const d = new Date(ts);
+    if (isNaN(d.getTime())) return String(ts);
     return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
 };
 
 const formatDateDisplay = (dateStr) => {
+    if (!dateStr) return '';
     const d = new Date(dateStr + 'T00:00:00');
+    if (isNaN(d.getTime())) return dateStr;
     return d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 };
 
 export default function DailyReportPDFExport({
     branchName,
     reportDate,
-    offsetData,
-    laserData,
-    otherData,
-    openingBalances,
-    creditTotals,
-    creditTransactions,
-    attendanceData,
+    offsetData = {},
+    laserData = {},
+    otherData = {},
+    openingBalances = {},
+    creditTotals = {},
+    creditTransactions = [],
+    laserCredits = [],
+    otherCredits = [],
+    attendanceData = {},
     isFrontOffice,
     user,
-    branches,
+    branches = [],
     branchId
 }) {
-    useSEO('Daily Report P D F Export');
-
+    useSEO('Daily Report PDF Export');
 
     const generatePDF = async () => {
         try {
@@ -119,7 +123,12 @@ export default function DailyReportPDFExport({
 
                 const summary = data.summary || {};
                 const entries = data.entries || [];
-                const opening = openingBalances[key] || 0;
+                const opening = Number(openingBalances[key]) || 0;
+                const totalCashIn = Number(summary.total_cash_in || 0);
+                const totalUpiIn = Number(summary.total_upi_in || 0);
+                const totalIn = totalCashIn + totalUpiIn;
+                const totalOut = Number(summary.total_cash_out || 0);
+                const closingBalance = opening + totalIn - totalOut;
 
                 currentY = sectionHeader(`${key.toUpperCase()} BOOK`, color, currentY);
                 doc.setTextColor(30, 30, 30);
@@ -127,78 +136,181 @@ export default function DailyReportPDFExport({
 
                 currentY = kvRow('Opening Cash Balance', formatCurrency(opening), currentY);
 
+                // Laser Machine Readings Section
                 if (key === 'Laser' && data.machines?.length > 0) {
-                    // Only show machines belonging to the currently selected branch.
                     const branchMachines = branchId
                         ? data.machines.filter(m => String(m.branch_id) === String(branchId))
                         : data.machines;
-                    branchMachines.forEach(m => {
-                        currentY = kvRow(`${m.machine_name} — Opening`, formatNum(m.opening_count || 0), currentY);
-                        currentY = kvRow(`${m.machine_name} — Closing`, formatNum(m.closing_count || 0), currentY);
-                        currentY = kvRow(`${m.machine_name} — Copies`, formatNum(m.today_copies || 0), currentY, { color: [5, 150, 105] });
-                    });
+
+                    if (branchMachines.length > 0) {
+                        currentY += 2;
+                        doc.setFontSize(9.5);
+                        doc.setFont('helvetica', 'bold');
+                        doc.setTextColor(124, 58, 237);
+                        doc.text('MACHINE READINGS & COUNTS', margin + 2, currentY);
+                        currentY += 6;
+
+                        branchMachines.forEach(m => {
+                            const openingCnt = m.has_reading ? formatNum(m.opening_count) : '—';
+                            const closingCnt = m.closing_count !== null && m.closing_count !== undefined ? formatNum(m.closing_count) : '—';
+                            const copies = formatNum(m.today_copies || 0);
+                            const wasteStr = m.waste_prints > 0 ? ` | Waste: ${m.waste_prints}` : '';
+                            const proofStr = m.proof_prints > 0 ? ` | Proof: ${m.proof_prints}` : '';
+
+                            currentY = kvRow(
+                                `${m.machine_name} (Opening: ${openingCnt} → Current: ${closingCnt})`,
+                                `${copies} copies${wasteStr}${proofStr}`,
+                                currentY,
+                                { color: [124, 58, 237] }
+                            );
+                        });
+                        currentY += 2;
+                    }
                 }
 
                 if (entries.length > 0) {
-                    const isLaser = key === 'Laser';
-                    const head = isLaser
-                        ? [['Time', 'Description', 'Machine', 'Copies', 'Mode', 'Cash', 'UPI', 'Total']]
-                        : [['Time', 'Description', 'Type', 'Mode', 'Cash', 'UPI', 'Total']];
+                    let head, body, columnStyles;
 
-                    const body = entries.map(e => {
-                        const isExp = e.type === 'expense';
-                        const sign = isExp ? '-' : '';
-                        const fPdf = (val) => `${sign}Rs. ${(Number(val) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                    if (key === 'Laser') {
+                        head = [['Time', 'Customer / Work', 'Machine', 'Copies', 'Type', 'Mode', 'Cash', 'UPI', 'Total']];
+                        body = entries.map(e => {
+                            const isExp = e.type === 'expense';
+                            const isInternal = !!e.is_internal;
+                            const sign = isExp ? '-' : '';
+                            const fPdf = (val) => `${sign}Rs. ${(Number(val) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-                        if (isLaser) {
-                            return [formatTime(e.time), e.description || '', e.machine_name || '—', String(e.copies || ''),
-                            e.payment_method || 'Cash', fPdf(e.cash_amount), fPdf(e.upi_amount), fPdf(e.total)];
-                        }
-                        return [formatTime(e.time), e.description || '', isExp ? 'Expense' : 'Income',
-                        e.payment_method || 'Cash', fPdf(e.cash_amount), fPdf(e.upi_amount), fPdf(e.total)];
-                    });
+                            let desc = e.description || '';
+                            if (e.details && e.details !== e.description) desc += ` (${e.details})`;
+                            if (e.waste_prints > 0) desc += ` [Waste:${e.waste_prints}]`;
+                            if (e.proof_prints > 0) desc += ` [Proof:${e.proof_prints}]`;
+
+                            return [
+                                formatTime(e.time),
+                                desc,
+                                e.machine_name || '—',
+                                String(e.copies || '—'),
+                                isInternal ? 'Internal' : 'Standard',
+                                e.payment_method || 'Cash',
+                                fPdf(e.cash_amount),
+                                fPdf(e.upi_amount),
+                                fPdf(e.total)
+                            ];
+                        });
+                        columnStyles = {
+                            0: { cellWidth: 16 },
+                            1: { cellWidth: 38 },
+                            2: { cellWidth: 26 },
+                            3: { halign: 'right', cellWidth: 14 },
+                            4: { cellWidth: 16 },
+                            5: { cellWidth: 14 },
+                            6: { halign: 'right', cellWidth: 18 },
+                            7: { halign: 'right', cellWidth: 18 },
+                            8: { halign: 'right', cellWidth: 20, fontStyle: 'bold' }
+                        };
+                    } else if (key === 'Other') {
+                        head = [['Time', 'Description', 'Category', 'Type', 'Mode', 'Cash', 'UPI', 'Total']];
+                        body = entries.map(e => {
+                            const isExp = e.type === 'expense';
+                            const sign = isExp ? '-' : '';
+                            const fPdf = (val) => `${sign}Rs. ${(Number(val) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                            const cat = e.category || e.category_name || (e.order_lines && e.order_lines[0]?.category) || 'Other Products';
+
+                            let desc = e.description || '';
+                            if (e.details && e.details !== e.description) desc += ` (${e.details})`;
+
+                            return [
+                                formatTime(e.time),
+                                desc,
+                                cat,
+                                isExp ? 'Expense' : 'Income',
+                                e.payment_method || 'Cash',
+                                fPdf(e.cash_amount),
+                                fPdf(e.upi_amount),
+                                fPdf(e.total)
+                            ];
+                        });
+                        columnStyles = {
+                            0: { cellWidth: 16 },
+                            1: { cellWidth: 42 },
+                            2: { cellWidth: 26 },
+                            3: { cellWidth: 16 },
+                            4: { cellWidth: 14 },
+                            5: { halign: 'right', cellWidth: 20 },
+                            6: { halign: 'right', cellWidth: 20 },
+                            7: { halign: 'right', cellWidth: 22, fontStyle: 'bold' }
+                        };
+                    } else {
+                        // Offset Book
+                        head = [['Time', 'Description', 'Type', 'Mode', 'Cash', 'UPI', 'Total']];
+                        body = entries.map(e => {
+                            const isExp = e.type === 'expense';
+                            const sign = isExp ? '-' : '';
+                            const fPdf = (val) => `${sign}Rs. ${(Number(val) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+                            let desc = e.description || '';
+                            if (e.details && e.details !== e.description) desc += ` (${e.details})`;
+
+                            return [
+                                formatTime(e.time),
+                                desc,
+                                isExp ? 'Expense' : 'Income',
+                                e.payment_method || 'Cash',
+                                fPdf(e.cash_amount),
+                                fPdf(e.upi_amount),
+                                fPdf(e.total)
+                            ];
+                        });
+                        columnStyles = {
+                            0: { cellWidth: 18 },
+                            1: { cellWidth: 54 },
+                            2: { cellWidth: 18 },
+                            3: { cellWidth: 16 },
+                            4: { halign: 'right', cellWidth: 22 },
+                            5: { halign: 'right', cellWidth: 22 },
+                            6: { halign: 'right', cellWidth: 24, fontStyle: 'bold' }
+                        };
+                    }
 
                     autoTable(doc, {
                         startY: currentY,
                         head,
                         body,
                         margin: { left: margin, right: margin },
-                        styles: { fontSize: 8, cellPadding: 2.5, lineColor: [220, 220, 220], lineWidth: 0.2 },
+                        styles: { fontSize: 7.5, cellPadding: 2, lineColor: [220, 220, 220], lineWidth: 0.2 },
                         headStyles: { fillColor: color, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.5 },
                         alternateRowStyles: { fillColor: [248, 248, 248] },
-                        columnStyles: isLaser
-                            ? { 0: { cellWidth: 18 }, 2: { halign: 'right', cellWidth: 16 }, 3: { halign: 'right' }, 4: { halign: 'left' }, 5: { halign: 'right' }, 6: { halign: 'right' }, 7: { halign: 'right', fontStyle: 'bold' } }
-                            : { 0: { cellWidth: 18 }, 2: { cellWidth: 18 }, 3: { halign: 'left' }, 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right', fontStyle: 'bold' } }
+                        columnStyles
                     });
                     currentY = doc.lastAutoTable.finalY + 6;
                 } else {
                     doc.setFontSize(8);
                     doc.setTextColor(150, 150, 150);
-                    doc.text('No entries recorded', margin + 2, currentY);
+                    doc.text('No entries recorded for this book today.', margin + 2, currentY);
                     currentY += 8;
                 }
 
-                if (currentY > 260) { doc.addPage(); renderHeader(); currentY = 44; }
+                if (currentY > 255) { doc.addPage(); renderHeader(); currentY = 44; }
 
-                currentY = kvRow('Cash In', formatCurrency(summary.total_cash_in || 0), currentY, { color: [47, 125, 74] });
-                currentY = kvRow('UPI In', formatCurrency(summary.total_upi_in || 0), currentY, { color: [47, 125, 74] });
-                if (summary.total_cash_out !== undefined && summary.total_cash_out !== null) {
-                    currentY = kvRow('Cash Out', formatCurrency(summary.total_cash_out), currentY, { color: [176, 58, 46] });
-                }
-                if (summary.total_copies !== undefined) {
-                    currentY = kvRow('Total Copies', formatNum(summary.total_copies), currentY);
+                currentY = kvRow('Total Cash In', formatCurrency(totalCashIn), currentY, { color: [47, 125, 74] });
+                currentY = kvRow('Total UPI In', formatCurrency(totalUpiIn), currentY, { color: [47, 125, 74] });
+                currentY = kvRow('Total Inflow (Cash + UPI)', formatCurrency(totalIn), currentY, { color: [47, 125, 74] });
+                currentY = kvRow('Total Outflow (Expenses)', formatCurrency(totalOut), currentY, { color: [176, 58, 46] });
+
+                if (key === 'Laser' && summary.total_copies !== undefined) {
+                    currentY = kvRow('Total Laser Copies Printed', formatNum(summary.total_copies), currentY, { color: [124, 58, 237] });
                 }
 
                 doc.setFillColor(245, 245, 240);
                 doc.roundedRect(margin, currentY - 1, pageW - margin * 2, 8, 1.5, 1.5, 'F');
-                currentY = kvRow('CASH CLOSING BALANCE', formatCurrency(summary.cash_closing || 0), currentY, { color: color });
+                currentY = kvRow('CASH CLOSING BALANCE', formatCurrency(closingBalance), currentY, { color: color });
             });
 
-            // Attendance & Credit summary page
+            // Attendance & Credit Summary Page
             doc.addPage();
             renderHeader();
             let summaryY = 44;
 
+            // Attendance Table (Full Export — No 10 row truncation!)
             const rawAttendanceStaff = attendanceData?.staff || [];
             const attendanceStaff = isFrontOffice
                 ? rawAttendanceStaff.filter(s => {
@@ -212,33 +324,33 @@ export default function DailyReportPDFExport({
                 })
                 : rawAttendanceStaff;
 
-            const attendancePresent = attendanceStaff.filter(s => s && (s.entry_time || s.status === 'present' || s.status === 'Present')).length;
+            const attendancePresent = attendanceStaff.filter(s => s && (s.in_time || s.status === 'present' || s.status === 'Present')).length;
             const attendanceAbsent = Math.max(0, attendanceStaff.length - attendancePresent);
 
-            summaryY = sectionHeader('Attendance Summary', [245, 158, 11], summaryY);
-            summaryY = kvRow('Total staff tracked', String(attendanceStaff.length), summaryY);
-            summaryY = kvRow('Present today', String(attendancePresent), summaryY, { color: [34, 197, 94] });
-            summaryY = kvRow('Absent / missing', String(attendanceAbsent), summaryY, { color: [220, 38, 38] });
-            summaryY = kvRow('Alerts', String(attendanceData?.alert_count || 0), summaryY, { color: [249, 115, 22] });
-            summaryY = kvRow('Discrepancies', String(attendanceData?.discrepancy_count || 0), summaryY, { color: [168, 85, 247] });
+            summaryY = sectionHeader('STAFF ATTENDANCE SUMMARY', [245, 158, 11], summaryY);
+            summaryY = kvRow('Total Staff Tracked', String(attendanceStaff.length), summaryY);
+            summaryY = kvRow('Present Today', String(attendancePresent), summaryY, { color: [34, 197, 94] });
+            summaryY = kvRow('Absent / Missing', String(attendanceAbsent), summaryY, { color: [220, 38, 38] });
 
             if (attendanceStaff.length > 0) {
-                const attendanceRows = attendanceStaff.slice(0, 10).map(s => [
+                const attendanceRows = attendanceStaff.map(s => [
                     s.name || s.staff_name || '—',
-                    String(s.status || '').replace(/^(present|Present)$/i, 'Present').replace(/^(absent|Absent)$/i, 'Absent'),
-                    s.entry_time || s.exit_time || '—',
-                    s.branch_name || '—'
+                    s.role || 'Staff',
+                    String(s.status || '').replace(/^(present|Present)$/i, 'Present').replace(/^(absent|Absent)$/i, 'Absent') || 'Pending',
+                    s.in_time || s.entry_time || '—',
+                    s.out_time || s.exit_time || '—',
+                    s.branch_name || displayBranch
                 ]);
 
                 autoTable(doc, {
                     startY: summaryY,
-                    head: [['Staff', 'Status', 'Time', 'Branch']],
+                    head: [['Staff Name', 'Role', 'Status', 'In Time', 'Out Time', 'Branch']],
                     body: attendanceRows,
                     margin: { left: margin, right: margin },
-                    styles: { fontSize: 8, cellPadding: 2.5, lineColor: [220, 220, 220], lineWidth: 0.2 },
+                    styles: { fontSize: 7.5, cellPadding: 2, lineColor: [220, 220, 220], lineWidth: 0.2 },
                     headStyles: { fillColor: [245, 158, 11], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.5 },
                     alternateRowStyles: { fillColor: [248, 248, 248] },
-                    columnStyles: { 0: { cellWidth: 45 }, 1: { cellWidth: 28 }, 2: { cellWidth: 28 }, 3: { cellWidth: 38 } }
+                    columnStyles: { 0: { cellWidth: 40 }, 1: { cellWidth: 28 }, 2: { cellWidth: 22 }, 3: { cellWidth: 22 }, 4: { cellWidth: 22 }, 5: { cellWidth: 38 } }
                 });
                 summaryY = doc.lastAutoTable.finalY + 6;
             } else {
@@ -248,30 +360,42 @@ export default function DailyReportPDFExport({
                 summaryY += 8;
             }
 
-            if (summaryY > 260) { doc.addPage(); renderHeader(); summaryY = 44; }
+            if (summaryY > 255) { doc.addPage(); renderHeader(); summaryY = 44; }
 
-            summaryY = sectionHeader('Credit Summary', [16, 185, 129], summaryY);
-            summaryY = kvRow('Credit In', formatCurrency(creditTotals?.in || 0), summaryY, { color: [34, 197, 94] });
-            summaryY = kvRow('Credit Out', formatCurrency(creditTotals?.out || 0), summaryY, { color: [220, 38, 38] });
-            summaryY = kvRow('Net credit', formatCurrency((creditTotals?.in || 0) - (creditTotals?.out || 0)), summaryY, { color: [30, 64, 175] });
+            // Combine Credit Transactions from Offset, Laser, and Other (Full Export — No 10 row truncation!)
+            const allCredits = [
+                ...(creditTransactions || []).map(c => ({ ...c, book: 'Offset' })),
+                ...(laserCredits || []).map(c => ({ ...c, book: 'Laser' })),
+                ...(otherCredits || []).map(c => ({ ...c, book: 'Other' }))
+            ];
 
-            if (creditTransactions?.length > 0) {
-                const creditRows = creditTransactions.slice(0, 10).map(t => [
+            const totalCreditIn = allCredits.filter(c => (c.transaction_type || c.type) === 'Credit In').reduce((s, c) => s + (Number(c.amount) || 0), 0);
+            const totalCreditOut = allCredits.filter(c => (c.transaction_type || c.type) === 'Credit Out').reduce((s, c) => s + (Number(c.amount) || 0), 0);
+            const netCredit = totalCreditIn - totalCreditOut;
+
+            summaryY = sectionHeader('CREDIT TRANSACTIONS SUMMARY', [16, 185, 129], summaryY);
+            summaryY = kvRow('Total Credit In', formatCurrency(totalCreditIn), summaryY, { color: [34, 197, 94] });
+            summaryY = kvRow('Total Credit Out', formatCurrency(totalCreditOut), summaryY, { color: [220, 38, 38] });
+            summaryY = kvRow('Net Credit Balance', formatCurrency(netCredit), summaryY, { color: [30, 64, 175] });
+
+            if (allCredits.length > 0) {
+                const creditRows = allCredits.map(t => [
+                    t.book || 'Offset',
                     t.transaction_type || t.type || 'Credit',
                     t.customer_name || t.customer || '—',
                     formatCurrency(t.amount),
-                    t.reference_number || t.invoice_number || t.invoice_no || '—'
+                    t.remarks || t.description || t.reference_number || '—'
                 ]);
 
                 autoTable(doc, {
                     startY: summaryY,
-                    head: [['Type', 'Customer', 'Amount', 'Reference']],
+                    head: [['Book', 'Type', 'Customer / Party', 'Amount', 'Remarks / Reference']],
                     body: creditRows,
                     margin: { left: margin, right: margin },
-                    styles: { fontSize: 8, cellPadding: 2.5, lineColor: [220, 220, 220], lineWidth: 0.2 },
+                    styles: { fontSize: 7.5, cellPadding: 2, lineColor: [220, 220, 220], lineWidth: 0.2 },
                     headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.5 },
                     alternateRowStyles: { fillColor: [248, 248, 248] },
-                    columnStyles: { 0: { cellWidth: 32 }, 1: { cellWidth: 52 }, 2: { halign: 'right', cellWidth: 28 }, 3: { cellWidth: 43 } }
+                    columnStyles: { 0: { cellWidth: 20 }, 1: { cellWidth: 26 }, 2: { cellWidth: 48 }, 3: { halign: 'right', cellWidth: 28 }, 4: { cellWidth: 50 } }
                 });
                 summaryY = doc.lastAutoTable.finalY + 6;
             } else {
@@ -289,13 +413,14 @@ export default function DailyReportPDFExport({
                 doc.setTextColor(160, 160, 160);
                 doc.text(`${displayBranch} • ${dateStr}`, margin, doc.internal.pageSize.getHeight() - 8);
                 doc.text(`Page ${i} of ${totalPages}`, pageW / 2, doc.internal.pageSize.getHeight() - 8, { align: 'center' });
-                doc.text('Print Preview', pageW - margin, doc.internal.pageSize.getHeight() - 8, { align: 'right' });
+                doc.text('Sarga Offset ERP System', pageW - margin, doc.internal.pageSize.getHeight() - 8, { align: 'right' });
             }
 
             doc.save(`Daily-Report_${displayBranch}_${reportDate}.pdf`);
+            toast.success('Daily Report PDF generated successfully');
         } catch (error) {
             console.error('PDF Generation failed:', error);
-            toast.error('PDF Generation failed. Error: ' + error.message);
+            toast.error('PDF Generation failed: ' + error.message);
         }
     };
 

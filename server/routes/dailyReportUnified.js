@@ -1081,12 +1081,13 @@ router.get('/other-live', auth.authenticate, auth.authorizeRoles('Admin', 'Accou
             totalWastePrints += billWaste;
             totalProofPrints += billProof;
             const discountPct = Number(cp.discount_percent) || 0;
-            const discountAmt = Number(cp.discount_amount) || 0;
+            const mainCategory = lines.map(l => l.catName || l.category_name || l.category || '').filter(Boolean)[0] || 'Other Products';
             return {
                 id: `cp-${cp.id}`,
                 type: 'income',
                 description: cp.customer_name,
                 details: details || cp.description || '',
+                category: mainCategory,
                 payment_method: method,
                 cash_amount: cashIn,
                 upi_amount: upiIn,
@@ -1096,7 +1097,7 @@ router.get('/other-live', auth.authenticate, auth.authorizeRoles('Admin', 'Accou
                 proof_prints: billProof,
                 discount_percent: discountPct,
                 discount_amount: discountAmt,
-                order_lines: lines.map(l => ({ name: l.product_name || l.job_name || '', qty: l.quantity || 1, amount: Number(l.total_amount || 0), waste_prints: Number(l.waste_prints) || 0, proof_prints: Number(l.proof_prints) || 0 }))
+                order_lines: lines.map(l => ({ name: l.product_name || l.job_name || '', qty: l.quantity || 1, amount: Number(l.total_amount || 0), waste_prints: Number(l.waste_prints) || 0, proof_prints: Number(l.proof_prints) || 0, category: l.catName || l.category_name || l.category || '' }))
             };
         });
 

@@ -9,22 +9,23 @@ const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { branchFilter } = require('../middleware/branchFilter');
 const { getTodayDate, asyncHandler } = require('../helpers');
 
-// ─── FRONT OFFICE ATTENDANCE REMINDER (9:00 AM to 10:00 AM) ───────────────
+// ─── FRONT OFFICE ATTENDANCE & MARK-GONE REMINDER ───────────────
+// Morning Window: 9:00 AM to 11:59 AM (Triggers at 9:00, 10:00, 11:00 AM if attendance not marked)
+// Evening Window: 6:00 PM to 8:59 PM (Triggers at 6:00 PM and 7:00 PM if mark-gone not marked)
 router.get('/front-office/attendance-reminder', authenticateToken, async (req, res) => {
     try {
         const userRole = req.user.role;
         const { branchId } = await branchFilter(req);
 
-        // This reminder is intended for Front Office users.
-        if (!branchId || !['Front Office', 'front office'].includes(userRole)) {
+        // Reminder intended for Front Office, Staff, and Admin
+        if (!branchId || !['Front Office', 'front office', 'Admin', 'admin', 'Accountant'].includes(userRole)) {
             return res.json({
                 should_remind: false,
-                in_window: false,
+                reminder_type: null,
                 missing_count: 0,
-                marked_count: 0,
+                missing_gone_count: 0,
                 total_staff: 0,
-                attendance_date: getTodayDate(),
-                reminder_until: '10:00'
+                attendance_date: getTodayDate()
             });
         }
 
@@ -32,17 +33,16 @@ router.get('/front-office/attendance-reminder', authenticateToken, async (req, r
         const hour = now.getHours();
         const minute = now.getMinutes();
         const minutesNow = (hour * 60) + minute;
-        const windowStart = 9 * 60;   // 09:00
-        const windowEnd = 10 * 60;    // 10:00
-        const inWindow = minutesNow >= windowStart && minutesNow < windowEnd;
+
+        const isMorningWindow = minutesNow >= (9 * 60) && minutesNow < (12 * 60); // 9:00 AM to 11:59 AM
+        const isEveningWindow = minutesNow >= (18 * 60) && minutesNow < (21 * 60); // 6:00 PM to 8:59 PM
 
         const today = getTodayDate();
 
-        // Count active branch staff who should have attendance marked.
         let rows;
         try {
             const result = await pool.query(
-                `SELECT s.id, s.name, s.role, sa.status
+                `SELECT s.id, s.name, s.role, sa.status, sa.in_time, sa.out_time
                  FROM sarga_staff s
                  LEFT JOIN sarga_staff_attendance sa
                    ON sa.staff_id = s.id AND sa.attendance_date = ?
@@ -54,55 +54,45 @@ router.get('/front-office/attendance-reminder', authenticateToken, async (req, r
             );
             rows = result[0];
         } catch (queryErr) {
-            console.error('[AttendanceReminder] Database query failed:', {
-                error: queryErr.message,
-                code: queryErr.code,
-                errno: queryErr.errno,
-                sql: queryErr.sql,
-                branchId,
-                today
-            });
-            return res.status(500).json({ 
-                message: 'Failed to load attendance reminder',
-                error: queryErr.message,
-                code: queryErr.code 
-            });
+            console.error('[AttendanceReminder] Query error:', queryErr);
+            return res.status(500).json({ message: 'Failed to load attendance reminder' });
         }
 
         if (!Array.isArray(rows)) {
-            console.error('[AttendanceReminder] Query returned non-array rows:', {
-                rows,
-                type: typeof rows
-            });
-            return res.status(500).json({ 
-                message: 'Invalid query response',
-                error: 'Query did not return expected array'
-            });
+            return res.status(500).json({ message: 'Invalid query response' });
         }
 
-        const missing = rows.filter(r => !r.status);
-        const marked = rows.filter(r => !!r.status);
+        const missingAttendance = rows.filter(r => !r.status);
+        const missingMarkGone = rows.filter(r => ['Present', 'Half Day'].includes(r.status) && (!r.out_time || r.out_time === '00:00:00'));
+
+        let reminderType = null;
+        let shouldRemind = false;
+
+        if (isMorningWindow && missingAttendance.length > 0) {
+            reminderType = 'morning_attendance';
+            shouldRemind = true;
+        } else if (isEveningWindow && missingMarkGone.length > 0) {
+            reminderType = 'evening_mark_gone';
+            shouldRemind = true;
+        }
 
         res.json({
-            should_remind: inWindow && missing.length > 0,
-            in_window: inWindow,
-            missing_count: missing.length,
-            marked_count: marked.length,
+            should_remind: shouldRemind,
+            reminder_type: reminderType, // 'morning_attendance' | 'evening_mark_gone' | null
+            is_morning_window: isMorningWindow,
+            is_evening_window: isEveningWindow,
+            current_hour: hour,
+            missing_count: missingAttendance.length,
+            missing_staff: missingAttendance.map(m => ({ id: m.id, name: m.name, role: m.role })),
+            missing_gone_count: missingMarkGone.length,
+            missing_gone_staff: missingMarkGone.map(m => ({ id: m.id, name: m.name, role: m.role })),
+            marked_count: rows.filter(r => !!r.status).length,
             total_staff: rows.length,
-            missing_staff: missing.map(m => ({ id: m.id, name: m.name, role: m.role })),
-            attendance_date: today,
-            reminder_until: '10:00'
+            attendance_date: today
         });
     } catch (err) {
-        console.error('[AttendanceReminder] Unexpected error:', {
-            error: err.message,
-            stack: err.stack,
-            name: err.name
-        });
-        res.status(500).json({ 
-            message: 'Failed to load attendance reminder',
-            error: err.message 
-        });
+        console.error('[AttendanceReminder] Error:', err);
+        res.status(500).json({ error: 'Unexpected error checking attendance reminder' });
     }
 });
 
