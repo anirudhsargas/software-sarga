@@ -634,8 +634,7 @@ router.get('/laser-live', auth.authenticate, auth.authorizeRoles('Admin', 'Accou
         if (!date) return res.status(400).json({ error: 'Date is required' });
 
         // 1. Get active Digital machines for this branch.
-        // For non-admin users, restrict to machines assigned to the user.
-        let machines;
+        let machines = [];
         if (!['Admin', 'Accountant'].includes(req.user.role)) {
             const [rows] = await pool.query(
                 `SELECT m.id, m.machine_name, m.machine_type, m.counter_type, m.location, m.branch_id
@@ -646,7 +645,9 @@ router.get('/laser-live', auth.authenticate, auth.authorizeRoles('Admin', 'Accou
                 [req.user.id, branchId]
             );
             machines = rows;
-        } else {
+        }
+        
+        if (!machines || machines.length === 0) {
             const [rows] = await pool.query(
                 `SELECT m.id, m.machine_name, m.machine_type, m.counter_type, m.location, m.branch_id
                  FROM sarga_machines m
@@ -970,12 +971,20 @@ router.get('/laser-live', auth.authenticate, auth.authorizeRoles('Admin', 'Accou
         const creditIn = manualCredits.filter(c => c.transaction_type === 'Credit In').reduce((s, c) => s + Number(c.amount), 0);
         const creditOut = manualCredits.filter(c => c.transaction_type === 'Credit Out').reduce((s, c) => s + Number(c.amount), 0);
 
-        // 7. Opening balance
-        const [openingRows] = await pool.query(
+        // 7. Opening balance (with fallback to most recent prior opening balance)
+        let [openingRows] = await pool.query(
             `SELECT cash_opening FROM sarga_daily_opening_balances
              WHERE report_date = ? AND branch_id = ? AND book_type = 'Laser'`,
             [date, branchId]
         );
+        if (openingRows.length === 0) {
+            [openingRows] = await pool.query(
+                `SELECT cash_opening FROM sarga_daily_opening_balances
+                 WHERE report_date <= ? AND branch_id = ? AND book_type = 'Laser'
+                 ORDER BY report_date DESC LIMIT 1`,
+                [date, branchId]
+            );
+        }
         const cashOpening = openingRows.length > 0 ? Number(openingRows[0].cash_opening) : 0;
         const cashClosing = cashOpening + totalCashIn + creditIn - totalCashOut - creditOut;
 
@@ -1180,12 +1189,20 @@ router.get('/other-live', auth.authenticate, auth.authorizeRoles('Admin', 'Accou
         const creditIn = manualCredits.filter(c => c.transaction_type === 'Credit In').reduce((s, c) => s + Number(c.amount), 0);
         const creditOut = manualCredits.filter(c => c.transaction_type === 'Credit Out').reduce((s, c) => s + Number(c.amount), 0);
 
-        // 6. Opening balance
-        const [openingRows] = await pool.query(
+        // 6. Opening balance (with fallback to most recent prior opening balance)
+        let [openingRows] = await pool.query(
             `SELECT cash_opening FROM sarga_daily_opening_balances
              WHERE report_date = ? AND branch_id = ? AND book_type = 'Other'`,
             [date, branchId]
         );
+        if (openingRows.length === 0) {
+            [openingRows] = await pool.query(
+                `SELECT cash_opening FROM sarga_daily_opening_balances
+                 WHERE report_date <= ? AND branch_id = ? AND book_type = 'Other'
+                 ORDER BY report_date DESC LIMIT 1`,
+                [date, branchId]
+            );
+        }
         const cashOpening = openingRows.length > 0 ? Number(openingRows[0].cash_opening) : 0;
 
         const cashClosing = cashOpening + totalCashIn + creditIn - totalCashOut - creditOut;

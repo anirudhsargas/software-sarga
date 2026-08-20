@@ -34,7 +34,7 @@ export const calculateProductPrice = ({
     if (isOffset && s.offset_unit_rate !== undefined && s.offset_unit_rate !== null && Number(s.offset_unit_rate) > 0) {
       return Number(s.offset_unit_rate) || 0;
     }
-    return Number(s.unit_rate || s.sell_price || s.mrp) || 0;
+    return Number(s.unit_rate || s.base_value || s.sell_price || s.mrp) || 0;
   };
 
   if (product.calculation_type === 'Normal') {
@@ -46,34 +46,52 @@ export const calculateProductPrice = ({
     const slabs = product.slabs || [];
     if (slabs.length > 0) {
       const sortedSlabs = [...slabs].sort((a, b) => Number(a.min_qty) - Number(b.min_qty));
-      slabForDS = sortedSlabs[0]; // default to first; overridden below
+      slabForDS = sortedSlabs[0];
 
-      const exactMatch = sortedSlabs.find((s) => Number(s.min_qty) === qty);
-      if (exactMatch) {
-        total = Number(exactMatch.base_value);
-        slabForDS = exactMatch;
-      } else if (qty < Number(sortedSlabs[0].min_qty)) {
-        total = Number(sortedSlabs[0].base_value);
-        slabForDS = sortedSlabs[0];
-      } else if (qty > Number(sortedSlabs[sortedSlabs.length - 1].min_qty)) {
-        const lastSlab = sortedSlabs[sortedSlabs.length - 1];
-        // Use the slab's unit_rate directly for quantities beyond the last slab.
-        const lastUnit = resolveUnitRate(lastSlab);
-        total = lastUnit * qty;
-        slabForDS = lastSlab;
+      // Check if slabs store per-unit rates (like Photocopy/Xerox products) or flat batch values (like Offset printing jobs)
+      const firstSlab = sortedSlabs[0];
+      const isPerUnitSlab =
+        product.has_double_side_rate ||
+        isDoubleSide ||
+        Number(firstSlab.unit_rate) > 0 ||
+        Number(firstSlab.double_side_unit_rate) > 0 ||
+        (Number(firstSlab.min_qty) <= 1 && Number(firstSlab.base_value) > 0 && Number(firstSlab.base_value) < 15);
+
+      if (isPerUnitSlab) {
+        // Find highest slab where qty >= min_qty
+        const matchingSlab =
+          [...sortedSlabs].reverse().find((s) => qty >= Number(s.min_qty)) || sortedSlabs[0];
+        slabForDS = matchingSlab;
+        const rate = resolveUnitRate(matchingSlab);
+        unit_price = rate;
+        total = rate * qty;
       } else {
-        for (let i = 0; i < sortedSlabs.length - 1; i++) {
-          const s1 = sortedSlabs[i];
-          const s2 = sortedSlabs[i + 1];
-          if (qty > Number(s1.min_qty) && qty < Number(s2.min_qty)) {
-            const ratio = (qty - Number(s1.min_qty)) / (Number(s2.min_qty) - Number(s1.min_qty));
-            total = Number(s1.base_value) + ratio * (Number(s2.base_value) - Number(s1.base_value));
-            slabForDS = s1; // use lower bound slab
-            break;
+        const exactMatch = sortedSlabs.find((s) => Number(s.min_qty) === qty);
+        if (exactMatch) {
+          total = Number(exactMatch.base_value);
+          slabForDS = exactMatch;
+        } else if (qty < Number(sortedSlabs[0].min_qty)) {
+          total = Number(sortedSlabs[0].base_value);
+          slabForDS = sortedSlabs[0];
+        } else if (qty > Number(sortedSlabs[sortedSlabs.length - 1].min_qty)) {
+          const lastSlab = sortedSlabs[sortedSlabs.length - 1];
+          const lastUnit = resolveUnitRate(lastSlab);
+          total = lastUnit > 0 ? lastUnit * qty : Number(lastSlab.base_value);
+          slabForDS = lastSlab;
+        } else {
+          for (let i = 0; i < sortedSlabs.length - 1; i++) {
+            const s1 = sortedSlabs[i];
+            const s2 = sortedSlabs[i + 1];
+            if (qty > Number(s1.min_qty) && qty < Number(s2.min_qty)) {
+              const ratio = (qty - Number(s1.min_qty)) / (Number(s2.min_qty) - Number(s1.min_qty));
+              total = Number(s1.base_value) + ratio * (Number(s2.base_value) - Number(s1.base_value));
+              slabForDS = s1;
+              break;
+            }
           }
         }
+        unit_price = qty > 0 ? total / qty : 0;
       }
-      unit_price = qty > 0 ? total / qty : 0;
     }
   } else if (product.calculation_type === 'Range') {
     const slabs = product.slabs || [];
@@ -116,12 +134,20 @@ export const calculateProductPrice = ({
     unit_price = qty > 0 ? total / qty : 0;
   }
 
-  // Bug 1 fix: use the effective slab's double_side_unit_rate instead of slabs[0]
+  // Double side add-on for flat batch slabs (where double_side_unit_rate is a flat surcharge add-on)
   if (product.calculation_type === 'Slab' && product.has_double_side_rate && isDoubleSide) {
-    const doubleSideRate = Number(slabForDS?.double_side_unit_rate) || 0;
-    if (doubleSideRate > 0) {
-      total += doubleSideRate * qty;
-      unit_price = qty > 0 ? total / qty : 0;
+    const firstSlab = (product.slabs || [])[0];
+    const isPerUnitSlab =
+      Number(firstSlab?.unit_rate) > 0 ||
+      Number(firstSlab?.double_side_unit_rate) > 0 ||
+      (Number(firstSlab?.min_qty) <= 1 && Number(firstSlab?.base_value) > 0 && Number(firstSlab?.base_value) < 15);
+
+    if (!isPerUnitSlab) {
+      const doubleSideRate = Number(slabForDS?.double_side_unit_rate) || 0;
+      if (doubleSideRate > 0) {
+        total += doubleSideRate * qty;
+        unit_price = qty > 0 ? total / qty : 0;
+      }
     }
   } else if (product.calculation_type === 'Slab' && isOffset) {
     const offsetRate = Number(slabForDS?.offset_unit_rate) || 0;
