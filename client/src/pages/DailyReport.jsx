@@ -1267,6 +1267,7 @@ const DailyReport = () => {
         }
 
         const isLaser = type === 'laser';
+        const isOther = type === 'other';
 
         return (
             <div className="entry-table-container">
