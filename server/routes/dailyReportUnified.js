@@ -1081,6 +1081,7 @@ router.get('/other-live', auth.authenticate, auth.authorizeRoles('Admin', 'Accou
             totalWastePrints += billWaste;
             totalProofPrints += billProof;
             const discountPct = Number(cp.discount_percent) || 0;
+            const discountAmt = Number(cp.discount_amount) || 0;
             const mainCategory = lines.map(l => l.catName || l.category_name || l.category || '').filter(Boolean)[0] || 'Other Products';
             return {
                 id: `cp-${cp.id}`,
