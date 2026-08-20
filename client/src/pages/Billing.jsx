@@ -8,7 +8,7 @@ import {
   ChevronDown, ChevronUp, ShoppingCart, User, CreditCard, Save, Eye, Check, AlertCircle,
   Loader2, Building2, Hash, Calendar, UserCheck, Phone, Mail, MapPin, Percent, IndianRupee,
   RotateCcw, MessageSquare, Zap, ScanLine, Image, Package, Tag, Upload, ArrowLeft, Users,
-  ChevronRight, Circle, CheckCircle2, Sliders, Palette, Layers, Cpu, FileEdit
+  ChevronRight, Circle, CheckCircle2, Sliders, Palette, Layers, Cpu, FileEdit, PackageCheck
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import api from '../services/api';
@@ -193,6 +193,8 @@ const Billing = () => {
   const [discountPercent, setDiscountPercent] = useState(0);
   const [discountMode, setDiscountMode] = useState('amount');
   const [discountInputAmount, setDiscountInputAmount] = useState(0);
+  const [enableRoundOff, setEnableRoundOff] = useState(true);
+  const [manualRoundOff, setManualRoundOff] = useState('');
   const [discountError, setDiscountError] = useState('');
   const [_scannerOpen, _setScannerOpen] = useState(false);
   const [scannedPreview, setScannedPreview] = useState(null);
@@ -201,6 +203,30 @@ const Billing = () => {
   const [machineModalOpen, setMachineModalOpen] = useState(false);
   const [lastBillData, setLastBillData] = useState(null);
   const [showPostBillOptions, setShowPostBillOptions] = useState(false);
+  const [isDelivered, setIsDelivered] = useState(false);
+  const [markingDelivered, setMarkingDelivered] = useState(false);
+  const [markAsDelivered, setMarkAsDelivered] = useState(false);
+
+  const handleMarkDirectlyDelivered = useCallback(async () => {
+    if (!lastBillData) return;
+    setMarkingDelivered(true);
+    try {
+      const jobs = lastBillData.jobs || [];
+      if (jobs.length > 0) {
+        await Promise.all(jobs.map(j => api.put(`/jobs/${j.id}`, { status: 'Delivered' }).catch(() => {})));
+      }
+      if (lastBillData.paymentId) {
+        await api.put(`/invoice-tracking/${lastBillData.paymentId}`, { status: 'delivered' }).catch(() => {});
+      }
+      setIsDelivered(true);
+      toast.success('Marked as Delivered!');
+    } catch (err) {
+      console.error('Failed to mark as delivered:', err);
+      toast.error('Failed to mark as delivered');
+    } finally {
+      setMarkingDelivered(false);
+    }
+  }, [lastBillData]);
   const [assignJobs, setAssignJobs] = useState([]);
   const [staffOptions, setStaffOptions] = useState([]);
   const [assignSelections, setAssignSelections] = useState({});
@@ -575,9 +601,18 @@ const Billing = () => {
       : (discountMode === 'amount' ? (Number(discountInputAmount) || 0) : 0);
     const discountAmount = Math.min(effectiveDiscount, subtotal);
     const afterDiscount = subtotal - discountAmount;
-    const gross = afterDiscount;
-    return { subtotal, activePct, effectiveDiscount, discountAmount, afterDiscount, sgst: 0, cgst: 0, gross };
-  }, [orderLines, discountPercent, discountMode, discountInputAmount]);
+
+    let roundOff = 0;
+    if (manualRoundOff !== '' && !isNaN(Number(manualRoundOff))) {
+      roundOff = Number(manualRoundOff);
+    } else if (enableRoundOff) {
+      const rounded = Math.round(afterDiscount);
+      roundOff = Number((rounded - afterDiscount).toFixed(2));
+    }
+
+    const gross = Math.max(0, Number((afterDiscount + roundOff).toFixed(2)));
+    return { subtotal, activePct, effectiveDiscount, discountAmount, afterDiscount, roundOff, sgst: 0, cgst: 0, gross };
+  }, [orderLines, discountPercent, discountMode, discountInputAmount, enableRoundOff, manualRoundOff]);
 
   const advancePaid = useMemo(() =>
     payment.selectedMethods.reduce((s, m) => s + (Number(payment.methodAmounts[m]) || 0), 0),
@@ -766,8 +801,12 @@ const Billing = () => {
       const calcType = l._product?.calculation_type || l.calculation_type;
       
       if (field === 'quantity' || field === 'customPaperRate' || field === 'is_double_side') {
-        const newQty = field === 'quantity' ? Math.max(1, Number(value) || 1) : (Number(l.quantity) || 1);
-        if (field === 'quantity') updated.quantity = newQty;
+        const isQtyEmpty = field === 'quantity' && (value === '' || value === null || value === undefined);
+        const newQty = isQtyEmpty ? 1 : (field === 'quantity' ? Math.max(1, Number(value) || 1) : (Number(l.quantity) || 1));
+        
+        if (field === 'quantity') {
+          updated.quantity = isQtyEmpty ? '' : newQty;
+        }
         
         const paperRate = field === 'customPaperRate' ? (Number(value) || 0) : (Number(l.customPaperRate) || 0);
         if (field === 'customPaperRate') updated.customPaperRate = paperRate;
@@ -1156,7 +1195,9 @@ const Billing = () => {
       };
       setLastBillData(lastBill);
       setLastOrderCustomerType(form.type);
-      setLastOrderAutoDelivered(isWalkIn);
+      const autoDeliver = isWalkIn;
+      setLastOrderAutoDelivered(autoDeliver);
+      setIsDelivered(autoDeliver);
 
       // Prepare assign jobs from result
       if (result.jobs && result.jobs.length > 0) {
@@ -1483,6 +1524,12 @@ const Billing = () => {
         <div className="billing-summary-bar__item">
           <UserCheck size={14} aria-hidden="true" /><span>{user?.name || 'Staff'}</span>
         </div>
+        {form.name && form.name.trim() && (
+          <div className="billing-summary-bar__item billing-summary-bar__item--customer" title={`Customer: ${form.name}`}>
+            <User size={14} aria-hidden="true" style={{ color: 'var(--accent)' }} />
+            <span><strong>Customer:</strong> {form.name}</span>
+          </div>
+        )}
         <div className="billing-summary-bar__spacer" />
         <div className="billing-summary-bar__item billing-summary-bar__item--total">
           <span>Items: {orderLines.length}</span>
@@ -1843,7 +1890,7 @@ const Billing = () => {
                               <SecureImage
                                 src={prod.image_url}
                                 alt={prod.name || prod.title}
-                                style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 6 }}
+                                style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: 6, padding: 2 }}
                               />
                             ) : (
                               <div className="billing-catalog-item__placeholder-box">
@@ -1997,12 +2044,21 @@ const Billing = () => {
                           <input
                             type="text"
                             inputMode="numeric"
-                            value={Number(line.quantity).toLocaleString('en-IN')}
+                            value={line.quantity === '' ? '' : (Number(line.quantity) || 1).toLocaleString('en-IN')}
                             min="1"
                             aria-label="Quantity"
                             onChange={e => {
                               const raw = e.target.value.replace(/[^0-9]/g, '');
-                              updateLine(line.id, 'quantity', Math.max(1, Number(raw) || 1));
+                              if (raw === '') {
+                                updateLine(line.id, 'quantity', '');
+                              } else {
+                                updateLine(line.id, 'quantity', Math.max(1, parseInt(raw, 10)));
+                              }
+                            }}
+                            onBlur={() => {
+                              if (!line.quantity || Number(line.quantity) < 1) {
+                                updateLine(line.id, 'quantity', 1);
+                              }
                             }}
                             className="billing-qty-input"
                           />
@@ -2031,6 +2087,14 @@ const Billing = () => {
               <div className="billing-summary-side__card">
                 <div className="billing-summary-side__row"><span>Subtotal</span><span>₹{totals.subtotal.toFixed(2)}</span></div>
                 {totals.discountAmount > 0 && <div className="billing-summary-side__row billing-summary-side__row--discount"><span>Discount</span><span>-₹{totals.discountAmount.toFixed(2)}</span></div>}
+                {totals.roundOff !== 0 && (
+                  <div className="billing-summary-side__row">
+                    <span>Round Off</span>
+                    <span style={{ fontWeight: 600, color: totals.roundOff >= 0 ? 'var(--success, #10b981)' : 'var(--warning, #f59e0b)' }}>
+                      {totals.roundOff >= 0 ? `+₹${totals.roundOff.toFixed(2)}` : `−₹${Math.abs(totals.roundOff).toFixed(2)}`}
+                    </span>
+                  </div>
+                )}
                 <div className="billing-summary-side__row">
                   <span className="text-muted" style={{ fontSize: 10, fontStyle: 'italic' }}>GST incl. in price</span>
                 </div>
@@ -2089,6 +2153,30 @@ const Billing = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* Round Off controls */}
+                <div className="billing-discount-row" style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 'var(--text-xs)', color: 'var(--text)', userSelect: 'none' }}>
+                      <input
+                        type="checkbox"
+                        checked={enableRoundOff}
+                        onChange={e => {
+                          setEnableRoundOff(e.target.checked);
+                          setManualRoundOff('');
+                        }}
+                        style={{ cursor: 'pointer', accentColor: 'var(--accent)' }}
+                      />
+                      <span className="font-medium">Round Off Total</span>
+                    </label>
+                    {enableRoundOff && (
+                      <span className="text-xs font-bold" style={{ color: totals.roundOff >= 0 ? 'var(--success, #10b981)' : 'var(--warning, #f59e0b)' }}>
+                        {totals.roundOff >= 0 ? `+₹${totals.roundOff.toFixed(2)}` : `−₹${Math.abs(totals.roundOff).toFixed(2)}`}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
                 {discountError && (
                   <div className="billing-discount-error">
                     <AlertCircle size={12} aria-hidden="true" />
@@ -2231,6 +2319,21 @@ const Billing = () => {
           </div>
         </div>
 
+        {/* Delivery Option for Credit / Retail Work */}
+        <div style={{ padding: '10px 14px', background: 'var(--surface-2, rgba(0,0,0,0.03))', borderRadius: 8, border: '1px solid var(--border)', marginTop: -4 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--text)', userSelect: 'none' }}>
+            <input
+              type="checkbox"
+              checked={isWalkIn || markAsDelivered}
+              disabled={isWalkIn}
+              onChange={e => setMarkAsDelivered(e.target.checked)}
+              style={{ width: 16, height: 16, cursor: isWalkIn ? 'not-allowed' : 'pointer', accentColor: 'var(--accent)' }}
+            />
+            <PackageCheck size={16} style={{ color: (isWalkIn || markAsDelivered) ? 'var(--success, #10b981)' : 'var(--muted)' }} />
+            <span>Mark Work as Delivered (Delivered on creation)</span>
+          </label>
+        </div>
+
 
         <div className="billing-step-footer">
           <div className="billing-step-actions">
@@ -2278,6 +2381,14 @@ const Billing = () => {
               <div className="summary-stat-box summary-stat-box--discount">
                 <span className="stat-label">Discount</span>
                 <span className="stat-value">−₹{totals.discountAmount.toFixed(2)}</span>
+              </div>
+            )}
+            {totals.roundOff !== 0 && (
+              <div className="summary-stat-box">
+                <span className="stat-label">Round Off</span>
+                <span className="stat-value" style={{ color: totals.roundOff >= 0 ? 'var(--success, #10b981)' : 'var(--warning, #f59e0b)' }}>
+                  {totals.roundOff >= 0 ? `+₹${totals.roundOff.toFixed(2)}` : `−₹${Math.abs(totals.roundOff).toFixed(2)}`}
+                </span>
               </div>
             )}
             <div className="summary-stat-box">
@@ -2565,6 +2676,21 @@ const Billing = () => {
                     style={{ flex: '1 1 150px', minWidth: '150px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '600', borderRadius: '8px', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.15)' }}
                   >
                     <Mail size={16} className="mr-8" aria-hidden="true" /> Send Email
+                  </button>
+                  <button
+                    className={`btn ${isDelivered ? 'btn-success' : 'btn-warning'}`}
+                    onClick={handleMarkDirectlyDelivered}
+                    disabled={isDelivered || markingDelivered}
+                    style={{ flex: '1 1 150px', minWidth: '150px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '600', borderRadius: '8px' }}
+                  >
+                    {markingDelivered ? (
+                      <Loader2 size={16} className="animate-spin mr-8" aria-hidden="true" />
+                    ) : isDelivered ? (
+                      <CheckCircle2 size={16} className="mr-8" aria-hidden="true" />
+                    ) : (
+                      <PackageCheck size={16} className="mr-8" aria-hidden="true" />
+                    )}
+                    {isDelivered ? 'Delivered ✓' : 'Mark as Delivered'}
                   </button>
                   <button className="btn btn-ghost" onClick={() => { setShowPostBillOptions(false); }} style={{ flex: '1 1 150px', minWidth: '150px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', fontWeight: '600', borderRadius: '8px' }}>
                     <Plus size={16} className="mr-8" aria-hidden="true" /> New Invoice

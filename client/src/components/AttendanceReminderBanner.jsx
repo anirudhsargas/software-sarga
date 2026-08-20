@@ -74,13 +74,7 @@ export default function AttendanceReminderBanner() {
   };
 
   const handleActionClick = () => {
-    if (location.pathname.includes('/daily-report')) {
-      // scroll to attendance / machine section if already on page
-      const el = document.getElementById('staff-attendance-section') || document.querySelector('.panel-title');
-      if (el) el.scrollIntoView({ behavior: 'smooth' });
-    } else {
-      navigate('/dashboard/daily-report');
-    }
+    navigate('/dashboard/staff');
   };
 
   return (

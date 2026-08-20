@@ -8,7 +8,8 @@
  * @returns {string}
  */
 export function formatCurrency(n, withSymbol = true) {
-  const num = Number(n || 0);
+  const raw = Number(n || 0);
+  const num = Object.is(raw, -0) || Math.abs(raw) < 0.00001 ? 0 : raw;
   const formatted = num.toLocaleString('en-IN', { maximumFractionDigits: 0 });
   return withSymbol ? `₹${formatted}` : formatted;
 }
@@ -20,7 +21,8 @@ export function formatCurrency(n, withSymbol = true) {
  * @returns {string}
  */
 export function formatCurrencyDecimal(n, decimals = 2) {
-  const num = Number(n || 0);
+  const raw = Number(n || 0);
+  const num = Object.is(raw, -0) || Math.abs(raw) < 0.00001 ? 0 : raw;
   return `₹${num.toLocaleString('en-IN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
 }
 

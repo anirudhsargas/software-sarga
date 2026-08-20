@@ -11,8 +11,9 @@ describe('formatCurrency', () => {
     expect(formatCurrency(123456)).toContain('₹');
   });
 
-  it('handles zero', () => {
-    expect(formatCurrency(0)).toContain('₹');
+  it('handles zero and negative zero', () => {
+    expect(formatCurrency(0)).toContain('₹0');
+    expect(formatCurrency(-0)).toBe('₹0');
   });
 
   it('formats without symbol when false', () => {

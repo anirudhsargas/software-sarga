@@ -809,6 +809,32 @@
   overflow: hidden;
 }
 
+@media (max-width: 1200px) {
+  .jobs-header {
+    flex-wrap: wrap !important;
+    gap: var(--space-12) !important;
+  }
+
+  .jobs-filters {
+    flex-wrap: wrap !important;
+    gap: var(--space-10) !important;
+  }
+
+  .jobs-search {
+    flex: 1 1 260px !important;
+  }
+
+  .jobs-table-card {
+    width: 100% !important;
+    overflow-x: hidden !important;
+  }
+
+  .table-scroll {
+    overflow-x: auto !important;
+    max-width: 100% !important;
+  }
+}
+
 @media (max-width: 768px) {
   .jobs-header {
     flex-direction: column !important;

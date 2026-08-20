@@ -630,16 +630,6 @@ const FrontOffice = () => {
           </div>
         </div>
 
-        {attendanceReminder?.should_remind && (
-          <div className="fo-alert-banner">
-            <AlertTriangle size={14} />
-            <span>Attendance pending for {attendanceReminder.missing_count} staff</span>
-            <button className="btn btn-primary btn-sm" onClick={() => navigate('/dashboard/daily-report')}>
-              <AlertTriangle size={14} aria-hidden="true" /> Add Attendance
-            </button>
-          </div>
-        )}
-
         {/* ── Search + New Order ── */}
         <div className="fo-toolbar-sticky" ref={searchRef}>
           <div className="fo-search-bar">

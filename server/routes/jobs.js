@@ -1616,50 +1616,14 @@ router.put('/jobs/:id', authenticateToken, async (req, res) => {
             delete updates.branch_id;
         }
 
-        // Cannot mark as Delivered unless fully paid.
+        // Handle marking as Delivered (allowed even if balance is due)
         if (updates.status === 'Delivered') {
             const total = updates.total_amount !== undefined ? Number(updates.total_amount) : Number(currentJob.total_amount);
             const paid = updates.advance_paid !== undefined ? Number(updates.advance_paid) : Number(currentJob.advance_paid);
             const remaining = Math.max(total - paid, 0);
 
-            if (remaining > 0) {
-                const ALLOWED_CREDIT_ROLES = ['Admin', 'Accountant', 'Front Office'];
-                const userRole = normalizeRole(req.user.role);
-                const reason = (updates.credit_reason || '').trim();
-
-                if (!updates.credit_override || !ALLOWED_CREDIT_ROLES.includes(userRole) || reason.length < 5) {
-                    return res.status(409).json({
-                        message: 'Cannot mark as Delivered until full payment is collected.',
-                        remaining_amount: Number(remaining.toFixed(2)),
-                        customer_id: currentJob.customer_id || null,
-                        job_id: Number(id),
-                        credit_override_available: true,
-                        credit_override_roles: ALLOWED_CREDIT_ROLES
-                    });
-                }
-
-                // Credit override authorized — record it.
-                updates.payment_status = 'Credit';
-                
-                // Get the user's display name from the database.
-                let creditAuthorizedByName = null;
-                try {
-                    const [staffRows] = await pool.query('SELECT name FROM sarga_staff WHERE id = ?', [req.user.id]);
-                    if (staffRows.length > 0) {
-                        creditAuthorizedByName = staffRows[0].name;
-                    }
-                } catch (err) {
-                    console.error('Failed to fetch staff name for credit delivery:', err);
-                    creditAuthorizedByName = req.user.user_id || 'Staff';
-                }
-
-                updates.credit_authorized_by = req.user.id;
-                updates.credit_authorized_by_name = creditAuthorizedByName;
-                updates.credit_authorized_at = new Date();
-                updates.credit_reason = reason;
-
-                auditLog(req.user.id, 'CREDIT_DELIVERY_OVERRIDE',
-                    `Job ${id} delivered with ₹${remaining.toFixed(2)} outstanding. Reason: ${reason}`);
+            if (remaining > 0 && !updates.payment_status) {
+                updates.payment_status = (paid > 0) ? 'Partial' : (currentJob.payment_status || 'Unpaid');
             }
         }
 

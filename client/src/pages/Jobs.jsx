@@ -71,7 +71,7 @@ const _getStatusColor = (status) => {
 const _canManageOrderStatus = (role) => ['Admin', 'Front Office', 'front office'].includes(role);
 const _canDeleteOrder = (role) => ['Admin', 'Accountant'].includes(role);
 const isFinanceRole = (role) => ['Admin', 'Accountant', 'Front Office', 'front office'].includes(role);
-const getTableColumnCount = (sortByPriority, financialsVisible) => 8 + (sortByPriority ? 1 : 0) + (financialsVisible ? 1 : 0);
+const getTableColumnCount = (sortByPriority, financialsVisible) => 7 + (sortByPriority ? 1 : 0) + (financialsVisible ? 1 : 0);
 
 const getBranchShortName = (name) => {
     if (!name) return 'Main';
@@ -222,7 +222,6 @@ const Jobs = () => {
                 'Phone', 
                 'Branch', 
                 'Status', 
-                'Sheets (Used/Req)',
                 ...(isFinancialsVisible ? ['Total Amount', 'Balance'] : [])
             ];
 
@@ -235,7 +234,6 @@ const Jobs = () => {
                 j.customer_mobile ? String(j.customer_mobile).replace(/^\+/, '') : '',
                 j.branch_name || 'Main',
                 j.status || '',
-                `${j.used_sheets || 0}/${j.required_sheets || 0}`,
                 ...(isFinancialsVisible ? [
                     `Rs. ${Number(j.total_amount || 0).toFixed(2)}`,
                     `Rs. ${Number(j.balance_amount || 0).toFixed(2)}`
@@ -729,7 +727,6 @@ const Jobs = () => {
                                 <th scope="col">Branch</th>
                                 <th scope="col">Status</th>
                                 {sortByPriority && <th scope="col">Priority</th>}
-                                <th scope="col">Production</th>
                                 {isFinancialsVisible && <th scope="col">Amount</th>}
                                 {isFinancialsVisible && <th scope="col">Balance</th>}
                                 <th scope="col">Delivery</th>
@@ -745,7 +742,6 @@ const Jobs = () => {
                                       { key: 'branch', header: 'Branch', width: '1fr' },
                                       { key: 'status', header: 'Status', width: '1fr', pill: true },
                                       ...(sortByPriority ? [{ key: 'priority', header: 'Priority', width: '0.8fr', pill: true }] : []),
-                                      { key: 'production', header: 'Production', width: '1fr', lines: 2 },
                                       ...(isFinancialsVisible ? [
                                         { key: 'amount', header: 'Amount', width: '0.8fr' },
                                         { key: 'balance', header: 'Balance', width: '0.8fr' }
@@ -959,26 +955,6 @@ const Jobs = () => {
                                                     <UrgencyBadge urgency={j._urgency || 'medium'} />
                                                 </td>
                                             )}
-                                            <td>
-                                                {Number(j.used_sheets) > 0 ? (() => {
-                                                    const req = Number(j.required_sheets) || 0;
-                                                    const used = Number(j.used_sheets) || 0;
-                                                    const waste = req > 0 ? Math.max(0, used - req) : 0;
-                                                    const pct = req > 0 ? ((waste / req) * 100).toFixed(0) : null;
-                                                    return (
-                                                        <div className="job-production">
-                                                            <span className={`job-sheets ${pct === null ? 'job-sheets--bad' : Number(pct) <= 3 ? 'job-sheets--good' : Number(pct) <= 8 ? 'job-sheets--warn' : 'job-sheets--bad'}`}>
-                                                                {used} / {req} sheets
-                                                            </span>
-                                                            {pct !== null && (
-                                                                <span className="job-waste">{pct}% waste</span>
-                                                            )}
-                                                        </div>
-                                                    );
-                                                })() : (
-                                                    <span className="job-waste">—</span>
-                                                )}
-                                            </td>
                                             {isFinancialsVisible && (
                                                 <td>
                                                     <span className="job-amount job-amount--positive">

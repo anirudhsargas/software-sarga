@@ -55,11 +55,19 @@
 /* Actions */
 .job-detail-actions {
     display: flex;
-    gap: var(--space-12);
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-8);
+    max-width: 100%;
+}
+
+.job-detail-actions > * {
+    max-width: 100%;
 }
 
 .job-staff-actions {
     display: flex;
+    flex-wrap: wrap;
     gap: var(--space-8);
     align-items: center;
 }
@@ -1259,7 +1267,23 @@
     color: var(--accent);
 }
 
-/* ===== MOBILE RESPONSIVE ===== */
+/* ===== MOBILE & TABLET RESPONSIVE ===== */
+@media screen and (max-width: 1200px) {
+    .job-detail-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: var(--space-12) !important;
+    }
+    .job-detail-actions {
+        width: 100% !important;
+        flex-wrap: wrap !important;
+        gap: var(--space-8) !important;
+    }
+    .job-detail-actions > * {
+        max-width: 100% !important;
+    }
+}
+
 @media screen and (max-width: 900px) {
     /* Main 2-col grid -> single column */
     .job-detail-main-grid {

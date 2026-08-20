@@ -18,6 +18,7 @@ import toast from 'react-hot-toast';
 import { formatCurrencyDecimal } from '../constants';
 import SkeletonLoader from '../components/SkeletonLoader';
 import BranchSelect from '../components/ui/BranchSelect';
+import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import './DailyReport.css';
 import PageContainer from '../components/ui/PageContainer';
 import NoInternetState from '../components/NoInternetState';
@@ -155,7 +156,24 @@ const mergePendingLiveCounts = (liveCounts, pendingByTab) => {
 const DailyReport = () => {
     useSEO('Daily Report');
 
-    const [activeTab, setActiveTab] = useState('Offset');
+    const location = useLocation();
+    const [searchParams] = useSearchParams();
+
+    const [activeTab, setActiveTab] = useState(() => {
+        const paramTab = searchParams.get('tab');
+        if (paramTab && ['Offset', 'Laser', 'Other', 'Attendance'].includes(paramTab)) return paramTab;
+        if (location.state?.tab && ['Offset', 'Laser', 'Other', 'Attendance'].includes(location.state.tab)) return location.state.tab;
+        return 'Offset';
+    });
+
+    useEffect(() => {
+        const paramTab = searchParams.get('tab');
+        if (paramTab && ['Offset', 'Laser', 'Other', 'Attendance'].includes(paramTab)) {
+            setActiveTab(paramTab);
+        } else if (location.state?.tab && ['Offset', 'Laser', 'Other', 'Attendance'].includes(location.state.tab)) {
+            setActiveTab(location.state.tab);
+        }
+    }, [searchParams, location.state]);
     const [reportDate, setReportDate] = useState(serverToday());
     const [loading, setLoading] = useState(false);
     const [initialLoading, setInitialLoading] = useState(true);
