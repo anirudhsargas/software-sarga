@@ -64,10 +64,9 @@ router.post('/auth/forgot-password', resetLimiter, async (req, res) => {
         }
         const resetUrl = `${baseUrl}/reset-password?token=${token}`;
 
-        // Send email
-        const transporter = getTransporter();
-        await transporter.sendMail({
-            from: `"Sarga Offset" <${process.env.EMAIL_FROM}>`,
+        const { sendEmail } = require('../utils/mailer');
+        await sendEmail({
+            from: `"Sarga Offset" <${process.env.EMAIL_FROM || 'sargadailyreport@gmail.com'}>`,
             to: user.email,
             subject: 'Password Reset Request',
             html: `
@@ -91,7 +90,7 @@ router.post('/auth/forgot-password', resetLimiter, async (req, res) => {
         res.json({ message: 'If an account with that ID exists and has an email, a reset link has been sent.' });
     } catch (err) {
         console.error('Forgot password error:', err);
-        res.status(500).json({ message: 'An error occurred. Please try again.' });
+        res.status(500).json({ message: err.message || 'An error occurred. Please try again.' });
     }
 });
 

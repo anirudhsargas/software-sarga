@@ -230,37 +230,10 @@ router.post('/quotes/:id/send-email', authenticateToken, async (req, res) => {
         (settings || []).forEach(s => { cfg[s.setting_key] = s.setting_value; });
         const companyName = cfg.company_name || 'Sarga Offset';
 
-        const nodemailer = require('nodemailer');
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: { user: process.env.EMAIL_FROM || '', pass: process.env.EMAIL_PASS || '' }
-        });
+        const { sendEmail } = require('../utils/mailer');
 
-        const html = `
-        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
-          <div style="background:#1a1a2e;color:white;padding:20px;border-radius:8px 8px 0 0;text-align:center">
-            <h2 style="margin:0">${companyName}</h2>
-            <p style="margin:4px 0 0;opacity:.8">Quotation ${quote.quote_number}</p>
-          </div>
-          <div style="padding:20px;border:1px solid #eee;border-top:none">
-            <p>Dear <strong>${quote.customer_name || 'Customer'}</strong>,</p>
-            <p>Please find your quotation details below:</p>
-            <table style="width:100%;border-collapse:collapse;margin:16px 0">
-              <tr style="background:#f5f5f5"><td style="padding:8px;border:1px solid #ddd"><strong>Quote #</strong></td><td style="padding:8px;border:1px solid #ddd">${quote.quote_number}</td></tr>
-              <tr><td style="padding:8px;border:1px solid #ddd"><strong>Date</strong></td><td style="padding:8px;border:1px solid #ddd">${quote.date}</td></tr>
-              ${quote.valid_until ? `<tr><td style="padding:8px;border:1px solid #ddd"><strong>Valid Until</strong></td><td style="padding:8px;border:1px solid #ddd">${quote.valid_until}</td></tr>` : ''}
-              <tr style="background:#f5f5f5"><td style="padding:8px;border:1px solid #ddd"><strong>Subtotal</strong></td><td style="padding:8px;border:1px solid #ddd">₹${Number(quote.subtotal||0).toLocaleString('en-IN')}</td></tr>
-              ${quote.discount_amount > 0 ? `<tr><td style="padding:8px;border:1px solid #ddd"><strong>Discount</strong></td><td style="padding:8px;border:1px solid #ddd">-₹${Number(quote.discount_amount||0).toLocaleString('en-IN')}</td></tr>` : ''}
-              ${quote.tax_amount > 0 ? `<tr><td style="padding:8px;border:1px solid #ddd"><strong>Tax (${quote.tax_rate}%)</strong></td><td style="padding:8px;border:1px solid #ddd">₹${Number(quote.tax_amount||0).toLocaleString('en-IN')}</td></tr>` : ''}
-              <tr style="background:#e8f5e9"><td style="padding:8px;border:1px solid #ddd"><strong>Total</strong></td><td style="padding:8px;border:1px solid #ddd;font-size:18px;font-weight:bold">₹${Number(quote.total||0).toLocaleString('en-IN')}</td></tr>
-            </table>
-            ${quote.notes ? `<p style="color:#666"><em>${quote.notes}</em></p>` : ''}
-            <p style="color:#666;font-size:13px">${cfg.invoice_footer_text || 'Thank you for your business!'}</p>
-          </div>
-        </div>`;
-
-        await transporter.sendMail({
-            from: process.env.EMAIL_FROM,
+        await sendEmail({
+            from: `"${companyName}" <${process.env.EMAIL_FROM || 'sargadailyreport@gmail.com'}>`,
             to: toEmail,
             subject: req.body.subject || `Quotation ${quote.quote_number} from ${companyName}`,
             html
@@ -273,7 +246,7 @@ router.post('/quotes/:id/send-email', authenticateToken, async (req, res) => {
         res.json({ message: 'Quote sent successfully' });
     } catch (err) {
         console.error('Send quote email error:', err);
-        res.status(500).json({ message: 'Failed to send email' });
+        res.status(500).json({ message: err.message || 'Failed to send email' });
     }
 });
 

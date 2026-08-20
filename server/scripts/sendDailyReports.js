@@ -437,10 +437,8 @@ async function sendDailyReports() {
             return;
         }
 
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: { user: EMAIL_FROM, pass: EMAIL_PASS }
-        });
+        const { createMailTransporter } = require('../utils/mailer');
+        const transporter = createMailTransporter();
 
         // Verify connection
         try {

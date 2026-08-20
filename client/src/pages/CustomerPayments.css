@@ -270,7 +270,8 @@
 /* ── FORM GRID ── */
 .cp-form-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
   gap: var(--space-14);
   margin-bottom: var(--space-16);
 }
@@ -678,12 +679,27 @@
   outline-offset: 2px;
 }
 
-/* ── TOUCH TARGETS ── */
+/* ── TOUCH TARGETS & PRESETS ── */
 .cp-method-pill {
   min-height: 36px;
 }
 .cp-filters-row button {
   min-height: 32px;
+}
+.cp-preset-btn {
+  height: 32px !important;
+  min-height: 32px !important;
+  max-height: 32px !important;
+  min-width: auto !important;
+  padding: 0 10px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  border-radius: var(--radius-sm) !important;
+  white-space: nowrap !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 1 !important;
 }
 .cp-dropdown-item {
   min-height: 40px;
@@ -837,7 +853,8 @@
 
 @media (max-width: 640px) {
   .cp-form-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-10);
   }
 
   .cp-form-grid--3 {

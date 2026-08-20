@@ -569,7 +569,7 @@ const ScanItem = () => {
         setShowPermissionModal(false);
         setCameraError('');
         camRetryRef.current = 0;
-        stopHeldStream();
+        stopStream();
         const ok = await requestCameraPermission();
         if (ok) { setIsCamActive(true); setLookupResult(null); }
     };
@@ -582,7 +582,7 @@ const ScanItem = () => {
         setShowConsume(false);
         if (activeTab === 'camera') {
             camRetryRef.current = 0;
-            stopHeldStream();
+            stopStream();
             setIsCamActive(true);
         }
         if (activeTab === 'manual') { setManualCode(''); manualInputRef.current?.focus(); }
@@ -735,7 +735,7 @@ const ScanItem = () => {
                                                     className="btn btn-primary btn-sm si-start-cam-btn"
                                                     onClick={() => {
                                                         setCameraError('');
-                                                        stopHeldStream();
+                                                        stopStream();
                                                         requestCameraPermission().then(ok => {
                                                             if (ok) {
                                                                 setIsCamActive(true);
@@ -755,7 +755,7 @@ const ScanItem = () => {
                                                             setCameraError('');
                                                             setScanState('idle');
                                                             camRetryRef.current = 0;
-                                                            stopHeldStream();
+                                                            stopStream();
                                                             requestCameraPermission().then(ok => {
                                                                 if (ok) {
                                                                     setIsCamActive(true);

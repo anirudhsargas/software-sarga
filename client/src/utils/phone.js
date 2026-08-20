@@ -56,8 +56,16 @@ export function formatForDisplay(input, defaultRegion = 'IN') {
   const e164 = normalizeToE164(input, defaultRegion);
   if (!e164) return '';
   if (e164.startsWith('+')) {
-    const m = e164.match(/^(\+\d{1,3})(\d+)$/);
-    if (m) return `${m[1]} ${m[2]}`;
+    if (e164.startsWith('+91') && e164.length === 13) {
+      return `+91 ${e164.slice(3)}`;
+    }
+    const m = e164.match(/^(\+\d{1,3})?(\d{10})$/);
+    if (m) {
+      const cc = m[1] || (defaultRegion === 'IN' ? '+91' : '');
+      return cc ? `${cc} ${m[2]}` : m[2];
+    }
+    const genericMatch = e164.match(/^(\+\d{1,3})(\d+)$/);
+    if (genericMatch) return `${genericMatch[1]} ${genericMatch[2]}`;
     return e164;
   }
   if (e164.length === 10 && defaultRegion === 'IN') return `+91 ${e164}`;

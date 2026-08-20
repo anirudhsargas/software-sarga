@@ -68,13 +68,8 @@ async function executeDailyBookForDate(targetDate, isTest = false, forceRunOrTyp
         }
 
         const m = lazyModule();
-        const transporter = m.nodemailer.createTransport({
-            service: 'gmail',
-            auth: {
-                user: process.env.EMAIL_FROM || 'sargadailyreport@gmail.com',
-                pass: process.env.EMAIL_PASS || ''
-            }
-        });
+        const { createMailTransporter } = require('../utils/mailer');
+        const transporter = createMailTransporter();
 
         const [branches] = await pool.query('SELECT id, name FROM sarga_branches');
         const overrides = (() => { try { return JSON.parse(settings.branch_overrides || '{}'); } catch { return {}; } })();

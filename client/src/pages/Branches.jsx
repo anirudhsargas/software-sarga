@@ -7,6 +7,7 @@ import { isTouchDevice } from '../services/utils';
 import { useConfirm } from '../contexts/ConfirmContext';
 import toast from 'react-hot-toast';
 import PageContainer from '../components/ui/PageContainer';
+import './Branches.css';
 
 const Branches = () => {
     useSEO('Branches');
@@ -225,30 +226,38 @@ const Branches = () => {
             </div>
 
             {showModal && (
-                <div className="modal-backdrop">
-                    <div className="modal">
-                        <button className="modal-close" onClick={() => setShowModal(false)}>
-                            <X size={22} />
-                        </button>
-                        <h2 className="section-title mb-16">{editingBranch ? 'Edit Branch' : 'Add Branch'}</h2>
-                        <form onSubmit={handleSubmit} className="stack-md">
-                            <div className="row gap-md">
-                                <div style={{ flex: 2 }}>
-                                    <label className="label">Branch Name</label>
+                <div className="branch-modal-backdrop" onClick={() => setShowModal(false)}>
+                    <div className="branch-modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="branch-modal-header">
+                            <div className="branch-modal-title">
+                                <span className="branch-modal-title-icon">
+                                    <Building2 size={18} />
+                                </span>
+                                <span>{editingBranch ? 'Edit Branch' : 'Add Branch'}</span>
+                            </div>
+                            <button className="branch-modal-close" onClick={() => setShowModal(false)} aria-label="Close modal">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <form onSubmit={handleSubmit} className="branch-form">
+                            <div className="branch-form-row">
+                                <div className="branch-form-group flex-2">
+                                    <label className="branch-form-label">Branch Name *</label>
                                     <input
                                         type="text"
-                                        className="input-field"
+                                        className="branch-form-input"
                                         name="branchName"
+                                        placeholder="e.g. Perambra"
                                         value={formData.name}
                                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                                         required
                                     />
                                 </div>
-                                <div style={{ flex: 1 }}>
-                                    <label className="label">Code (3 chars)</label>
+                                <div className="branch-form-group flex-1">
+                                    <label className="branch-form-label">Code (3 chars)</label>
                                     <input
                                         type="text"
-                                        className="input-field"
+                                        className="branch-form-input"
                                         name="branchShortName"
                                         maxLength={3}
                                         placeholder="PBA"
@@ -258,41 +267,48 @@ const Branches = () => {
                                     />
                                 </div>
                             </div>
-                            <div>
-                                <label className="label">Address</label>
+                            <div className="branch-form-group">
+                                <label className="branch-form-label">Address</label>
                                 <textarea
-                                    className="input-field"
+                                    className="branch-form-textarea"
                                     name="branchAddress"
                                     rows="3"
+                                    placeholder="Enter physical branch address..."
                                     value={formData.address}
                                     onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                                 />
                             </div>
-                            <div>
-                                <label className="label">Phone Number</label>
+                            <div className="branch-form-group">
+                                <label className="branch-form-label">Phone Number</label>
                                 <input
                                     type="text"
-                                    className="input-field"
+                                    className="branch-form-input"
                                     name="branchPhone"
+                                    placeholder="e.g. +91 98765 43210"
                                     value={formData.phone}
                                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                                 />
                             </div>
-                            <div>
-                                <label className="label">UPI ID (for payment QR code)</label>
+                            <div className="branch-form-group">
+                                <label className="branch-form-label">UPI ID (for payment QR code)</label>
                                 <input
                                     type="text"
-                                    className="input-field"
+                                    className="branch-form-input"
                                     name="branchUpiId"
                                     placeholder="e.g. shopname@upi"
                                     value={formData.upi_id}
                                     onChange={(e) => setFormData({ ...formData, upi_id: e.target.value })}
                                 />
                             </div>
-                            {error && <p className="text-sm" style={{ color: 'var(--error)' }}>{error}</p>}
-                            <button type="submit" disabled={loading} className="btn btn-primary btn--full">
-                                {loading ? <Loader2 className="animate-spin" /> : (editingBranch ? 'Update Branch' : 'Create Branch')}
-                            </button>
+                            {error && <div className="branch-form-error">{error}</div>}
+                            <div className="branch-form-actions">
+                                <button type="button" className="btn btn-ghost" onClick={() => setShowModal(false)}>
+                                    Cancel
+                                </button>
+                                <button type="submit" disabled={loading} className="btn btn-primary">
+                                    {loading ? <Loader2 className="animate-spin" /> : (editingBranch ? 'Update Branch' : 'Create Branch')}
+                                </button>
+                            </div>
                         </form>
                     </div>
                 </div>

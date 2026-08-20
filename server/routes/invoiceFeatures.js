@@ -9,59 +9,62 @@ const nodemailer = require('nodemailer');
 // ──────────────────────────────────────────────────────────────
 // FEATURE 2: Email Invoice to Client
 // ──────────────────────────────────────────────────────────────
-async function getTransporter(config = {}) {
-    const emailFrom = process.env.EMAIL_FROM || config.email_from || config.smtp_user || 'sargadailyreport@gmail.com';
-    const emailPass = process.env.EMAIL_PASS || config.email_pass || config.smtp_pass || '';
-    return {
-        transporter: nodemailer.createTransport({
-            service: 'gmail',
-            auth: { user: emailFrom, pass: emailPass }
-        }),
-        emailFrom
-    };
-}
+const { sendEmail } = require('../utils/mailer');
 
 router.post('/invoices/:paymentId/send-email', authenticateToken, async (req, res) => {
     try {
         const { paymentId } = req.params;
         const { email, subject, message } = req.body;
 
-        const [[payment]] = await pool.query(
+        let [[payment]] = await pool.query(
             `SELECT cp.*, c.email as customer_email_db
              FROM sarga_customer_payments cp
              LEFT JOIN sarga_customers c ON c.id = cp.customer_id
              WHERE cp.id = ?`, [paymentId]
         );
+
+        if (!payment) {
+            // Fallback lookup from invoices table
+            const [[inv]] = await pool.query(
+                `SELECT i.id, i.invoice_number, i.total_amount, i.created_at as payment_date,
+                        i.payment_status as verification_status, c.name as customer_name, c.email as customer_email_db
+                 FROM invoices i
+                 LEFT JOIN sarga_customers c ON c.id = i.customer_id
+                 WHERE i.id = ? OR i.invoice_number = ?`, [paymentId, paymentId]
+            );
+            if (inv) payment = inv;
+        }
+
         if (!payment) return res.status(404).json({ message: 'Invoice not found' });
 
         const targetEmail = (email || payment.customer_email || payment.customer_email_db || payment.email || '').trim();
-        if (!targetEmail) return res.status(400).json({ message: 'Email address is required' });
+        if (!targetEmail) return res.status(400).json({ message: 'Email address is required. Please provide a valid email.' });
 
         // Get company settings for branding
-        const [settings] = await pool.query('SELECT setting_key, setting_value FROM sarga_company_settings');
+        const [settings] = await pool.query('SELECT setting_key, setting_value FROM sarga_company_settings').catch(() => [[]]);
         const config = {};
-        settings.forEach(s => { config[s.setting_key] = s.setting_value; });
+        (settings || []).forEach(s => { config[s.setting_key] = s.setting_value; });
 
         const companyName = config.company_name || 'Sarga Offset';
         const footerText = config.invoice_footer_text || 'Thank you for your business!';
 
-        const invoiceSubject = subject || `Invoice #${payment.id} from ${companyName}`;
-        const invoiceMessage = message || `Dear ${payment.customer_name || 'Customer'},\n\nPlease find your invoice details below.\n\nInvoice #: ${payment.id}\nAmount: ₹${payment.total_amount || payment.net_amount || 0}\nDate: ${payment.payment_date}\n\n${footerText}\n\n${companyName}`;
+        const invoiceSubject = subject || `Invoice #${payment.invoice_number || payment.id} from ${companyName}`;
+        const invoiceMessage = message || `Dear ${payment.customer_name || 'Customer'},\n\nPlease find your invoice details below.\n\nInvoice #: ${payment.invoice_number || payment.id}\nAmount: ₹${payment.total_amount || payment.net_amount || 0}\nDate: ${payment.payment_date}\n\n${footerText}\n\n${companyName}`;
 
         const htmlBody = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
             <div style="text-align: center; padding: 20px; background: #1a1a2e; color: white; border-radius: 8px 8px 0 0;">
                 <h1 style="margin: 0; font-size: 24px;">${companyName}</h1>
-                <p style="margin: 4px 0 0; opacity: 0.8;">Invoice #${payment.id}</p>
+                <p style="margin: 4px 0 0; opacity: 0.8;">Invoice #${payment.invoice_number || payment.id}</p>
             </div>
             <div style="padding: 20px; border: 1px solid #eee; border-top: none;">
                 <p>Dear <strong>${payment.customer_name || 'Customer'}</strong>,</p>
                 <p>${message || 'Please find your invoice details below.'}</p>
                 <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-                    <tr style="background: #f5f5f5;"><td style="padding: 10px; border: 1px solid #ddd;"><strong>Invoice #</strong></td><td style="padding: 10px; border: 1px solid #ddd;">${payment.id}</td></tr>
+                    <tr style="background: #f5f5f5;"><td style="padding: 10px; border: 1px solid #ddd;"><strong>Invoice #</strong></td><td style="padding: 10px; border: 1px solid #ddd;">${payment.invoice_number || payment.id}</td></tr>
                     <tr><td style="padding: 10px; border: 1px solid #ddd;"><strong>Date</strong></td><td style="padding: 10px; border: 1px solid #ddd;">${payment.payment_date}</td></tr>
                     <tr style="background: #f5f5f5;"><td style="padding: 10px; border: 1px solid #ddd;"><strong>Amount</strong></td><td style="padding: 10px; border: 1px solid #ddd;">₹${Number(payment.total_amount || payment.net_amount || 0).toLocaleString('en-IN')}</td></tr>
-                    <tr><td style="padding: 10px; border: 1px solid #ddd;"><strong>Status</strong></td><td style="padding: 10px; border: 1px solid #ddd;">${payment.verification_status || 'Pending'}</td></tr>
+                    <tr><td style="padding: 10px; border: 1px solid #ddd;"><strong>Status</strong></td><td style="padding: 10px; border: 1px solid #ddd;">${payment.verification_status || payment.payment_status || 'Pending'}</td></tr>
                 </table>
                 <p style="color: #666; font-size: 13px;">${footerText}</p>
             </div>
@@ -70,10 +73,9 @@ router.post('/invoices/:paymentId/send-email', authenticateToken, async (req, re
             </div>
         </div>`;
 
-        const { transporter, emailFrom } = await getTransporter(config);
-        await transporter.sendMail({
-            from: `"${companyName}" <${emailFrom}>`,
+        await sendEmail({
             to: targetEmail,
+            from: `"${companyName}" <${process.env.EMAIL_FROM || 'sargadailyreport@gmail.com'}>`,
             subject: invoiceSubject,
             text: invoiceMessage,
             html: htmlBody
@@ -85,12 +87,12 @@ router.post('/invoices/:paymentId/send-email', authenticateToken, async (req, re
              VALUES (?, 'sent', NOW(), ?)
              ON DUPLICATE KEY UPDATE status='sent', sent_at=NOW(), sent_to_email=?`,
             [paymentId, targetEmail, targetEmail]
-        );
+        ).catch(() => {});
 
         res.json({ message: 'Invoice sent successfully' });
     } catch (err) {
         console.error('Send invoice email error:', err);
-        res.status(500).json({ message: 'Failed to send email. Check email configuration.' });
+        res.status(500).json({ message: err.message || 'Failed to send email. Check email configuration.' });
     }
 });
 

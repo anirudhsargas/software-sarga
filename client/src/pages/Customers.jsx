@@ -1015,10 +1015,10 @@ const Customers = () => {
                     <div className="customer-table-grid" style={{
                         gridTemplateColumns: [
                             '52px',
-                            visibleColumns.customer && '2fr',
-                            visibleColumns.phone && '1.4fr',
-                            visibleColumns.outstanding && '1fr',
-                            visibleColumns.lastOrder && '1.2fr',
+                            visibleColumns.customer && 'minmax(180px, 2fr)',
+                            visibleColumns.phone && 'minmax(160px, 1.4fr)',
+                            visibleColumns.outstanding && 'minmax(110px, 1fr)',
+                            visibleColumns.lastOrder && 'minmax(120px, 1.2fr)',
                             '140px',
                             '36px'
                         ].filter(Boolean).join(' ')
@@ -1079,10 +1079,10 @@ const Customers = () => {
                                 style={{
                                     gridTemplateColumns: [
                                         '52px',
-                                        visibleColumns.customer && '2fr',
-                                        visibleColumns.phone && '1.4fr',
-                                        visibleColumns.outstanding && '1fr',
-                                        visibleColumns.lastOrder && '1.2fr',
+                                        visibleColumns.customer && 'minmax(180px, 2fr)',
+                                        visibleColumns.phone && 'minmax(160px, 1.4fr)',
+                                        visibleColumns.outstanding && 'minmax(110px, 1fr)',
+                                        visibleColumns.lastOrder && 'minmax(120px, 1.2fr)',
                                         '140px',
                                         '36px'
                                     ].filter(Boolean).join(' ')

@@ -57,6 +57,7 @@ const CustomerPayments = () => {
     start: serverToday().slice(0, 8) + '01', // First of current month
     end: serverToday()
   });
+  const [activePreset, setActivePreset] = useState('thisMonth');
   const [downloading, setDownloading] = useState(false);
 
   // Discount states
@@ -730,6 +731,7 @@ const CustomerPayments = () => {
   };
 
   const setPredefinedRange = (rangeType) => {
+    setActivePreset(rangeType);
     const today = new Date();
     let start, end;
 
@@ -1606,15 +1608,15 @@ const CustomerPayments = () => {
         </div>
 
         {/* ── FILTERS BAR ── */}
-        <div className="cp-filters-row" style={{ padding: '0 24px 20px', display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '16px', borderBottom: '1px solid var(--border)', marginBottom: '20px' }}>
+        <div className="cp-filters-row" style={{ padding: '0 24px 20px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '16px', borderBottom: '1px solid var(--border)', marginBottom: '20px' }}>
           {canVerify && (
-            <div className="row gap-xs">
+            <div className="row gap-xs" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               {[{ key: 'all', label: 'All' }, { key: 'pending', label: 'Pending', icon: ShieldAlert, color: 'var(--warning)' }, { key: 'verified', label: 'Verified', icon: ShieldCheck, color: 'var(--success)' }, { key: 'rejected', label: 'Rejected', icon: ShieldX, color: 'var(--destructive)' }].map(f => (
                 <button
                   key={f.key}
                   className={`btn btn-xs ${verifyFilter === f.key ? 'btn-primary' : 'btn-ghost'}`}
                   onClick={() => setVerifyFilter(f.key)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 4, height: '32px' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 4, height: '32px', minHeight: '32px' }}
                 >
                   {f.icon && <f.icon size={13} style={{ color: verifyFilter === f.key ? undefined : f.color }} />}
                   {f.label}
@@ -1625,7 +1627,7 @@ const CustomerPayments = () => {
 
           <div style={{ width: '1px', height: '24px', background: 'var(--border)', alignSelf: 'center', display: canVerify ? 'block' : 'none' }} />
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: '300px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: '300px', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <label htmlFor="cp-date-from" className="label" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted)', marginBottom: 0 }}>From</label>
               <input
@@ -1633,8 +1635,8 @@ const CustomerPayments = () => {
                 type="date"
                 className="input-field input-field--sm"
                 value={statementRange.start}
-                onChange={e => setStatementRange(prev => ({ ...prev, start: e.target.value }))}
-                style={{ height: '32px', width: '130px', padding: '0 8px', fontSize: '12px' }}
+                onChange={e => { setStatementRange(prev => ({ ...prev, start: e.target.value })); setActivePreset(null); }}
+                style={{ height: '32px', minHeight: '32px', width: '130px', padding: '0 8px', fontSize: '12px' }}
                 aria-label="Statement start date"
               />
             </div>
@@ -1645,24 +1647,44 @@ const CustomerPayments = () => {
                 type="date"
                 className="input-field input-field--sm"
                 value={statementRange.end}
-                onChange={e => setStatementRange(prev => ({ ...prev, end: e.target.value }))}
-                style={{ height: '32px', width: '130px', padding: '0 8px', fontSize: '12px' }}
+                onChange={e => { setStatementRange(prev => ({ ...prev, end: e.target.value })); setActivePreset(null); }}
+                style={{ height: '32px', minHeight: '32px', width: '130px', padding: '0 8px', fontSize: '12px' }}
                 aria-label="Statement end date"
               />
             </div>
-            <div className="row gap-xs" style={{ height: '32px' }}>
-              <button className="btn btn-ghost btn-xs touch-target" style={{ fontSize: '11px' }} onClick={() => setPredefinedRange('thisMonth')}>This Month</button>
-              <button className="btn btn-ghost btn-xs touch-target" style={{ fontSize: '11px' }} onClick={() => setPredefinedRange('lastMonth')}>Last Month</button>
-              <button className="btn btn-ghost btn-xs touch-target" style={{ fontSize: '11px' }} onClick={() => setPredefinedRange('financialYear')}>FY</button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '32px' }}>
+              <button
+                type="button"
+                className={`btn btn-xs cp-preset-btn ${activePreset === 'thisMonth' ? 'btn-primary' : 'btn-ghost'}`}
+                onClick={() => setPredefinedRange('thisMonth')}
+              >
+                This Month
+              </button>
+              <button
+                type="button"
+                className={`btn btn-xs cp-preset-btn ${activePreset === 'lastMonth' ? 'btn-primary' : 'btn-ghost'}`}
+                onClick={() => setPredefinedRange('lastMonth')}
+              >
+                Last Month
+              </button>
+              <button
+                type="button"
+                className={`btn btn-xs cp-preset-btn ${activePreset === 'financialYear' ? 'btn-primary' : 'btn-ghost'}`}
+                onClick={() => setPredefinedRange('financialYear')}
+              >
+                FY
+              </button>
             </div>
             <button
-              className="btn btn-primary btn-sm ml-auto touch-target"
+              type="button"
+              className="btn btn-primary btn-sm ml-auto"
               onClick={handleDownloadStatement}
               disabled={downloading}
-              style={{ height: '32px', padding: '0 12px', fontSize: '12px' }}
+              style={{ height: '32px', minHeight: '32px', padding: '0 12px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               aria-label="Download payment statement"
             >
               {downloading ? <Loader2 size={14} className="cp-spin" aria-hidden="true" /> : <FileText size={14} aria-hidden="true" />}
+              <span>Statement</span>
             </button>
           </div>
         </div>
