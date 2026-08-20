@@ -1050,6 +1050,36 @@ router.get('/other-live', auth.authenticate, auth.authorizeRoles('Admin', 'Accou
             }
         }
 
+        // Build Category Lookup Map from Product Library tables (categories & sarga_products)
+        const [catRows] = await pool.query('SELECT id, name FROM categories');
+        const categoryMap = {};
+        for (const c of catRows) {
+            categoryMap[c.id] = c.name;
+            categoryMap[String(c.id)] = c.name;
+            if (c.name) categoryMap[c.name.toLowerCase()] = c.name;
+        }
+
+        const [prodRows] = await pool.query(`
+            SELECT p.id, c.name as category_name, sc.name as subcategory_name
+            FROM sarga_products p
+            LEFT JOIN sarga_product_subcategories sc ON p.subcategory_id = sc.id
+            LEFT JOIN categories c ON sc.category_id = c.id
+        `);
+        const productCategoryMap = {};
+        for (const pr of prodRows) {
+            if (pr.category_name) productCategoryMap[pr.id] = pr.category_name;
+            else if (pr.subcategory_name) productCategoryMap[pr.id] = pr.subcategory_name;
+        }
+
+        const resolveLineCategory = (l) => {
+            const cand = l.category_name || l.catName || l.categoryGroup;
+            if (cand && isNaN(Number(cand)) && cand !== 'Other' && cand !== 'other category') return cand;
+            if (l.category && categoryMap[l.category]) return categoryMap[l.category];
+            if (l.product_id && productCategoryMap[l.product_id]) return productCategoryMap[l.product_id];
+            if (l.category && categoryMap[String(l.category).toLowerCase()]) return categoryMap[String(l.category).toLowerCase()];
+            return 'Other Products';
+        };
+
         // Calculate totals
         let totalCashIn = 0, totalUpiIn = 0;
         let totalWastePrints = 0, totalProofPrints = 0;
@@ -1082,7 +1112,7 @@ router.get('/other-live', auth.authenticate, auth.authorizeRoles('Admin', 'Accou
             totalProofPrints += billProof;
             const discountPct = Number(cp.discount_percent) || 0;
             const discountAmt = Number(cp.discount_amount) || 0;
-            const mainCategory = lines.map(l => l.catName || l.category_name || l.category || '').filter(Boolean)[0] || 'Other Products';
+            const mainCategory = lines.map(resolveLineCategory).filter(c => c && c !== 'Other Products')[0] || lines.map(resolveLineCategory)[0] || 'Other Products';
             return {
                 id: `cp-${cp.id}`,
                 type: 'income',
@@ -1098,7 +1128,7 @@ router.get('/other-live', auth.authenticate, auth.authorizeRoles('Admin', 'Accou
                 proof_prints: billProof,
                 discount_percent: discountPct,
                 discount_amount: discountAmt,
-                order_lines: lines.map(l => ({ name: l.product_name || l.job_name || '', qty: l.quantity || 1, amount: Number(l.total_amount || 0), waste_prints: Number(l.waste_prints) || 0, proof_prints: Number(l.proof_prints) || 0, category: l.catName || l.category_name || l.category || '' }))
+                order_lines: lines.map(l => ({ name: l.product_name || l.job_name || '', qty: l.quantity || 1, amount: Number(l.total_amount || 0), waste_prints: Number(l.waste_prints) || 0, proof_prints: Number(l.proof_prints) || 0, category: resolveLineCategory(l) }))
             };
         });
 

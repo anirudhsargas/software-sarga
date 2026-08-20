@@ -1304,7 +1304,8 @@ const DailyReport = () => {
                             const isInternal = !!entry.is_internal;
                             const hasLines = entry.order_lines?.length > 1;
                             const isExpanded = expandedIds.has(entry.id);
-                            const categoryText = entry.category || entry.category_name || (entry.order_lines && entry.order_lines[0]?.category) || 'Other Products';
+                            const rawCat = entry.category || entry.category_name || (entry.order_lines && entry.order_lines[0]?.category) || '';
+                            const categoryText = (rawCat && isNaN(Number(rawCat)) && rawCat !== 'other category' && rawCat !== 'Other') ? rawCat : 'Other Products';
                             return (
                                 <React.Fragment key={`${type}-${entry.id}-${i}`}>
                                     <tr className={hasLines ? 'entry-table tr--clickable' : ''} onClick={hasLines ? () => toggleExpand(entry.id) : undefined} role={hasLines ? "button" : "row"} aria-expanded={hasLines ? expandedIds.has(entry.id) : undefined} tabIndex={hasLines ? 0 : undefined} onKeyDown={hasLines ? (e) => { if(e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleExpand(entry.id); } } : undefined}>
