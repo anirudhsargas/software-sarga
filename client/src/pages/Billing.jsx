@@ -875,6 +875,11 @@ const Billing = () => {
     setOrderLines(prev => [...prev, line]);
     setSelectedProduct(null);
     setProductSearchQuery('');
+    toast.success(`Added "${product.name || product.title || 'Product'}" to bill`, {
+      icon: '🛒',
+      duration: 2000,
+      id: `add-prod-${product.id}`
+    });
     setRecentProducts(prev => {
       const next = [{ id: product.id, name: product.name || product.title, mrp: unitPrice }, ...prev.filter(p => p.id !== product.id)].slice(0, 20);
       localStorage.setItem('recentProducts', JSON.stringify(next));
@@ -1748,17 +1753,27 @@ const Billing = () => {
             {/* Product suggestions dropdown */}
             {productSuggestions.length > 0 && (
               <div className="billing-product-suggestions">
-                {productSuggestions.map((s, i) => (
-                  <div key={`${s.product.id}-${i}`} className={`billing-product-suggestions__item ${i === selectedSuggestionIdx ? 'selected' : ''}`}
-                    onClick={() => { handleAddLineItem(s.product, 1, [], s.catId, s.subId, s.catName); setProductSearchQuery(''); setProductSuggestions([]); }}
-                    onMouseEnter={() => setSelectedSuggestionIdx(i)}>
-                    <div className="billing-product-suggestions__name">{s.product.name || s.product.title}</div>
-                    <div className="billing-product-suggestions__meta">
-                      {(() => { const p = resolveProductUnitPrice(s.product); return <span>{p > 0 ? `₹${p.toLocaleString()}` : 'Custom pricing'}</span>; })()}
-                      {s.catName && <span className="text-muted">{s.catName}{s.subName ? ` / ${s.subName}` : ''}</span>}
+                {productSuggestions.map((s, i) => {
+                  const inCartQty = orderLines.filter(l => l.product_id === s.product.id).reduce((sum, l) => sum + (Number(l.quantity) || 1), 0);
+                  return (
+                    <div key={`${s.product.id}-${i}`} className={`billing-product-suggestions__item ${i === selectedSuggestionIdx ? 'selected' : ''}`}
+                      onClick={() => { handleAddLineItem(s.product, 1, [], s.catId, s.subId, s.catName); setProductSearchQuery(''); setProductSuggestions([]); }}
+                      onMouseEnter={() => setSelectedSuggestionIdx(i)}>
+                      <div className="billing-product-suggestions__name" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>{s.product.name || s.product.title}</span>
+                        {inCartQty > 0 && (
+                          <span style={{ background: 'var(--accent, #6366f1)', color: '#fff', fontSize: '10px', fontWeight: 600, padding: '1px 6px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '2px' }}>
+                            <Check size={10} /> {inCartQty} in bill
+                          </span>
+                        )}
+                      </div>
+                      <div className="billing-product-suggestions__meta">
+                        {(() => { const p = resolveProductUnitPrice(s.product); return <span>{p > 0 ? `₹${p.toLocaleString()}` : 'Custom pricing'}</span>; })()}
+                        {s.catName && <span className="text-muted">{s.catName}{s.subName ? ` / ${s.subName}` : ''}</span>}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1810,13 +1825,19 @@ const Billing = () => {
                   <div className="billing-catalog-grid">
                     {pageProducts.map(({ product: prod, catId, subId, catName, subName }) => {
                       const displayPrice = resolveProductUnitPrice(prod);
+                      const inCartQty = orderLines.filter(l => l.product_id === prod.id).reduce((sum, l) => sum + (Number(l.quantity) || 1), 0);
                       return (
                         <div
                           key={prod.id}
-                          className="billing-catalog-item"
+                          className={`billing-catalog-item ${inCartQty > 0 ? 'billing-catalog-item--in-cart' : ''}`}
                           onClick={() => handleAddLineItem(prod, 1, [], catId, subId, catName)}
-                          title={`${catName} › ${subName}`}
+                          title={`${catName} › ${subName} ${inCartQty > 0 ? `(${inCartQty} in bill)` : ''}`}
                         >
+                          {inCartQty > 0 && (
+                            <span className="billing-catalog-item__badge" title={`${inCartQty} in bill`}>
+                              <Check size={10} style={{ marginRight: 2 }} /> {inCartQty}
+                            </span>
+                          )}
                           <div className="billing-catalog-item__icon">
                             {prod.image_url ? (
                               <SecureImage
@@ -1825,7 +1846,9 @@ const Billing = () => {
                                 style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 6 }}
                               />
                             ) : (
-                              <Package size={18} aria-hidden="true" />
+                              <div className="billing-catalog-item__placeholder-box">
+                                <Package size={22} style={{ color: 'var(--muted)', opacity: 0.4 }} aria-hidden="true" />
+                              </div>
                             )}
                             <button className="billing-catalog-item__view"
                               title="View full details"
