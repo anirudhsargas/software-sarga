@@ -392,6 +392,109 @@ router.get('/previous-closing', auth.authenticate, auth.authorizeRoles('Admin', 
     }
 });
 
+// Helper to process payment lines for multi-book reports
+const processPaymentLinesForBook = (cp, targetBookName, linkedJobs = []) => {
+    const paymentTargetBook = cp.payment_target_book || 'Offset';
+    const method = cp.payment_method || 'Cash';
+    const totalAdvPaid = Number(cp.advance_paid || 0);
+    const rawCash = Number(cp.cash_amount || 0);
+    const rawUpi = Number(cp.upi_amount || 0);
+    const payTotal = Number(cp.total_amount || cp.bill_amount || 0) || 1;
+
+    const isTargetMatch = (paymentTargetBook === targetBookName);
+    const parsedLines = (() => { try { return JSON.parse(cp.order_lines || '[]'); } catch { return []; } })();
+
+    const lineItems = linkedJobs.length > 0 ? linkedJobs.map(j => ({
+        id: j.id,
+        name: j.job_name,
+        quantity: j.quantity,
+        total_amount: j.total_amount,
+        advance_paid: j.advance_paid,
+        book_type: j.book_type || 'Offset',
+        waste_prints: j.waste_prints || 0,
+        proof_prints: j.proof_prints || 0
+    })) : parsedLines.map((l, idx) => ({
+        id: `line-${idx}`,
+        name: l.product_name || l.job_name || 'Item',
+        quantity: l.quantity || 1,
+        total_amount: l.total_amount || 0,
+        advance_paid: (Number(l.total_amount || 0) / payTotal) * totalAdvPaid,
+        book_type: l.book_type || l.bookType || 'Offset',
+        waste_prints: l.waste_prints || 0,
+        proof_prints: l.proof_prints || 0
+    }));
+
+    if (lineItems.length === 0) {
+        lineItems.push({
+            id: `line-0`,
+            name: cp.description || 'Service',
+            quantity: 1,
+            total_amount: cp.total_amount || totalAdvPaid,
+            advance_paid: totalAdvPaid,
+            book_type: paymentTargetBook,
+            waste_prints: 0,
+            proof_prints: 0
+        });
+    }
+
+    const entries = [];
+
+    lineItems.forEach(line => {
+        const lineBook = line.book_type || 'Offset';
+        const lineIsBookMatch = (lineBook === targetBookName);
+
+        if (!lineIsBookMatch && !isTargetMatch) return;
+
+        let cashIn = 0, upiIn = 0, totalIn = 0;
+        let transferredTo = null;
+
+        if (isTargetMatch) {
+            const ratio = payTotal > 0 ? (Number(line.total_amount) || 0) / payTotal : (1 / lineItems.length);
+            if (method === 'Both') {
+                cashIn = Math.round(rawCash * ratio * 100) / 100;
+                upiIn = Math.round(rawUpi * ratio * 100) / 100;
+            } else if (method === 'UPI') {
+                cashIn = 0;
+                upiIn = Number(line.advance_paid != null ? line.advance_paid : totalAdvPaid * ratio);
+            } else {
+                cashIn = Number(line.advance_paid != null ? line.advance_paid : totalAdvPaid * ratio);
+                upiIn = 0;
+            }
+            totalIn = cashIn + upiIn;
+        } else {
+            cashIn = 0;
+            upiIn = 0;
+            totalIn = 0;
+            transferredTo = paymentTargetBook;
+        }
+
+        entries.push({
+            id: `cp-${cp.id}-${line.id}`,
+            payment_id: cp.id,
+            customer_name: cp.customer_name,
+            description: cp.customer_name,
+            details: line.name ? `${line.name}${!lineIsBookMatch ? ` (${lineBook} item)` : ''}` : (cp.description || ''),
+            payment_method: method,
+            cash_amount: cashIn,
+            upi_amount: upiIn,
+            total: totalIn,
+            reference: cp.reference_number,
+            time: cp.created_at,
+            waste_prints: Number(line.waste_prints || 0),
+            proof_prints: Number(line.proof_prints || 0),
+            transferred_to: transferredTo,
+            is_internal: Number(cp.is_internal || 0),
+            internal_department: cp.internal_department || null,
+            copies: Number(line.quantity || 0),
+            discount_percent: Number(cp.discount_percent || 0),
+            discount_amount: Number(cp.discount_amount || 0),
+            order_lines: [line]
+        });
+    });
+
+    return entries;
+};
+
 // ==================== OFFSET TAB: LIVE DATA ====================
 router.get('/offset-live', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'Front Office'), routeCache(REPORTS_TTL, (req) => `sarga:reports:offset-live:${req.query.branch_id || req.user.branch_id}:${req.query.date}`), async (req, res) => {
     try {
@@ -400,7 +503,7 @@ router.get('/offset-live', auth.authenticate, auth.authorizeRoles('Admin', 'Acco
 
         if (!date) return res.status(400).json({ error: 'Date is required' });
 
-        // 1. Customer Payments (income/work entries) — Offset book only
+        // 1. Customer Payments linked to Offset book (either target book or line item book)
         const [customerPayments] = await pool.query(
             `SELECT cp.id, cp.customer_name, cp.total_amount, cp.advance_paid,
                     cp.payment_method, cp.cash_amount, cp.upi_amount,
@@ -408,10 +511,17 @@ router.get('/offset-live', auth.authenticate, auth.authorizeRoles('Admin', 'Acco
                     cp.created_at,
                     COALESCE(cp.discount_percent, 0) as discount_percent,
                     COALESCE(cp.discount_amount, 0) as discount_amount,
-                    cp.bill_amount
+                    cp.bill_amount,
+                    COALESCE(cp.payment_target_book, cp.book_type, 'Offset') as payment_target_book
              FROM sarga_customer_payments cp
              WHERE DATE(cp.payment_date) = ? AND cp.branch_id = ?
-               AND COALESCE(cp.book_type, 'Offset') = 'Offset'
+               AND (
+                   COALESCE(cp.payment_target_book, cp.book_type, 'Offset') = 'Offset'
+                   OR EXISTS (
+                       SELECT 1 FROM sarga_jobs j
+                       WHERE j.payment_id = cp.id AND j.book_type = 'Offset'
+                   )
+               )
              ORDER BY cp.created_at DESC`,
             [date, branchId]
         );
@@ -427,12 +537,13 @@ router.get('/offset-live', auth.authenticate, auth.authorizeRoles('Admin', 'Acco
             [date, branchId]
         );
 
-        // 2b. Fetch jobs linked to these payments (for grouping when order_lines is empty)
+        // 2b. Fetch jobs linked to these payments
         let linkedJobsByPayment = {};
         if (customerPayments.length > 0) {
             const cpIds = customerPayments.map(cp => cp.id);
             const [linkedJobs] = await pool.query(
-                `SELECT j.payment_id, j.job_name, j.quantity, j.total_amount,
+                `SELECT j.id, j.payment_id, j.job_name, j.quantity, j.total_amount, j.advance_paid,
+                        COALESCE(j.book_type, 'Offset') as book_type,
                         COALESCE(j.waste_prints, 0) as waste_prints,
                         COALESCE(j.proof_prints, 0) as proof_prints
                  FROM sarga_jobs j
@@ -446,75 +557,21 @@ router.get('/offset-live', auth.authenticate, auth.authorizeRoles('Admin', 'Acco
             }
         }
 
-        // 3. Calculate totals
+        // 3. Calculate totals & build work entries using multi-book rules
         let totalCashIn = 0, totalUpiIn = 0, totalCashOut = 0, totalUpiOut = 0;
         let totalWastePrints = 0, totalProofPrints = 0;
 
-        const workEntries = customerPayments.map(cp => {
-            const cashAmt = Number(cp.cash_amount || 0);
-            const upiAmt = Number(cp.upi_amount || 0);
-            const advPaid = Number(cp.advance_paid || 0);
-            const method = cp.payment_method || 'Cash';
-
-            let cashIn = 0, upiIn = 0;
-            if (method === 'Both') {
-                cashIn = cashAmt;
-                upiIn = upiAmt;
-            } else if (method === 'UPI') {
-                upiIn = advPaid;
-            } else {
-                cashIn = advPaid;
-            }
-
-            totalCashIn += cashIn;
-            totalUpiIn += upiIn;
-
-            const parsedLines = (() => { try { return JSON.parse(cp.order_lines || '[]'); } catch { return []; } })();
-
-            // If order_lines is empty (paid via CustomerPayments directly), use linked jobs
-            const jobLines = linkedJobsByPayment[cp.id] || [];
-            const lines = parsedLines.length > 0 ? parsedLines : jobLines.map(j => ({
-                product_name: j.job_name,
-                quantity: j.quantity,
-                total_amount: j.total_amount,
-                waste_prints: j.waste_prints,
-                proof_prints: j.proof_prints
-            }));
-
-            const details = lines.map(l => l.product_name || l.job_name || '').filter(Boolean).join(', ');
-
-            // Aggregate waste/proof from order_lines
-            const billWaste = lines.reduce((s, l) => s + (Number(l.waste_prints) || 0), 0);
-            const billProof = lines.reduce((s, l) => s + (Number(l.proof_prints) || 0), 0);
-            totalWastePrints += billWaste;
-            totalProofPrints += billProof;
-
-            const discountPct = Number(cp.discount_percent) || 0;
-            const discountAmt = Number(cp.discount_amount) || 0;
-
-            return {
-                id: cp.id,
-                type: 'income',
-                description: cp.customer_name,
-                details: details || cp.description || '',
-                payment_method: method,
-                cash_amount: cashIn,
-                upi_amount: upiIn,
-                total: advPaid,
-                reference: cp.reference_number,
-                time: cp.created_at,
-                waste_prints: billWaste,
-                proof_prints: billProof,
-                discount_percent: discountPct,
-                discount_amount: discountAmt,
-                order_lines: lines.map(l => ({
-                    name: l.product_name || l.job_name || '',
-                    qty: l.quantity || 1,
-                    amount: Number(l.total_amount || 0),
-                    waste_prints: Number(l.waste_prints) || 0,
-                    proof_prints: Number(l.proof_prints) || 0
-                }))
-            };
+        const workEntries = [];
+        customerPayments.forEach(cp => {
+            const jobs = linkedJobsByPayment[cp.id] || [];
+            const entries = processPaymentLinesForBook(cp, 'Offset', jobs);
+            entries.forEach(e => {
+                totalCashIn += e.cash_amount;
+                totalUpiIn += e.upi_amount;
+                totalWastePrints += e.waste_prints;
+                totalProofPrints += e.proof_prints;
+                workEntries.push(e);
+            });
         });
 
         const expenseEntries = expensePayments.map(p => {
@@ -558,7 +615,6 @@ router.get('/offset-live', auth.authenticate, auth.authorizeRoles('Admin', 'Acco
         const transferEntries = (transfers || []).map(t => {
             const amt = Number(t.amount || 0);
             if (t.from_book_type === 'Offset') {
-                // Outgoing transfer from Offset
                 totalCashOut += amt;
                 return {
                     id: `transfer-${t.id}`,
@@ -572,7 +628,6 @@ router.get('/offset-live', auth.authenticate, auth.authorizeRoles('Admin', 'Acco
                     time: t.created_at
                 };
             } else if (t.to_book_type === 'Offset') {
-                // Incoming transfer to Offset
                 totalCashIn += amt;
                 return {
                     id: `transfer-${t.id}`,
@@ -804,60 +859,53 @@ router.get('/laser-live', auth.authenticate, auth.authorizeRoles('Admin', 'Accou
             }
         });
 
-        // 4. Billing payments tagged as Laser (from customer_payments)
+        // 4. Billing payments linked to Laser (from customer_payments)
         const [laserPayments] = await pool.query(
-            `SELECT cp.id, cp.customer_name, cp.advance_paid, cp.payment_method,
+            `SELECT cp.id, cp.customer_name, cp.total_amount, cp.advance_paid, cp.payment_method,
                     cp.cash_amount, cp.upi_amount, cp.description, cp.reference_number,
                     cp.created_at, cp.order_lines,
                     COALESCE(cp.discount_percent, 0) as discount_percent,
                     COALESCE(cp.discount_amount, 0) as discount_amount,
                     COALESCE(cp.is_internal, 0) as is_internal,
-                    cp.internal_department
+                    cp.internal_department,
+                    COALESCE(cp.payment_target_book, cp.book_type, 'Offset') as payment_target_book
              FROM sarga_customer_payments cp
-             WHERE DATE(cp.payment_date) = ? AND cp.branch_id = ? AND cp.book_type = 'Laser'
+             WHERE DATE(cp.payment_date) = ? AND cp.branch_id = ?
+               AND (
+                   COALESCE(cp.payment_target_book, cp.book_type) = 'Laser'
+                   OR EXISTS (
+                       SELECT 1 FROM sarga_jobs j
+                       WHERE j.payment_id = cp.id AND j.book_type = 'Laser'
+                   )
+               )
              ORDER BY cp.created_at DESC`,
             [date, branchId]
         );
 
-        const billingEntries = laserPayments.filter(cp => !coveredPaymentIds.has(Number(cp.id))).map(cp => {
-            const cashAmt = Number(cp.cash_amount || 0);
-            const upiAmt = Number(cp.upi_amount || 0);
-            const advPaid = Number(cp.advance_paid || 0);
-            const method = cp.payment_method || 'Cash';
-            let cashIn = 0, upiIn = 0;
-            if (method === 'Both') { cashIn = cashAmt; upiIn = upiAmt; }
-            else if (method === 'UPI') { upiIn = advPaid; }
-            else { cashIn = advPaid; }
-            const lines = (() => { try { return JSON.parse(cp.order_lines || '[]'); } catch { return []; } })();
-            const details = lines.map(l => l.product_name || l.job_name || '').filter(Boolean).join(', ');
-            // Aggregate waste/proof from order_lines
-            const billWaste = lines.reduce((s, l) => s + (Number(l.waste_prints) || 0), 0);
-            const billProof = lines.reduce((s, l) => s + (Number(l.proof_prints) || 0), 0);
-            return {
-                id: `cp-${cp.id}`,
-                type: 'billing',
-                description: cp.customer_name,
-                details: details || cp.description || '',
-                copies: 0,
-                payment_method: method,
-                cash_amount: cashIn,
-                upi_amount: upiIn,
-                total: advPaid,
-                time: cp.created_at,
-                waste_prints: billWaste,
-                proof_prints: billProof,
-                discount_percent: Number(cp.discount_percent) || 0,
-                discount_amount: Number(cp.discount_amount) || 0,
-                is_internal: Number(cp.is_internal) || 0,
-                internal_department: cp.internal_department || null,
-                order_lines: lines.map(l => ({
-                    name: l.product_name || l.job_name || '',
-                    qty: l.quantity || 1,
-                    amount: Number(l.total_amount || 0),
-                    waste_prints: Number(l.waste_prints) || 0,
-                    proof_prints: Number(l.proof_prints) || 0
-                }))
-            };
+        let laserLinkedJobsMap = {};
+        if (laserPayments.length > 0) {
+            const cpIds = laserPayments.map(cp => cp.id);
+            const [linkedJobs] = await pool.query(
+                `SELECT j.id, j.payment_id, j.job_name, j.quantity, j.total_amount, j.advance_paid,
+                        COALESCE(j.book_type, 'Offset') as book_type,
+                        COALESCE(j.waste_prints, 0) as waste_prints,
+                        COALESCE(j.proof_prints, 0) as proof_prints
+                 FROM sarga_jobs j
+                 WHERE j.payment_id IN (${cpIds.map(() => '?').join(',')})
+                 ORDER BY j.id ASC`,
+                cpIds
+            );
+            for (const j of linkedJobs) {
+                if (!laserLinkedJobsMap[j.payment_id]) laserLinkedJobsMap[j.payment_id] = [];
+                laserLinkedJobsMap[j.payment_id].push(j);
+            }
+        }
+
+        const billingEntries = [];
+        laserPayments.filter(cp => !coveredPaymentIds.has(Number(cp.id))).forEach(cp => {
+            const jobs = laserLinkedJobsMap[cp.id] || [];
+            const entries = processPaymentLinesForBook(cp, 'Laser', jobs);
+            entries.forEach(e => billingEntries.push(e));
         });
 
         // 5. Calculate totals (machine work entries + billing entries)
@@ -1028,24 +1076,33 @@ router.get('/other-live', auth.authenticate, auth.authorizeRoles('Admin', 'Accou
 
         if (!date) return res.status(400).json({ error: 'Date is required' });
 
-        // Billing payments tagged as Other (from customer_payments)
+        // Billing payments linked to Other (from customer_payments)
         const [otherPayments] = await pool.query(
-            `SELECT cp.id, cp.customer_name, cp.advance_paid, cp.payment_method,
+            `SELECT cp.id, cp.customer_name, cp.total_amount, cp.advance_paid, cp.payment_method,
                     cp.cash_amount, cp.upi_amount, cp.description, cp.order_lines, cp.created_at,
                     COALESCE(cp.discount_percent, 0) as discount_percent,
-                    COALESCE(cp.discount_amount, 0) as discount_amount
+                    COALESCE(cp.discount_amount, 0) as discount_amount,
+                    COALESCE(cp.payment_target_book, cp.book_type, 'Offset') as payment_target_book
              FROM sarga_customer_payments cp
-             WHERE DATE(cp.payment_date) = ? AND cp.branch_id = ? AND cp.book_type = 'Other'
+             WHERE DATE(cp.payment_date) = ? AND cp.branch_id = ?
+               AND (
+                   COALESCE(cp.payment_target_book, cp.book_type) = 'Other'
+                   OR EXISTS (
+                       SELECT 1 FROM sarga_jobs j
+                       WHERE j.payment_id = cp.id AND j.book_type = 'Other'
+                   )
+               )
              ORDER BY cp.created_at DESC`,
             [date, branchId]
         );
 
-        // Fetch jobs linked to these payments (for grouping when order_lines is empty)
+        // Fetch jobs linked to these payments
         let linkedJobsByPaymentOther = {};
         if (otherPayments.length > 0) {
             const cpIds = otherPayments.map(cp => cp.id);
             const [linkedJobs] = await pool.query(
-                `SELECT j.payment_id, j.job_name, j.quantity, j.total_amount,
+                `SELECT j.id, j.payment_id, j.job_name, j.quantity, j.total_amount, j.advance_paid,
+                        COALESCE(j.book_type, 'Offset') as book_type,
                         COALESCE(j.waste_prints, 0) as waste_prints,
                         COALESCE(j.proof_prints, 0) as proof_prints
                  FROM sarga_jobs j
@@ -1092,53 +1149,18 @@ router.get('/other-live', auth.authenticate, auth.authorizeRoles('Admin', 'Accou
         // Calculate totals
         let totalCashIn = 0, totalUpiIn = 0;
         let totalWastePrints = 0, totalProofPrints = 0;
-        const entries = otherPayments.map(cp => {
-            const cashAmt = Number(cp.cash_amount || 0);
-            const upiAmt = Number(cp.upi_amount || 0);
-            const advPaid = Number(cp.advance_paid || 0);
-            const method = cp.payment_method || 'Cash';
-            let cashIn = 0, upiIn = 0;
-            if (method === 'Both') { cashIn = cashAmt; upiIn = upiAmt; }
-            else if (method === 'UPI') { upiIn = advPaid; }
-            else { cashIn = advPaid; }
-            totalCashIn += cashIn;
-            totalUpiIn += upiIn;
-
-            const parsedLines = (() => { try { return JSON.parse(cp.order_lines || '[]'); } catch { return []; } })();
-            const jobLines = linkedJobsByPaymentOther[cp.id] || [];
-            const lines = parsedLines.length > 0 ? parsedLines : jobLines.map(j => ({
-                product_name: j.job_name,
-                quantity: j.quantity,
-                total_amount: j.total_amount,
-                waste_prints: j.waste_prints,
-                proof_prints: j.proof_prints
-            }));
-
-            const details = lines.map(l => l.product_name || l.job_name || '').filter(Boolean).join(', ');
-            const billWaste = lines.reduce((s, l) => s + (Number(l.waste_prints) || 0), 0);
-            const billProof = lines.reduce((s, l) => s + (Number(l.proof_prints) || 0), 0);
-            totalWastePrints += billWaste;
-            totalProofPrints += billProof;
-            const discountPct = Number(cp.discount_percent) || 0;
-            const discountAmt = Number(cp.discount_amount) || 0;
-            const mainCategory = lines.map(resolveLineCategory).filter(c => c && c !== 'Other Products')[0] || lines.map(resolveLineCategory)[0] || 'Other Products';
-            return {
-                id: `cp-${cp.id}`,
-                type: 'income',
-                description: cp.customer_name,
-                details: details || cp.description || '',
-                category: mainCategory,
-                payment_method: method,
-                cash_amount: cashIn,
-                upi_amount: upiIn,
-                total: advPaid,
-                time: cp.created_at,
-                waste_prints: billWaste,
-                proof_prints: billProof,
-                discount_percent: discountPct,
-                discount_amount: discountAmt,
-                order_lines: lines.map(l => ({ name: l.product_name || l.job_name || '', qty: l.quantity || 1, amount: Number(l.total_amount || 0), waste_prints: Number(l.waste_prints) || 0, proof_prints: Number(l.proof_prints) || 0, category: resolveLineCategory(l) }))
-            };
+        const entries = [];
+        otherPayments.forEach(cp => {
+            const jobs = linkedJobsByPaymentOther[cp.id] || [];
+            const mapped = processPaymentLinesForBook(cp, 'Other', jobs);
+            mapped.forEach(e => {
+                totalCashIn += e.cash_amount;
+                totalUpiIn += e.upi_amount;
+                totalWastePrints += e.waste_prints;
+                totalProofPrints += e.proof_prints;
+                e.category = resolveLineCategory(e.order_lines?.[0] || {});
+                entries.push(e);
+            });
         });
 
         // Internal transfers affecting Other book

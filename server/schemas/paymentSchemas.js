@@ -32,12 +32,14 @@ const customerPaymentSchema = z.object({
         job_id: z.coerce.number().optional().nullable(),
         category: z.coerce.string().optional().nullable(),
         subcategory: z.coerce.string().optional().nullable(),
+        book_type: z.coerce.string().optional().nullable(),
         machine_id: z.coerce.number().optional().nullable()
     }).passthrough()).optional().default([]),
     job_ids: z.array(z.coerce.number()).optional().default([]),
     auto_deliver: z.boolean().optional().default(false),
     coupon_code: z.string().optional().nullable(),
     book_type: z.string().optional().nullable(),
+    payment_target_book: z.string().optional().nullable(),
     is_internal: z.coerce.number().optional().default(0),
     internal_department: z.string().optional().nullable()
 }).refine(data => {

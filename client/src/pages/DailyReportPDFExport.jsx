@@ -148,23 +148,45 @@ export default function DailyReportPDFExport({
                         doc.setFont('helvetica', 'bold');
                         doc.setTextColor(124, 58, 237);
                         doc.text('MACHINE READINGS & COUNTS', margin + 2, currentY);
-                        currentY += 6;
+                        currentY += 4;
 
-                        branchMachines.forEach(m => {
+                        const machineHead = [['Machine Name', 'Opening Meter', 'Current Meter', 'Copies Printed', 'Waste / Proof']];
+                        const machineBody = branchMachines.map(m => {
                             const openingCnt = m.has_reading ? formatNum(m.opening_count) : '—';
-                            const closingCnt = m.closing_count !== null && m.closing_count !== undefined ? formatNum(m.closing_count) : '—';
-                            const copies = formatNum(m.today_copies || 0);
-                            const wasteStr = m.waste_prints > 0 ? ` | Waste: ${m.waste_prints}` : '';
-                            const proofStr = m.proof_prints > 0 ? ` | Proof: ${m.proof_prints}` : '';
+                            const closingCnt = (m.closing_count !== null && m.closing_count !== undefined) ? formatNum(m.closing_count) : '—';
+                            const copies = `${formatNum(m.today_copies || 0)} copies`;
 
-                            currentY = kvRow(
-                                `${m.machine_name} (Opening: ${openingCnt} → Current: ${closingCnt})`,
-                                `${copies} copies${wasteStr}${proofStr}`,
-                                currentY,
-                                { color: [124, 58, 237] }
-                            );
+                            const extraParts = [];
+                            if (m.waste_prints > 0) extraParts.push(`Waste: ${formatNum(m.waste_prints)}`);
+                            if (m.proof_prints > 0) extraParts.push(`Proof: ${formatNum(m.proof_prints)}`);
+                            const wasteProofStr = extraParts.length > 0 ? extraParts.join(' | ') : '—';
+
+                            return [
+                                m.machine_name || 'Machine',
+                                openingCnt,
+                                closingCnt,
+                                copies,
+                                wasteProofStr
+                            ];
                         });
-                        currentY += 2;
+
+                        autoTable(doc, {
+                            startY: currentY,
+                            head: machineHead,
+                            body: machineBody,
+                            margin: { left: margin, right: margin },
+                            styles: { fontSize: 8, cellPadding: 2.5, lineColor: [220, 220, 220], lineWidth: 0.2 },
+                            headStyles: { fillColor: [124, 58, 237], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
+                            alternateRowStyles: { fillColor: [248, 245, 255] },
+                            columnStyles: {
+                                0: { fontStyle: 'bold', cellWidth: 52 },
+                                1: { halign: 'right', cellWidth: 30 },
+                                2: { halign: 'right', cellWidth: 30 },
+                                3: { halign: 'right', fontStyle: 'bold', textColor: [124, 58, 237], cellWidth: 32 },
+                                4: { halign: 'center', cellWidth: 38 }
+                            }
+                        });
+                        currentY = doc.lastAutoTable.finalY + 6;
                     }
                 }
 
@@ -181,6 +203,7 @@ export default function DailyReportPDFExport({
 
                             let desc = e.description || '';
                             if (e.details && e.details !== e.description) desc += ` (${e.details})`;
+                            if (e.transferred_to) desc += ` -> Transferred to ${e.transferred_to} Book`;
                             if (e.waste_prints > 0) desc += ` [Waste:${e.waste_prints}]`;
                             if (e.proof_prints > 0) desc += ` [Proof:${e.proof_prints}]`;
 
@@ -217,6 +240,7 @@ export default function DailyReportPDFExport({
 
                             let desc = e.description || '';
                             if (e.details && e.details !== e.description) desc += ` (${e.details})`;
+                            if (e.transferred_to) desc += ` -> Transferred to ${e.transferred_to} Book`;
 
                             return [
                                 formatTime(e.time),
@@ -249,6 +273,7 @@ export default function DailyReportPDFExport({
 
                             let desc = e.description || '';
                             if (e.details && e.details !== e.description) desc += ` (${e.details})`;
+                            if (e.transferred_to) desc += ` -> Transferred to ${e.transferred_to} Book`;
 
                             return [
                                 formatTime(e.time),

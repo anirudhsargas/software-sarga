@@ -151,6 +151,7 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
         auto_deliver,
         coupon_code,
         book_type,
+        payment_target_book: req_payment_target_book,
         is_internal: req_is_internal,
         internal_department: req_internal_dept
     } = req.body;
@@ -170,7 +171,7 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
     };
 
     // --- DIAGNOSTIC LOG: remove after debugging ---
-    console.log('[customer-payments POST] key=%s | customer=%s | total=%s | advance=%s | method=%s | cash=%s | upi=%s | cheque=%s | transfer=%s | date=%s',
+    console.log('[customer-payments POST] key=%s | customer=%s | total=%s | advance=%s | method=%s | cash=%s | upi=%s | cheque=%s | transfer=%s | date=%s | target_book=%s',
         idempotencyKey ? 'present' : 'MISSING',
         customer_name,
         total_amount,
@@ -180,7 +181,8 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
         upi_amount,
         cheque_amount,
         account_transfer_amount,
-        payment_date
+        payment_date,
+        req_payment_target_book || book_type
     );
 
     if (!idempotencyKey) {
@@ -288,14 +290,15 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
             }
         }
 
-        const bookType = normalizeBookType(book_type);
+        const targetBook = normalizeBookType(req_payment_target_book || book_type);
+        const legacyBookType = targetBook;
 
         let paymentId;
         try {
             const [result] = await connection.query(
                 `INSERT INTO sarga_customer_payments
-                (customer_id, customer_name, customer_mobile, bill_amount, total_amount, net_amount, sgst_amount, cgst_amount, discount_percent, discount_amount, advance_paid, balance_amount, payment_method, cash_amount, upi_amount, cheque_amount, account_transfer_amount, branch_id, reference_number, description, payment_date, order_lines, idempotency_key, coupon_code, book_type, is_internal, internal_department)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                (customer_id, customer_name, customer_mobile, bill_amount, total_amount, net_amount, sgst_amount, cgst_amount, discount_percent, discount_amount, advance_paid, balance_amount, payment_method, cash_amount, upi_amount, cheque_amount, account_transfer_amount, branch_id, reference_number, description, payment_date, order_lines, idempotency_key, coupon_code, book_type, payment_target_book, is_internal, internal_department)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     resolvedCustomerId,
                     String(customer_name).trim(),
@@ -321,7 +324,8 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
                     JSON.stringify(order_lines || []),
                     idempotencyKey,
                     resolvedCouponCode,
-                    bookType,
+                    legacyBookType,
+                    targetBook,
                     isInternal,
                     internalDept
                 ]
@@ -384,12 +388,13 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
                 const lineBalance = lineTotal - lineAdvance;
                 const paymentStatus = lineAdvance >= lineTotal ? 'Paid' : (lineAdvance > 0 ? 'Partial' : 'Unpaid');
                 const jobNumber = `J-${Date.now().toString().slice(-8)}-${i + 1}`;
+                const lineBookType = normalizeBookType(line.book_type || line.bookType || targetBook);
 
                 try {
                     const [jobInsert] = await connection.query(
                         `INSERT INTO sarga_jobs
-                        (customer_id, product_id, branch_id, job_number, job_name, description, quantity, unit_price, total_amount, advance_paid, balance_amount, payment_status, delivery_date, applied_extras, category, subcategory, waste_prints, proof_prints)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                        (customer_id, product_id, branch_id, job_number, job_name, description, quantity, unit_price, total_amount, advance_paid, balance_amount, payment_status, delivery_date, applied_extras, category, subcategory, book_type, machine_id, waste_prints, proof_prints, payment_id)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
                         , [
                             resolvedCustomerId,
                             line.product_id || null,
@@ -407,8 +412,11 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
                             JSON.stringify(line.applied_extras || []),
                             line.category || null,
                             line.subcategory || null,
+                            lineBookType,
+                            line.machine_id || null,
                             Number(line.waste_prints) || 0,
-                            Number(line.proof_prints) || 0
+                            Number(line.proof_prints) || 0,
+                            paymentId
                         ]
                     );
                     if (jobInsert && jobInsert.insertId) line.job_id = jobInsert.insertId;
@@ -416,8 +424,8 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
                     if (err.code === 'ER_BAD_FIELD_ERROR' || err.code === 'ER_NO_SUCH_TABLE') {
                         const [jobInsert] = await connection.query(
                             `INSERT INTO sarga_jobs
-                            (customer_id, product_id, branch_id, job_number, job_name, description, quantity, unit_price, total_amount, advance_paid, balance_amount, payment_status, delivery_date, applied_extras)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                            (customer_id, product_id, branch_id, job_number, job_name, description, quantity, unit_price, total_amount, advance_paid, balance_amount, payment_status, delivery_date, applied_extras, payment_id)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
                             , [
                                 resolvedCustomerId,
                                 line.product_id || null,
@@ -432,7 +440,8 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
                                 lineBalance,
                                 paymentStatus,
                                 null,
-                                JSON.stringify(line.applied_extras || [])
+                                JSON.stringify(line.applied_extras || []),
+                                paymentId
                             ]
                         );
                         if (jobInsert && jobInsert.insertId) line.job_id = jobInsert.insertId;

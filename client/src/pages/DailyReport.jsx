@@ -1338,6 +1338,9 @@ const DailyReport = () => {
                                                     <ChevronRight size={14} className={`entry-table-chevron ${isExpanded ? 'entry-table-chevron--expanded' : ''}`} />
                                                 )}
                                                 <span title={entry.description}>{entry.description}</span>
+                                                {entry.transferred_to && (
+                                                    <span className="badge badge--warning entry-table-badge" style={{ padding: '2px 6px', fontSize: 10, marginLeft: 4 }}>→ Transferred to {entry.transferred_to} Book</span>
+                                                )}
                                                 {hasLines && (
                                                     <span className="badge badge--default entry-table-badge" style={{ padding: '2px 6px', fontSize: 10, marginLeft: 4 }}>{entry.order_lines.length} items</span>
                                                 )}

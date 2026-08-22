@@ -369,6 +369,15 @@ const initDb = async () => {
       appliedMigrations.add(migrateTotalCopiesName);
     }
 
+    // Multi-book support: book_type on sarga_jobs and payment_target_book on sarga_customer_payments
+    const migrateMultiBookName = '042_multibook_support.js';
+    if (!appliedMigrations.has(migrateMultiBookName)) {
+      const migrateMultiBook = require('./migrations/042_multibook_support');
+      await migrateMultiBook(connection);
+      await connection.query('INSERT IGNORE INTO schema_migrations (migration_name) VALUES (?)', [migrateMultiBookName]);
+      appliedMigrations.add(migrateMultiBookName);
+    }
+
     // Create paper_rate_history table and add current_rate_id to paper_types (was never wired into initDb)
     const migratePaperRateHistoryName = '2026_07_15_paper_rate_history.sql';
     if (!appliedMigrations.has(migratePaperRateHistoryName)) {

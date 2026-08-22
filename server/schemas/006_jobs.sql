@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS sarga_jobs (
   applied_extras JSON,
   category VARCHAR(100),
   subcategory VARCHAR(100),
+  book_type ENUM('Offset', 'Laser', 'Other') DEFAULT 'Offset',
   machine_id INT DEFAULT NULL,
   status ENUM('Pending', 'Processing', 'Designing', 'Printing', 'Cutting', 'Lamination', 'Binding', 'Production', 'Approval Pending', 'Completed', 'Delivered', 'Cancelled') DEFAULT 'Pending',
   payment_status ENUM('Unpaid', 'Partial', 'Paid') DEFAULT 'Unpaid',

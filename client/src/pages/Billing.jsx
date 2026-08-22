@@ -188,7 +188,7 @@ const Billing = () => {
   const [_showJobDetails, _setShowJobDetails] = useState(false);
   const [_showMachineDetails, _setShowMachineDetails] = useState(false);
   const [showQuickEntry, setShowQuickEntry] = useState(false);
-  const [quickEntry, setQuickEntry] = useState({ name: '', amount: '' });
+  const [quickEntry, setQuickEntry] = useState({ name: '', amount: '', book_type: 'Laser' });
   const [payment, setPayment] = useState(defaultPayment());
   const [discountPercent, setDiscountPercent] = useState(0);
   const [discountMode, setDiscountMode] = useState('amount');
@@ -255,6 +255,33 @@ const Billing = () => {
     const seen = new Set();
     return missing.filter(l => (seen.has(l.id) ? false : (seen.add(l.id), true)));
   }, [orderLines]);
+
+  // Default target cash book based on highest total_amount sum across order lines
+  const defaultTargetBook = useMemo(() => {
+    const sums = { Offset: 0, Laser: 0, Other: 0 };
+    (Array.isArray(orderLines) ? orderLines : []).forEach(l => {
+      const b = l.book_type || bookTypeFromCategory(l.category_name) || 'Offset';
+      sums[b] = (sums[b] || 0) + (Number(l.total_amount) || 0);
+    });
+    let maxBook = 'Offset';
+    let maxVal = -1;
+    for (const [b, val] of Object.entries(sums)) {
+      if (val > maxVal && val > 0) {
+        maxVal = val;
+        maxBook = b;
+      }
+    }
+    return maxBook;
+  }, [orderLines]);
+
+  const [paymentTargetBook, setPaymentTargetBook] = useState('Offset');
+  const [userSelectedTargetBook, setUserSelectedTargetBook] = useState(false);
+
+  useEffect(() => {
+    if (!userSelectedTargetBook) {
+      setPaymentTargetBook(defaultTargetBook);
+    }
+  }, [defaultTargetBook, userSelectedTargetBook]);
 
   const handleGoToPayment = useCallback(() => {
     const missing = (Array.isArray(orderLines) ? orderLines : [])
@@ -961,6 +988,7 @@ const Billing = () => {
 
   const handleQuickAdd = useCallback(() => {
     if (!quickEntry.name.trim() || !Number(quickEntry.amount)) { toast.error('Enter name and amount'); return; }
+    const assignedBook = quickEntry.book_type || 'Laser';
     setOrderLines(prev => [...prev, {
       id: `quick-${Date.now()}`,
       product_id: null,
@@ -971,11 +999,11 @@ const Billing = () => {
       calculation_type: 'flat',
       applied_extras: [], customPaperRate: 0, is_double_side: false, description: '',
       category: '', subcategory: '', machine_id: null, quick_added: true,
-      waste_prints: 0, proof_prints: 0, book_type: 'Laser',
+      waste_prints: 0, proof_prints: 0, book_type: assignedBook,
       colour: '', numbering_from: '', numbering_to: '', special_instructions: '',
       matter_text: '', matter_file: null, matter_preview: null, is_inventory_item: false,
     }]);
-    setQuickEntry({ name: '', amount: '' });
+    setQuickEntry({ name: '', amount: '', book_type: 'Laser' });
     setShowQuickEntry(false);
   }, [quickEntry]);
 
@@ -1113,11 +1141,8 @@ const Billing = () => {
         reference_number: payment.referenceNumber || '',
         description: payment.description || '',
         payment_date: payment.paymentDate,
-        book_type: jobType || (() => {
-          if (orderLines.some(l => l.book_type === 'Offset')) return 'Offset';
-          if (orderLines.some(l => l.book_type === 'Laser')) return 'Laser';
-          return 'Other';
-        })(),
+        payment_target_book: paymentTargetBook || defaultTargetBook,
+        book_type: paymentTargetBook || defaultTargetBook,
         is_internal: 0,
         order_lines: orderLines.map(l => ({ ...l, matter_file: undefined, matter_preview: undefined, _product: undefined, id: Number(l.product_id) || null })),
         auto_deliver: isWalkIn,
@@ -1842,11 +1867,25 @@ const Billing = () => {
 
         {/* Quick Entry popup */}
         {showQuickEntry && (
-          <div className="billing-quick-entry">
+          <div className="billing-quick-entry" style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', background: 'var(--surface-2, #f1f5f9)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border, #cbd5e1)', marginTop: '8px' }}>
             <label htmlFor="billing-quick-name" className="sr-only">Product name</label>
-            <input id="billing-quick-name" name="billingQuickName" type="text" placeholder="Product name" value={quickEntry.name} onChange={e => setQuickEntry(p => ({ ...p, name: e.target.value }))} className="billing-field__input" autoComplete="off" />
+            <input id="billing-quick-name" name="billingQuickName" type="text" placeholder="Product name" value={quickEntry.name} onChange={e => setQuickEntry(p => ({ ...p, name: e.target.value }))} className="billing-field__input" autoComplete="off" style={{ flex: 1, minWidth: '140px' }} />
             <label htmlFor="billing-quick-amount" className="sr-only">Amount</label>
-            <input id="billing-quick-amount" name="billingQuickAmount" type="number" placeholder="Amount" value={quickEntry.amount} onChange={e => setQuickEntry(p => ({ ...p, amount: e.target.value }))} className="billing-field__input" />
+            <input id="billing-quick-amount" name="billingQuickAmount" type="number" placeholder="Amount" value={quickEntry.amount} onChange={e => setQuickEntry(p => ({ ...p, amount: e.target.value }))} className="billing-field__input" style={{ width: '90px' }} />
+            <label htmlFor="billing-quick-book" className="sr-only">Book Type</label>
+            <select
+              id="billing-quick-book"
+              name="billingQuickBook"
+              value={quickEntry.book_type || 'Laser'}
+              onChange={e => setQuickEntry(p => ({ ...p, book_type: e.target.value }))}
+              className="billing-select"
+              style={{ padding: '6px 10px', fontSize: '13px', borderRadius: '6px', cursor: 'pointer', background: 'var(--bg, #fff)', border: '1px solid var(--border, #cbd5e1)' }}
+              title="Select which Cash Book this item belongs to"
+            >
+              <option value="Laser">Laser Book</option>
+              <option value="Offset">Offset Book</option>
+              <option value="Other">Other Book</option>
+            </select>
             <button className="btn btn-primary btn-sm" onClick={handleQuickAdd}>Add</button>
             <button className="btn btn-ghost btn-sm" onClick={() => setShowQuickEntry(false)}>Cancel</button>
           </div>
@@ -1963,7 +2002,27 @@ const Billing = () => {
                         <div className="billing-product-cell">
                           <div className="billing-product-cell__name">{line.product_name}</div>
                           <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center', marginTop: '4px' }}>
-                            {line.book_type && <span className="badge badge--sm">{line.book_type}</span>}
+                            <select
+                              value={line.book_type || 'Offset'}
+                              onChange={(e) => updateLine(line.id, 'book_type', e.target.value)}
+                              className="billing-input-sm"
+                              style={{
+                                padding: '2px 6px',
+                                fontSize: '11px',
+                                height: '22px',
+                                borderRadius: '4px',
+                                border: '1px solid var(--border, #cbd5e1)',
+                                background: (line.book_type || 'Offset') === 'Laser' ? 'rgba(99, 102, 241, 0.12)' : (line.book_type || 'Offset') === 'Offset' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)',
+                                color: (line.book_type || 'Offset') === 'Laser' ? '#4f46e5' : (line.book_type || 'Offset') === 'Offset' ? '#059669' : '#d97706',
+                                fontWeight: 600,
+                                cursor: 'pointer'
+                              }}
+                              title="Book Type for Daily Cash Report"
+                            >
+                              <option value="Offset">Offset Book</option>
+                              <option value="Laser">Laser Book</option>
+                              <option value="Other">Other Book</option>
+                            </select>
                             {line._product?.has_paper_rate ? (
                               <span className="badge badge--sm" style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.2)' }}>
                                 Paper Rate: ₹{line.customPaperRate}
@@ -2071,9 +2130,9 @@ const Billing = () => {
                       <td className="font-bold" style={{ fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.01em' }}>₹{Number(line.total_amount).toLocaleString()}</td>
                       <td style={{ whiteSpace: 'nowrap' }}>
                         <div className="billing-row-actions">
-                          <button className="btn btn-ghost btn-icon btn-xs" onClick={() => setDetailProduct(line._product || { id: line.product_id, name: line.product_name, mrp: line.unit_price })} title="View details"><Eye size={14} aria-hidden="true" /></button>
-                          <button className="btn btn-ghost btn-icon btn-xs" onClick={() => duplicateLine(line)} title="Duplicate"><Copy size={14} aria-hidden="true" /></button>
+                          <button className="btn btn-ghost btn-icon btn-xs" onClick={() => setDetailProduct(line._product || { id: line.product_id, name: line.product_name, mrp: line.unit_price, title: line.product_name })} title="View details"><Eye size={14} aria-hidden="true" /></button>
                           <button className="btn btn-ghost btn-icon btn-xs text-error" onClick={() => handleRemoveWithUndo(line)} title="Remove"><Trash2 size={14} aria-hidden="true" /></button>
+                          <button className="btn btn-ghost btn-icon btn-xs" onClick={() => duplicateLine(line)} title="Duplicate"><Copy size={14} aria-hidden="true" /></button>
                         </div>
                       </td>
                     </tr>
@@ -2218,6 +2277,30 @@ const Billing = () => {
         <div className="billing-payment-amount">
           <label className="text-xs muted">Amount Received</label>
           <div className="billing-payment-amount__value">₹{advancePaid.toFixed(2)}</div>
+        </div>
+
+        {/* Physical Cash Book selector */}
+        <div className="billing-payment-target-book" style={{ marginBottom: '14px', padding: '10px 14px', background: 'var(--card-bg, #f8fafc)', borderRadius: '8px', border: '1px solid var(--border-color, #e2e8f0)' }}>
+          <label className="text-xs font-semibold text-muted" style={{ display: 'block', marginBottom: '8px' }}>
+            Cash / Payment goes to Cash Book:
+          </label>
+          <div className="billing-chips" style={{ display: 'flex', gap: '8px' }}>
+            {['Offset', 'Laser', 'Other'].map(b => (
+              <button
+                key={b}
+                type="button"
+                className={`chip ${paymentTargetBook === b ? 'active' : ''}`}
+                style={{ padding: '6px 12px', fontSize: '13px' }}
+                onClick={() => {
+                  setPaymentTargetBook(b);
+                  setUserSelectedTargetBook(true);
+                }}
+              >
+                {b} Book
+                {paymentTargetBook === b && <span className="chip__check"><Check size={10} /></span>}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Payment method chips */}
@@ -3025,54 +3108,68 @@ const Billing = () => {
       {/* Product detail modal */}
       {detailProduct && (
         <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={`Product details: ${detailProduct.name || detailProduct.title}`} onClick={() => setDetailProduct(null)}>
-          <div className="modal modal--sm" onClick={e => e.stopPropagation()}>
-            <div className="modal__header">
-              <h3>{detailProduct.name || detailProduct.title}</h3>
-              <button className="modal-close" onClick={() => setDetailProduct(null)} aria-label="Close product details"><X size={18} aria-hidden="true" /></button>
+          <div className="modal modal--sm" onClick={e => e.stopPropagation()} style={{ maxWidth: 440, borderRadius: 16, padding: '20px 24px' }}>
+            <div className="modal__header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>
+              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: 'var(--text-heading, var(--text))' }}>{detailProduct.name || detailProduct.title}</h3>
+              <button className="modal-close" onClick={() => setDetailProduct(null)} aria-label="Close product details" style={{ position: 'static' }}><X size={18} aria-hidden="true" /></button>
             </div>
-            <div className="modal__body stack-sm">
-              {detailProduct.image_url && (
-                <div style={{ textAlign: 'center', marginBottom: 12 }}>
+            <div className="modal__body stack-sm" style={{ padding: '16px 0 12px 0' }}>
+              <div style={{
+                width: '180px',
+                height: '180px',
+                margin: '0 auto 16px auto',
+                borderRadius: '14px',
+                overflow: 'hidden',
+                background: 'var(--surface-2, rgba(255,255,255,0.04))',
+                border: '1px solid var(--border)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                aspectRatio: '1 / 1'
+              }}>
+                {detailProduct.image_url ? (
                   <SecureImage
                     src={detailProduct.image_url}
                     alt={detailProduct.name || detailProduct.title}
-                    style={{ maxWidth: '100%', maxHeight: 180, borderRadius: 8, objectFit: 'contain' }}
+                    style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '6px' }}
                   />
-                </div>
-              )}
-              <div className="billing-detail-row"><span className="text-xs muted">Name</span><span className="font-bold">{detailProduct.name || detailProduct.title}</span></div>
+                ) : (
+                  <Package size={54} style={{ opacity: 0.35, color: 'var(--muted)' }} aria-hidden="true" />
+                )}
+              </div>
+              <div className="billing-detail-row" style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px dashed var(--border)' }}><span className="text-xs muted">Name</span><span className="font-bold">{detailProduct.name || detailProduct.title}</span></div>
               {detailProduct.mrp != null && Number(detailProduct.mrp) > 0 && (
-                <div className="billing-detail-row"><span className="text-xs muted">MRP</span><span>₹{Number(detailProduct.mrp).toLocaleString()}</span></div>
+                <div className="billing-detail-row" style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px dashed var(--border)' }}><span className="text-xs muted">MRP</span><span>₹{Number(detailProduct.mrp).toLocaleString()}</span></div>
               )}
               {detailProduct.sell_price != null && Number(detailProduct.sell_price) > 0 && (
-                <div className="billing-detail-row"><span className="text-xs muted">Sell Price</span><span>₹{Number(detailProduct.sell_price).toLocaleString()}</span></div>
+                <div className="billing-detail-row" style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px dashed var(--border)' }}><span className="text-xs muted">Sell Price</span><span>₹{Number(detailProduct.sell_price).toLocaleString()}</span></div>
               )}
               {detailProduct.calculation_type && (
-                <div className="billing-detail-row"><span className="text-xs muted">Pricing Type</span><span>{detailProduct.calculation_type}</span></div>
+                <div className="billing-detail-row" style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px dashed var(--border)' }}><span className="text-xs muted">Pricing Type</span><span className="badge badge--sm">{detailProduct.calculation_type}</span></div>
               )}
               {detailProduct.sku && (
-                <div className="billing-detail-row"><span className="text-xs muted">SKU</span><span>{detailProduct.sku}</span></div>
+                <div className="billing-detail-row" style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px dashed var(--border)' }}><span className="text-xs muted">SKU</span><span style={{ fontFamily: 'monospace' }}>{detailProduct.sku}</span></div>
               )}
               {detailProduct.description && (
-                <div className="billing-detail-row"><span className="text-xs muted">Description</span><span style={{ fontSize: 12, lineHeight: 1.4 }}>{detailProduct.description}</span></div>
+                <div className="billing-detail-row" style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '6px 0' }}><span className="text-xs muted">Description</span><span style={{ fontSize: 12, lineHeight: 1.4, color: 'var(--text)' }}>{detailProduct.description}</span></div>
               )}
               {detailProduct.slabs && detailProduct.slabs.length > 0 && (
-                <div>
-                  <span className="text-xs muted" style={{ display: 'block', marginBottom: 4 }}>Pricing Slabs</span>
-                  <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse' }}>
+                <div style={{ marginTop: 8 }}>
+                  <span className="text-xs muted" style={{ display: 'block', marginBottom: 6, fontWeight: 600 }}>Pricing Slabs</span>
+                  <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse', borderRadius: 6, overflow: 'hidden' }}>
                     <thead>
-                      <tr style={{ background: 'var(--surface)', textAlign: 'left' }}>
-                        <th style={{ padding: '2px 6px', border: '1px solid var(--border)' }}>Min</th>
-                        <th style={{ padding: '2px 6px', border: '1px solid var(--border)' }}>Max</th>
-                        <th style={{ padding: '2px 6px', border: '1px solid var(--border)' }}>Rate</th>
+                      <tr style={{ background: 'var(--surface-2, rgba(255,255,255,0.05))', textAlign: 'left' }}>
+                        <th style={{ padding: '4px 8px', border: '1px solid var(--border)' }}>Min Qty</th>
+                        <th style={{ padding: '4px 8px', border: '1px solid var(--border)' }}>Max Qty</th>
+                        <th style={{ padding: '4px 8px', border: '1px solid var(--border)' }}>Rate</th>
                       </tr>
                     </thead>
                     <tbody>
                       {detailProduct.slabs.map((s, i) => (
                         <tr key={i}>
-                          <td style={{ padding: '2px 6px', border: '1px solid var(--border)' }}>{s.min_qty}</td>
-                          <td style={{ padding: '2px 6px', border: '1px solid var(--border)' }}>{s.max_qty}</td>
-                          <td style={{ padding: '2px 6px', border: '1px solid var(--border)' }}>₹{Number(s.unit_rate || s.rate || 0).toLocaleString()}</td>
+                          <td style={{ padding: '4px 8px', border: '1px solid var(--border)' }}>{s.min_qty}</td>
+                          <td style={{ padding: '4px 8px', border: '1px solid var(--border)' }}>{s.max_qty}</td>
+                          <td style={{ padding: '4px 8px', border: '1px solid var(--border)' }}>₹{Number(s.unit_rate || s.rate || 0).toLocaleString()}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -3080,9 +3177,10 @@ const Billing = () => {
                 </div>
               )}
             </div>
-            <div className="modal__footer">
-              <button className="btn btn-primary btn-sm" onClick={() => { setDetailProduct(null); handleAddLineItem(detailProduct); }}>Add to Bill</button>
-              <button className="btn btn-ghost btn-sm" onClick={() => setDetailProduct(null)}>Close</button>
+            <div className="modal__footer" style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+              <button className="btn btn-primary btn-sm" onClick={() => { setDetailProduct(null); handleAddLineItem(detailProduct); }}>
+                <Plus size={14} className="mr-8" aria-hidden="true" /> Add to Bill
+              </button>
             </div>
           </div>
         </div>
