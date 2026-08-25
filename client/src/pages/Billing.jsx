@@ -310,6 +310,7 @@ const Billing = () => {
   const [whatsAppMobile, setWhatsAppMobile] = useState('');
   const [showEmailInput, setShowEmailInput] = useState(false);
   const [emailAddress, setEmailAddress] = useState('');
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   useEffect(() => {
     if (showPostBillOptions) {
@@ -1409,34 +1410,44 @@ const Billing = () => {
   }, [lastBillData]);
 
   // ── Email Actions ──
-  const handleSendEmailClick = useCallback(() => {
-    const customerEmail = lastBillData?.customer?.email || '';
-    if (customerEmail) {
-      handleSendEmail(customerEmail);
-    } else {
-      setShowEmailInput(true);
-    }
-  }, [lastBillData]);
-
   const handleSendEmail = useCallback(async (email) => {
     const paymentId = lastBillData?.paymentId;
-    if (!paymentId || !email) {
-      toast.error('Cannot send email: missing invoice ID or email address');
+    const targetEmail = (email || emailAddress || lastBillData?.customer?.email || '').trim();
+    if (!paymentId) {
+      toast.error('Cannot send email: missing invoice ID');
       return;
     }
+    if (!targetEmail) {
+      toast.error('Please enter a recipient email address');
+      setShowEmailInput(true);
+      return;
+    }
+    setSendingEmail(true);
     try {
       await api.post(`/invoices/${paymentId}/send-email`, {
-        email,
-        subject: `Invoice #${lastBillData.invoiceNumber} from Sarga Offset`,
-        message: `Dear ${lastBillData.customer?.name || 'Customer'},\n\nPlease find your invoice #${lastBillData.invoiceNumber} below.\n\nThank you for your business!`
+        email: targetEmail,
+        subject: `Invoice #${lastBillData.invoiceNumber || paymentId} from Sarga Offset`,
+        message: `Dear ${lastBillData.customer?.name || 'Customer'},\n\nPlease find your invoice details below.\n\nThank you for your business!`
       });
-      toast.success('Invoice sent via email successfully!');
+      toast.success(`Invoice sent to ${targetEmail} successfully!`);
       setShowEmailInput(false);
     } catch (err) {
       console.error('Send email error:', err);
-      toast.error(err?.response?.data?.message || 'Failed to send email');
+      toast.error(err?.response?.data?.message || err?.message || 'Failed to send email');
+    } finally {
+      setSendingEmail(false);
     }
-  }, [lastBillData]);
+  }, [lastBillData, emailAddress]);
+
+  const handleSendEmailClick = useCallback(() => {
+    const customerEmail = (lastBillData?.customer?.email || '').trim();
+    if (customerEmail && !showEmailInput) {
+      handleSendEmail(customerEmail);
+    } else {
+      setEmailAddress(customerEmail);
+      setShowEmailInput(prev => !prev);
+    }
+  }, [lastBillData, showEmailInput, handleSendEmail]);
 
   // ── Undo delete (5s) ──
   const handleRemoveWithUndo = useCallback((line) => {
@@ -2842,7 +2853,7 @@ const Billing = () => {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontSize: 13, fontWeight: 600 }}>Enter Email Address</span>
                       {!lastBillData?.customer?.email && (
-                        <span style={{ fontSize: 11, color: 'var(--error)' }}>(No email available for this customer)</span>
+                        <span style={{ fontSize: 11, color: 'var(--muted)' }}>(No email saved for this customer)</span>
                       )}
                     </div>
                     <div style={{ display: 'flex', gap: 8 }}>
@@ -2854,26 +2865,31 @@ const Billing = () => {
                           value={emailAddress}
                           onChange={e => setEmailAddress(e.target.value)}
                           className="billing-field__input"
+                          disabled={sendingEmail}
                         />
                       </div>
                       <button
-                        className={`btn btn-info btn-sm ${!emailAddress.trim() ? 'disabled' : ''}`}
+                        type="button"
+                        className={`btn btn-info btn-sm ${!emailAddress.trim() || sendingEmail ? 'disabled' : ''}`}
+                        disabled={!emailAddress.trim() || sendingEmail}
                         onClick={() => {
-                          if (!emailAddress.trim()) return;
+                          if (!emailAddress.trim() || sendingEmail) return;
                           handleSendEmail(emailAddress.trim());
                         }}
                         style={{
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          pointerEvents: !emailAddress.trim() ? 'none' : 'auto',
-                          opacity: !emailAddress.trim() ? 0.6 : 1
+                          gap: '6px',
+                          minWidth: '95px'
                         }}
                       >
-                        Send
+                        {sendingEmail ? <><Loader2 size={14} className="animate-spin" aria-hidden="true" /> Sending...</> : 'Send'}
                       </button>
                       <button
+                        type="button"
                         className="btn btn-ghost btn-sm"
+                        disabled={sendingEmail}
                         onClick={() => setShowEmailInput(false)}
                       >
                         Cancel
