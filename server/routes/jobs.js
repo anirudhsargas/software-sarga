@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const { pool } = require('../database');
 const { authenticateToken, authorizeRoles, normalizeRole } = require('../middleware/auth');
-const { auditLog, auditFieldChanges, getUsageMap, _sortByPositionThenName, sortByUsageThenPosition, bumpUsageForUser, generateJobNumber, getTodayDate } = require('../helpers');
+const { auditLog, auditFieldChanges, getUsageMap, _sortByPositionThenName, sortByUsageThenPosition, bumpUsageForUser, generateJobNumber, generateJobNumbersBatch, getTodayDate } = require('../helpers');
 const { analyzeDesign } = require('../helpers/designAnalyzer');
 const { validate, addJobSchema } = require('../middleware/validate');
 const { fileToBase64 } = require('../utils/base64');
@@ -628,13 +628,39 @@ router.post('/jobs/bulk', authenticateToken, async (req, res) => {
         await connection.beginTransaction();
         const { branchId } = await branchFilter(req, { allowPrivilegedQuery: false });
         const created = [];
+        const machineSyncTasks = [];
+
+        // 1. Batch generate all job numbers in ONE fast operation
+        const jobNumbers = await generateJobNumbersBatch(connection, branchId, order_lines.length);
+
+        // 2. Batch lock & fetch linked inventory products
+        const productIds = order_lines.map(l => l.product_id).filter(Boolean);
+        const prodInvMap = {};
+        if (productIds.length > 0) {
+            const [prodRows] = await connection.query(
+                `SELECT id, inventory_item_id FROM sarga_products WHERE id IN (${productIds.map(() => '?').join(',')}) FOR UPDATE`,
+                productIds
+            );
+            prodRows.forEach(p => { if (p.inventory_item_id) prodInvMap[p.id] = p.inventory_item_id; });
+        }
+
+        const invIdsToLock = Array.from(new Set(Object.values(prodInvMap)));
+        const invMap = {};
+        if (invIdsToLock.length > 0) {
+            const [invRows] = await connection.query(
+                `SELECT id, quantity, COALESCE(reserved_quantity, 0) AS reserved FROM sarga_inventory WHERE id IN (${invIdsToLock.map(() => '?').join(',')}) FOR UPDATE`,
+                invIdsToLock
+            );
+            invRows.forEach(i => { invMap[i.id] = i; });
+        }
+
+        const isWalkin = !customer_id;
 
         for (let i = 0; i < order_lines.length; i += 1) {
             const line = order_lines[i] || {};
-            const jobNumber = await generateJobNumber(connection, branchId);
+            const jobNumber = jobNumbers[i] || `JOB-${Date.now()}-${i}`;
             const total = Number(line.total_amount) || 0;
 
-            const isWalkin = !customer_id;
             try {
                 const [result] = await connection.query(
                     `INSERT INTO sarga_jobs
@@ -665,45 +691,40 @@ router.post('/jobs/bulk', authenticateToken, async (req, res) => {
                     ]
                 );
 
-                // Sync to machine if machine_id is provided
                 if (line.machine_id) {
-                    await syncJobToMachineWorkEntry({
-                        id: result.insertId,
-                        job_number: jobNumber,
-                        job_name: line.product_name || line.job_name || 'Job',
-                        quantity: line.quantity,
-                        total_amount: total,
-                        advance_paid: 0,
-                        balance_amount: total,
-                        payment_status: 'Unpaid',
-                        customer_name: 'Walk-in',
-                        waste_prints: Number(line.waste_prints) || 0,
-                        proof_prints: Number(line.proof_prints) || 0
-                    }, line.machine_id, req.user.id);
+                    machineSyncTasks.push({
+                        jobData: {
+                            id: result.insertId,
+                            job_number: jobNumber,
+                            job_name: line.product_name || line.job_name || 'Job',
+                            quantity: line.quantity,
+                            total_amount: total,
+                            advance_paid: 0,
+                            balance_amount: total,
+                            payment_status: 'Unpaid',
+                            customer_name: 'Walk-in',
+                            waste_prints: Number(line.waste_prints) || 0,
+                            proof_prints: Number(line.proof_prints) || 0
+                        },
+                        machine_id: line.machine_id,
+                        userId: req.user.id
+                    });
                 }
 
                 created.push({ id: result.insertId, job_number: jobNumber });
-                // Reserve inventory for linked product (prevent double-booking of same stock)
-                if (line.product_id) {
-                    try {
-                        const [[prodRow]] = await connection.query('SELECT inventory_item_id FROM sarga_products WHERE id = ? FOR UPDATE', [line.product_id]);
-                        const invId = prodRow ? prodRow.inventory_item_id : null;
-                        const qty = Number(line.quantity) || 1;
-                        if (invId) {
-                            const [[invRow]] = await connection.query('SELECT quantity, COALESCE(reserved_quantity, 0) AS reserved FROM sarga_inventory WHERE id = ? FOR UPDATE', [invId]);
-                            const available = (invRow ? Number(invRow.quantity || 0) : 0) - Number(invRow?.reserved || 0);
-                            if (available < qty && !force) {
-                                throw new Error(`Insufficient stock to reserve for product ${line.product_name || line.product_id}`);
-                            }
-                            if (available >= qty || force) {
-                                await connection.query('UPDATE sarga_inventory SET reserved_quantity = COALESCE(reserved_quantity,0) + ? WHERE id = ?', [qty, invId]);
-                            }
-                        }
-                    } catch (reserveErr) {
-                        console.error('Reserve failed (bulk jobs):', reserveErr.message || reserveErr);
+
+                // Check & update reserved inventory quantity
+                const invId = line.product_id ? prodInvMap[line.product_id] : null;
+                if (invId && invMap[invId]) {
+                    const invRow = invMap[invId];
+                    const qty = Number(line.quantity) || 1;
+                    const available = Number(invRow.quantity || 0) - Number(invRow.reserved || 0);
+                    if (available < qty && !force) {
                         await connection.rollback();
-                        return res.status(409).json({ message: reserveErr.message || 'Insufficient stock' });
+                        return res.status(409).json({ message: `Insufficient stock to reserve for product ${line.product_name || line.product_id}` });
                     }
+                    await connection.query('UPDATE sarga_inventory SET reserved_quantity = COALESCE(reserved_quantity,0) + ? WHERE id = ?', [qty, invId]);
+                    invRow.reserved += qty; // update in-memory cache for subsequent items in same batch
                 }
             } catch (err) {
                 console.error("BULK INSERT ERROR:", err.message);
@@ -740,6 +761,9 @@ router.post('/jobs/bulk', authenticateToken, async (req, res) => {
         }
 
         await connection.commit();
+        if (machineSyncTasks.length > 0) {
+            Promise.all(machineSyncTasks.map(t => syncJobToMachineWorkEntry(t.jobData, t.machine_id, t.userId))).catch((e) => console.error('[MachineSync] Bulk sync error:', e?.message || e));
+        }
         auditLog(req.user.id, 'JOB_BULK_CREATE', `Created ${created.length} jobs in bulk for customer ${customer_id || 'walk-in'}`, { entity_type: 'job' });
         res.status(201).json({ jobs: created });
         invalidateDashboardCache().catch(() => {});

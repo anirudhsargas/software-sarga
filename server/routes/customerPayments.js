@@ -372,6 +372,7 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
 
             for (let i = 0; i < order_lines.length; i += 1) {
                 const line = order_lines[i] || {};
+                const isNewJobCreated = !line.job_id;
                 const lineTotal = Number(line.total_amount) || 0;
                 let lineAdvance = 0;
 
@@ -449,8 +450,8 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
                         throw err;
                     }
                 }
-                // Reserve inventory for linked product (prevent double-booking)
-                if (line.job_id && line.product_id) {
+                // Reserve inventory for linked product if a new job was created in this request
+                if (isNewJobCreated && line.job_id && line.product_id) {
                     try {
                         const [[prodRow]] = await connection.query('SELECT inventory_item_id FROM sarga_products WHERE id = ? FOR UPDATE', [line.product_id]);
                         const invId = prodRow ? prodRow.inventory_item_id : null;

@@ -338,6 +338,53 @@ const generateJobNumber = async (connection, branchId = null) => {
     return `${branchCode}-${yymmdd}-${paddedSeq}`;
 };
 
+const generateJobNumbersBatch = async (connection, branchId = null, count = 1) => {
+    if (count <= 0) return [];
+    if (count === 1) {
+        const singleNum = await generateJobNumber(connection, branchId);
+        return [singleNum];
+    }
+
+    let branchCode = 'HO';
+    if (branchId) {
+        const [branches] = await connection.query("SELECT short_name FROM sarga_branches WHERE id = ?", [branchId]);
+        if (branches[0] && branches[0].short_name) {
+            branchCode = branches[0].short_name.toUpperCase();
+        }
+    }
+
+    const [[{ today, yymmdd }]] = await connection.query("SELECT CURDATE() as today, DATE_FORMAT(CURDATE(), '%y%m%d') as yymmdd");
+
+    const targetBranchId = branchId || 0;
+    const [rows] = await connection.query(
+        "SELECT last_seq FROM sarga_job_seq WHERE branch_id = ? AND seq_date = ? FOR UPDATE",
+        [targetBranchId, today]
+    );
+
+    let startSeq = 1;
+    if (rows.length > 0) {
+        startSeq = rows[0].last_seq + 1;
+        await connection.query(
+            "UPDATE sarga_job_seq SET last_seq = ? WHERE branch_id = ? AND seq_date = ?",
+            [startSeq + count - 1, targetBranchId, today]
+        );
+    } else {
+        startSeq = 1;
+        await connection.query(
+            "INSERT INTO sarga_job_seq (branch_id, seq_date, last_seq) VALUES (?, ?, ?)",
+            [targetBranchId, today, count]
+        );
+    }
+
+    const jobNumbers = [];
+    for (let i = 0; i < count; i++) {
+        const seq = startSeq + i;
+        const paddedSeq = String(seq).padStart(3, '0');
+        jobNumbers.push(`${branchCode}-${yymmdd}-${paddedSeq}`);
+    }
+    return jobNumbers;
+};
+
 const asyncHandler = (fn) => (req, res, next) => {
     Promise.resolve(fn(req, res, next)).catch(next);
 };
@@ -355,6 +402,7 @@ module.exports = {
     auditFieldChanges,
     getNextInvoiceNumber,
     generateJobNumber,
+    generateJobNumbersBatch,
     getUsageMap,
     sortByPositionThenName,
     sortByUsageThenPosition,
