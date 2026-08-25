@@ -236,9 +236,6 @@ const OfficeTab = ({ onError }) => {
                     <div className="em-form-group"><label>Payment Method</label><select name="payment_method" aria-label="Select option"  className="em-input" value={form.payment_method} onChange={e => updateForm({ payment_method: e.target.value })}>{['Cash', 'UPI', 'Bank Transfer', 'Cheque'].map(m => <option key={m}>{m}</option>)}</select></div>
                     <div className="em-form-group"><label>Reference #</label><input name="reference_number" className="em-input" value={form.reference_number} onChange={e => updateForm({ reference_number: e.target.value })} /></div>
                     <div className="em-form-group"><label>Bill #</label><input name="bill_number" className="em-input" value={form.bill_number} onChange={e => updateForm({ bill_number: e.target.value })} /></div>
-                    <div className="em-form-group"><label>Date</label>
-        <label htmlFor="date-vpeqor" className="sr-only">Select Date</label>
-        <input id="date-vpeqor" name="expense_date" className={`em-input ${formErrors.expense_date ? 'field-error' : ''}`} type="date" value={form.expense_date} onChange={e => updateForm({ expense_date: e.target.value })} />{formErrors.expense_date && <div className="field-error-text">{formErrors.expense_date}</div>}</div>
                     <div className="em-form-group em-form-group--full"><label>Description</label><input name="description" className="em-input" value={form.description} onChange={e => updateForm({ description: e.target.value })} /></div>
                   </div>
                 </div>

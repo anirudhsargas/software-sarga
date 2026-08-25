@@ -37,12 +37,12 @@ const tabs = [
   { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { key: 'finance', label: 'Finance', icon: Landmark },
   { key: 'rent', label: 'Rent', icon: Home },
-  { key: 'transport', label: 'Transport', icon: Truck },
-  { key: 'vendors', label: 'Vendors', icon: Store },
   { key: 'office', label: 'Office', icon: Briefcase },
-  { key: 'misc', label: 'Miscellaneous', icon: HelpCircle },
+  { key: 'staff-expenses', label: 'Staff & Salary', icon: Users },
+  { key: 'vendors', label: 'Vendors', icon: Store },
+  { key: 'transport', label: 'Transport', icon: Truck },
   { key: 'utilities', label: 'Utilities', icon: Zap },
-  { key: 'staff-expenses', label: 'Staff & Salary', icon: Users }
+  { key: 'misc', label: 'Miscellaneous', icon: HelpCircle }
 ];
 
 /* ══════════ Main Component ══════════ */

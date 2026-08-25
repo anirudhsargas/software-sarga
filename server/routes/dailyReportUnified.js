@@ -239,7 +239,7 @@ router.post('/change-requests/:id/review', auth.authenticate, auth.authorizeRole
 });
 
 // ==================== GET PREVIOUS DAY CLOSING BALANCE ====================
-router.get('/previous-closing', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'Front Office'), routeCache(REPORTS_TTL, (req) => `sarga:reports:prev-closing:${req.query.branch_id || req.user.branch_id}:${req.query.date}`), async (req, res) => {
+router.get('/previous-closing', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { date } = req.query;
         const branchId = getBranchId(req.user, req.query.branch_id);
@@ -496,7 +496,7 @@ const processPaymentLinesForBook = (cp, targetBookName, linkedJobs = []) => {
 };
 
 // ==================== OFFSET TAB: LIVE DATA ====================
-router.get('/offset-live', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'Front Office'), routeCache(REPORTS_TTL, (req) => `sarga:reports:offset-live:${req.query.branch_id || req.user.branch_id}:${req.query.date}`), async (req, res) => {
+router.get('/offset-live', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
     try {
         const { date } = req.query;
         const branchId = getBranchId(req.user, req.query.branch_id);
@@ -688,14 +688,15 @@ router.get('/laser-live', auth.authenticate, auth.authorizeRoles('Admin', 'Accou
 
         if (!date) return res.status(400).json({ error: 'Date is required' });
 
-        // 1. Get active Digital machines for this branch.
+        // 1. Get active Digital / Laser machines for this branch.
         let machines = [];
+        const machineTypeClause = `(LOWER(COALESCE(m.machine_type, '')) IN ('digital', 'laser') OR LOWER(COALESCE(m.book_type, '')) = 'laser' OR m.machine_type IS NULL OR m.machine_type = '')`;
         if (!['Admin', 'Accountant'].includes(req.user.role)) {
             const [rows] = await pool.query(
                 `SELECT m.id, m.machine_name, m.machine_type, m.counter_type, m.location, m.branch_id
                  FROM sarga_machines m
                  JOIN sarga_machine_staff_assignments msa ON msa.machine_id = m.id AND msa.staff_id = ?
-                 WHERE m.branch_id = ? AND m.is_active = 1 AND m.machine_type = 'Digital'
+                 WHERE m.branch_id = ? AND m.is_active = 1 AND ${machineTypeClause}
                  ORDER BY m.machine_name ASC`,
                 [req.user.id, branchId]
             );
@@ -706,7 +707,7 @@ router.get('/laser-live', auth.authenticate, auth.authorizeRoles('Admin', 'Accou
             const [rows] = await pool.query(
                 `SELECT m.id, m.machine_name, m.machine_type, m.counter_type, m.location, m.branch_id
                  FROM sarga_machines m
-                 WHERE m.branch_id = ? AND m.is_active = 1 AND m.machine_type = 'Digital'
+                 WHERE m.branch_id = ? AND m.is_active = 1 AND ${machineTypeClause}
                  ORDER BY m.machine_name ASC`,
                 [branchId]
             );
@@ -716,23 +717,42 @@ router.get('/laser-live', auth.authenticate, auth.authorizeRoles('Admin', 'Accou
             console.log(`[DailyReport] laser-live requested by user id=${req.user.id} role=${req.user.role} branch=${branchId} -> machines_count=${machines.length}`);
         } catch (_e) { /* ignored */ }
 
-        // 2. Get machine readings for today
+        // 2. Get machine readings for today & previous closing count
         const machineIds = machines.map(m => m.id);
         let readings = [];
+        let prevReadings = [];
         if (machineIds.length > 0) {
+            const placeholders = machineIds.map(() => '?').join(',');
             const [readingRows] = await pool.query(
                 `SELECT mr.machine_id, mr.opening_count, mr.closing_count, GREATEST(0, COALESCE(mr.closing_count, 0) - mr.opening_count) as total_copies,
                         COALESCE(mr.waste_prints, 0) as waste_prints, COALESCE(mr.proof_prints, 0) as proof_prints
                  FROM sarga_machine_readings mr
-                 WHERE mr.reading_date = ? AND mr.machine_id IN (${machineIds.map(() => '?').join(',')})`,
+                 WHERE mr.reading_date = ? AND mr.machine_id IN (${placeholders})`,
                 [date, ...machineIds]
             );
             readings = readingRows;
+
+            const [prevRows] = await pool.query(
+                `SELECT mr.machine_id, COALESCE(mr.closing_count, mr.opening_count) as prev_closing_count
+                 FROM sarga_machine_readings mr
+                 JOIN (
+                     SELECT machine_id, MAX(reading_date) as max_date
+                     FROM sarga_machine_readings
+                     WHERE reading_date < ? AND machine_id IN (${placeholders})
+                     GROUP BY machine_id
+                 ) latest ON mr.machine_id = latest.machine_id AND mr.reading_date = latest.max_date`,
+                [date, ...machineIds]
+            );
+            prevReadings = prevRows;
         }
 
         // Build machine data with readings
         const machineData = machines.map(m => {
             const reading = readings.find(r => r.machine_id === m.id);
+            const prevReading = prevReadings.find(p => p.machine_id === m.id);
+            const prevClosing = prevReading ? Number(prevReading.prev_closing_count || 0) : 0;
+            const openingCount = reading ? Number(reading.opening_count) : prevClosing;
+
             return {
                 id: m.id,
                 machine_name: m.machine_name,
@@ -740,7 +760,8 @@ router.get('/laser-live', auth.authenticate, auth.authorizeRoles('Admin', 'Accou
                 counter_type: m.counter_type,
                 location: m.location,
                 branch_id: m.branch_id,
-                opening_count: reading ? Number(reading.opening_count) : 0,
+                opening_count: openingCount,
+                prev_closing_count: prevClosing,
                 closing_count: reading ? (reading.closing_count !== null ? Number(reading.closing_count) : null) : null,
                 today_copies: reading ? Number(reading.total_copies || 0) : 0,
                 waste_prints: reading ? Number(reading.waste_prints || 0) : 0,

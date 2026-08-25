@@ -932,15 +932,14 @@ const DailyReport = () => {
     // ═══════════════════ SUB-COMPONENTS ═══════════════════
 
     const UnifiedCashbookHeader = ({ bookType, summary = {}, liveCounts = null }) => {
-        const opening = Number(summary.cash_opening) || 0;
+        const currentValue = openingBalances[bookType] !== undefined && openingBalances[bookType] !== null ? Number(openingBalances[bookType]) : 0;
+        const opening = currentValue > 0 ? currentValue : (Number(summary.cash_opening) || 0);
         const totalCashIn = Number(summary.total_cash_in) || 0;
         const totalUpiIn = Number(summary.total_upi_in) || 0;
         const totalIn = totalCashIn + totalUpiIn;
         const totalOut = Number(summary.total_cash_out) || 0;
         const closing = opening + totalIn - totalOut;
         const netChange = totalIn - totalOut;
-
-        const currentValue = openingBalances[bookType] || 0;
         const isLocked = lockedBalances[bookType] && !isAdmin;
         const [localAmount, setLocalAmount] = useState('');
         const [saving, setSaving] = useState(false);
@@ -1578,14 +1577,14 @@ const DailyReport = () => {
                                         <div className="dr-machine-stat">
                                             <div className="dr-machine-stat__label">Opening</div>
                                             <div className="dr-machine-stat__value">
-                                                {m.has_reading ? formatNum(m.opening_count) : '—'}
+                                                {m.has_reading || m.opening_count > 0 ? formatNum(m.opening_count) : (m.prev_closing_count > 0 ? formatNum(m.prev_closing_count) : '—')}
                                             </div>
                                         </div>
                                         <ChevronRight size={14} className="machine-view-chevron" />
                                         <div className="dr-machine-stat">
                                             <div className="dr-machine-stat__label">Current</div>
                                             <div className="dr-machine-stat__value machine-stat-value--primary">
-                                                {m.closing_count !== null ? formatNum(m.closing_count) : '—'}
+                                                {m.closing_count !== null ? formatNum(m.closing_count) : ((m.opening_count || 0) + (m.today_copies || 0) > 0 ? formatNum((m.opening_count || 0) + (m.today_copies || 0)) : '—')}
                                             </div>
                                         </div>
                                         <div className="dr-machine-stat machine-stat--today">

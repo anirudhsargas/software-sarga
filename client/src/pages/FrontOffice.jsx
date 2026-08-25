@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   ShoppingBag, Clock, CheckCircle2, IndianRupee, TrendingUp, Truck,
   Search, Plus, UserPlus, Phone, AlertTriangle,
-  Receipt, RefreshCw, ChevronRight, ChevronLeft, Loader2,
+  Receipt, RefreshCw, ChevronRight, ChevronLeft, Loader2, Sunrise,
   Wallet, Package, Eye, CreditCard, X, ChevronDown, ChevronUp, List, LayoutGrid,
   BarChart3, Timer
 } from 'lucide-react';
@@ -181,9 +181,75 @@ const FrontOffice = () => {
     return () => clearInterval(id);
   }, [fetchAttendanceReminder, user?.role]);
 
+  const triggerOpeningSetup = useCallback(async () => {
+    try {
+      const today = serverToday();
+      let assignedBooks = [];
+      try {
+        const booksRes = await api.get('/machines/my-books');
+        assignedBooks = booksRes.data || [];
+      } catch {
+        assignedBooks = ['Offset', 'Laser', 'Other'];
+      }
+      if (assignedBooks.length === 0) {
+        assignedBooks = ['Offset', 'Laser', 'Other'];
+      }
+
+      const balRes = await api.get('/daily-report/opening-balance', { params: { date: today } });
+      const currentBalances = balRes.data.balances || balRes.data || {};
+
+      let myMachines = [];
+      try {
+        const laserRes = await api.get('/daily-report/laser-live', { params: { date: today } });
+        myMachines = laserRes.data.machines || [];
+      } catch {}
+
+      let prevData = { Offset: 0, Laser: 0, Other: 0, machines: {} };
+      try {
+        const prevRes = await api.get('/daily-report/previous-closing', { params: { date: today } });
+        prevData = prevRes.data;
+      } catch {}
+
+      setPrevClosing({ Offset: prevData.Offset || 0, Laser: prevData.Laser || 0, Other: prevData.Other || 0 });
+
+      const machines = myMachines.map(m => {
+        let count = '';
+        if (m.has_reading) {
+          count = String(m.opening_count);
+        } else if (m.opening_count > 0) {
+          count = String(m.opening_count);
+        } else if (prevData.machines?.[m.id] !== undefined) {
+          count = String(prevData.machines[m.id]);
+        }
+        return {
+          id: m.id,
+          machine_name: m.machine_name,
+          location: m.location,
+          opening_count: count,
+          error: null
+        };
+      });
+      setPromptMachines(machines);
+
+      const newBalances = {};
+      assignedBooks.forEach(b => {
+        if (Number(currentBalances[b]) > 0) {
+          newBalances[b] = String(currentBalances[b]);
+        } else {
+          newBalances[b] = prevData[b] > 0 ? String(prevData[b]) : '';
+        }
+      });
+      setPromptBalances(newBalances);
+      setShowOpeningPrompt(true);
+    } catch (err) {
+      console.error('Error triggering opening setup in FrontOffice:', err);
+      toast.error('Failed to load opening setup data');
+    }
+  }, []);
+
   useEffect(() => {
     const user = auth.getUser();
-    if (user?.role !== 'Front Office') return;
+    if (!['Front Office', 'front office', 'Admin', 'Accountant'].includes(user?.role)) return;
     const today = serverToday();
     (async () => {
       try {
@@ -222,7 +288,7 @@ const FrontOffice = () => {
           setPrevClosing({ Offset: prevData.Offset || 0, Laser: prevData.Laser || 0, Other: prevData.Other || 0 });
           setPromptMachines(unenteredMachines.map(m => ({
             id: m.id, machine_name: m.machine_name, location: m.location,
-            opening_count: prevData.machines?.[m.id] !== undefined ? String(prevData.machines[m.id]) : '',
+            opening_count: m.opening_count > 0 ? String(m.opening_count) : (prevData.machines?.[m.id] !== undefined ? String(prevData.machines[m.id]) : ''),
             error: null
           })));
           const newBalances = {};
@@ -624,6 +690,10 @@ const FrontOffice = () => {
             <span className="fo-date">{serverNow().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
           </div>
           <div className="fo-header__actions">
+            <button className="btn btn-outline btn-sm fo-opening-setup-btn" onClick={triggerOpeningSetup} title="Open / Edit Opening Count & Balances" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 13, fontWeight: 600, borderRadius: 'var(--radius-md)', cursor: 'pointer' }}>
+              <Sunrise size={15} aria-hidden="true" />
+              <span>Opening Setup</span>
+            </button>
             <button className="fo-header-btn" aria-label="Refresh dashboard" onClick={() => loadDashboard()}>
               <RefreshCw size={14} aria-hidden="true" />
             </button>

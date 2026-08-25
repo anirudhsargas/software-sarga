@@ -330,10 +330,6 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
                           <input name="amount" className="em-input" type="number" step="0.01" min="1" value={payForm.amount} onChange={e => { setPayForm(p => ({ ...p, amount: e.target.value })); setPayDirty(true); }} required />
                         </div>
                         <div className="em-form-group">
-                          <label>Payment Date</label>
-                          <input name="payment_date" className="em-input" type="date" value={payForm.payment_date} onChange={e => { setPayForm(p => ({ ...p, payment_date: e.target.value })); setPayDirty(true); }} required />
-                        </div>
-                        <div className="em-form-group">
                           <label>Method</label>
                           <select name="payment_method" className="em-input" value={payForm.payment_method} onChange={e => { setPayForm(p => ({ ...p, payment_method: e.target.value })); setPayDirty(true); }}>
                             <option>Cash</option>
@@ -476,9 +472,6 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
               <div className="em-modal__body">
                 <div className="em-form-grid">
 <div className="em-form-group"><label>For Month</label><input name="month" className="em-input" type="month" value={month} onChange={e => { setMonth(e.target.value); setBulkDirty(true); }} required /></div>
-                  <div className="em-form-group"><label>Payment Date</label>
-        <label htmlFor="date-tugw48" className="sr-only">Select Date</label>
-        <input id="date-tugw48" name="payment_date" className="em-input" type="date" value={bulkForm.payment_date} onChange={e => { setBulkForm(p => ({ ...p, payment_date: e.target.value })); setBulkDirty(true); }} required /></div>
                   <div className="em-form-group"><label>Method</label><select name="payment_method" aria-label="Select option"  className="em-input" value={bulkForm.payment_method} onChange={e => { setBulkForm(p => ({ ...p, payment_method: e.target.value })); setBulkDirty(true); }}><option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>Cheque</option></select></div>
                   <div className="em-form-group"><label>Reference #</label><input name="reference_number" className="em-input" value={bulkForm.reference_number} onChange={e => { setBulkForm(p => ({ ...p, reference_number: e.target.value })); setBulkDirty(true); }} /></div>
                   <div className="em-form-group"><label>Bonus (applies each)</label><input name="bonus" className="em-input" type="number" min="0" value={bulkForm.bonus} onChange={e => { setBulkForm(p => ({ ...p, bonus: e.target.value })); setBulkDirty(true); }} /></div>
@@ -512,10 +505,6 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
                   <div className="em-form-group">
                     <label>Amount (₹) *</label>
                     <input name="amount" className="em-input" type="number" step="0.01" min="1" value={payForm.amount} onChange={e => { setPayForm(p => ({ ...p, amount: e.target.value })); setPayDirty(true); }} required />
-                  </div>
-                  <div className="em-form-group">
-                    <label>Payment Date</label>
-                    <input name="payment_date" className="em-input" type="date" value={payForm.payment_date} onChange={e => { setPayForm(p => ({ ...p, payment_date: e.target.value })); setPayDirty(true); }} required />
                   </div>
                   <div className="em-form-group">
                     <label>Method</label>
