@@ -541,6 +541,17 @@ const DailyReport = () => {
             if (tab === 'Offset') setOffsetData(mergedData);
             else if (tab === 'Laser') setLaserData(mergedData);
             else setOtherData(mergedData);
+            // Keep openingBalances in sync with server-returned cash_opening
+            if (res.data.summary?.cash_opening !== undefined) {
+                setOpeningBalances(prev => {
+                    const serverOpening = Number(res.data.summary.cash_opening) || 0;
+                    // Only update if we don't already have a user-set value
+                    if (prev[tab] === 0 && serverOpening > 0) {
+                        return { ...prev, [tab]: serverOpening };
+                    }
+                    return prev;
+                });
+            }
         } catch (err) {
             console.error(`Error fetching ${tab} data:`, err);
             setTabErrors(prev => ({ ...prev, [tab]: err.message || 'Failed to load' }));
@@ -650,6 +661,8 @@ const DailyReport = () => {
         setCreditTransactions([]);
         setLaserCredits([]);
         setOtherCredits([]);
+        setOpeningBalances({ Offset: 0, Laser: 0, Other: 0 });
+        setLockedBalances({ Offset: false, Laser: false, Other: false });
     }, [selectedBranch]);
 
     useEffect(() => {
@@ -663,12 +676,13 @@ const DailyReport = () => {
     const pollingEnabled = !(canViewAllBranches && !selectedBranch);
     usePolling(useCallback(() => {
         fetchLiveCounts();
+        fetchOpeningBalances();
         loadTabData('Offset');
         loadTabData('Laser');
         loadTabData('Other');
         fetchCreditTransactions();
         fetchAttendanceData();
-    }, [fetchLiveCounts, loadTabData, fetchAttendanceData, fetchCreditTransactions]), AUTO_REFRESH_INTERVAL, pollingEnabled);
+    }, [fetchLiveCounts, fetchOpeningBalances, loadTabData, fetchAttendanceData, fetchCreditTransactions]), AUTO_REFRESH_INTERVAL, pollingEnabled);
 
     const _manualRefresh = () => { loadAllData(); };
 

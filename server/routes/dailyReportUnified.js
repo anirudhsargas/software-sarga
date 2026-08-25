@@ -1365,11 +1365,12 @@ router.get('/live-counts', auth.authenticate, auth.authorizeRoles('Admin', 'Acco
 
         if (!date) return res.status(400).json({ error: 'Date is required' });
 
-        // Offset count
+        // Offset count — use payment_target_book to avoid counting Laser/Other bills as Offset
         const [[offsetCount]] = await pool.query(
             `SELECT COUNT(*) as count FROM sarga_customer_payments
              WHERE DATE(payment_date) = ? AND branch_id = ?
-               AND COALESCE(book_type, 'Offset') = 'Offset'`,
+               AND COALESCE(payment_target_book, book_type, 'Offset') = 'Offset'
+               AND COALESCE(payment_target_book, book_type) NOT IN ('Laser', 'Other')`,
             [date, branchId]
         );
 
@@ -1380,7 +1381,8 @@ router.get('/live-counts', auth.authenticate, auth.authorizeRoles('Admin', 'Acco
                     COALESCE(SUM(advance_paid), 0) as total_collected
              FROM sarga_customer_payments
              WHERE DATE(payment_date) = ? AND branch_id = ?
-               AND COALESCE(book_type, 'Offset') = 'Offset'`,
+               AND COALESCE(payment_target_book, book_type, 'Offset') = 'Offset'
+               AND COALESCE(payment_target_book, book_type) NOT IN ('Laser', 'Other')`,
             [date, branchId]
         );
 
@@ -1394,9 +1396,10 @@ router.get('/live-counts', auth.authenticate, auth.authorizeRoles('Admin', 'Acco
         );
 
         // Machine counts
+        const laserMachineFilter = `(LOWER(COALESCE(m.machine_type, '')) IN ('digital', 'laser') OR LOWER(COALESCE(m.book_type, '')) = 'laser' OR m.machine_type IS NULL OR m.machine_type = '')`;
         const [[machineCount]] = await pool.query(
-            `SELECT COUNT(*) as count FROM sarga_machines
-             WHERE branch_id = ? AND is_active = 1 AND machine_type = 'Digital'`,
+            `SELECT COUNT(*) as count FROM sarga_machines m
+             WHERE m.branch_id = ? AND m.is_active = 1 AND ${laserMachineFilter}`,
             [branchId]
         );
 
@@ -1405,7 +1408,7 @@ router.get('/live-counts', auth.authenticate, auth.authorizeRoles('Admin', 'Acco
             `SELECT COALESCE(SUM(GREATEST(0, COALESCE(mr.closing_count, 0) - mr.opening_count)), 0) as total
              FROM sarga_machine_readings mr
              JOIN sarga_machines m ON mr.machine_id = m.id
-             WHERE mr.reading_date = ? AND m.branch_id = ? AND m.machine_type = 'Digital'`,
+             WHERE mr.reading_date = ? AND m.branch_id = ? AND ${laserMachineFilter}`,
             [date, branchId]
         );
 
