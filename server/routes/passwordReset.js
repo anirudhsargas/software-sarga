@@ -16,14 +16,10 @@ const resetLimiter = rateLimit({
 });
 
 
+const { createMailTransporter, sendEmail } = require('../utils/mailer');
+
 function getTransporter() {
-    return nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-            user: process.env.EMAIL_FROM || '',
-            pass: process.env.EMAIL_PASS || ''
-        }
-    });
+    return createMailTransporter();
 }
 
 // ── Request password reset ───────────────────────────────────

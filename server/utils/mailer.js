@@ -31,12 +31,12 @@ function createMailTransporter(options = {}) {
     const smtpHost = options.host || process.env.SMTP_HOST;
     const smtpPort = options.port || process.env.SMTP_PORT;
     const smtpSecure = options.secure !== undefined ? options.secure : (process.env.SMTP_SECURE === 'true');
-    const smtpUser = options.user || process.env.SMTP_USER || process.env.EMAIL_FROM || 'sargadailyreport@gmail.com';
-    const rawPass = options.pass || process.env.SMTP_PASS || process.env.EMAIL_PASS || '';
+    const smtpUser = options.user || process.env.SMTP_USER || process.env.GMAIL_USER || process.env.EMAIL_USER || process.env.EMAIL_FROM || 'sargadailyreport@gmail.com';
+    const rawPass = options.pass || process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD || process.env.GMAIL_PASS || process.env.EMAIL_PASS || process.env.EMAIL_PASSWORD || '';
     const smtpPass = rawPass ? String(rawPass).replace(/\s+/g, '') : '';
 
     if (!smtpPass) {
-        throw new Error('EMAIL_PASS or SMTP_PASS environment variable is missing. Please set EMAIL_PASS in your server configuration.');
+        throw new Error('EMAIL_PASS or GMAIL_APP_PASSWORD environment variable is missing. Please set GMAIL_APP_PASSWORD or EMAIL_PASS in your server configuration.');
     }
 
     if (smtpHost) {
@@ -70,7 +70,7 @@ async function sendEmail({ to, subject, html, text, from, replyTo, attachments }
         throw new Error('Recipient email address (to) is required.');
     }
 
-    const emailFrom = process.env.EMAIL_FROM || 'sargadailyreport@gmail.com';
+    const emailFrom = process.env.EMAIL_FROM || process.env.GMAIL_USER || process.env.EMAIL_USER || 'sargadailyreport@gmail.com';
     const defaultSenderName = process.env.COMPANY_NAME || 'Sarga Offset';
     
     // Ensure from address matches authenticated user domain to prevent spoofing flags
