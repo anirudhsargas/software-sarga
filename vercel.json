@@ -1,4 +1,7 @@
 {
+  "buildCommand": "npm run build",
+  "outputDirectory": "client/dist",
+  "framework": "vite",
   "rewrites": [
     {
       "source": "/((?!api|assets|images|fonts|robots\\.txt|sitemap\\.xml|favicon\\.ico|og-image\\.png).*)",
