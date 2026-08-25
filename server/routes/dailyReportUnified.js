@@ -1369,8 +1369,7 @@ router.get('/live-counts', auth.authenticate, auth.authorizeRoles('Admin', 'Acco
         const [[offsetCount]] = await pool.query(
             `SELECT COUNT(*) as count FROM sarga_customer_payments
              WHERE DATE(payment_date) = ? AND branch_id = ?
-               AND COALESCE(payment_target_book, book_type, 'Offset') = 'Offset'
-               AND COALESCE(payment_target_book, book_type) NOT IN ('Laser', 'Other')`,
+               AND COALESCE(payment_target_book, book_type, 'Offset') = 'Offset'`,
             [date, branchId]
         );
 
@@ -1381,8 +1380,7 @@ router.get('/live-counts', auth.authenticate, auth.authorizeRoles('Admin', 'Acco
                     COALESCE(SUM(advance_paid), 0) as total_collected
              FROM sarga_customer_payments
              WHERE DATE(payment_date) = ? AND branch_id = ?
-               AND COALESCE(payment_target_book, book_type, 'Offset') = 'Offset'
-               AND COALESCE(payment_target_book, book_type) NOT IN ('Laser', 'Other')`,
+               AND COALESCE(payment_target_book, book_type, 'Offset') = 'Offset'`,
             [date, branchId]
         );
 
