@@ -320,23 +320,23 @@ const syncJobToMachineWorkEntry = async (jobData, machineId, userId) => {
         // 3. Update daily report totals
         await pool.query(
             `UPDATE sarga_daily_report_machine SET
-                total_copies = (SELECT COALESCE(SUM(copies), 0) FROM sarga_machine_work_entries WHERE report_id = ?),
                 total_amount = (SELECT COALESCE(SUM(total_amount), 0) FROM sarga_machine_work_entries WHERE report_id = ?),
                 total_cash = (SELECT COALESCE(SUM(cash_amount), 0) FROM sarga_machine_work_entries WHERE report_id = ?),
                 total_upi = (SELECT COALESCE(SUM(upi_amount), 0) FROM sarga_machine_work_entries WHERE report_id = ?),
                 total_credit = (SELECT COALESCE(SUM(credit_amount), 0) FROM sarga_machine_work_entries WHERE report_id = ?)
              WHERE id = ?`,
-            [reportId, reportId, reportId, reportId, reportId, reportId]
+            [reportId, reportId, reportId, reportId, reportId]
         );
 
         // 4. Update machine readings table as well (used for the machine status cards)
-        // Combine the two SELECTs into one parallel fetch
-        const [[reportInfo], [existingReading]] = await Promise.all([
-            pool.query('SELECT total_copies, opening_count FROM sarga_daily_report_machine WHERE id = ?', [reportId]),
+        // Combine the SELECTs into one parallel fetch
+        const [[copiesSum], [reportInfo], [existingReading]] = await Promise.all([
+            pool.query('SELECT COALESCE(SUM(copies), 0) as total_copies FROM sarga_machine_work_entries WHERE report_id = ?', [reportId]),
+            pool.query('SELECT opening_count FROM sarga_daily_report_machine WHERE id = ?', [reportId]),
             pool.query('SELECT notes, closing_count FROM sarga_machine_readings WHERE machine_id = ? AND reading_date = ?', [machineId, reportDate])
         ]);
         if (reportInfo.length > 0) {
-            const totalCopies = parseInt(reportInfo[0].total_copies) || 0;
+            const totalCopies = parseInt(copiesSum[0]?.total_copies) || 0;
             const opening = reportInfo[0].opening_count || 0;
 
             const isManualEntry = existingReading.length > 0 &&
