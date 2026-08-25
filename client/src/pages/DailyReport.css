@@ -100,6 +100,20 @@
   border-top: 1px solid rgba(255, 255, 255, 0.12);
   position: relative;
   z-index: 1;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.balance-card-opening-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.balance-card-opening-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 .balance-card-opening-label {
   font-size: 12px;
@@ -107,6 +121,40 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-wrap: wrap;
+}
+.balance-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1.3;
+}
+.balance-badge--locked {
+  background: rgba(245, 158, 11, 0.22);
+  color: #fef08a;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+.balance-badge--set {
+  background: rgba(16, 185, 129, 0.2);
+  color: #a7f3d0;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+.balance-card-btn-req {
+  background: rgba(245, 158, 11, 0.25) !important;
+  color: #fef08a !important;
+  border: 1px solid rgba(245, 158, 11, 0.4) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+.balance-card-btn-req:hover {
+  background: rgba(245, 158, 11, 0.4) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.35);
 }
 .balance-card-opening-value {
   font-size: 14px;
@@ -1508,10 +1556,10 @@ textarea.input-field {
   background: var(--surface-2);
 }
 
-.btn-danger {
+.btn-ghost.btn-danger {
   color: var(--error);
 }
-.btn-danger:hover:not(:disabled) {
+.btn-ghost.btn-danger:hover:not(:disabled) {
   background: color-mix(in srgb, var(--error), transparent 92%);
 }
 

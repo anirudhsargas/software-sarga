@@ -57,7 +57,7 @@ export const imgUrl = (path) => {
     // If path is already a full URL (starts with http:// or https://), return it with token appended
     if (path.startsWith('http://') || path.startsWith('https://')) {
         const url = new URL(path);
-        const token = localStorage.getItem('token');
+        const token = auth.getToken();
         if (token) {
             url.searchParams.set('token', token);
         }
@@ -69,7 +69,7 @@ export const imgUrl = (path) => {
     
     // Otherwise, prepend FILE_BASE
     const url = `${FILE_BASE}${path}`;
-    const token = localStorage.getItem('token');
+    const token = auth.getToken();
     const params = new URLSearchParams();
     if (token) params.set('token', token);
     if (FILE_BASE.includes('ngrok')) params.set('ngrok-skip-browser-warning', 'true');
@@ -178,7 +178,7 @@ api.interceptors.request.use((config) => {
         config.url = normalizeRequestUrl(config.url);
     }
 
-    const token = localStorage.getItem('token');
+    const token = auth.getToken();
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;
     }
@@ -226,6 +226,8 @@ api.interceptors.response.use(
         if (error.response?.status === 401) {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
+            sessionStorage.removeItem('token');
+            sessionStorage.removeItem('user');
             // Avoid redirect loop if already on login or session-expired page
             if (window.location.pathname !== '/login' && window.location.pathname !== '/session-expired') {
                 window.location.href = '/session-expired';
@@ -264,7 +266,7 @@ api.interceptors.response.use(
 
 // Legacy helper — kept for backward compatibility but no longer needed with interceptor
 export const getAuthHeader = () => {
-    const token = localStorage.getItem('token');
+    const token = auth.getToken();
     return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
@@ -312,7 +314,7 @@ export const preloadStaticDataWithRetry = async (retries = 2) => {
 // When running locally without an auth token, point read-only requests to dev routes
 export const devFallback = (path) => {
     const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const token = localStorage.getItem('token');
+    const token = auth.getToken();
     if (isLocal && !token) {
         const clean = path && String(path).replace(/^\/+/, '');
         return clean.startsWith('dev/') ? `/${clean}` : `/dev/${clean}`;

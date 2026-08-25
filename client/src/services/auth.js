@@ -18,11 +18,20 @@ const _getApiBase = () => {
 const _authHttp = axios.create({ withCredentials: true });
 
 const auth = {
-    login: async (userId, password) => {
+    login: async (userId, password, rememberMe = true) => {
         const response = await _authHttp.post(`${_getApiBase()}auth/login`, { user_id: userId, password });
         if (response.data.token) {
-            localStorage.setItem('token', response.data.token);
-            localStorage.setItem('user', JSON.stringify(response.data.user));
+            if (rememberMe) {
+                localStorage.setItem('token', response.data.token);
+                localStorage.setItem('user', JSON.stringify(response.data.user));
+                sessionStorage.removeItem('token');
+                sessionStorage.removeItem('user');
+            } else {
+                sessionStorage.setItem('token', response.data.token);
+                sessionStorage.setItem('user', JSON.stringify(response.data.user));
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+            }
         }
         return response.data;
     },
@@ -41,19 +50,25 @@ const auth = {
         window.location.href = '/login';
     },
 
-    getToken: () => localStorage.getItem('token'),
+    getToken: () => localStorage.getItem('token') || sessionStorage.getItem('token'),
 
     getUser: () => {
-        const user = localStorage.getItem('user');
+        const user = localStorage.getItem('user') || sessionStorage.getItem('user');
         return user ? JSON.parse(user) : null;
     },
 
     setUser: (user) => {
-        localStorage.setItem('user', JSON.stringify(user));
+        if (localStorage.getItem('token')) {
+            localStorage.setItem('user', JSON.stringify(user));
+        } else if (sessionStorage.getItem('token')) {
+            sessionStorage.setItem('user', JSON.stringify(user));
+        } else {
+            localStorage.setItem('user', JSON.stringify(user));
+        }
     },
 
     isAuthenticated: () => {
-        const token = localStorage.getItem('token');
+        const token = auth.getToken();
         if (!token) return false;
         try {
             const decoded = jwtDecode(token);
@@ -92,7 +107,7 @@ const auth = {
     },
 
     getAuthHeader: () => {
-        const token = localStorage.getItem('token');
+        const token = auth.getToken();
         return token ? { Authorization: `Bearer ${token}` } : {};
     }
 };

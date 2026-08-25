@@ -248,6 +248,8 @@
   letter-spacing: 0.7px;
   border-radius: var(--radius-sm);
   transition: all var(--transition-fast);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .sidebar-group-toggle:hover {
@@ -1046,20 +1048,29 @@
   }
 
   .sidebar-overlay {
-    touch-action: pan-y;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
   }
 
   .sidebar {
     touch-action: pan-y;
+    -webkit-tap-highlight-color: transparent;
   }
 
   .sidebar-nav {
     padding: var(--space-12);
   }
 
+  .sidebar-group-toggle {
+    padding: var(--space-10) var(--space-12);
+    min-height: 44px;
+  }
+
   .nav-item {
     padding: var(--space-14) var(--space-16);
     font-size: var(--text-base);
+    min-height: 48px;
+    touch-action: manipulation;
   }
 
   .sidebar-footer {

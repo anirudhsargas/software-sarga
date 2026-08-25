@@ -738,7 +738,7 @@ const DailyReport = () => {
 
                 <div className="credit-summary-bar">
                     <span className="credit-summary-label">Outstanding Balance Tally</span>
-                    <span className="credit-summary-value">₹ {formatCurrency(total)}</span>
+                    <span className="credit-summary-value">{formatCurrency(total)}</span>
                 </div>
 
                 {all.length === 0 ? (
@@ -770,7 +770,7 @@ const DailyReport = () => {
                                             <div>{c.customer}</div>
                                         </td>
                                         <td>{c.details || c.reference || '—'}</td>
-                                        <td>₹ {formatCurrency(c.amount)}</td>
+                                        <td>{formatCurrency(c.amount)}</td>
                                         <td>
                                             {c.isManual && (
                                                 <button className="btn btn-ghost btn-danger btn-sm" onClick={() => handleDeleteCredit(c.id)} title="Delete manual entry">
@@ -977,39 +977,48 @@ const DailyReport = () => {
                     </div>
                     
                     <div className="balance-card-value">
-                        ₹ {formatCurrency(closing)}
+                        {formatCurrency(closing)}
                     </div>
 
                     {!showEdit ? (
                         <div className="balance-card-opening">
-                            <div className="balance-card-opening-label">
-                                <Sunrise size={13} />
-                                <span>Opening: ₹ {formatCurrency(currentValue)}</span>
-                                {isLocked ? (
-                                    <span className="badge" style={{ padding: '2px 6px', fontSize: 9, background: 'rgba(245, 158, 11, 0.2)', color: 'var(--warning)', border: '1px solid rgba(245, 158, 11, 0.3)' }} title="Locked">
-                                        <Lock size={8} /> Locked
-                                    </span>
-                                ) : currentValue > 0 ? (
-                                    <span className="badge" style={{ padding: '2px 6px', fontSize: 9, background: 'rgba(16, 185, 129, 0.2)', color: 'var(--success)', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
-                                        Set
-                                    </span>
-                                ) : null}
+                            <div className="balance-card-opening-left">
+                                <div className="balance-card-opening-label">
+                                    <Sunrise size={13} />
+                                    <span>Opening: {formatCurrency(currentValue)}</span>
+                                    {isLocked ? (
+                                        <span className="balance-badge balance-badge--locked" title="Opening balance is locked by Admin">
+                                            <Lock size={9} /> Locked
+                                        </span>
+                                    ) : currentValue > 0 ? (
+                                        <span className="balance-badge balance-badge--set">
+                                            Set
+                                        </span>
+                                    ) : null}
+                                    {canEditBalance && !isLocked && (
+                                        <button className="balance-card-btn-inline" onClick={handleEditClick}>
+                                            <Edit3 size={10} /> Edit
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                             
-                            <div className="balance-card-opening-value">
-                                {canEditBalance && !isLocked && (
-                                    <button className="balance-card-btn-inline" onClick={handleEditClick}>
-                                        <Edit3 size={10} /> Edit
-                                    </button>
-                                )}
+                            <div className="balance-card-opening-right">
                                 {isLocked && isFrontOffice && (
-                                    <button className="balance-card-btn-inline" style={{ color: 'var(--warning)', borderColor: 'rgba(245, 158, 11, 0.3)' }}
-                                        onClick={() => { setShowChangeRequest({ type: 'balance', bookType, currentValue }); setChangeRequestValue(String(currentValue)); setChangeRequestNote(''); }}>
+                                    <button
+                                        className="balance-card-btn-inline balance-card-btn-req"
+                                        onClick={() => {
+                                            setShowChangeRequest({ type: 'balance', bookType, currentValue });
+                                            setChangeRequestValue(String(currentValue));
+                                            setChangeRequestNote('');
+                                        }}
+                                        title="Request Opening Balance Change from Admin"
+                                    >
                                         <Send size={10} /> Req Change
                                     </button>
                                 )}
                                 <span className={`net-change-pill ${netChange >= 0 ? 'net-change-pill--positive' : 'net-change-pill--negative'}`}>
-                                    {netChange >= 0 ? '+' : ''}₹ {formatCurrency(netChange)}
+                                    {netChange >= 0 ? '+' : ''}{formatCurrency(netChange)}
                                 </span>
                             </div>
                         </div>
@@ -1051,15 +1060,15 @@ const DailyReport = () => {
                         </div>
                     </div>
                     <div className="premium-stat-card-value">
-                        ₹ {formatCurrency(totalIn)}
+                        {formatCurrency(totalIn)}
                     </div>
                     <div className="premium-stat-card-footer">
                         <div className="premium-stat-card-footer-item">
-                            <span>Cash: ₹ {formatCurrency(totalCashIn)}</span>
+                            <span>Cash: {formatCurrency(totalCashIn)}</span>
                         </div>
                         <span>•</span>
                         <div className="premium-stat-card-footer-item">
-                            <span>UPI: ₹ {formatCurrency(totalUpiIn)}</span>
+                            <span>UPI: {formatCurrency(totalUpiIn)}</span>
                         </div>
                         {liveCounts && liveCounts.income_count > 0 && (
                             <>
@@ -1081,7 +1090,7 @@ const DailyReport = () => {
                         </div>
                     </div>
                     <div className="premium-stat-card-value">
-                        ₹ {formatCurrency(totalOut)}
+                        {formatCurrency(totalOut)}
                     </div>
                     <div className="premium-stat-card-footer">
                         <span>Expenses & withdrawals</span>
@@ -1664,11 +1673,11 @@ const DailyReport = () => {
                             <ArrowUpRight size={16} />
                         </div>
                     </div>
-                    <div className="dr-summary-card__value">₹ {formatCurrency(totalIn)}</div>
+                    <div className="dr-summary-card__value">{formatCurrency(totalIn)}</div>
                     <div className="dr-summary-card__footer">
-                        <span>Cash: ₹ {formatCurrency(summary.total_cash_in || 0)}</span>
+                        <span>Cash: {formatCurrency(summary.total_cash_in || 0)}</span>
                         <span>•</span>
-                        <span>UPI: ₹ {formatCurrency(summary.total_upi_in || 0)}</span>
+                        <span>UPI: {formatCurrency(summary.total_upi_in || 0)}</span>
                     </div>
                 </div>
                 <div className="dr-summary-card dr-summary-card--expense">
@@ -1678,7 +1687,7 @@ const DailyReport = () => {
                             <ArrowDownRight size={16} />
                         </div>
                     </div>
-                    <div className="dr-summary-card__value">₹ {formatCurrency(totalOut)}</div>
+                    <div className="dr-summary-card__value">{formatCurrency(totalOut)}</div>
                     <div className="dr-summary-card__footer">
                         <span>Expenses & withdrawals</span>
                     </div>
@@ -1690,9 +1699,9 @@ const DailyReport = () => {
                             <Wallet size={16} />
                         </div>
                     </div>
-                    <div className="dr-summary-card__value">₹ {formatCurrency(closing)}</div>
+                    <div className="dr-summary-card__value">{formatCurrency(closing)}</div>
                     <div className="dr-summary-card__footer">
-                        <span>Opening: ₹ {formatCurrency(opening)}</span>
+                        <span>Opening: {formatCurrency(opening)}</span>
                     </div>
                 </div>
             </div>
@@ -2006,16 +2015,16 @@ const DailyReport = () => {
                         <div className="dr-credits-grid" style={{display: 'flex', gap: 12}}>
                             <div className="stat-card" style={{flex: 1}}>
                                 <div className="stat-label">Credit Out</div>
-                                <div className="stat-value" style={{color: 'var(--warning)', fontSize: 22}}>₹ {formatCurrency(totalOut)}</div>
+                                <div className="stat-value" style={{color: 'var(--warning)', fontSize: 22}}>{formatCurrency(totalOut)}</div>
                             </div>
                             <div className="stat-card" style={{flex: 1}}>
                                 <div className="stat-label">Credit In</div>
-                                <div className="stat-value" style={{color: 'var(--success)', fontSize: 22}}>₹ {formatCurrency(manualIn)}</div>
+                                <div className="stat-value" style={{color: 'var(--success)', fontSize: 22}}>{formatCurrency(manualIn)}</div>
                             </div>
                             <div className="stat-card" style={{flex: 1}}>
                                 <div className="stat-label">Net Change</div>
                                 <div className="stat-value" style={{color: net >= 0 ? 'var(--success)' : 'var(--error)', fontSize: 22}}>
-                                    {net >= 0 ? '+' : ''}₹ {formatCurrency(net)}
+                                    {net >= 0 ? '+' : ''}{formatCurrency(net)}
                                 </div>
                             </div>
                         </div>

@@ -496,18 +496,26 @@ const Dashboard = () => {
     }, [location.pathname]);
 
     const handleTouchStart = useCallback((e) => {
-        touchStartX.current = e.targetTouches[0].clientX;
+        if (!e.targetTouches || e.targetTouches.length === 0) return;
+        const x = e.targetTouches[0].clientX;
+        touchStartX.current = x;
+        touchEndX.current = x;
     }, []);
 
     const handleTouchMove = useCallback((e) => {
+        if (!e.targetTouches || e.targetTouches.length === 0) return;
         touchEndX.current = e.targetTouches[0].clientX;
     }, []);
 
     const handleTouchEnd = useCallback(() => {
-        if (touchStartX.current - touchEndX.current > 50) {
+        const startX = touchStartX.current;
+        const endX = touchEndX.current;
+        if (startX > 0 && endX > 0 && (startX - endX > 50)) {
             // Swiped left (close)
             setSidebarOpen(false);
         }
+        touchStartX.current = 0;
+        touchEndX.current = 0;
     }, []);
 
     const fetchCompanyInfo = useCallback(async () => {
@@ -730,7 +738,13 @@ const Dashboard = () => {
 
     const groupedMenu = useMemo(() => {
         if (!['Admin', 'Front Office', 'Accountant'].map(r => r.toLowerCase()).includes(normalizedUserRole.toLowerCase())) return null;
-        return sidebarGroupDefs.map(g => ({
+        let defs = sidebarGroupDefs;
+        if (normalizedUserRole.toLowerCase() === 'front office') {
+            const prodGroup = defs.find(g => g.key === 'production');
+            const otherGroups = defs.filter(g => g.key !== 'production');
+            defs = prodGroup ? [...otherGroups, prodGroup] : defs;
+        }
+        return defs.map(g => ({
             ...g,
             items: filteredMenu.filter(i => i.group === g.key)
         })).filter(g => g.items.length > 0);

@@ -66,6 +66,8 @@ const ProtectedRoute = ({ children, roles }) => {
     if (token) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('user');
       return <Navigate to="/session-expired" replace />;
     }
     return <Navigate to="/login" replace />;

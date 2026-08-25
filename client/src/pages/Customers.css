@@ -442,7 +442,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
-  overflow: hidden;
+  overflow-x: auto;
   contain: layout;
   min-height: 600px;
 }
@@ -643,6 +643,11 @@
   font-weight: 700;
   font-size: var(--text-sm);
   transition: all var(--transition-fast);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  padding-right: 8px;
 }
 
 .customer-outstanding--none {
@@ -695,6 +700,11 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  min-width: max-content;
+  position: relative;
+  z-index: 2;
 }
 
 .action-btn {
@@ -1119,16 +1129,10 @@
 
 /* ── Responsive: Tablet (≤1024px) ── */
 @media (max-width: 1024px) {
-  .customer-table-grid {
-    grid-template-columns: 52px 2fr 1.4fr 1fr 1fr 36px;
-  }
-
-  .customer-row {
-    grid-template-columns: 52px 2fr 1.4fr 1fr 1fr 36px;
-  }
-
+  .customer-table-grid,
+  .customer-row,
   .customer-skeleton-row {
-    grid-template-columns: 52px 2fr 1.4fr 1fr 1fr 36px;
+    grid-template-columns: 48px minmax(150px, 1.8fr) minmax(130px, 1.2fr) minmax(120px, 1fr) minmax(140px, auto) 36px !important;
   }
 
   .customer-header-icon {
@@ -1138,9 +1142,8 @@
 
   .customer-last-order,
   .customer-last-order--empty,
-  .customer-table-header-cell:nth-child(5),
-  .customer-table-header-cell:nth-child(6) {
-    display: none;
+  .customer-table-header-cell:nth-child(5) {
+    display: none !important;
   }
 
   .customer-actions {
@@ -1217,11 +1220,11 @@
   }
 
   .customer-row {
-    grid-template-columns: 44px 1fr 36px;
+    grid-template-columns: 44px 1fr 36px !important;
     grid-template-areas:
       "avatar info expand"
       "avatar outstanding outstanding"
-      "phone actions actions";
+      "phone actions actions" !important;
     gap: var(--space-6) var(--space-8);
     padding: var(--space-12) var(--space-16);
     align-items: center;

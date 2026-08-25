@@ -11,6 +11,7 @@ const Login = () => {
     const { login } = useAuth();
     const [userId, setUserId] = useState('');
     const [password, setPassword] = useState('');
+    const [rememberMe, setRememberMe] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -18,9 +19,15 @@ const Login = () => {
     const userIdRef = useRef(null);
 
     useEffect(() => {
+        const savedUserId = localStorage.getItem('remembered_user_id');
+        if (savedUserId) {
+            setUserId(savedUserId);
+            setRememberMe(true);
+        }
+
         // Only auto-focus on desktop; on mobile let the user tap
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-        if (!isMobile && userIdRef.current) {
+        if (!isMobile && userIdRef.current && !savedUserId) {
             userIdRef.current.focus();
         }
     }, []);
@@ -51,7 +58,13 @@ const Login = () => {
         setLoading(true);
         setError('');
         try {
-            const data = await login(cleanedUserId, password);
+            if (rememberMe) {
+                localStorage.setItem('remembered_user_id', cleanedUserId);
+            } else {
+                localStorage.removeItem('remembered_user_id');
+            }
+
+            const data = await login(cleanedUserId, password, rememberMe);
             if (data.user.is_first_login) {
                 navigate('/change-password', { replace: true });
             } else {
@@ -143,7 +156,13 @@ const Login = () => {
 
                     <div className="form-actions">
                         <div className="checkbox-row">
-                            <input type="checkbox" id="remember" />
+                            <input
+                                type="checkbox"
+                                id="remember"
+                                checked={rememberMe}
+                                onChange={(e) => setRememberMe(e.target.checked)}
+                                disabled={loading}
+                            />
                             <label htmlFor="remember">Remember Me</label>
                         </div>
                         <a href="/forgot-password" className="forgot-link">Forgot Password?</a>

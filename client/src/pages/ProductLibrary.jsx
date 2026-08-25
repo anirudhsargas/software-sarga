@@ -1654,50 +1654,6 @@ const ProductLibrary = () => {
                         )}
                     </div>
                 </div>
-
-                {/* Breadcrumbs */}
-                {!activePaperTab ? (
-                    <nav className="breadcrumbs row gap-xs items-center text-sm py-8">
-                        <span
-                            className={`breadcrumb-item pointer ${viewPath.length === 0 ? 'font-bold text-accent' : 'muted hover-text-accent'}`}
-                            onClick={() => navigateBack(-1)}
-                        >
-                            Library
-                        </span>
-                        {viewPath.length > 0 && (
-                            <>
-                                <ChevronRight size={14} className="muted" />
-                                <span
-                                    className={`breadcrumb-item pointer ${viewPath.length === 1 ? 'font-bold text-accent' : 'muted hover-text-accent'}`}
-                                    onClick={() => navigateBack(0)}
-                                >
-                                    {hierarchy.find(c => c.id === viewPath[0])?.name || 'Category'}
-                                </span>
-                            </>
-                        )}
-                        {viewPath.length > 1 && (
-                            <>
-                                <ChevronRight size={14} className="muted" />
-                                <span className="breadcrumb-item font-bold text-accent">
-                                    {hierarchy.find(c => c.id === viewPath[0])?.subcategories.find(s => s.id === viewPath[1])?.name || 'Sub-category'}
-                                </span>
-                            </>
-                        )}
-                    </nav>
-                ) : (
-                    <nav className="breadcrumbs row gap-xs items-center text-sm py-8">
-                        <span
-                            className="breadcrumb-item pointer muted hover-text-accent"
-                            onClick={() => { setActivePaperTab(false); }}
-                        >
-                            Library
-                        </span>
-                        <ChevronRight size={14} className="muted" />
-                        <span className="breadcrumb-item font-bold text-accent">
-                            Papers
-                        </span>
-                    </nav>
-                )}
             </header>
 
             {/* Tab bar */}
