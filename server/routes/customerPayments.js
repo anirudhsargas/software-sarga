@@ -233,8 +233,12 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
         return res.status(400).json({ message: 'At least one payment method must have an amount greater than 0.' });
     }
 
+    const startTotalTime = Date.now();
+    console.time('[PMT-PERF] Total Handler Time');
+    console.time('[PMT-PERF] 1. Get Connection & Begin Transaction');
     const connection = await pool.getConnection();
     await connection.beginTransaction();
+    console.timeEnd('[PMT-PERF] 1. Get Connection & Begin Transaction');
 
     try {
         const [existingByKey] = await connection.query('SELECT id FROM sarga_customer_payments WHERE idempotency_key = ? LIMIT 1', [idempotencyKey]);
@@ -250,6 +254,7 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
         const { branchId } = await branchFilter(req, { allowPrivilegedQuery: false });
         let resolvedCustomerId = customer_id || null;
 
+        console.time('[PMT-PERF] 2. Customer Lookup & Email Update');
         if (!resolvedCustomerId && customer_mobile) {
             const normalizedMobile = normalizeMobileWithCountry(customer_mobile, req.body?.customer_country_code);
             if (normalizedMobile.length === 10) {
@@ -272,8 +277,10 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
                 console.warn('[Payment] Update customer email warning:', emailErr.message);
             }
         }
+        console.timeEnd('[PMT-PERF] 2. Customer Lookup & Email Update');
 
         // Validate and track coupon usage if provided
+        console.time('[PMT-PERF] 3. Coupon Lookup & Update');
         let resolvedCouponCode = null;
         if (coupon_code && coupon_code.trim()) {
             const cleanCoupon = coupon_code.trim().toUpperCase().replace(/\s+/g, '');
@@ -289,10 +296,12 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
                 }
             }
         }
+        console.timeEnd('[PMT-PERF] 3. Coupon Lookup & Update');
 
         const targetBook = normalizeBookType(req_payment_target_book || book_type);
         const legacyBookType = targetBook;
 
+        console.time('[PMT-PERF] 4. Payment Record Insert');
         let paymentId;
         try {
             const [result] = await connection.query(
@@ -366,6 +375,9 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
                 throw err;
             }
         }
+        console.timeEnd('[PMT-PERF] 4. Payment Record Insert');
+
+        console.time('[PMT-PERF] 5. Order Lines Loop (Job Inserts & Inventory Reserve)');
         if (resolvedCustomerId && Array.isArray(order_lines) && order_lines.length > 0 && (!Array.isArray(job_ids) || job_ids.length === 0)) {
             const totalLineAmount = order_lines.reduce((sum, line) => sum + (Number(line.total_amount) || 0), 0);
             let allocatedAdvance = 0;
@@ -473,6 +485,9 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
                 }
             }
         }
+        console.timeEnd('[PMT-PERF] 5. Order Lines Loop (Job Inserts & Inventory Reserve)');
+
+        console.time('[PMT-PERF] 6. Job Updates & Machine Sync Loop');
 
         const jobIdsFromLines = Array.isArray(order_lines)
             ? order_lines.map((line) => line?.job_id).filter(Boolean)
@@ -591,8 +606,10 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
                 }
             }
         }
+        console.timeEnd('[PMT-PERF] 6. Job Updates & Machine Sync Loop');
 
         // ─── Link jobs to this payment ───
+        console.time('[PMT-PERF] 7. Link Jobs');
         if (jobIds.length > 0) {
             try {
                 await connection.query(
@@ -603,8 +620,10 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
                 if (linkErr.code !== 'ER_BAD_FIELD_ERROR') console.error('[Payment] Link jobs error:', linkErr.message);
             }
         }
+        console.timeEnd('[PMT-PERF] 7. Link Jobs');
 
         // ─── Generate gap-free invoice number (inside transaction for atomicity) ───
+        console.time('[PMT-PERF] 8. Invoice Generation & Sequence');
         let invoiceNumber = null;
         try {
             invoiceNumber = await getNextInvoiceNumber(connection, 'INV');
@@ -627,8 +646,10 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
             // Invoice generation is non-critical — log and continue
             console.error('[Invoice] Sequence error:', invErr.message);
         }
+        console.timeEnd('[PMT-PERF] 8. Invoice Generation & Sequence');
 
         // ─── Deduct inventory stock for inventory items in order and consume any reservation ───
+        console.time('[PMT-PERF] 9. Inventory Stock Deductions Loop');
         if (Array.isArray(order_lines)) {
             for (const line of order_lines) {
                 if (line.is_inventory_item && line.inventory_item_id) {
@@ -673,15 +694,22 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
                 }
             }
         }
+        console.timeEnd('[PMT-PERF] 9. Inventory Stock Deductions Loop');
 
         // ─── Audit log inside transaction ───
+        console.time('[PMT-PERF] 10. Audit Log');
         await connection.query(
             `INSERT INTO sarga_audit_logs (user_id_internal, action, details, entity_type, entity_id, ip_address)
              VALUES (?, ?, ?, ?, ?, ?)`,
             [req.user.id, 'CUSTOMER_PAYMENT_ADD', `Payment ${paymentId}${invoiceNumber ? ` (${invoiceNumber})` : ''} for ${customer_name}: ₹${total}`, 'payment', paymentId, req.ip]
         );
+        console.timeEnd('[PMT-PERF] 10. Audit Log');
 
+        console.time('[PMT-PERF] 11. Transaction Commit');
         await connection.commit();
+        console.timeEnd('[PMT-PERF] 11. Transaction Commit');
+        console.timeEnd('[PMT-PERF] Total Handler Time');
+        console.log(`[PMT-PERF] Finished POST /customer-payments in ${Date.now() - startTotalTime}ms`);
 
         // Auto-send the invoice to the customer's email (fire-and-forget) if available
         if (invoiceNumber && !isInternal) {
