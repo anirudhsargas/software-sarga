@@ -28,7 +28,6 @@ import DrillDownModal from '../components/DrillDownModal';
 const ACTIVE_TABS = [
   { id: 'all', label: 'All' },
   { id: 'OFFSET', label: 'Offset' },
-  { id: 'DIGITAL', label: 'Digital' },
   { id: 'LASER', label: 'Laser' },
   { id: 'FRAMES', label: 'Frames' },
   { id: 'MEMENTOS', label: 'Mementos' }
@@ -581,6 +580,12 @@ const FrontOffice = () => {
       if (jobOrCategory.subcategory_name) candidateStrings.push(String(jobOrCategory.subcategory_name));
       if (jobOrCategory.job_name) candidateStrings.push(String(jobOrCategory.job_name));
       if (jobOrCategory.description) candidateStrings.push(String(jobOrCategory.description));
+      if (jobOrCategory.book_type) candidateStrings.push(String(jobOrCategory.book_type));
+      if (jobOrCategory.job_type) candidateStrings.push(String(jobOrCategory.job_type));
+      if (jobOrCategory.type) candidateStrings.push(String(jobOrCategory.type));
+      if (jobOrCategory.machine_type) candidateStrings.push(String(jobOrCategory.machine_type));
+      if (jobOrCategory.product_name) candidateStrings.push(String(jobOrCategory.product_name));
+      if (jobOrCategory.item_name) candidateStrings.push(String(jobOrCategory.item_name));
 
       if (Array.isArray(jobOrCategory.items)) {
         jobOrCategory.items.forEach(item => {
@@ -588,6 +593,7 @@ const FrontOffice = () => {
           if (item.category) candidateStrings.push(String(typeof item.category === 'object' ? item.category.name : item.category));
           if (item.product_name) candidateStrings.push(String(item.product_name));
           if (item.name) candidateStrings.push(String(item.name));
+          if (item.book_type) candidateStrings.push(String(item.book_type));
         });
       }
     }
@@ -595,11 +601,10 @@ const FrontOffice = () => {
     const combinedText = candidateStrings.join(' ').toUpperCase();
 
     const CATEGORY_KEYWORDS = {
-      OFFSET: /OFFSET/,
-      LASER: /LASER/,
-      DIGITAL: /DIGITAL/,
-      FRAMES: /FRAME/,
-      MEMENTOS: /(MEMENTO|TROPHY|PLAQUE|AWARD|GIFT)/
+      OFFSET: /(OFFSET|PRINTING|BOX|CARD|FLYER|BROCHURE|PAMPHLET|MAGAZINE|PAPER)/,
+      LASER: /(LASER|DIGITAL|CUTTING|ENGRAVING|ACRYLIC|STICKER|VINYL|BANNER|FLEX|PRINT)/,
+      FRAMES: /(FRAME|PHOTO|CANVAS|BOARD|MOUNT|LAMINATION|GLASS)/,
+      MEMENTOS: /(MEMENTO|TROPHY|PLAQUE|AWARD|GIFT|SHIELD|MEDAL|CUP)/
     };
 
     const kw = CATEGORY_KEYWORDS[filterTarget];

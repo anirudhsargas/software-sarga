@@ -48,21 +48,24 @@ async function buildEmailPayload(payment) {
 async function sendInvoiceEmail(paymentId, overrideEmail) {
     try {
         let [[payment]] = await pool.query(
-            `SELECT cp.*, c.email AS customer_email_db
+            `SELECT cp.*, 
+                    c.email AS customer_email_db,
+                    si.invoice_number
              FROM sarga_customer_payments cp
              LEFT JOIN sarga_customers c ON c.id = cp.customer_id
-             WHERE cp.id = ?`,
-            [paymentId]
+             LEFT JOIN sarga_invoices si ON si.payment_id = cp.id
+             WHERE cp.id = ? OR si.id = ? OR si.invoice_number = ?`,
+            [paymentId, paymentId, paymentId]
         );
 
         if (!payment) {
-            // Fallback lookup from invoices table
+            // Fallback lookup from sarga_invoices table
             const [[inv]] = await pool.query(
-                `SELECT i.id, i.invoice_number, i.total_amount, i.created_at as payment_date,
-                        i.payment_status as verification_status, c.name as customer_name, c.email as customer_email_db
-                 FROM invoices i
-                 LEFT JOIN sarga_customers c ON c.id = i.customer_id
-                 WHERE i.id = ? OR i.invoice_number = ?`,
+                `SELECT si.id, si.invoice_number, si.total_amount, si.created_at AS payment_date,
+                        si.payment_status AS verification_status, c.name AS customer_name, c.email AS customer_email_db
+                 FROM sarga_invoices si
+                 LEFT JOIN sarga_customers c ON c.id = si.customer_id
+                 WHERE si.id = ? OR si.invoice_number = ?`,
                 [paymentId, paymentId]
             );
             if (inv) payment = inv;

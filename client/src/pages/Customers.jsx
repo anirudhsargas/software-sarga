@@ -1016,10 +1016,10 @@ const Customers = () => {
                         gridTemplateColumns: [
                             '52px',
                             visibleColumns.customer && 'minmax(180px, 2fr)',
-                            visibleColumns.phone && 'minmax(160px, 1.4fr)',
+                            visibleColumns.phone && 'minmax(210px, 1.6fr)',
                             visibleColumns.outstanding && 'minmax(130px, 1.2fr)',
                             visibleColumns.lastOrder && 'minmax(120px, 1fr)',
-                            'minmax(140px, auto)',
+                            '140px',
                             '36px'
                         ].filter(Boolean).join(' ')
                     }}>
@@ -1080,9 +1080,9 @@ const Customers = () => {
                                     gridTemplateColumns: [
                                         '52px',
                                         visibleColumns.customer && 'minmax(180px, 2fr)',
-                                        visibleColumns.phone && 'minmax(160px, 1.4fr)',
-                                        visibleColumns.outstanding && 'minmax(110px, 1fr)',
-                                        visibleColumns.lastOrder && 'minmax(120px, 1.2fr)',
+                                        visibleColumns.phone && 'minmax(210px, 1.6fr)',
+                                        visibleColumns.outstanding && 'minmax(130px, 1.2fr)',
+                                        visibleColumns.lastOrder && 'minmax(120px, 1fr)',
                                         '140px',
                                         '36px'
                                     ].filter(Boolean).join(' ')

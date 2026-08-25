@@ -583,11 +583,13 @@
 .customer-phone {
   display: flex;
   align-items: center;
-  gap: var(--space-8);
+  gap: var(--space-6);
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   color: var(--text);
   white-space: nowrap;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .phone-number {
@@ -602,6 +604,7 @@
   gap: 2px;
   opacity: 0;
   transition: opacity var(--transition-fast);
+  flex-shrink: 0;
 }
 
 .customer-row:hover .phone-actions {
@@ -609,8 +612,8 @@
 }
 
 .phone-action-btn {
-  width: 32px;
-  height: 32px;
+  width: 26px;
+  height: 26px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -621,6 +624,7 @@
   cursor: pointer;
   touch-action: manipulation;
   transition: all var(--transition-fast);
+  flex-shrink: 0;
 }
 
 .phone-action-btn:hover {
@@ -633,8 +637,8 @@
     opacity: 1;
   }
   .phone-action-btn {
-    width: 40px;
-    height: 40px;
+    width: 30px;
+    height: 30px;
   }
 }
 
@@ -647,6 +651,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
+  padding-left: 8px;
   padding-right: 8px;
 }
 
@@ -1220,11 +1225,11 @@
   }
 
   .customer-row {
-    grid-template-columns: 44px 1fr 36px !important;
+    grid-template-columns: 44px 1fr auto !important;
     grid-template-areas:
       "avatar info expand"
-      "avatar outstanding outstanding"
-      "phone actions actions" !important;
+      "avatar phone phone"
+      "avatar outstanding actions" !important;
     gap: var(--space-6) var(--space-8);
     padding: var(--space-12) var(--space-16);
     align-items: center;

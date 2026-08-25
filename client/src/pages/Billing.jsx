@@ -1278,6 +1278,7 @@ const Billing = () => {
       await api.post('/jobs/assignments/bulk', { assignments });
       toast.success('Staff assigned successfully!');
       setShowPostBillOptions(false);
+      setActiveTab('customer');
     } catch (err) {
       setAssignError(err?.response?.data?.message || 'Failed to assign staff.');
     } finally {
@@ -2317,25 +2318,26 @@ const Billing = () => {
         {/* Per-method amounts */}
         <div className="billing-payment-inputs">
           {payment.selectedMethods.map((m) => (
-            <div key={m} className="billing-field" style={{ position: 'relative' }}>
-              <IndianRupee size={14} className="billing-field__icon" aria-hidden="true" />
+            <div key={m} className="billing-field" style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingRight: '8px' }}>
+              <span className="chip active" style={{ padding: '4px 8px', fontSize: '12px', fontWeight: 600, borderRadius: '4px', flexShrink: 0, minWidth: '45px', textAlign: 'center' }}>{m}</span>
+              <IndianRupee size={14} className="billing-field__icon" aria-hidden="true" style={{ flexShrink: 0 }} />
               <input
                 ref={m === 'Cash' ? paymentAmountRef : null}
                 id={`paymentAmount-${m}`}
                 name={`paymentAmount-${m}`}
                 type="number"
-                placeholder={`${m} amount`}
+                placeholder={`Enter ${m} amount`}
                 value={payment.methodAmounts[m] || ''}
                 onChange={e => updateMethodAmount(m, e.target.value)}
                 className="billing-field__input"
                 aria-label={`${m} amount`}
                 autoComplete="off"
-                style={{ paddingRight: '55px' }}
+                style={{ flex: 1, minWidth: 0, paddingRight: '4px' }}
               />
               <button
                 type="button"
-                className="btn btn-ghost btn-xs"
-                style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', zIndex: 10, padding: '2px 6px', height: 'auto', minHeight: 'unset', fontWeight: 600, color: 'var(--primary)' }}
+                className="btn btn-secondary btn-xs"
+                style={{ padding: '4px 10px', height: '28px', fontSize: '12px', fontWeight: 600, flexShrink: 0, cursor: 'pointer' }}
                 onClick={() => {
                   const otherAmt = payment.selectedMethods.reduce((s, method) => s + (method !== m ? (Number(payment.methodAmounts[method]) || 0) : 0), 0);
                   const remaining = Math.max(0, totals.gross - otherAmt);
@@ -2344,7 +2346,6 @@ const Billing = () => {
               >
                 Full
               </button>
-              <span className="text-xs text-muted">{m}</span>
             </div>
           ))}
           {payment.selectedMethods.length > 1 && (
@@ -2714,7 +2715,7 @@ const Billing = () => {
         const isPaid = balanceDue < 0.05;
 
         return (
-          <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="post-bill-title" onClick={() => setShowPostBillOptions(false)}>
+          <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="post-bill-title" onClick={() => { setShowPostBillOptions(false); setActiveTab('customer'); }}>
             <div className="modal modal--lg" onClick={e => e.stopPropagation()} style={{ maxHeight: '95vh', borderRadius: '16px', boxShadow: '0 20px 50px rgba(0,0,0,0.15)' }}>
               <div className="modal__header" style={{ borderBottom: 'none', padding: '24px 24px 8px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', position: 'relative' }}>
                 <div className="invoice-success-icon-container">
@@ -2726,7 +2727,7 @@ const Billing = () => {
                 <p className="invoice-success-subtitle">
                   Choose your next action below
                 </p>
-                <button className="modal-close" aria-label="Close" onClick={() => setShowPostBillOptions(false)} style={{ position: 'absolute', top: '20px', right: '20px' }}><X size={18} aria-hidden="true" /></button>
+                <button className="modal-close" aria-label="Close" onClick={() => { setShowPostBillOptions(false); setActiveTab('customer'); }} style={{ position: 'absolute', top: '20px', right: '20px' }}><X size={18} aria-hidden="true" /></button>
               </div>
               <div className="modal__body stack-sm" style={{ padding: '0 24px 24px 24px' }}>
                 {/* Print / WhatsApp / Email / New Invoice actions */}
@@ -2775,7 +2776,7 @@ const Billing = () => {
                     )}
                     {isDelivered ? 'Delivered ✓' : 'Mark as Delivered'}
                   </button>
-                  <button className="btn btn-ghost" onClick={() => { setShowPostBillOptions(false); }} style={{ flex: '1 1 150px', minWidth: '150px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', fontWeight: '600', borderRadius: '8px' }}>
+                  <button className="btn btn-ghost" onClick={() => { setShowPostBillOptions(false); setActiveTab('customer'); }} style={{ flex: '1 1 150px', minWidth: '150px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', fontWeight: '600', borderRadius: '8px' }}>
                     <Plus size={16} className="mr-8" aria-hidden="true" /> New Invoice
                   </button>
                 </div>
@@ -3044,7 +3045,7 @@ const Billing = () => {
                       >
                         {assignLoading ? <><Loader2 size={14} className="animate-spin" aria-hidden="true" /> Assigning...</> : <><Check size={14} aria-hidden="true" /> Assign & Close</>}
                       </button>
-                      <button className="btn btn-ghost btn-sm" onClick={() => setShowPostBillOptions(false)}>
+                      <button className="btn btn-ghost btn-sm" onClick={() => { setShowPostBillOptions(false); setActiveTab('customer'); }}>
                         Skip for now
                       </button>
                     </div>

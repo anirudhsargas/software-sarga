@@ -17,20 +17,23 @@ router.post('/invoices/:paymentId/send-email', authenticateToken, async (req, re
         const { email, subject, message } = req.body;
 
         let [[payment]] = await pool.query(
-            `SELECT cp.*, c.email as customer_email_db
+            `SELECT cp.*, 
+                    c.email AS customer_email_db,
+                    si.invoice_number
              FROM sarga_customer_payments cp
              LEFT JOIN sarga_customers c ON c.id = cp.customer_id
-             WHERE cp.id = ?`, [paymentId]
+             LEFT JOIN sarga_invoices si ON si.payment_id = cp.id
+             WHERE cp.id = ? OR si.id = ? OR si.invoice_number = ?`, [paymentId, paymentId, paymentId]
         );
 
         if (!payment) {
-            // Fallback lookup from invoices table
+            // Fallback lookup from sarga_invoices table
             const [[inv]] = await pool.query(
-                `SELECT i.id, i.invoice_number, i.total_amount, i.created_at as payment_date,
-                        i.payment_status as verification_status, c.name as customer_name, c.email as customer_email_db
-                 FROM invoices i
-                 LEFT JOIN sarga_customers c ON c.id = i.customer_id
-                 WHERE i.id = ? OR i.invoice_number = ?`, [paymentId, paymentId]
+                `SELECT si.id, si.invoice_number, si.total_amount, si.created_at AS payment_date,
+                        si.payment_status AS verification_status, c.name AS customer_name, c.email AS customer_email_db
+                 FROM sarga_invoices si
+                 LEFT JOIN sarga_customers c ON c.id = si.customer_id
+                 WHERE si.id = ? OR si.invoice_number = ?`, [paymentId, paymentId]
             );
             if (inv) payment = inv;
         }
@@ -48,22 +51,26 @@ router.post('/invoices/:paymentId/send-email', authenticateToken, async (req, re
         const companyName = config.company_name || 'Sarga Offset';
         const footerText = config.invoice_footer_text || 'Thank you for your business!';
 
-        const invoiceSubject = subject || `Invoice #${payment.invoice_number || payment.id} from ${companyName}`;
-        const invoiceMessage = message || `Dear ${payment.customer_name || 'Customer'},\n\nPlease find your invoice details below.\n\nInvoice #: ${payment.invoice_number || payment.id}\nAmount: ₹${payment.total_amount || payment.net_amount || 0}\nDate: ${payment.payment_date}\n\n${footerText}\n\n${companyName}`;
+        const formattedDate = payment.payment_date ? new Date(payment.payment_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : new Date().toLocaleDateString('en-IN');
+        const invNum = payment.invoice_number || `INV-${payment.id}`;
+        const invAmount = Number(payment.total_amount || payment.net_amount || 0);
+
+        const invoiceSubject = subject || `Invoice #${invNum} from ${companyName}`;
+        const invoiceMessage = message || `Dear ${payment.customer_name || 'Customer'},\n\nPlease find your invoice details below.\n\nInvoice #: ${invNum}\nAmount: ₹${invAmount.toLocaleString('en-IN')}\nDate: ${formattedDate}\n\n${footerText}\n\n${companyName}`;
 
         const htmlBody = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
             <div style="text-align: center; padding: 20px; background: #1a1a2e; color: white; border-radius: 8px 8px 0 0;">
                 <h1 style="margin: 0; font-size: 24px;">${companyName}</h1>
-                <p style="margin: 4px 0 0; opacity: 0.8;">Invoice #${payment.invoice_number || payment.id}</p>
+                <p style="margin: 4px 0 0; opacity: 0.8;">Invoice #${invNum}</p>
             </div>
             <div style="padding: 20px; border: 1px solid #eee; border-top: none;">
                 <p>Dear <strong>${payment.customer_name || 'Customer'}</strong>,</p>
                 <p>${message || 'Please find your invoice details below.'}</p>
                 <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-                    <tr style="background: #f5f5f5;"><td style="padding: 10px; border: 1px solid #ddd;"><strong>Invoice #</strong></td><td style="padding: 10px; border: 1px solid #ddd;">${payment.invoice_number || payment.id}</td></tr>
-                    <tr><td style="padding: 10px; border: 1px solid #ddd;"><strong>Date</strong></td><td style="padding: 10px; border: 1px solid #ddd;">${payment.payment_date}</td></tr>
-                    <tr style="background: #f5f5f5;"><td style="padding: 10px; border: 1px solid #ddd;"><strong>Amount</strong></td><td style="padding: 10px; border: 1px solid #ddd;">₹${Number(payment.total_amount || payment.net_amount || 0).toLocaleString('en-IN')}</td></tr>
+                    <tr style="background: #f5f5f5;"><td style="padding: 10px; border: 1px solid #ddd;"><strong>Invoice #</strong></td><td style="padding: 10px; border: 1px solid #ddd;">${invNum}</td></tr>
+                    <tr><td style="padding: 10px; border: 1px solid #ddd;"><strong>Date</strong></td><td style="padding: 10px; border: 1px solid #ddd;">${formattedDate}</td></tr>
+                    <tr style="background: #f5f5f5;"><td style="padding: 10px; border: 1px solid #ddd;"><strong>Amount</strong></td><td style="padding: 10px; border: 1px solid #ddd;">₹${invAmount.toLocaleString('en-IN')}</td></tr>
                     <tr><td style="padding: 10px; border: 1px solid #ddd;"><strong>Status</strong></td><td style="padding: 10px; border: 1px solid #ddd;">${payment.verification_status || payment.payment_status || 'Pending'}</td></tr>
                 </table>
                 <p style="color: #666; font-size: 13px;">${footerText}</p>
