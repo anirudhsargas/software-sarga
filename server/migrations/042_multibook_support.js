@@ -4,21 +4,23 @@
 // 3. Backfills data from existing order_lines JSON and legacy book_type
 
 module.exports = async (connection) => {
-  const dbName = process.env.DB_NAME || 'sarga_db';
   console.log('[Migration 042] Starting multi-book schema migration...');
 
   // 1. Add book_type to sarga_jobs if missing
   const [jobCols] = await connection.query(
     `SELECT COLUMN_NAME FROM information_schema.COLUMNS 
-     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'sarga_jobs' AND COLUMN_NAME = 'book_type'`,
-    [dbName]
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sarga_jobs' AND COLUMN_NAME = 'book_type'`
   );
   if (jobCols.length === 0) {
-    await connection.query(
-      `ALTER TABLE sarga_jobs
-       ADD COLUMN book_type ENUM('Offset', 'Laser', 'Other') NOT NULL DEFAULT 'Offset' AFTER category`
-    );
-    console.log('[Migration 042] Added book_type column to sarga_jobs');
+    try {
+      await connection.query(
+        `ALTER TABLE sarga_jobs
+         ADD COLUMN book_type ENUM('Offset', 'Laser', 'Other') NOT NULL DEFAULT 'Offset'`
+      );
+      console.log('[Migration 042] Added book_type column to sarga_jobs');
+    } catch (e) {
+      console.warn('[Migration 042] Add book_type to sarga_jobs warning:', e.message);
+    }
   } else {
     console.log('[Migration 042] book_type column already exists in sarga_jobs');
   }
@@ -26,17 +28,34 @@ module.exports = async (connection) => {
   // 2. Add payment_target_book to sarga_customer_payments if missing
   const [payCols] = await connection.query(
     `SELECT COLUMN_NAME FROM information_schema.COLUMNS 
-     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'sarga_customer_payments' AND COLUMN_NAME = 'payment_target_book'`,
-    [dbName]
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sarga_customer_payments' AND COLUMN_NAME = 'payment_target_book'`
   );
   if (payCols.length === 0) {
-    await connection.query(
-      `ALTER TABLE sarga_customer_payments
-       ADD COLUMN payment_target_book ENUM('Offset', 'Laser', 'Other') DEFAULT 'Offset' AFTER book_type`
-    );
-    console.log('[Migration 042] Added payment_target_book column to sarga_customer_payments');
+    try {
+      await connection.query(
+        `ALTER TABLE sarga_customer_payments
+         ADD COLUMN payment_target_book ENUM('Offset', 'Laser', 'Other') DEFAULT 'Offset'`
+      );
+      console.log('[Migration 042] Added payment_target_book column to sarga_customer_payments');
+    } catch (e) {
+      console.warn('[Migration 042] Add payment_target_book to sarga_customer_payments warning:', e.message);
+    }
   } else {
     console.log('[Migration 042] payment_target_book column already exists in sarga_customer_payments');
+  }
+
+  // Also ensure book_type column exists on sarga_customer_payments
+  const [payBookTypeCols] = await connection.query(
+    `SELECT COLUMN_NAME FROM information_schema.COLUMNS 
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sarga_customer_payments' AND COLUMN_NAME = 'book_type'`
+  );
+  if (payBookTypeCols.length === 0) {
+    try {
+      await connection.query(
+        `ALTER TABLE sarga_customer_payments
+         ADD COLUMN book_type ENUM('Offset', 'Laser', 'Other') DEFAULT 'Offset'`
+      );
+    } catch (_e) {}
   }
 
   // 3. Backfill payment_target_book on sarga_customer_payments

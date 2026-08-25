@@ -371,7 +371,10 @@ const initDb = async () => {
 
     // Multi-book support: book_type on sarga_jobs and payment_target_book on sarga_customer_payments
     const migrateMultiBookName = '042_multibook_support.js';
-    if (!appliedMigrations.has(migrateMultiBookName)) {
+    const [checkPayCol] = await connection.query(
+      `SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sarga_customer_payments' AND COLUMN_NAME = 'payment_target_book'`
+    );
+    if (!appliedMigrations.has(migrateMultiBookName) || checkPayCol.length === 0) {
       const migrateMultiBook = require('./migrations/042_multibook_support');
       await migrateMultiBook(connection);
       await connection.query('INSERT IGNORE INTO schema_migrations (migration_name) VALUES (?)', [migrateMultiBookName]);
