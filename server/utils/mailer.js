@@ -27,7 +27,14 @@ function htmlToPlainText(html) {
 /**
  * Creates a unified Nodemailer transport with anti-spam optimizations.
  */
+let cachedTransporter = null;
+
 function createMailTransporter(options = {}) {
+    const isDefault = Object.keys(options).length === 0;
+    if (isDefault && cachedTransporter) {
+        return cachedTransporter;
+    }
+
     const smtpHost = options.host || process.env.SMTP_HOST || 'smtp.gmail.com';
     let smtpPort = options.port || process.env.SMTP_PORT;
     let smtpSecure = options.secure !== undefined ? options.secure : (process.env.SMTP_SECURE === 'true');
@@ -48,7 +55,7 @@ function createMailTransporter(options = {}) {
     const portNum = parseInt(smtpPort || (smtpSecure ? '465' : '587'), 10);
     const secureBool = Boolean(smtpSecure);
 
-    return nodemailer.createTransport({
+    const transporter = nodemailer.createTransport({
         host: smtpHost,
         port: portNum,
         secure: secureBool,
@@ -62,6 +69,12 @@ function createMailTransporter(options = {}) {
         // Forces IPv4 - Render's IPv6 egress can't reach Gmail's IPv6 SMTP endpoint
         family: 4
     });
+
+    if (isDefault) {
+        cachedTransporter = transporter;
+    }
+
+    return transporter;
 }
 
 /**
