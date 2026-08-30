@@ -327,9 +327,15 @@ const DailyReport = () => {
 
                     if (needsBalances || needsMachines) {
                         setPrevClosing({ Offset: prevData.Offset || 0, Laser: prevData.Laser || 0, Other: prevData.Other || 0 });
-                        const machines = unenteredMachines.map(m => ({
+                        // Use ALL assigned machines (not just unentered ones) so the machine count
+                        // section always shows when machines are assigned. Pre-fill machines that
+                        // already have a reading with their actual opening_count.
+                        const machinesToPrompt = myMachines.length > 0 ? myMachines : unenteredMachines;
+                        const machines = machinesToPrompt.map(m => ({
                             id: m.id, machine_name: m.machine_name, location: m.location,
-                            opening_count: prevData.machines?.[m.id] !== undefined ? String(prevData.machines[m.id]) : ''
+                            opening_count: machineHasReading[m.id] && m.opening_count != null
+                                ? String(m.opening_count)
+                                : (prevData.machines?.[m.id] !== undefined ? String(prevData.machines[m.id]) : '')
                         }));
                         setPromptMachines(machines);
                         const newBalances = {};
