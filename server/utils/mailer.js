@@ -28,9 +28,9 @@ function htmlToPlainText(html) {
  * Creates a unified Nodemailer transport with anti-spam optimizations.
  */
 function createMailTransporter(options = {}) {
-    const smtpHost = options.host || process.env.SMTP_HOST;
-    const smtpPort = options.port || process.env.SMTP_PORT;
-    const smtpSecure = options.secure !== undefined ? options.secure : (process.env.SMTP_SECURE === 'true');
+    const smtpHost = options.host || process.env.SMTP_HOST || 'smtp.gmail.com';
+    let smtpPort = options.port || process.env.SMTP_PORT;
+    let smtpSecure = options.secure !== undefined ? options.secure : (process.env.SMTP_SECURE === 'true');
     const smtpUser = options.user || process.env.SMTP_USER || process.env.GMAIL_USER || process.env.EMAIL_USER || process.env.EMAIL_FROM || 'sargadailyreport@gmail.com';
     const rawPass = options.pass || process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD || process.env.GMAIL_PASS || process.env.EMAIL_PASS || process.env.EMAIL_PASSWORD || '';
     const smtpPass = rawPass ? String(rawPass).replace(/\s+/g, '') : '';
@@ -39,32 +39,27 @@ function createMailTransporter(options = {}) {
         throw new Error('EMAIL_PASS or GMAIL_APP_PASSWORD environment variable is missing. Please set GMAIL_APP_PASSWORD or EMAIL_PASS in your server configuration.');
     }
 
-    if (smtpHost) {
-        return nodemailer.createTransport({
-            host: smtpHost,
-            port: parseInt(smtpPort || (smtpSecure ? '465' : '587'), 10),
-            secure: Boolean(smtpSecure),
-            auth: { user: smtpUser, pass: smtpPass },
-            tls: { rejectUnauthorized: false },
-            connectionTimeout: 8000,
-            socketTimeout: 10000,
-            family: 4
-        });
+    // Force secure SSL/TLS over port 465 for Gmail to bypass blocked port 587 on Render/cloud hosts
+    if (smtpHost.toLowerCase().includes('gmail.com')) {
+        smtpPort = '465';
+        smtpSecure = true;
     }
 
-    // Default to Gmail SMTP host via port 465 (SSL/TLS) forced over IPv4
+    const portNum = parseInt(smtpPort || (smtpSecure ? '465' : '587'), 10);
+    const secureBool = Boolean(smtpSecure);
+
     return nodemailer.createTransport({
-        host: 'smtp.gmail.com',
-        port: 465,
-        secure: true,
+        host: smtpHost,
+        port: portNum,
+        secure: secureBool,
         auth: {
             user: smtpUser,
             pass: smtpPass
         },
         tls: { rejectUnauthorized: false },
-        connectionTimeout: 8000,
-        socketTimeout: 10000,
-        family: 4
+        connectionTimeout: 10000, // 10s connection timeout
+        socketTimeout: 12000,     // 12s socket timeout
+        family: 4                 // Force IPv4
     });
 }
 
