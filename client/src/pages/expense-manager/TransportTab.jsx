@@ -8,7 +8,7 @@ import { useConfirm } from '../../contexts/ConfirmContext';
 import PageContainer from '../../components/ui/PageContainer';
 import { validatePrice, validateDate, validateEnum, validateFields } from '../../utils/validators';
 
-const defaultForm = { transport_type: '', vehicle_number: '', driver_name: '', amount: '', payment_method: 'Cash', reference_number: '', description: '', expense_date: today(), bill_number: '', from_location: '', to_location: '', distance_km: '' };
+const defaultForm = { transport_type: '', vehicle_number: '', driver_name: '', amount: '', payment_method: 'Cash', reference_number: '', description: '', expense_date: today(), bill_number: '', from_location: '', to_location: '', distance_km: '', book_type: '' };
 const PAGE_SIZE = 50;
 
 const TransportTab = ({ onError }) => {
@@ -24,6 +24,7 @@ const TransportTab = ({ onError }) => {
   const [page, setPage] = useState(1);
   const [formDirty, setFormDirty] = useState(false);
   const [formErrors, setFormErrors] = useState({});
+  const [assignedBooks, setAssignedBooks] = useState([]);
 
   const hasUnsavedChanges = showForm && formDirty && !submitting;
 
@@ -67,6 +68,23 @@ const TransportTab = ({ onError }) => {
   useEffect(() => { fetchDashboard(); fetchExpenses(page); }, [fetchDashboard, fetchExpenses, page]);
 
   useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await api.get('/machines/my-books');
+        if (!mounted) return;
+        const books = res.data || [];
+        setAssignedBooks(books);
+        if ((!form.book_type || form.book_type === '') && books.length > 0) setForm(p => ({ ...p, book_type: books[0] }));
+      } catch {
+        if (!mounted) return;
+        setAssignedBooks([]);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  useEffect(() => {
     const handleBeforeUnload = (event) => {
       if (!hasUnsavedChanges) return;
       event.preventDefault();
@@ -83,6 +101,10 @@ const TransportTab = ({ onError }) => {
       amount: () => validatePrice(form.amount, { label: 'Amount', min: 0.01 }),
       expense_date: () => validateDate(form.expense_date, { label: 'Date' }),
     });
+    if (!form.book_type) {
+      result.errors = { ...result.errors, book_type: 'Select Daily Book' };
+      result.valid = false;
+    }
     setFormErrors(result.errors);
     if (result.valid) setConfirming(true);
   };
@@ -101,7 +123,7 @@ const TransportTab = ({ onError }) => {
 
   const openEdit = (row) => {
     setEditing(row);
-    setForm({ transport_type: row.transport_type, vehicle_number: row.vehicle_number || '', driver_name: row.driver_name || '', amount: row.amount, payment_method: row.payment_method || 'Cash', reference_number: row.reference_number || '', description: row.description || '', expense_date: row.expense_date?.slice(0, 10) || today(), bill_number: row.bill_number || '', from_location: row.from_location || '', to_location: row.to_location || '', distance_km: row.distance_km || '' });
+    setForm({ transport_type: row.transport_type, vehicle_number: row.vehicle_number || '', driver_name: row.driver_name || '', amount: row.amount, payment_method: row.payment_method || 'Cash', reference_number: row.reference_number || '', description: row.description || '', expense_date: row.expense_date?.slice(0, 10) || today(), bill_number: row.bill_number || '', from_location: row.from_location || '', to_location: row.to_location || '', distance_km: row.distance_km || '', book_type: row.book_type || '' });
     setFormDirty(false);
     setShowForm(true);
   };
@@ -237,6 +259,7 @@ const TransportTab = ({ onError }) => {
                 <div className="em-modal__body">
                   <div className="em-form-grid">
 <div className="em-form-group"><label>Transport Type</label><select name="transport_type" aria-label="Select option"  className={`em-input ${formErrors.transport_type ? 'field-error' : ''}`} value={form.transport_type} onChange={e => updateForm({ transport_type: e.target.value })} required><option value="">Select Type</option>{TRANSPORT_EXPENSE_TYPES.map(t => <option key={t}>{t}</option>)}</select>{formErrors.transport_type && <div className="field-error-text">{formErrors.transport_type}</div>}</div>
+                    <div className="em-form-group"><label>Daily Book</label><select name="book_type" aria-label="Select option" className="em-input" value={form.book_type || ''} onChange={e => updateForm({ book_type: e.target.value })}><option value="">Select Book</option>{((assignedBooks && assignedBooks.length > 0) ? assignedBooks : ['Offset','Laser','Other']).map(b => <option key={b} value={b}>{b}</option>)}</select></div>
                     <div className="em-form-group"><label>Vehicle #</label><input name="vehicle_number" className="em-input" value={form.vehicle_number} onChange={e => updateForm({ vehicle_number: e.target.value })} /></div>
                     <div className="em-form-group"><label>Driver Name</label><input name="driver_name" className="em-input" value={form.driver_name} onChange={e => updateForm({ driver_name: e.target.value })} /></div>
                     <div className="em-form-group"><label>Amount (₹)</label><input name="amount" className={`em-input ${formErrors.amount ? 'field-error' : ''}`} type="number" min="0" step="0.01" value={form.amount} onChange={e => updateForm({ amount: e.target.value })} required />{formErrors.amount && <div className="field-error-text">{formErrors.amount}</div>}</div>

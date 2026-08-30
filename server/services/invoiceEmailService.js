@@ -101,7 +101,7 @@ async function buildEmailPayload(payment) {
                                     <tr>
                                         <td style="padding-left: 8px;">
                                             <span style="margin-right: 4px;">✉️</span> 
-                                            <a href="mailto:sargaoffssetmpr@gmail.com" style="color: #2b6cb0; text-decoration: none;">sargaoffssetmpr@gmail.com</a>
+                                            <a href="mailto:sargaoffsetmpr@gmail.com" style="color: #2b6cb0; text-decoration: none;">sargaoffsetmpr@gmail.com</a>
                                         </td>
                                     </tr>
                                 </table>

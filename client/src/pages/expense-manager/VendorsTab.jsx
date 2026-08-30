@@ -134,14 +134,14 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
 
   // Purchase recording state
   const [showPurchaseForm, setShowPurchaseForm] = useState(false);
-  const [purchaseForm, setPurchaseForm] = useState({ vendor_id: '', amount: '', bill_number: '', bill_date: serverToday(), description: '' });
+  const [purchaseForm, setPurchaseForm] = useState({ vendor_id: '', amount: '', bill_number: '', bill_date: serverToday(), description: '', book_type: '' });
   const [purchaseSaving, setPurchaseSaving] = useState(false);
   const [purchaseError, setPurchaseError] = useState('');
   const [purchaseSuccess, setPurchaseSuccess] = useState('');
 
   // Itemized bill state
   const [showBillForm, setShowBillForm] = useState(false);
-  const [billForm, setBillForm] = useState({ vendor_id: '', bill_number: '', bill_date: serverToday() });
+  const [billForm, setBillForm] = useState({ vendor_id: '', bill_number: '', bill_date: serverToday(), book_type: '' });
   const [billItems, setBillItems] = useState([{ inventory_item_id: '', item_name: '', quantity: 1, unit_cost: 0, total_cost: 0 }]);
   const [billSaving, setBillSaving] = useState(false);
   const [billError, setBillError] = useState('');
@@ -156,6 +156,8 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
 
   const user = auth.getUser();
   const isAdmin = user?.role === 'Admin' || user?.role === 'Accountant';
+
+  const [assignedBooks, setAssignedBooks] = useState([]);
 
   // Add Inventory Item (from vendor side panel)
   const [showAddInventoryModal, setShowAddInventoryModal] = useState(false);
@@ -178,6 +180,25 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
     setAddInvVendorSuggestions(vendors.filter(v => v.name && v.name.toLowerCase().includes(q)).slice(0, 8));
     setAddInvVendorHighlight(-1);
   }, [addInventoryForm.vendor_name, vendors]);
+
+  // fetch assigned books for vendor purchase/bill selectors
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await api.get('/machines/my-books');
+        if (!mounted) return;
+        const books = res.data || [];
+        setAssignedBooks(books);
+        if ((!purchaseForm.book_type || purchaseForm.book_type === '') && books.length > 0) setPurchaseForm(p => ({ ...p, book_type: books[0] }));
+        if ((!billForm.book_type || billForm.book_type === '') && books.length > 0) setBillForm(p => ({ ...p, book_type: books[0] }));
+      } catch {
+        if (!mounted) return;
+        setAssignedBooks([]);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   const handleAddInvVendorKeyDown = (e) => {
     if (!addInvVendorSuggestions.length) return;
@@ -458,7 +479,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
 
   /* ── Purchase submit ── */
   const openPurchaseForm = (v) => {
-    setPurchaseForm({ vendor_id: v.id, vendor_name: v.name || '', amount: '', bill_number: '', bill_date: serverToday(), description: '' });
+    setPurchaseForm({ vendor_id: v.id, vendor_name: v.name || '', amount: '', bill_number: '', bill_date: serverToday(), description: '', book_type: (assignedBooks && assignedBooks.length > 0) ? assignedBooks[0] : '' });
     setPurchaseError('');
     setPurchaseSuccess('');
     setShowPurchaseForm(true);
@@ -476,7 +497,8 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
         bill_number: purchaseForm.bill_number || null,
         bill_date: purchaseForm.bill_date,
         total_amount: Number(purchaseForm.amount),
-        description: purchaseForm.description
+        description: purchaseForm.description,
+        book_type: purchaseForm.book_type || null
       });
       setPurchaseSuccess('Purchase recorded locally!');
       setTimeout(() => {
@@ -492,7 +514,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
 
   /* ── Itemized Bill ── */
   const openBillForm = async (v) => {
-    setBillForm({ vendor_id: v.id, bill_number: '', bill_date: serverToday() });
+    setBillForm({ vendor_id: v.id, bill_number: '', bill_date: serverToday(), book_type: (assignedBooks && assignedBooks.length > 0) ? assignedBooks[0] : '' });
     setBillItems([{ inventory_item_id: '', item_name: '', quantity: 1, unit_cost: 0, total_cost: 0 }]);
     setBillError('');
     setBillSuccess('');
@@ -548,6 +570,8 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
           unit_cost: Number(i.unit_cost),
           total_cost: Number(i.total_cost)
         }))
+      ,
+        book_type: billForm.book_type || null
       });
       setBillSuccess(`Bill recorded & inventory updated locally!`);
       toast.success(`Bill saved locally! Inventory updated.`, { duration: 4000 });
@@ -1195,6 +1219,13 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
                     <input name="purchase_amount" className="em-input" type="number" step="0.01" min="0" required value={purchaseForm.amount} onWheel={(e) => e.target.blur()} onChange={e => setPurchaseForm(p => ({ ...p, amount: e.target.value }))} placeholder="Enter purchase amount" />
                   </div>
                   <div className="em-form-group">
+                    <label>Daily Book</label>
+                    <select name="purchase_book_type" className="em-input" value={purchaseForm.book_type || ''} onChange={e => setPurchaseForm(p => ({ ...p, book_type: e.target.value }))}>
+                      <option value="">Select Book</option>
+                      {((assignedBooks && assignedBooks.length > 0) ? assignedBooks : ['Offset','Laser','Other']).map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
+                  </div>
+                  <div className="em-form-group">
                     <label>Bill Number</label>
                     <input name="purchase_bill_number" className="em-input" value={purchaseForm.bill_number} onChange={e => setPurchaseForm(p => ({ ...p, bill_number: e.target.value }))} placeholder="e.g. INV-001" />
                   </div>
@@ -1242,6 +1273,7 @@ const VendorsTab = ({ vendors = [], onPayment, onRefreshVendors }) => {
         <label htmlFor="date-w9flil" className="sr-only">Select Date</label>
         <input id="date-w9flil" name="bill_date" className="em-input" type="date" value={billForm.bill_date} onChange={e => setBillForm(p => ({ ...p, bill_date: e.target.value }))} />
                   </div>
+                  <div className="em-form-group"><label>Daily Book</label><select name="bill_book_type" className="em-input" value={billForm.book_type || ''} onChange={e => setBillForm(p => ({ ...p, book_type: e.target.value }))}><option value="">Select Book</option>{((assignedBooks && assignedBooks.length > 0) ? assignedBooks : ['Offset','Laser','Other']).map(b => <option key={b} value={b}>{b}</option>)}</select></div>
                 </div>
 
                 <div style={{ marginTop: 16 }}>

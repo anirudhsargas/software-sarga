@@ -7,7 +7,7 @@ import PageContainer from '../../components/ui/PageContainer';
 import Loading from '../../components/ui/Loading';
 import { validatePrice, validateDate, validateEnum, validateFields } from '../../utils/validators';
 
-const defaultForm = { expense_type: '', vendor_name: '', amount: '', payment_method: 'Cash', reference_number: '', description: '', expense_date: today(), bill_number: '' };
+const defaultForm = { expense_type: '', vendor_name: '', amount: '', payment_method: 'Cash', reference_number: '', description: '', expense_date: today(), bill_number: '', book_type: '' };
 const PAGE_SIZE = 50;
 
 const OfficeTab = ({ onError }) => {
@@ -30,6 +30,7 @@ const OfficeTab = ({ onError }) => {
 
   // Vendor autocomplete
   const [vendorsOffice, setVendorsOffice] = useState([]);
+  const [assignedBooks, setAssignedBooks] = useState([]);
   const [vendorSuggestionsOffice, setVendorSuggestionsOffice] = useState([]);
   const [vendorFocusedOffice, setVendorFocusedOffice] = useState(false);
   const [vendorHighlightOffice, setVendorHighlightOffice] = useState(-1);
@@ -37,6 +38,23 @@ const OfficeTab = ({ onError }) => {
 
   useEffect(() => {
     api.get('/vendors').then(r => { const d = r.data?.data || r.data || []; setVendorsOffice(Array.isArray(d) ? d : []); }).catch(() => {});
+    // fetch assigned books for book selector
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await api.get('/machines/my-books');
+        if (!mounted) return;
+        const books = res.data || [];
+        setAssignedBooks(books);
+        if ((!form.book_type || form.book_type === '') && books.length > 0) {
+          setForm(p => ({ ...p, book_type: books[0] }));
+        }
+      } catch {
+        if (!mounted) return;
+        setAssignedBooks([]);
+      }
+    })();
+    return () => { mounted = false; };
   }, []);
 
   useEffect(() => {
@@ -117,6 +135,11 @@ const OfficeTab = ({ onError }) => {
       amount: () => validatePrice(form.amount, { label: 'Amount', min: 0.01 }),
       expense_date: () => validateDate(form.expense_date, { label: 'Date' }),
     });
+    // require book_type
+    if (!form.book_type) {
+      result.errors = { ...result.errors, book_type: 'Select Daily Book' };
+      result.valid = false;
+    }
     setFormErrors(result.errors);
     if (result.valid) setConfirming(true);
   };
@@ -135,7 +158,7 @@ const OfficeTab = ({ onError }) => {
 
   const openEdit = (row) => {
     setEditing(row);
-    setForm({ expense_type: row.expense_type, vendor_name: row.vendor_name || '', amount: row.amount, payment_method: row.payment_method || 'Cash', reference_number: row.reference_number || '', description: row.description || '', expense_date: row.expense_date?.slice(0, 10) || today(), bill_number: row.bill_number || '' });
+    setForm({ expense_type: row.expense_type, vendor_name: row.vendor_name || '', amount: row.amount, payment_method: row.payment_method || 'Cash', reference_number: row.reference_number || '', description: row.description || '', expense_date: row.expense_date?.slice(0, 10) || today(), bill_number: row.bill_number || '', book_type: row.book_type || '' });
     setFormDirty(false);
     setShowForm(true);
   };
@@ -232,6 +255,7 @@ const OfficeTab = ({ onError }) => {
                   <div className="em-form-grid">
 <div className="em-form-group"><label>Expense Type</label><select name="expense_type" aria-label="Select option"  className={`em-input ${formErrors.expense_type ? 'field-error' : ''}`} value={form.expense_type} onChange={e => updateForm({ expense_type: e.target.value })} required><option value="">Select Type</option>{OFFICE_EXPENSE_TYPES.map(t => <option key={t}>{t}</option>)}</select>{formErrors.expense_type && <div className="field-error-text">{formErrors.expense_type}</div>}</div>
                     <div className="em-form-group" style={{ position: 'relative' }}><label>Vendor / Shop</label><div className="sb-autocomplete-wrapper"><input ref={vendorInputRefOffice} name="vendor_name" className="em-input" value={form.vendor_name} onChange={e => updateForm({ vendor_name: e.target.value })} onFocus={() => setVendorFocusedOffice(true)} onKeyDown={handleVendorKeyDownOffice} onBlur={() => setTimeout(() => setVendorFocusedOffice(false), 200)} autoComplete="off" />{vendorFocusedOffice && vendorSuggestionsOffice.length > 0 && <div className="sb-autocomplete-dropdown">{vendorSuggestionsOffice.map((v, idx) => (<div key={v.id || idx} className={`sb-autocomplete-item ${idx === vendorHighlightOffice ? 'sb-autocomplete-item--active' : ''}`} onMouseDown={e => { e.preventDefault(); updateForm({ vendor_name: v.name }); setVendorSuggestionsOffice([]); setVendorFocusedOffice(false); }} onMouseEnter={() => setVendorHighlightOffice(idx)}><span className="sb-autocomplete-item-name">{v.name}</span>{v.phone && <span className="sb-autocomplete-item-sub">{v.phone}</span>}</div>))}</div>}</div></div>
+                                        <div className="em-form-group"><label>Daily Book</label><select name="book_type" aria-label="Select option" className={`em-input ${formErrors.book_type ? 'field-error' : ''}`} value={form.book_type || ''} onChange={e => updateForm({ book_type: e.target.value })}><option value="">Select Book</option>{((assignedBooks && assignedBooks.length > 0) ? assignedBooks : ['Offset','Laser','Other']).map(b => <option key={b} value={b}>{b}</option>)}</select>{formErrors.book_type && <div className="field-error-text">{formErrors.book_type}</div>}</div>
                     <div className="em-form-group"><label>Amount (₹)</label><input name="amount" className={`em-input ${formErrors.amount ? 'field-error' : ''}`} type="number" min="0" step="0.01" value={form.amount} onChange={e => updateForm({ amount: e.target.value })} required />{formErrors.amount && <div className="field-error-text">{formErrors.amount}</div>}</div>
                     <div className="em-form-group"><label>Payment Method</label><select name="payment_method" aria-label="Select option"  className="em-input" value={form.payment_method} onChange={e => updateForm({ payment_method: e.target.value })}>{['Cash', 'UPI', 'Bank Transfer', 'Cheque'].map(m => <option key={m}>{m}</option>)}</select></div>
                     <div className="em-form-group"><label>Reference #</label><input name="reference_number" className="em-input" value={form.reference_number} onChange={e => updateForm({ reference_number: e.target.value })} /></div>

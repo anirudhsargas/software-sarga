@@ -252,16 +252,57 @@ const DailyReport = () => {
 
     const getPendingEntriesForTab = useCallback(async (tab) => {
         const bills = await offlineDb.getAllBills();
-        return bills
-            .filter(bill => (bill.status || bill.syncStatus) !== 'synced')
-            .filter(bill => normalizeReportDate(bill.paymentDate || bill.payment_date) === reportDate)
-            .filter(bill => normalizeBookType(bill.book_type || bill.bookType) === tab)
-            .filter(bill => {
-                if (!selectedBranch) return true;
+        const out = [];
+        const isMachineLine = (ln) => {
+            if (!ln) return false;
+            if (ln.machine_id) return true;
+            const cat = String(ln.category || ln.category_name || ln.name || '').toLowerCase();
+            return /laser|photocopy|xerox/.test(cat);
+        };
+
+        for (const bill of bills) {
+            if ((bill.status || bill.syncStatus) === 'synced') continue;
+            if (normalizeReportDate(bill.paymentDate || bill.payment_date) !== reportDate) continue;
+            if (selectedBranch) {
                 const branchId = bill.branch_id || bill.branchId || null;
-                return branchId == null || Number(branchId) === Number(selectedBranch);
-            })
-            .map(bill => toPendingEntry(bill, tab));
+                if (branchId != null && Number(branchId) !== Number(selectedBranch)) continue;
+            }
+
+            const billBook = normalizeBookType(bill.book_type || bill.bookType);
+            // If the bill's book matches the tab, include full pending entry
+            if (billBook === tab) {
+                out.push(toPendingEntry(bill, tab));
+                continue;
+            }
+
+            // Special case: for Laser tab, include a counts-only entry when the bill contains machine lines
+            if (tab === 'Laser') {
+                const lines = Array.isArray(bill.orderLines || bill.order_lines) ? (bill.orderLines || bill.order_lines) : [];
+                const machineLines = lines.filter(isMachineLine);
+                if (machineLines.length > 0) {
+                    // Create a pending entry focused on counts only (amounts zeroed)
+                    const countsEntry = toPendingEntry(bill, 'Laser');
+                    countsEntry.cash_amount = 0;
+                    countsEntry.upi_amount = 0;
+                    countsEntry.total = 0;
+                    countsEntry.payment_method = '';
+                    countsEntry.details = (machineLines.map(l => l.product_name || l.job_name || l.description || l.name || '').filter(Boolean)).join(', ');
+                    countsEntry.order_lines = machineLines.map(l => ({
+                        name: l.product_name || l.job_name || l.description || l.name || 'Item',
+                        qty: Number(l.quantity) || Number(l.qty) || 1,
+                        amount: 0,
+                        waste_prints: Number(l.waste_prints) || 0,
+                        proof_prints: Number(l.proof_prints) || 0,
+                        book_type: l.book_type || l.bookType || bill.book_type || bill.bookType
+                    }));
+                    // Ensure copies reflect machine qty
+                    countsEntry.copies = countsEntry.order_lines.reduce((s, ln) => s + (Number(ln.qty) || 0), 0);
+                    out.push(countsEntry);
+                }
+            }
+        }
+
+        return out;
     }, [reportDate, selectedBranch]);
 
     const currentTabMeta = TABS.find(t => t.key === activeTab);
@@ -1289,11 +1330,25 @@ const DailyReport = () => {
         const PAGE_SIZE = 50;
         const [page, setPage] = useState(1);
         const [expandedIds, setExpandedIds] = useState(new Set());
-        const totalPages = Math.ceil((entries?.length || 0) / PAGE_SIZE);
-        const pagedEntries = (entries || []).slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+        const [groupedIds, setGroupedIds] = useState(new Set());
+        const sortedEntries = (entries || []).slice().sort((a, b) => {
+            const ta = a.time ? new Date(a.time).getTime() : 0;
+            const tb = b.time ? new Date(b.time).getTime() : 0;
+            return ta - tb; // oldest (first added) first
+        });
+        const totalPages = Math.ceil((sortedEntries?.length || 0) / PAGE_SIZE);
+        const pagedEntries = (sortedEntries || []).slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
         const toggleExpand = (id) => {
             setExpandedIds(prev => {
+                const next = new Set(prev);
+                if (next.has(id)) next.delete(id); else next.add(id);
+                return next;
+            });
+        };
+
+        const toggleGroupView = (id) => {
+            setGroupedIds(prev => {
                 const next = new Set(prev);
                 if (next.has(id)) next.delete(id); else next.add(id);
                 return next;
@@ -1375,6 +1430,25 @@ const DailyReport = () => {
                                                 {hasLines && (
                                                     <span className="badge badge--default entry-table-badge" style={{ padding: '2px 6px', fontSize: 10, marginLeft: 4 }}>{entry.order_lines.length} items</span>
                                                 )}
+                                                {/* If the bill contains items assigned to different books, allow grouping/splitting */}
+                                                {hasLines && (() => {
+                                                    const bookTypes = new Set((entry.order_lines || []).map(l => String(l.book_type || l.bookType || 'Offset')));
+                                                    if (bookTypes.size > 1) {
+                                                        const isGrouped = groupedIds.has(entry.id);
+                                                        return (
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => { e.stopPropagation(); toggleGroupView(entry.id); }}
+                                                                className="btn btn-ghost btn-xs"
+                                                                style={{ marginLeft: 8 }}
+                                                                aria-pressed={isGrouped}
+                                                            >
+                                                                {isGrouped ? 'Grouped View' : 'Split by Book'}
+                                                            </button>
+                                                        );
+                                                    }
+                                                    return null;
+                                                })()}
                                                 {entry.is_local_pending && (
                                                     <span className="badge badge--warning entry-table-badge" style={{ padding: '2px 6px', fontSize: 10, marginLeft: 4 }}>Pending Sync</span>
                                                 )}
@@ -1440,38 +1514,90 @@ const DailyReport = () => {
                                             })()}
                                         </td>
                                         <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }} className={`entry-table-amount ${isExpense ? 'entry-table-amount--expense' : 'entry-table-amount--income'}`}>
-                                            {isExpense ? '-' : '+'}{formatCurrency(entry.cash_amount)}
+                                            {Number(entry.cash_amount || 0) === 0 ? '' : `${isExpense ? '-' : '+'}${formatCurrency(entry.cash_amount)}`}
                                         </td>
                                         <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }} className={`entry-table-amount ${isExpense ? 'entry-table-amount--expense' : 'entry-table-amount--income'}`}>
-                                            {isExpense ? '-' : '+'}{formatCurrency(entry.upi_amount)}
+                                            {Number(entry.upi_amount || 0) === 0 ? '' : `${isExpense ? '-' : '+'}${formatCurrency(entry.upi_amount)}`}
                                         </td>
                                         <td style={{ whiteSpace: 'nowrap', textAlign: 'right', fontWeight: 700 }} className="entry-table-total">
                                             {isExpense ? '-' : ''}{formatCurrency(entry.total)}
                                         </td>
                                     </tr>
-                                    {hasLines && isExpanded && entry.order_lines.map((line, li) => (
-                                        <tr key={`${entry.id}-line-${li}`} className="entry-table-row--expanded">
-                                            <td></td>
-                                            <td colSpan={isLaser ? 3 : 2} className="entry-table-row-expanded-content">
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                    <span className="entry-table-line-name">{line.name || 'Item'}</span>
-                                                    {line.qty > 1 && <span className="entry-table-line-qty">×{line.qty}</span>}
-                                                    {(line.waste_prints > 0 || line.proof_prints > 0) && (
-                                                        <span className="entry-table-line-waste-proof">
-                                                            {line.waste_prints > 0 && <span className="entry-table-line-waste">Waste:{line.waste_prints} </span>}
-                                                            {line.proof_prints > 0 && <span className="entry-table-line-proof">Proof:{line.proof_prints}</span>}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td></td>
-                                            <td></td>
-                                            <td></td>
-                                            <td className="entry-table-line-amount">
-                                                {formatCurrency(line.amount)}
-                                            </td>
-                                        </tr>
-                                    ))}
+                                    {hasLines && isExpanded && (() => {
+                                        const lines = entry.order_lines || [];
+                                        if (groupedIds.has(entry.id)) {
+                                            // Group lines by book_type and render group headers + their lines
+                                            const groups = {};
+                                            lines.forEach(l => {
+                                                const bt = String(l.book_type || l.bookType || 'Offset');
+                                                if (!groups[bt]) groups[bt] = [];
+                                                groups[bt].push(l);
+                                            });
+                                            return Object.keys(groups).map((bt, gi) => {
+                                                const groupLines = groups[bt];
+                                                const groupTotal = groupLines.reduce((s, ln) => s + (Number(ln.amount) || 0), 0);
+                                                return (
+                                                    <React.Fragment key={`${entry.id}-group-${gi}`}>
+                                                        <tr className="entry-table-row--expanded entry-table-group-header">
+                                                            <td></td>
+                                                            <td colSpan={isLaser ? 3 : 2} style={{ fontWeight: 700 }}>{bt} Book — {groupLines.length} items</td>
+                                                            <td></td>
+                                                            <td></td>
+                                                            <td></td>
+                                                            <td style={{ textAlign: 'right', fontWeight: 700 }}>{formatCurrency(groupTotal)}</td>
+                                                        </tr>
+                                                        {groupLines.map((line, li) => (
+                                                            <tr key={`${entry.id}-group-${gi}-line-${li}`} className="entry-table-row--expanded">
+                                                                <td></td>
+                                                                <td colSpan={isLaser ? 3 : 2} className="entry-table-row-expanded-content">
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                                        <span className="entry-table-line-name">{line.name || 'Item'}</span>
+                                                                        {line.qty > 1 && <span className="entry-table-line-qty">×{line.qty}</span>}
+                                                                        {(line.waste_prints > 0 || line.proof_prints > 0) && (
+                                                                            <span className="entry-table-line-waste-proof">
+                                                                                {line.waste_prints > 0 && <span className="entry-table-line-waste">Waste:{line.waste_prints} </span>}
+                                                                                {line.proof_prints > 0 && <span className="entry-table-line-proof">Proof:{line.proof_prints}</span>}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                </td>
+                                                                <td></td>
+                                                                <td></td>
+                                                                <td></td>
+                                                                <td className="entry-table-line-amount">
+                                                                    {formatCurrency(line.amount)}
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </React.Fragment>
+                                                );
+                                            });
+                                        }
+                                        // Default: single bill view (flat list of lines)
+                                        return lines.map((line, li) => (
+                                            <tr key={`${entry.id}-line-${li}`} className="entry-table-row--expanded">
+                                                <td></td>
+                                                <td colSpan={isLaser ? 3 : 2} className="entry-table-row-expanded-content">
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                        <span className="entry-table-line-name">{line.name || 'Item'}</span>
+                                                        {line.qty > 1 && <span className="entry-table-line-qty">×{line.qty}</span>}
+                                                        {(line.waste_prints > 0 || line.proof_prints > 0) && (
+                                                            <span className="entry-table-line-waste-proof">
+                                                                {line.waste_prints > 0 && <span className="entry-table-line-waste">Waste:{line.waste_prints} </span>}
+                                                                {line.proof_prints > 0 && <span className="entry-table-line-proof">Proof:{line.proof_prints}</span>}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td></td>
+                                                <td></td>
+                                                <td></td>
+                                                <td className="entry-table-line-amount">
+                                                    {formatCurrency(line.amount)}
+                                                </td>
+                                            </tr>
+                                        ));
+                                    })()}
                                 </React.Fragment>
                             );
                         })}

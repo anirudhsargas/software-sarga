@@ -15,7 +15,7 @@ const { getTodayDate, asyncHandler } = require('../helpers');
 router.get('/front-office/attendance-reminder', authenticateToken, async (req, res) => {
     try {
         const userRole = req.user.role;
-        const { branchId } = await branchFilter(req);
+        const { branchId } = await branchFilter(req, { nullableForPrivileged: false });
 
         // Reminder intended for Front Office, Staff, and Admin
         if (!branchId || !['Front Office', 'front office', 'Admin', 'admin', 'Accountant'].includes(userRole)) {

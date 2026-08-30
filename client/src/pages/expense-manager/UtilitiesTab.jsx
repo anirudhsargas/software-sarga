@@ -46,7 +46,7 @@ const UtilitiesTab = ({ refreshKey, dashboard, onPayment, onRefresh }) => {
 
   // Bill recording state
   const [showBillForm, setShowBillForm] = useState(false);
-  const [billForm, setBillForm] = useState({ utility_type: '', amount: '', bill_number: '', bill_date: serverToday(), description: '', connection_record_id: '', connection_id: '' });
+  const [billForm, setBillForm] = useState({ utility_type: '', amount: '', bill_number: '', bill_date: serverToday(), description: '', connection_record_id: '', connection_id: '', book_type: '' });
   const [billSaving, setBillSaving] = useState(false);
   const [billError, setBillError] = useState('');
   const [billSuccess, setBillSuccess] = useState('');
@@ -74,6 +74,7 @@ const UtilitiesTab = ({ refreshKey, dashboard, onPayment, onRefresh }) => {
 
   const user = auth.getUser();
   const isAdmin = user?.role === 'Admin' || user?.role === 'Accountant';
+  const [assignedBooks, setAssignedBooks] = useState([]);
 
   // Load custom utility types from localStorage
   const [customTypes, setCustomTypes] = useState(() => {
@@ -104,6 +105,21 @@ const UtilitiesTab = ({ refreshKey, dashboard, onPayment, onRefresh }) => {
     if (isAdmin) {
       api.get('/branches').then(r => setBranches(r.data || [])).catch(() => {});
     }
+    // fetch assigned books for utility bill selector
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await api.get('/machines/my-books');
+        if (!mounted) return;
+        const books = res.data || [];
+        setAssignedBooks(books);
+        if ((!billForm.book_type || billForm.book_type === '') && books.length > 0) setBillForm(p => ({ ...p, book_type: books[0] }));
+      } catch {
+        if (!mounted) return;
+        setAssignedBooks([]);
+      }
+    })();
+    return () => { mounted = false; };
   }, [fetchCategoriesData, isAdmin]);
 
   // Refresh data when refreshKey changes (without unmounting)
@@ -360,9 +376,10 @@ const UtilitiesTab = ({ refreshKey, dashboard, onPayment, onRefresh }) => {
             description: billForm.description,
             connection_id: entry.connection_id,
             connection_record_id: billForm.connection_record_id || undefined,
-            is_paid: isPaid,
+              is_paid: isPaid,
             payment_method: billForm.payment_method || 'Cash',
             payment_ref: billForm.payment_ref || null
+              ,book_type: billForm.book_type || null
           };
           return api.post('/utility-bills', payload);
         });
@@ -1272,6 +1289,13 @@ const UtilitiesTab = ({ refreshKey, dashboard, onPayment, onRefresh }) => {
                       value={billForm.bill_date} 
                       onChange={e => setBillForm(p => ({ ...p, bill_date: e.target.value }))} 
                     />
+                  </div>
+                  <div className="em-form-group">
+                    <label>Daily Book</label>
+                    <select name="utility_book_type" className="em-input" value={billForm.book_type || ''} onChange={e => setBillForm(p => ({ ...p, book_type: e.target.value }))}>
+                      <option value="">Select Book</option>
+                      {((assignedBooks && assignedBooks.length > 0) ? assignedBooks : ['Offset','Laser','Other']).map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
                   </div>
 
                   {multipleConsumers ? (

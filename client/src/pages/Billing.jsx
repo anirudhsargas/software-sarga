@@ -822,6 +822,39 @@ const Billing = () => {
   }, [form.type]);
 
   const updateLine = useCallback((id, field, value) => {
+    // Special handling for changing book_type: if other lines use a different book,
+    // ask the user whether to convert all lines to the selected book or only this line.
+    if (field === 'book_type') {
+      const newBook = String(value || 'Offset');
+      const prevLines = orderLinesRef.current || [];
+      const otherDifferent = prevLines.some(l => l.id !== id && String((l.book_type || l.bookType || 'Offset')).toLowerCase() !== newBook.toLowerCase());
+      if (otherDifferent) {
+        (async () => {
+          try {
+            const proceed = await confirm({
+              title: 'Convert book for all items?',
+              message: `This bill contains items assigned to different cash books. Convert all items to the ${newBook} book?`,
+              confirmText: 'Convert all',
+              cancelText: 'Change only this item',
+              type: 'primary'
+            });
+            if (proceed) {
+              setOrderLines(prev => prev.map(l => ({ ...l, book_type: newBook })));
+            } else {
+              setOrderLines(prev => prev.map(l => l.id === id ? ({ ...l, book_type: newBook }) : l));
+            }
+          } catch (err) {
+            console.error('Error handling book_type change confirmation:', err);
+            setOrderLines(prev => prev.map(l => l.id === id ? ({ ...l, book_type: newBook }) : l));
+          }
+        })();
+        return;
+      }
+      // No conflicts — proceed with single-line update
+      setOrderLines(prev => prev.map(l => l.id === id ? ({ ...l, book_type: newBook }) : l));
+      return;
+    }
+
     setOrderLines(prev => prev.map(l => {
       if (l.id !== id) return l;
       const updated = { ...l, [field]: value };

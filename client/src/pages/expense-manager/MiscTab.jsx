@@ -6,7 +6,7 @@ import { useConfirm } from '../../contexts/ConfirmContext';
 import PageContainer from '../../components/ui/PageContainer';
 import { validatePrice, validateDate, validateEnum, validateFields } from '../../utils/validators';
 
-const defaultForm = { expense_category: '', vendor_name: '', amount: '', payment_method: 'Cash', reference_number: '', description: '', expense_date: today(), bill_number: '', is_recurring: false };
+const defaultForm = { expense_category: '', vendor_name: '', amount: '', payment_method: 'Cash', reference_number: '', description: '', expense_date: today(), bill_number: '', is_recurring: false, book_type: '' };
 const PAGE_SIZE = 50;
 
 const MiscTab = ({ onError }) => {
@@ -32,8 +32,27 @@ const MiscTab = ({ onError }) => {
   const [vendorHighlightMisc, setVendorHighlightMisc] = useState(-1);
   const vendorInputRefMisc = useRef(null);
 
+  const [assignedBooks, setAssignedBooks] = useState([]);
+
   useEffect(() => {
     api.get('/vendors').then(r => { const d = r.data?.data || r.data || []; setVendorsMisc(Array.isArray(d) ? d : []); }).catch(() => {});
+    // fetch assigned books for book selector
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await api.get('/machines/my-books');
+        if (!mounted) return;
+        const books = res.data || [];
+        setAssignedBooks(books);
+        if ((!form.book_type || form.book_type === '') && books.length > 0) {
+          setForm(p => ({ ...p, book_type: books[0] }));
+        }
+      } catch {
+        if (!mounted) return;
+        setAssignedBooks([]);
+      }
+    })();
+    return () => { mounted = false; };
   }, []);
 
   useEffect(() => {
@@ -105,6 +124,11 @@ const MiscTab = ({ onError }) => {
       amount: () => validatePrice(form.amount, { label: 'Amount', min: 0.01 }),
       expense_date: () => validateDate(form.expense_date, { label: 'Date' }),
     });
+    // require book_type
+    if (!form.book_type) {
+      result.errors = { ...result.errors, book_type: 'Select Daily Book' };
+      result.valid = false;
+    }
     setFormErrors(result.errors);
     if (result.valid) setConfirming(true);
   };
@@ -123,7 +147,7 @@ const MiscTab = ({ onError }) => {
 
   const openEdit = (row) => {
     setEditing(row);
-    setForm({ expense_category: row.expense_category, vendor_name: row.vendor_name || '', amount: row.amount, payment_method: row.payment_method || 'Cash', reference_number: row.reference_number || '', description: row.description || '', expense_date: row.expense_date?.slice(0, 10) || today(), bill_number: row.bill_number || '', is_recurring: row.is_recurring || false });
+    setForm({ expense_category: row.expense_category, vendor_name: row.vendor_name || '', amount: row.amount, payment_method: row.payment_method || 'Cash', reference_number: row.reference_number || '', description: row.description || '', expense_date: row.expense_date?.slice(0, 10) || today(), bill_number: row.bill_number || '', is_recurring: row.is_recurring || false, book_type: row.book_type || '' });
     setFormDirty(false);
     setShowForm(true);
   };
@@ -203,7 +227,8 @@ const MiscTab = ({ onError }) => {
               <form onSubmit={!editing ? handleReview : submitForm}>
                 <div className="em-modal__body">
                   <div className="em-form-grid">
-<div className="em-form-group"><label>Category</label><select name="expense_category" aria-label="Select option"  className={`em-input ${formErrors.expense_category ? 'field-error' : ''}`} value={form.expense_category} onChange={e => updateForm({ expense_category: e.target.value })} required><option value="">Select Category</option>{MISC_CATEGORIES.map(c => <option key={c}>{c}</option>)}</select>{formErrors.expense_category && <div className="em-error" style={{ fontSize: 11, marginTop: 2 }}>{formErrors.expense_category}</div>}</div>
+                <div className="em-form-group"><label>Category</label><select name="expense_category" aria-label="Select option"  className={`em-input ${formErrors.expense_category ? 'field-error' : ''}`} value={form.expense_category} onChange={e => updateForm({ expense_category: e.target.value })} required><option value="">Select Category</option>{MISC_CATEGORIES.map(c => <option key={c}>{c}</option>)}</select>{formErrors.expense_category && <div className="em-error" style={{ fontSize: 11, marginTop: 2 }}>{formErrors.expense_category}</div>}</div>
+                <div className="em-form-group"><label>Daily Book</label><select name="book_type" aria-label="Select option" className={`em-input ${formErrors.book_type ? 'field-error' : ''}`} value={form.book_type || ''} onChange={e => updateForm({ book_type: e.target.value })}><option value="">Select Book</option>{((assignedBooks && assignedBooks.length > 0) ? assignedBooks : ['Offset','Laser','Other']).map(b => <option key={b} value={b}>{b}</option>)}</select>{formErrors.book_type && <div className="em-error" style={{ fontSize: 11, marginTop: 2 }}>{formErrors.book_type}</div>}</div>
                     <div className="em-form-group" style={{ position: 'relative' }}><label>Vendor / Shop</label><div className="sb-autocomplete-wrapper"><input ref={vendorInputRefMisc} name="vendor_name" className="em-input" value={form.vendor_name} onChange={e => updateForm({ vendor_name: e.target.value })} onFocus={() => setVendorFocusedMisc(true)} onKeyDown={handleVendorKeyDownMisc} onBlur={() => setTimeout(() => setVendorFocusedMisc(false), 200)} autoComplete="off" />{vendorFocusedMisc && vendorSuggestionsMisc.length > 0 && <div className="sb-autocomplete-dropdown">{vendorSuggestionsMisc.map((v, idx) => (<div key={v.id || idx} className={`sb-autocomplete-item ${idx === vendorHighlightMisc ? 'sb-autocomplete-item--active' : ''}`} onMouseDown={e => { e.preventDefault(); updateForm({ vendor_name: v.name }); setVendorSuggestionsMisc([]); setVendorFocusedMisc(false); }} onMouseEnter={() => setVendorHighlightMisc(idx)}><span className="sb-autocomplete-item-name">{v.name}</span>{v.phone && <span className="sb-autocomplete-item-sub">{v.phone}</span>}</div>))}</div>}</div></div>
                     <div className="em-form-group"><label>Amount (₹)</label><input name="amount" className={`em-input ${formErrors.amount ? 'field-error' : ''}`} type="number" min="0" step="0.01" value={form.amount} onChange={e => updateForm({ amount: e.target.value })} required />{formErrors.amount && <div className="em-error" style={{ fontSize: 11, marginTop: 2 }}>{formErrors.amount}</div>}</div>
                     <div className="em-form-group"><label>Payment Method</label><select name="payment_method" aria-label="Select option"  className="em-input" value={form.payment_method} onChange={e => updateForm({ payment_method: e.target.value })}>{['Cash', 'UPI', 'Bank Transfer', 'Cheque'].map(m => <option key={m}>{m}</option>)}</select></div>

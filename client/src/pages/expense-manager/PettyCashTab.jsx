@@ -9,7 +9,7 @@ import { useConfirm } from '../../contexts/ConfirmContext';
 import PageContainer from '../../components/ui/PageContainer';
 import Loading from '../../components/ui/Loading';
 
-const defaultForm = { transaction_date: today(), transaction_type: 'Cash Out', amount: '', description: '', reference_number: '', received_from: '', paid_to: '', category: '' };
+const defaultForm = { transaction_date: today(), transaction_type: 'Cash Out', amount: '', description: '', reference_number: '', received_from: '', paid_to: '', category: '', book_type: '' };
 const PETTY_CATEGORIES = ['Tea / Snacks', 'Stationery', 'Cleaning', 'Travel', 'Courier', 'Tips', 'Parking', 'Photocopies', 'Misc Purchases', 'Other'];
 const PAGE_SIZE = 50;
 
@@ -26,6 +26,8 @@ const PettyCashTab = ({ onError }) => {
   const [submitting, setSubmitting] = useState(false);
   const [page, setPage] = useState(1);
   const [formDirty, setFormDirty] = useState(false);
+
+  const [assignedBooks, setAssignedBooks] = useState([]);
 
   const hasUnsavedChanges = showForm && formDirty && !submitting;
 
@@ -66,6 +68,26 @@ const PettyCashTab = ({ onError }) => {
   useEffect(() => { fetchDashboard(); fetchLedger(); }, [fetchDashboard, fetchLedger]);
   useEffect(() => { setPage(1); }, [filterMonth]);
 
+  // fetch assigned books for petty cash book selector
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await api.get('/machines/my-books');
+        if (!mounted) return;
+        const books = res.data || [];
+        setAssignedBooks(books);
+        if ((!form.book_type || form.book_type === '') && books.length > 0) {
+          setForm(p => ({ ...p, book_type: books[0] }));
+        }
+      } catch {
+        if (!mounted) return;
+        setAssignedBooks([]);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
   useEffect(() => {
     const handleBeforeUnload = (event) => {
       if (!hasUnsavedChanges) return;
@@ -76,7 +98,14 @@ const PettyCashTab = ({ onError }) => {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
-  const handleReview = (e) => { e.preventDefault(); setConfirming(true); };
+  const handleReview = (e) => {
+    e.preventDefault();
+    if (!form.book_type) {
+      window.alert('Please select Daily Book');
+      return;
+    }
+    setConfirming(true);
+  };
 
   const submitForm = async (e) => {
     e.preventDefault();
@@ -92,7 +121,7 @@ const PettyCashTab = ({ onError }) => {
 
   const openEdit = (row) => {
     setEditing(row);
-    setForm({ transaction_date: row.transaction_date?.slice(0, 10) || today(), transaction_type: row.transaction_type, amount: row.amount, description: row.description || '', reference_number: row.reference_number || '', received_from: row.received_from || '', paid_to: row.paid_to || '', category: row.category || '' });
+    setForm({ transaction_date: row.transaction_date?.slice(0, 10) || today(), transaction_type: row.transaction_type, amount: row.amount, description: row.description || '', reference_number: row.reference_number || '', received_from: row.received_from || '', paid_to: row.paid_to || '', category: row.category || '', book_type: row.book_type || '' });
     setFormDirty(false);
     setShowForm(true);
   };
@@ -251,7 +280,8 @@ const PettyCashTab = ({ onError }) => {
               <form onSubmit={!editing ? handleReview : submitForm}>
                 <div className="em-modal__body">
                   <div className="em-form-grid">
-<div className="em-form-group"><label>Type</label><select name="transaction_type" aria-label="Select option"  className="em-input" value={form.transaction_type} onChange={e => updateForm({ transaction_type: e.target.value })}><option>Opening</option><option>Cash In</option><option>Cash Out</option></select></div>
+                    <div className="em-form-group"><label>Type</label><select name="transaction_type" aria-label="Select option"  className="em-input" value={form.transaction_type} onChange={e => updateForm({ transaction_type: e.target.value })}><option>Opening</option><option>Cash In</option><option>Cash Out</option></select></div>
+                    <div className="em-form-group"><label>Daily Book</label><select name="book_type" aria-label="Select option" className="em-input" value={form.book_type || ''} onChange={e => updateForm({ book_type: e.target.value })}><option value="">Select Book</option>{((assignedBooks && assignedBooks.length > 0) ? assignedBooks : ['Offset','Laser','Other']).map(b => <option key={b} value={b}>{b}</option>)}</select></div>
                     <div className="em-form-group"><label>Amount (₹)</label><input name="amount" className="em-input" type="number" min="0" step="0.01" value={form.amount} onChange={e => updateForm({ amount: e.target.value })} required /></div>
                     <div className="em-form-group"><label>Date</label>
         <label htmlFor="date-t2y6d8" className="sr-only">Select Date</label>
