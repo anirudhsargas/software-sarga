@@ -17,6 +17,12 @@ const formatRole = (role) => {
     return role.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 };
 
+const WhatsAppIcon = () => (
+    <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" style={{ verticalAlign: 'middle' }}>
+        <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.717-1.458L0 24zm6.59-4.846c1.6.95 3.167 1.465 4.767 1.465 5.482 0 9.94-4.46 9.943-9.94.002-2.654-1.03-5.15-2.906-7.03C16.571 1.77 14.073.74 11.42.745 5.937.745 1.48 5.2 1.477 10.682c-.001 1.761.464 3.479 1.348 5.025l-1.008 3.684 3.774-.99.033.023zm11.758-5.32c-.312-.156-1.85-.913-2.136-1.018-.286-.104-.495-.156-.703.156-.208.312-.806.913-1.018 1.147-.213.234-.427.26-.739.104-.312-.156-1.316-.486-2.507-1.548-.927-.827-1.553-1.85-1.735-2.16-.182-.312-.02-.48.136-.635.14-.14.312-.363.468-.545.156-.182.208-.312.312-.52.104-.208.052-.39-.026-.545-.078-.156-.703-1.693-.963-2.317-.253-.61-.51-.527-.703-.537-.182-.01-.39-.01-.6-.01-.208 0-.546.078-.832.39-.286.312-1.092 1.066-1.092 2.6s1.118 3.018 1.274 3.226c.156.208 2.2 3.36 5.33 4.716.744.322 1.326.515 1.777.658.747.237 1.427.204 1.967.124.6-.09 1.85-.756 2.11-1.455.26-.7 2.6-2.57 2.288-2.726z" />
+    </svg>
+);
+
 const formatDate = (dateStr) => {
     if (!dateStr) return '—';
     const d = new Date(dateStr);
@@ -187,6 +193,14 @@ const EmployeeDetail = () => {
 
     const location = useLocation();
 
+    const handleBackClick = () => {
+        if (location.state?.from === 'expense-manager') {
+            navigate('/dashboard/expenses?tab=staff');
+        } else {
+            navigate('/dashboard/staff');
+        }
+    };
+
     useEffect(() => {
         if (lastFetchedRef.current.staffId === staffId && lastFetchedRef.current.currentMonth === currentMonth) {
             return;
@@ -208,7 +222,7 @@ const EmployeeDetail = () => {
         try {
             const res = await api.get('/branches');
             setBranches(res.data);
-        } catch (err) {
+        } catch {
             console.error('Failed to fetch branches');
         }
     }
@@ -465,7 +479,7 @@ const EmployeeDetail = () => {
     if (!employee) {
         return (
             <div className="p-6">
-                <button onClick={() => navigate('/dashboard/staff')} className="flex items-center gap-2 text-accent mb-6">
+                <button onClick={handleBackClick} className="flex items-center gap-2 text-accent mb-6">
                     <ArrowLeft size={20} /> Back
                 </button>
                 {error ? (
@@ -480,7 +494,7 @@ const EmployeeDetail = () => {
     return (
         <PageContainer>
             <div className="employee-detail__container">
-                <button onClick={() => navigate('/dashboard/staff')} className="employee-detail__back">
+                <button onClick={handleBackClick} className="employee-detail__back">
                     <ArrowLeft size={18} /> Back to Staff
                 </button>
 
@@ -563,10 +577,15 @@ const EmployeeDetail = () => {
                                 <Building size={15} />
                                 <span>{employee.branch_name || '\u2014'}</span>
                             </div>
-
+ 
                             <div className="staff-meta-row">
                                 <Calendar size={15} />
                                 <span>Joined {formatDate(employee.created_at)}</span>
+                            </div>
+
+                            <div className="staff-meta-row">
+                                <IndianRupee size={15} />
+                                <span>{employee.salary_type === 'Monthly' ? `Monthly Salary: ₹${Number(employee.base_salary || 0).toLocaleString('en-IN')}` : `Daily Wage: ₹${Number(employee.daily_rate || 0).toLocaleString('en-IN')}`}</span>
                             </div>
 
                             <div className="identity-actions">
@@ -589,9 +608,23 @@ const EmployeeDetail = () => {
                             <div className="staff-card">
                                 <h3 className="staff-card-title">Contact Info</h3>
                                 <div className="staff-detail-list">
-                                    <div className="detail-row">
+                                    <div className="detail-row" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                         <Phone size={16} />
-                                        <span>{employee.user_id || '\u2014'}</span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                            <a href={`tel:${employee.user_id}`} style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 }}>
+                                                {employee.user_id || '\u2014'}
+                                            </a>
+                                            {employee.user_id && (
+                                                <a 
+                                                    href={`https://wa.me/91${employee.user_id.replace(/[^\d]/g, '')}`} 
+                                                    target="_blank" 
+                                                    rel="noreferrer"
+                                                    className="employee-detail__whatsapp-btn"
+                                                >
+                                                    <WhatsAppIcon /> WhatsApp
+                                                </a>
+                                            )}
+                                        </div>
                                     </div>
                                     <div className="detail-row">
                                         <Mail size={16} />
@@ -600,26 +633,6 @@ const EmployeeDetail = () => {
                                     <div className="detail-row">
                                         <MapPin size={16} />
                                         <span>{'\u2014'}</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="staff-card">
-                                <h3 className="staff-card-title">Employment</h3>
-                                <div className="staff-detail-list">
-                                    <div className="detail-row">
-                                        <ShieldCheck size={16} />
-                                        <span>ID: EMP-{employee.id}</span>
-                                    </div>
-                                    <div className="detail-row">
-                                        <IndianRupee size={16} />
-                                        <span>{employee.salary_type === 'Monthly' ? 'Monthly Salary' : 'Daily Wage'}</span>
-                                    </div>
-                                    <div className="detail-row">
-                                        <ShieldCheck size={16} />
-                                        <span className={`status-badge ${employee.is_active !== false ? 'active' : 'inactive'}`}>
-                                            {employee.is_active !== false ? 'Active' : 'Inactive'}
-                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -951,8 +964,8 @@ const EmployeeDetail = () => {
 
                             {salaryCalculation && (
                                 <React.Fragment>
-                                    {/* Summary Cards */}
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10, marginBottom: 20 }}>
+                                    {/* Row 1: Attendance Metrics (Present, Absent, Holiday, Half Day) */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 12 }}>
                                         <div style={{ padding: 14, borderRadius: 10, background: 'var(--success)18', border: '1px solid var(--success)30' }}>
                                             <div style={{ fontSize: 10, color: 'var(--success)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Present</div>
                                             <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--success)' }}>{salaryCalculation.attendance?.present || 0}</div>
@@ -961,33 +974,51 @@ const EmployeeDetail = () => {
                                             <div style={{ fontSize: 10, color: 'var(--error)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Absent</div>
                                             <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--error)' }}>{(salaryCalculation.attendance?.absent || 0) + (salaryCalculation.attendance?.leave || 0)}</div>
                                         </div>
-                                        <div style={{ padding: 14, borderRadius: 10, background: 'var(--warning)18', border: '1px solid var(--warning)30' }}>
-                                            <div style={{ fontSize: 10, color: 'var(--warning)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Half Day</div>
-                                            <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--warning)' }}>{attendance?.filter(a => a.status === 'Half Day').length || 0}</div>
-                                        </div>
                                         <div style={{ padding: 14, borderRadius: 10, background: 'var(--accent)18', border: '1px solid var(--accent)30' }}>
                                             <div style={{ fontSize: 10, color: 'var(--accent)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Holiday</div>
                                             <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--accent)' }}>{salaryCalculation.attendance?.holiday || 0}</div>
                                         </div>
+                                        <div style={{ padding: 14, borderRadius: 10, background: 'var(--warning)18', border: '1px solid var(--warning)30' }}>
+                                            <div style={{ fontSize: 10, color: 'var(--warning)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Half Day</div>
+                                            <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--warning)' }}>{salaryCalculation.attendance?.halfday || 0}</div>
+                                        </div>
+                                    </div>
+
+                                    {/* Row 2: Salary Calculation (Calculated Salary, Total Paid, Remaining) */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 12 }}>
                                         <div style={{ padding: 14, borderRadius: 10, background: 'linear-gradient(135deg, var(--success), var(--success))', color: 'var(--on-accent)' }}>
                                             <div style={{ fontSize: 10, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em', opacity: 0.85 }}>Calculated Salary</div>
-                                            <div style={{ fontSize: 22, fontWeight: 800 }}>₹{Number(salaryCalculation.calculation?.calculatedSalary || 0).toLocaleString('en-IN')}</div>
+                                            <div style={{ fontSize: 22, fontWeight: 800 }}>₹{Number(salaryCalculation.calculation?.calculatedSalary || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
                                         </div>
-                                        {salaryCalculation.latetime && salaryCalculation.latetime.count > 0 && (
-                                            <div style={{ padding: 14, borderRadius: 10, background: 'var(--warning)18', border: '1px solid var(--warning)30' }}>
-                                                <div style={{ fontSize: 10, color: 'var(--warning)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Late Arrivals</div>
-                                                <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--warning)' }}>{salaryCalculation.latetime.count}</div>
-                                                <div style={{ fontSize: 10, color: 'var(--muted)' }}>{salaryCalculation.latetime.totalMinutes}min total</div>
-                                            </div>
-                                        )}
-                                        {salaryCalculation.overtime && salaryCalculation.overtime.count > 0 && (
-                                            <div style={{ padding: 14, borderRadius: 10, background: 'var(--accent)18', border: '1px solid var(--accent)30' }}>
-                                                <div style={{ fontSize: 10, color: 'var(--accent)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Overtime</div>
-                                                <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--accent)' }}>{salaryCalculation.overtime.totalHours}h</div>
-                                                <div style={{ fontSize: 10, color: 'var(--muted)' }}>{salaryCalculation.overtime.approvedHours}h approved</div>
-                                            </div>
-                                        )}
+                                        <div style={{ padding: 14, borderRadius: 10, background: 'var(--accent)18', border: '1px solid var(--accent)30' }}>
+                                            <div style={{ fontSize: 10, color: 'var(--accent)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Total Paid</div>
+                                            <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--accent)' }}>₹{Number(salaryCalculation.calculation?.totalPaid || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+                                        </div>
+                                        <div style={{ padding: 14, borderRadius: 10, background: 'var(--warning)18', border: '1px solid var(--warning)30' }}>
+                                            <div style={{ fontSize: 10, color: 'var(--warning)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Remaining</div>
+                                            <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--warning)' }}>₹{Number(salaryCalculation.calculation?.remaining || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+                                        </div>
                                     </div>
+
+                                    {/* Row 3 (Optional): Late arrivals and Overtime */}
+                                    {((salaryCalculation.latetime && salaryCalculation.latetime.count > 0) || (salaryCalculation.overtime && salaryCalculation.overtime.count > 0)) && (
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10, marginBottom: 20 }}>
+                                            {salaryCalculation.latetime && salaryCalculation.latetime.count > 0 && (
+                                                <div style={{ padding: 14, borderRadius: 10, background: 'var(--warning)18', border: '1px solid var(--warning)30' }}>
+                                                    <div style={{ fontSize: 10, color: 'var(--warning)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Late Arrivals</div>
+                                                    <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--warning)' }}>{salaryCalculation.latetime.count}</div>
+                                                    <div style={{ fontSize: 10, color: 'var(--muted)' }}>{salaryCalculation.latetime.totalMinutes}min total</div>
+                                                </div>
+                                            )}
+                                            {salaryCalculation.overtime && salaryCalculation.overtime.count > 0 && (
+                                                <div style={{ padding: 14, borderRadius: 10, background: 'var(--accent)18', border: '1px solid var(--accent)30' }}>
+                                                    <div style={{ fontSize: 10, color: 'var(--accent)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Overtime</div>
+                                                    <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--accent)' }}>{salaryCalculation.overtime.totalHours}h</div>
+                                                    <div style={{ fontSize: 10, color: 'var(--muted)' }}>{salaryCalculation.overtime.approvedHours}h approved</div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
 
                                     {/* Calendar Grid */}
                                     {(() => {
@@ -1159,110 +1190,125 @@ const EmployeeDetail = () => {
                                     )}
 
                                     {/* Historic Salary Records */}
-                                    <div style={{ marginTop: 32 }}>
-                                        <h2 className="employee-detail__section-title">Historic Salary Records</h2>
-                                        {salaryInfo?.currentMonthSalary && (
-                                            <div className="employee-detail__status-card" style={{ marginBottom: 16 }}>
-                                                <CheckCircle className="employee-detail__status-icon" />
-                                                <div>
-                                                    <p>
-                                                        This month's salary: <strong>₹{Number(salaryInfo.currentMonthSalary.net_salary || 0).toFixed(2)}</strong>
-                                                    </p>
-                                                    <span>
-                                                        Paid on {new Date(salaryInfo.currentMonthSalary.paid_date).toLocaleDateString()}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        )}
+                                    {(() => {
+                                        const filteredSalaryRecords = (salaryInfo?.salaryRecords || []).filter(record => {
+                                            return record.payment_month && record.payment_month.startsWith(currentMonth);
+                                        });
 
-                                        {salaryInfo?.salaryRecords.length === 0 ? (
-                                            <div className="employee-detail__empty">
-                                                <IndianRupee className="employee-detail__empty-icon" />
-                                                <p>No salary records yet</p>
-                                            </div>
-                                        ) : (
-                                            <div className="employee-detail__table-wrap">
-                                                <table className="employee-detail__table" style={{ fontSize: 13 }}>
-                                                    <thead>
-                                                        <tr>
-                                                            <th>Month</th>
-                                                            <th className="is-right">Base</th>
-                                                            <th className="is-right">Bonus</th>
-                                                            <th className="is-right">Deduction</th>
-                                                            <th className="is-right">Net</th>
-                                                            <th>Status</th>
-                                                            <th>Paid Date</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {salaryInfo?.salaryRecords.map(record => (
-                                                            <tr key={record.id}>
-                                                                <td>
-                                                                    {new Date(record.payment_month).toLocaleDateString('en-IN', {
-                                                                        month: 'short',
-                                                                        year: 'numeric'
-                                                                    })}
-                                                                </td>
-                                                                <td className="is-right">₹{Number(record.base_salary || 0).toFixed(2)}</td>
-                                                                <td className="is-right is-positive">+₹{Number(record.bonus || 0).toFixed(2)}</td>
-                                                                <td className="is-right is-negative">-₹{Number(record.deduction || 0).toFixed(2)}</td>
-                                                                <td className="is-right is-strong">₹{Number(record.net_salary || 0).toFixed(2)}</td>
-                                                                <td>
-                                                                    <span className={`employee-detail__status ${record.status === 'Paid' ? 'is-complete' : record.status === 'Partial' ? 'is-processing' : 'is-pending'}`}>
-                                                                        {record.status}
-                                                                    </span>
-                                                                </td>
-                                                                <td>
-                                                                    {record.paid_date
-                                                                        ? new Date(record.paid_date).toLocaleDateString()
-                                                                        : '-'
-                                                                    }
-                                                                </td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        )}
-                                    </div>
+                                        const filteredPayments = (salaryInfo?.recentPayments || []).filter(payment => {
+                                            return payment.payment_date && payment.payment_date.startsWith(currentMonth);
+                                        });
 
-                                    {/* Recent Payments Transaction Ledger */}
-                                    {salaryInfo?.recentPayments && salaryInfo.recentPayments.length > 0 && (
-                                        <div className="employee-detail__payments-section" style={{ marginTop: 32 }}>
-                                            <div className="employee-detail__payments-head">
-                                                <h3 className="employee-detail__payments-title">Recent Payment Transactions</h3>
-                                            </div>
-                                            <div className="employee-detail__payments-list">
-                                                {salaryInfo.recentPayments.map(payment => (
-                                                    <div key={payment.id} className="employee-detail__payment-card">
-                                                        <div className="employee-detail__payment-date">
-                                                            {new Date(payment.payment_date).toLocaleDateString('en-IN', {
-                                                                month: 'short',
-                                                                day: 'numeric',
-                                                                year: 'numeric'
-                                                            })}
-                                                        </div>
-                                                        <div className="employee-detail__payment-amount">
-                                                            ₹{Number(payment.payment_amount).toFixed(2)}
-                                                        </div>
-                                                        <div className="employee-detail__payment-details">
+                                        return (
+                                            <React.Fragment>
+                                                <div style={{ marginTop: 32 }}>
+                                                    <h2 className="employee-detail__section-title">Historic Salary Records</h2>
+                                                    {salaryCalculation?.salaryRecord && (
+                                                        <div className="employee-detail__status-card" style={{ marginBottom: 16 }}>
+                                                            <CheckCircle className="employee-detail__status-icon" />
                                                             <div>
-                                                                <span className="employee-detail__payment-method">
-                                                                    {payment.payment_method}
+                                                                <p>
+                                                                    Selected Month ({currentMonth}) Salary Details: <strong>₹{Number(salaryCalculation.salaryRecord.net_salary || 0).toFixed(2)}</strong>
+                                                                </p>
+                                                                <span>
+                                                                    Status: <strong>{salaryCalculation.salaryRecord.status}</strong>
+                                                                    {salaryCalculation.salaryRecord.paid_date && ` · Paid on ${new Date(salaryCalculation.salaryRecord.paid_date).toLocaleDateString()}`}
                                                                 </span>
                                                             </div>
-                                                            {payment.reference_number && (
-                                                                <div><small>Ref: {payment.reference_number}</small></div>
-                                                            )}
-                                                            {payment.notes && (
-                                                                <div><small>Note: {payment.notes}</small></div>
-                                                            )}
+                                                        </div>
+                                                    )}
+
+                                                    {filteredSalaryRecords.length === 0 ? (
+                                                        <div className="employee-detail__empty">
+                                                            <IndianRupee className="employee-detail__empty-icon" />
+                                                            <p>No salary records for {currentMonth}</p>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="employee-detail__table-wrap">
+                                                            <table className="employee-detail__table" style={{ fontSize: 13 }}>
+                                                                <thead>
+                                                                    <tr>
+                                                                        <th>Month</th>
+                                                                        <th className="is-right">Base</th>
+                                                                        <th className="is-right">Bonus</th>
+                                                                        <th className="is-right">Deduction</th>
+                                                                        <th className="is-right">Net</th>
+                                                                        <th>Status</th>
+                                                                        <th>Paid Date</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    {filteredSalaryRecords.map(record => (
+                                                                        <tr key={record.id}>
+                                                                            <td>
+                                                                                {new Date(record.payment_month).toLocaleDateString('en-IN', {
+                                                                                    month: 'short',
+                                                                                    year: 'numeric'
+                                                                                })}
+                                                                            </td>
+                                                                            <td className="is-right">₹{Number(record.base_salary || 0).toFixed(2)}</td>
+                                                                            <td className="is-right is-positive">+₹{Number(record.bonus || 0).toFixed(2)}</td>
+                                                                            <td className="is-right is-negative">-₹{Number(record.deduction || 0).toFixed(2)}</td>
+                                                                            <td className="is-right is-strong">₹{Number(record.net_salary || 0).toFixed(2)}</td>
+                                                                            <td>
+                                                                                <span className={`employee-detail__status ${record.status === 'Paid' ? 'is-complete' : record.status === 'Partial' ? 'is-processing' : 'is-pending'}`}>
+                                                                                    {record.status}
+                                                                                </span>
+                                                                            </td>
+                                                                            <td>
+                                                                                {record.paid_date
+                                                                                    ? new Date(record.paid_date).toLocaleDateString()
+                                                                                    : '-'
+                                                                                }
+                                                                            </td>
+                                                                        </tr>
+                                                                    ))}
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Recent Payments Transaction Ledger */}
+                                                {filteredPayments.length > 0 && (
+                                                    <div className="employee-detail__payments-section" style={{ marginTop: 32 }}>
+                                                        <div className="employee-detail__payments-head">
+                                                            <h3 className="employee-detail__payments-title">Payment Transactions for {currentMonth}</h3>
+                                                        </div>
+                                                        <div className="employee-detail__payments-list">
+                                                            {filteredPayments.map(payment => (
+                                                                <div key={payment.id} className="employee-detail__payment-card">
+                                                                    <div className="employee-detail__payment-date">
+                                                                        {new Date(payment.payment_date).toLocaleDateString('en-IN', {
+                                                                            month: 'short',
+                                                                            day: 'numeric',
+                                                                            year: 'numeric'
+                                                                        })}
+                                                                    </div>
+                                                                    <div className="employee-detail__payment-amount">
+                                                                        ₹{Number(payment.payment_amount).toFixed(2)}
+                                                                    </div>
+                                                                    <div className="employee-detail__payment-details">
+                                                                        <div>
+                                                                            <span className="employee-detail__payment-method">
+                                                                                {payment.payment_method}
+                                                                            </span>
+                                                                        </div>
+                                                                        {payment.reference_number && (
+                                                                            <div><small>Ref: {payment.reference_number}</small></div>
+                                                                        )}
+                                                                        {payment.notes && (
+                                                                            <div><small>Note: {payment.notes}</small></div>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            ))}
                                                         </div>
                                                     </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
+                                                )}
+                                            </React.Fragment>
+                                        );
+                                    })()}
                                 </React.Fragment>
                             )}
                         </div>

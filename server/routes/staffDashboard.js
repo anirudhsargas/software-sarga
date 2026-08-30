@@ -911,6 +911,26 @@ router.get('/:id/salary-calculation/:year_month', authenticateToken, async (req,
         const totalOTMinutes = overtimeRecords.reduce((sum, r) => sum + (r.overtime_minutes || 0), 0);
         const approvedOTMinutes = overtimeRecords.filter(r => r.approved).reduce((sum, r) => sum + (r.overtime_minutes || 0), 0);
 
+        const [paymentRows] = await pool.query(`
+            SELECT COALESCE(SUM(payment_amount), 0) as total_paid 
+            FROM sarga_staff_salary_payments
+            WHERE staff_id = ? 
+            AND DATE_FORMAT(payment_date, '%Y-%m') = ?
+        `, [id, year_month]);
+        const totalPaid = Number(paymentRows[0]?.total_paid || 0);
+
+        const [salaryRecordRows] = await pool.query(`
+            SELECT id, base_salary, net_salary, payment_month, bonus, deduction, status, paid_date, payment_method, reference_number, notes
+            FROM sarga_staff_salary
+            WHERE staff_id = ? AND DATE_FORMAT(payment_month, '%Y-%m') = ?
+        `, [id, year_month]);
+        const salaryRecord = salaryRecordRows[0] || null;
+
+        const bonus = salaryRecord ? Number(salaryRecord.bonus || 0) : 0;
+        const deduction = salaryRecord ? Number(salaryRecord.deduction || 0) : 0;
+        const netCalculatedSalary = calculatedSalary + bonus - deduction;
+        const remaining = Math.max(0, netCalculatedSalary - totalPaid);
+
         res.json({
             staffType: staff.salary_type,
             attendance: {
@@ -918,10 +938,17 @@ router.get('/:id/salary-calculation/:year_month', authenticateToken, async (req,
                 present: attendance.filter(a => a.status === 'Present').length,
                 absent: attendance.filter(a => a.status === 'Absent').length,
                 leave: attendance.filter(a => a.status === 'Leave').length,
-                holiday: attendance.filter(a => a.status === 'Holiday').length
+                holiday: attendance.filter(a => a.status === 'Holiday').length,
+                halfday: attendance.filter(a => a.status === 'Half Day').length
             },
             leaves: leaves,
-            calculation: details,
+            calculation: {
+                ...details,
+                totalPaid,
+                remaining,
+                netCalculatedSalary
+            },
+            salaryRecord,
             latetime: {
                 count: lateRecords.length,
                 totalMinutes: totalLateMinutes,

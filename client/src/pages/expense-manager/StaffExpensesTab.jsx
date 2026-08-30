@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Users, Plus, IndianRupee, Loader2, ArrowLeft,
   Calendar, CheckCircle, AlertTriangle,
@@ -14,6 +15,7 @@ const DEFAULT_PAY_FORM = { amount: '', payment_date: today(), payment_method: 'C
 const DEFAULT_BULK_FORM = { payment_method: 'Cash', payment_date: today(), reference_number: '', notes: '', bonus: '0', deduction: '0' };
 
 const StaffExpensesTab = ({ onPayment, onError }) => {
+  const navigate = useNavigate();
   const [staffList, setStaffList] = useState([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
@@ -410,7 +412,7 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
       ) : (
         <div className="em-staff-grid">
           {staffList.map(s => (
-            <div role="button" tabIndex={0}  key={s.id} className="em-staff-card" onClick={() => openStaffSalary(s)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openStaffSalary(s); } }}>
+            <div role="button" tabIndex={0}  key={s.id} className="em-staff-card" onClick={() => navigate(`/dashboard/employee/${s.id}`, { state: { from: 'expense-manager' } })} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/dashboard/employee/${s.id}`, { state: { from: 'expense-manager' } }); } }}>
               <div style={{ alignSelf: 'flex-start' }}>
                 <input
                   name="staff_checkbox"
@@ -443,10 +445,7 @@ const StaffExpensesTab = ({ onPayment, onError }) => {
                   className="btn btn-primary btn-sm" 
                   onClick={(e) => { 
                     e.stopPropagation(); 
-                    setSelectedStaff(s); 
-                    setPayForm(p => ({ ...p, amount: String(s.base_salary || s.daily_rate * 26 || '') })); 
-                    setPayDirty(false); 
-                    setShowPayModal(true); 
+                    navigate(`/dashboard/employee/${s.id}`, { state: { from: 'expense-manager', openPaySalary: true } });
                   }}
                   title="Pay Salary"
                 >

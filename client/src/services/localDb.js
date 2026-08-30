@@ -202,7 +202,7 @@ export async function getStaffWorkHistory(staffId, userRole) {
                     for (const item of formatted) {
                         if (item.id) await offlineDb.save('jobs', item).catch(() => {});
                     }
-                } catch (_) {}
+                } catch {}
                 return formatted;
             }
         } catch (err) {
@@ -632,33 +632,103 @@ export async function getStaffAttendance(staffId, month) {
  * Get expense dashboard data
  */
 export async function getExpenseDashboard(filters = {}) {
-    const expenses = await offlineDb.getAll('expenses');
-    const allPayments = await offlineDb.getAll('payments');
-    const vendors = await offlineDb.getAll('vendors');
-
     const month = filters.month || new Date().toISOString().slice(0, 7); // YYYY-MM
-    const currentMonthExpenses = expenses.filter(e => e.date && e.date.startsWith(month));
-    const currentMonthPayments = allPayments.filter(p => (p.payment_date || p.created_at).startsWith(month));
+    const [yr, mn] = month.split('-').map(Number);
+    const lastDay = new Date(yr, mn, 0).getDate();
+    const endDate = `${month}-${String(lastDay).padStart(2, '0')}`;
 
-    // Aggregate by category
-    const categoryTotals = currentMonthExpenses.reduce((acc, exp) => {
-        acc[exp.category] = (acc[exp.category] || 0) + (Number(exp.amount) || 0);
-        return acc;
-    }, {});
+    // Calculate a 6-month start date to populate trend history
+    const sixMonthsAgo = new Date(yr, mn - 6, 1);
+    const sixMonthsAgoStr = sixMonthsAgo.toISOString().slice(0, 10);
+
+    let allPayments = [];
+    let isOnline = false;
+
+    if (navigator.onLine) {
+        try {
+            const params = {
+                startDate: sixMonthsAgoStr,
+                endDate: endDate,
+                limit: 3000
+            };
+            if (filters.branch_id) {
+                params.branch_id = filters.branch_id;
+            }
+            const res = await api.get('/payments', { params });
+            const serverPayments = res.data?.data || res.data || [];
+            
+            if (Array.isArray(serverPayments)) {
+                isOnline = true;
+                allPayments = serverPayments;
+                // Cache them locally in IndexedDB for offline use
+                if (serverPayments.length > 0) {
+                    await offlineDb.cachePayments(serverPayments);
+                }
+            }
+        } catch (err) {
+            console.warn('[localDb] Failed to fetch payments from server, falling back to offline db:', err);
+        }
+    }
+
+    if (!isOnline) {
+        allPayments = await offlineDb.getAll('payments');
+        if (filters.branch_id) {
+            allPayments = allPayments.filter(p => String(p.branch_id) === String(filters.branch_id));
+        }
+    }
+
+    const currentMonthPayments = allPayments.filter(p => {
+        const pDate = p.payment_date || p.created_at;
+        return pDate && pDate.startsWith(month);
+    });
+
+    let vendors = [];
+    try {
+        vendors = await offlineDb.getAll('vendors');
+    } catch {
+        // ignore
+    }
+
+    // Process category totals
+    const categoryTotals = {};
+    currentMonthPayments.forEach(p => {
+        // Filter out customer collections (inflow) to get expenses (outflow)
+        if (p.type === 'Customer' || p.type === 'customer') return;
+
+        let cat = p.type || 'Miscellaneous';
+        // Normalize Categories dynamically from payment type and description
+        if (cat === 'Other' || cat === 'other' || cat === 'Miscellaneous') {
+            const desc = (p.description || '').toLowerCase();
+            if (desc.includes('office')) cat = 'Office';
+            else if (desc.includes('kuri')) cat = 'Kuri';
+            else if (desc.includes('emi') || desc.includes('loan')) cat = 'EMI / Loan';
+            else cat = 'Miscellaneous';
+        }
+
+        categoryTotals[cat] = (categoryTotals[cat] || 0) + (Number(p.amount) || 0);
+    });
 
     const revenueCollected = currentMonthPayments
-        .filter(p => p.type === 'Customer')
+        .filter(p => p.type === 'Customer' || p.type === 'customer')
         .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+
+    const totalExpenses = Object.values(categoryTotals).reduce((a, b) => a + b, 0);
 
     // Monthly Trend (last 6 months)
     const monthly_trend = [];
     for (let i = 5; i >= 0; i--) {
-        const d = new Date();
-        d.setMonth(d.getMonth() - i);
+        const d = new Date(yr, mn - 1 - i, 1);
         const mStr = d.toISOString().slice(0, 7);
-        const total = expenses.filter(e => e.date && e.date.startsWith(mStr))
-                              .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-        monthly_trend.push({ month: d.toLocaleString('default', { month: 'short' }), total });
+        const total = allPayments.filter(p => {
+            if (p.type === 'Customer' || p.type === 'customer') return false;
+            const pDate = p.payment_date || p.created_at;
+            return pDate && pDate.startsWith(mStr);
+        }).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+
+        monthly_trend.push({
+            month: d.toLocaleString('default', { month: 'short' }),
+            total
+        });
     }
 
     // Payment Mode Analysis
@@ -668,20 +738,36 @@ export async function getExpenseDashboard(filters = {}) {
     const upi_total = currentMonthPayments
         .filter(p => p.payment_method === 'UPI' || p.payment_method === 'Both')
         .reduce((sum, p) => sum + (Number(p.payment_method === 'Both' ? p.upi_amount : p.amount) || 0), 0);
+    const bank_total = currentMonthPayments
+        .filter(p => p.payment_method === 'Bank Transfer')
+        .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    const other_total = currentMonthPayments
+        .filter(p => p.payment_method === 'Cheque' || p.payment_method === 'Other')
+        .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+
+    // Recent payments (outflows only)
+    const recent_payments = currentMonthPayments
+        .filter(p => p.type !== 'Customer' && p.type !== 'customer')
+        .sort((a, b) => {
+            const da = a.payment_date || a.created_at;
+            const db = b.payment_date || b.created_at;
+            return new Date(db) - new Date(da);
+        })
+        .slice(0, 10);
 
     return {
-        total_expenses: Object.values(categoryTotals).reduce((a, b) => a + b, 0),
+        total_expenses: totalExpenses,
         revenue_collected: revenueCollected,
-        net_profit: revenueCollected - Object.values(categoryTotals).reduce((a, b) => a + b, 0),
+        net_profit: revenueCollected - totalExpenses,
         by_category: categoryTotals,
         monthly_trend,
-        recent_payments: allPayments.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 10),
+        recent_payments,
         vendor: {
             total_payable: vendors.reduce((sum, v) => sum + (Number(v.due_amount) || 0), 0),
-            purchases_this_month: 0, // Needs vendor_bills
+            purchases_this_month: 0,
             payments_this_month: currentMonthPayments.filter(p => p.type === 'Vendor').reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
         },
-        cash_vs_bank: { cash_total, upi_total, bank_total: 0, other_total: 0 }
+        cash_vs_bank: { cash_total, upi_total, bank_total, other_total }
     };
 }
 
