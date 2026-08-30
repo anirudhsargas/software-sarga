@@ -454,7 +454,8 @@ const DailyReport = () => {
     // ─── Save Machine Reading ───────────────────────────────────
     const saveMachineReading = async (machineId) => {
         // Find previous closing count for this machine
-        const machine = laserData.machines.find(m => m.id === machineId);
+        const currentData = activeTab === 'Laser' ? laserData : otherData;
+        const machine = currentData.machines.find(m => m.id === machineId);
         const prevClosing = machine?.prev_closing_count !== undefined ? Number(machine.prev_closing_count) : null;
         const enteredOpening = parseInt(machineReadingTemp.opening_count) || 0;
         if (prevClosing !== null && enteredOpening < prevClosing && !isAdmin) {
@@ -470,7 +471,7 @@ const DailyReport = () => {
                 proof_prints: machineReadingTemp.proof_prints !== '' ? parseInt(machineReadingTemp.proof_prints) : 0
             });
             setEditingMachine(null);
-            loadTabData('Laser');
+            loadTabData(activeTab);
         } catch (err) {
             if (err.response?.status === 403 && err.response?.data?.is_locked) {
                 toast.success('Opening count is locked. You can still update the closing count, or submit a change request.');
@@ -1496,8 +1497,13 @@ const DailyReport = () => {
         </div>
     );
 
+    // ─── Machine section (Readings & Counters) ──────────────────
     const MachineSection = () => {
-        if ((loading || initialLoading) && !laserData.machines?.length) {
+        const currentData = activeTab === 'Laser' ? laserData : otherData;
+        const currentError = activeTab === 'Laser' ? tabErrors.Laser : tabErrors.Other;
+        const machineTypeName = activeTab === 'Laser' ? 'Digital/Laser' : 'Photostat/Photocopy';
+
+        if ((loading || initialLoading) && !currentData.machines?.length) {
             return (
                 <div className="panel machine-loading">
                     <RefreshCw size={24} className="spin machine-loading-icon" />
@@ -1506,27 +1512,26 @@ const DailyReport = () => {
             );
         }
 
-        if (tabErrors.Laser) {
+        if (currentError) {
             return (
                 <NoInternetState
                     variant="inline"
                     title="Connection Error"
-                    message={tabErrors.Laser}
+                    message={currentError}
                     actionLabel="Retry"
-                    onRetry={() => loadTabData('Laser')}
+                    onRetry={() => loadTabData(activeTab)}
                 />
             );
         }
 
-        if (!laserData.machines?.length) return (
-
+        if (!currentData.machines?.length) return (
             <div className="panel">
                 <h2 className="panel-title machine-panel-title">
                     <Monitor size={16} /> Machines
                 </h2>
                 <div className="dr-empty">
                     <div className="dr-empty__icon"><Monitor size={22} /></div>
-                    <p className="machine-empty-text">No active Digital machines</p>
+                    <p className="machine-empty-text">No active {machineTypeName} machines</p>
                 </div>
             </div>
         );
@@ -1536,10 +1541,10 @@ const DailyReport = () => {
                 <h2 className="panel-title machine-panel-title machine-panel-title--active">
                     <Monitor size={16} />
                     Machines
-                    <span className="badge badge--info panel-title-badge">{laserData.machines.length} active</span>
+                    <span className="badge badge--info panel-title-badge">{currentData.machines.length} active</span>
                 </h2>
                 <div className="stack-sm">
-                    {laserData.machines.map(m => {
+                    {currentData.machines.map(m => {
                         const isEditingThis = editingMachine === m.id;
                         return (
                             <div key={m.id} className="dr-machine-card">
@@ -1660,7 +1665,7 @@ const DailyReport = () => {
                                         {m.has_reading && isFrontOffice && (
                                             <button className="btn btn-ghost btn-sm machine-request-btn"
                                                 onClick={() => {
-                                                    setShowChangeRequest({ type: 'machine_count', machineId: m.id, machineName: m.machine_name, currentValue: m.opening_count });
+                                                    setShowChangeRequest({ type: 'machine_count', machineId: m.id, machineName: m.machine_name, currentValue: m.opening_count, bookType: activeTab });
                                                     setChangeRequestValue(String(m.opening_count));
                                                     setChangeRequestNote('');
                                                 }}
@@ -1790,6 +1795,7 @@ const DailyReport = () => {
         return (
             <div className="stack-md">
                 <UnifiedCashbookHeader bookType="Other" summary={otherData.summary} liveCounts={liveCounts?.other} />
+                <MachineSection />
                 <div className="panel">
                     <h2 className="panel-title panel-title--badge">
                         <Package size={16} />

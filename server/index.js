@@ -2,6 +2,9 @@ const bootStartedAt = process.hrtime.bigint();
 const bootElapsedMs = () => Number(process.hrtime.bigint() - bootStartedAt) / 1e6;
 const bootLog = (message) => console.log(`[BOOT +${bootElapsedMs().toFixed(1)}ms] ${message}`);
 
+// Force IPv4-first DNS resolution to resolve outbound network unreachable errors (ENETUNREACH) on cloud networks.
+require('dns').setDefaultResultOrder('ipv4first');
+
 bootLog(`Server process starting at ${new Date().toISOString()}`);
 global.migrationsComplete = process.env.NODE_ENV === 'test';
 

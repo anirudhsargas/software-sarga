@@ -634,7 +634,7 @@ const Billing = () => {
     if (manualRoundOff !== '' && !isNaN(Number(manualRoundOff))) {
       roundOff = Number(manualRoundOff);
     } else if (enableRoundOff) {
-      const rounded = Math.round(afterDiscount);
+      const rounded = Math.ceil(afterDiscount / 10) * 10;
       roundOff = Number((rounded - afterDiscount).toFixed(2));
     }
 
@@ -2886,14 +2886,7 @@ const Billing = () => {
                       >
                         {sendingEmail ? <><Loader2 size={14} className="animate-spin" aria-hidden="true" /> Sending...</> : 'Send'}
                       </button>
-                      <button
-                        type="button"
-                        className="btn btn-ghost btn-sm"
-                        disabled={sendingEmail}
-                        onClick={() => setShowEmailInput(false)}
-                      >
-                        Cancel
-                      </button>
+                      {/* Cancel button removed per user request */}
                     </div>
                   </div>
                 </div>
