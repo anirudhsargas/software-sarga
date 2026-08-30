@@ -346,6 +346,11 @@ CREATE TABLE IF NOT EXISTS sarga_machine_work_entries (
     FOREIGN KEY (report_id) REFERENCES sarga_daily_report_machine(id) ON DELETE CASCADE
 );
 
+-- SCHEMA-ONLY: sarga_machine_credit_movements is a dead/unwired table.
+-- No runtime route or service reads or writes it. Real credit tracking lives in
+-- sarga_jobs (balance_amount / payment_status), sarga_daily_credit_transactions
+-- (dailyReportUnified.js), and vendor payables aging (vendors.js). Do not build
+-- features on this table until it is wired up (or remove it entirely).
 CREATE TABLE IF NOT EXISTS sarga_machine_credit_movements (
     id INT AUTO_INCREMENT PRIMARY KEY,
     report_id INT NOT NULL,
@@ -357,6 +362,9 @@ CREATE TABLE IF NOT EXISTS sarga_machine_credit_movements (
     FOREIGN KEY (report_id) REFERENCES sarga_daily_report_machine(id) ON DELETE CASCADE
 );
 
+-- SCHEMA-ONLY: sarga_credit_customers is a dead/unwired table.
+-- No runtime route or service reads or writes it (see note on
+-- sarga_machine_credit_movements above). Do not build features on it until wired up.
 CREATE TABLE IF NOT EXISTS sarga_credit_customers (
     id INT AUTO_INCREMENT PRIMARY KEY,
     customer_id INT,
@@ -371,6 +379,9 @@ CREATE TABLE IF NOT EXISTS sarga_credit_customers (
     FOREIGN KEY (branch_id) REFERENCES sarga_branches(id) ON DELETE CASCADE
 );
 
+-- SCHEMA-ONLY: sarga_credit_ledger is a dead/unwired table.
+-- No runtime route or service reads or writes it (see note on
+-- sarga_machine_credit_movements above). Do not build features on it until wired up.
 CREATE TABLE IF NOT EXISTS sarga_credit_ledger (
     id INT AUTO_INCREMENT PRIMARY KEY,
     credit_customer_id INT NOT NULL,
