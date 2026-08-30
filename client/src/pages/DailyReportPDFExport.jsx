@@ -191,125 +191,155 @@ export default function DailyReportPDFExport({
                 }
 
                 if (entries.length > 0) {
-                    let head, body, columnStyles;
+                    const incomeEntries = entries.filter(e => e.type !== 'expense');
+                    const expenseEntries = entries.filter(e => e.type === 'expense');
 
-                    if (key === 'Laser') {
-                        head = [['Time', 'Customer / Work', 'Machine', 'Copies', 'Type', 'Mode', 'Cash', 'UPI', 'Total']];
-                        body = entries.map(e => {
-                            const isExp = e.type === 'expense';
-                            const isInternal = !!e.is_internal;
-                            const sign = isExp ? '-' : '';
-                            const fPdf = (val) => `${sign}Rs. ${(Number(val) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                    const renderSubTable = (sectionEntries, title, isExpense) => {
+                        // Page break protection before starting a section table
+                        if (currentY > 240) {
+                            doc.addPage();
+                            renderHeader();
+                            currentY = 44;
+                        }
 
-                            let desc = e.description || '';
-                            if (e.details && e.details !== e.description) desc += ` (${e.details})`;
-                            if (e.transferred_to) desc += ` -> Transferred to ${e.transferred_to} Book`;
-                            if (e.waste_prints > 0) desc += ` [Waste:${e.waste_prints}]`;
-                            if (e.proof_prints > 0) desc += ` [Proof:${e.proof_prints}]`;
+                        doc.setFontSize(9);
+                        doc.setFont('helvetica', 'bold');
+                        if (isExpense) {
+                            doc.setTextColor(176, 58, 46); // Outflow color (Red)
+                        } else {
+                            doc.setTextColor(47, 125, 74); // Inflow color (Green)
+                        }
+                        doc.text(`${title.toUpperCase()} TRANSACTIONS (${sectionEntries.length})`, margin + 2, currentY);
+                        currentY += 4;
 
-                            return [
-                                formatTime(e.time),
-                                desc,
-                                e.machine_name || '—',
-                                String(e.copies || '—'),
-                                isInternal ? 'Internal' : 'Standard',
-                                e.payment_method || 'Cash',
-                                fPdf(e.cash_amount),
-                                fPdf(e.upi_amount),
-                                fPdf(e.total)
-                            ];
+                        if (sectionEntries.length === 0) {
+                            doc.setFontSize(8);
+                            doc.setTextColor(150, 150, 150);
+                            doc.setFont('helvetica', 'normal');
+                            doc.text(`No ${title.toLowerCase()} recorded for this book today.`, margin + 2, currentY);
+                            currentY += 8;
+                            return;
+                        }
+
+                        let head, body, columnStyles;
+
+                        if (key === 'Laser') {
+                            head = [['Time', 'Customer / Work', 'Machine', 'Copies', 'Type', 'Mode', 'Cash', 'UPI', 'Total']];
+                            body = sectionEntries.map(e => {
+                                const isExp = e.type === 'expense';
+                                const isInternal = !!e.is_internal;
+                                const sign = isExp ? '-' : '';
+                                const fPdf = (val) => `${sign}Rs. ${(Number(val) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+                                let desc = e.description || '';
+                                if (e.details && e.details !== e.description) desc += ` (${e.details})`;
+                                if (e.transferred_to) desc += ` -> Transferred to ${e.transferred_to} Book`;
+                                if (e.waste_prints > 0) desc += ` [Waste:${e.waste_prints}]`;
+                                if (e.proof_prints > 0) desc += ` [Proof:${e.proof_prints}]`;
+
+                                return [
+                                    formatTime(e.time),
+                                    desc,
+                                    e.machine_name || '—',
+                                    String(e.copies || '—'),
+                                    isInternal ? 'Internal' : 'Standard',
+                                    e.payment_method || 'Cash',
+                                    fPdf(e.cash_amount),
+                                    fPdf(e.upi_amount),
+                                    fPdf(e.total)
+                                ];
+                            });
+                            columnStyles = {
+                                0: { cellWidth: 16 },
+                                1: { cellWidth: 38 },
+                                2: { cellWidth: 26 },
+                                3: { halign: 'right', cellWidth: 14 },
+                                4: { cellWidth: 16 },
+                                5: { cellWidth: 14 },
+                                6: { halign: 'right', cellWidth: 18 },
+                                7: { halign: 'right', cellWidth: 18 },
+                                8: { halign: 'right', cellWidth: 20, fontStyle: 'bold' }
+                            };
+                        } else if (key === 'Other') {
+                            head = [['Time', 'Description', 'Category', 'Mode', 'Cash', 'UPI', 'Total']];
+                            body = sectionEntries.map(e => {
+                                const isExp = e.type === 'expense';
+                                const sign = isExp ? '-' : '';
+                                const fPdf = (val) => `${sign}Rs. ${(Number(val) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                                const cat = e.category || e.category_name || (e.order_lines && e.order_lines[0]?.category) || 'Other Products';
+
+                                let desc = e.description || '';
+                                if (e.details && e.details !== e.description) desc += ` (${e.details})`;
+                                if (e.transferred_to) desc += ` -> Transferred to ${e.transferred_to} Book`;
+                                if (e.copies > 0) desc += ` [${e.copies} copies]`;
+                                if (e.waste_prints > 0) desc += ` [Waste:${e.waste_prints}]`;
+                                if (e.proof_prints > 0) desc += ` [Proof:${e.proof_prints}]`;
+
+                                return [
+                                    formatTime(e.time),
+                                    desc,
+                                    cat,
+                                    e.payment_method || 'Cash',
+                                    fPdf(e.cash_amount),
+                                    fPdf(e.upi_amount),
+                                    fPdf(e.total)
+                                ];
+                            });
+                            columnStyles = {
+                                0: { cellWidth: 18 },
+                                1: { cellWidth: 52 },
+                                2: { cellWidth: 30 },
+                                3: { cellWidth: 16 },
+                                4: { halign: 'right', cellWidth: 20 },
+                                5: { halign: 'right', cellWidth: 20 },
+                                6: { halign: 'right', cellWidth: 26, fontStyle: 'bold' }
+                            };
+                        } else {
+                            // Offset Book
+                            head = [['Time', 'Description', 'Mode', 'Cash', 'UPI', 'Total']];
+                            body = sectionEntries.map(e => {
+                                const isExp = e.type === 'expense';
+                                const sign = isExp ? '-' : '';
+                                const fPdf = (val) => `${sign}Rs. ${(Number(val) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+                                let desc = e.description || '';
+                                if (e.details && e.details !== e.description) desc += ` (${e.details})`;
+                                if (e.transferred_to) desc += ` -> Transferred to ${e.transferred_to} Book`;
+
+                                return [
+                                    formatTime(e.time),
+                                    desc,
+                                    e.payment_method || 'Cash',
+                                    fPdf(e.cash_amount),
+                                    fPdf(e.upi_amount),
+                                    fPdf(e.total)
+                                ];
+                            });
+                            columnStyles = {
+                                0: { cellWidth: 20 },
+                                1: { cellWidth: 70 },
+                                2: { cellWidth: 18 },
+                                3: { halign: 'right', cellWidth: 24 },
+                                4: { halign: 'right', cellWidth: 24 },
+                                5: { halign: 'right', cellWidth: 26, fontStyle: 'bold' }
+                            };
+                        }
+
+                        autoTable(doc, {
+                            startY: currentY,
+                            head,
+                            body,
+                            margin: { left: margin, right: margin },
+                            styles: { fontSize: 7.5, cellPadding: 2, lineColor: [220, 220, 220], lineWidth: 0.2 },
+                            headStyles: { fillColor: isExpense ? [176, 58, 46] : color, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.5 },
+                            alternateRowStyles: { fillColor: [248, 248, 248] },
+                            columnStyles
                         });
-                        columnStyles = {
-                            0: { cellWidth: 16 },
-                            1: { cellWidth: 38 },
-                            2: { cellWidth: 26 },
-                            3: { halign: 'right', cellWidth: 14 },
-                            4: { cellWidth: 16 },
-                            5: { cellWidth: 14 },
-                            6: { halign: 'right', cellWidth: 18 },
-                            7: { halign: 'right', cellWidth: 18 },
-                            8: { halign: 'right', cellWidth: 20, fontStyle: 'bold' }
-                        };
-                    } else if (key === 'Other') {
-                        head = [['Time', 'Description', 'Category', 'Type', 'Mode', 'Cash', 'UPI', 'Total']];
-                        body = entries.map(e => {
-                            const isExp = e.type === 'expense';
-                            const sign = isExp ? '-' : '';
-                            const fPdf = (val) => `${sign}Rs. ${(Number(val) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-                            const cat = e.category || e.category_name || (e.order_lines && e.order_lines[0]?.category) || 'Other Products';
+                        currentY = doc.lastAutoTable.finalY + 8;
+                    };
 
-                            let desc = e.description || '';
-                            if (e.details && e.details !== e.description) desc += ` (${e.details})`;
-                            if (e.transferred_to) desc += ` -> Transferred to ${e.transferred_to} Book`;
-                            if (e.copies > 0) desc += ` [${e.copies} copies]`;
-                            if (e.waste_prints > 0) desc += ` [Waste:${e.waste_prints}]`;
-                            if (e.proof_prints > 0) desc += ` [Proof:${e.proof_prints}]`;
-
-                            return [
-                                formatTime(e.time),
-                                desc,
-                                cat,
-                                isExp ? 'Expense' : 'Income',
-                                e.payment_method || 'Cash',
-                                fPdf(e.cash_amount),
-                                fPdf(e.upi_amount),
-                                fPdf(e.total)
-                            ];
-                        });
-                        columnStyles = {
-                            0: { cellWidth: 16 },
-                            1: { cellWidth: 42 },
-                            2: { cellWidth: 26 },
-                            3: { cellWidth: 16 },
-                            4: { cellWidth: 14 },
-                            5: { halign: 'right', cellWidth: 20 },
-                            6: { halign: 'right', cellWidth: 20 },
-                            7: { halign: 'right', cellWidth: 22, fontStyle: 'bold' }
-                        };
-                    } else {
-                        // Offset Book
-                        head = [['Time', 'Description', 'Type', 'Mode', 'Cash', 'UPI', 'Total']];
-                        body = entries.map(e => {
-                            const isExp = e.type === 'expense';
-                            const sign = isExp ? '-' : '';
-                            const fPdf = (val) => `${sign}Rs. ${(Number(val) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-                            let desc = e.description || '';
-                            if (e.details && e.details !== e.description) desc += ` (${e.details})`;
-                            if (e.transferred_to) desc += ` -> Transferred to ${e.transferred_to} Book`;
-
-                            return [
-                                formatTime(e.time),
-                                desc,
-                                isExp ? 'Expense' : 'Income',
-                                e.payment_method || 'Cash',
-                                fPdf(e.cash_amount),
-                                fPdf(e.upi_amount),
-                                fPdf(e.total)
-                            ];
-                        });
-                        columnStyles = {
-                            0: { cellWidth: 18 },
-                            1: { cellWidth: 54 },
-                            2: { cellWidth: 18 },
-                            3: { cellWidth: 16 },
-                            4: { halign: 'right', cellWidth: 22 },
-                            5: { halign: 'right', cellWidth: 22 },
-                            6: { halign: 'right', cellWidth: 24, fontStyle: 'bold' }
-                        };
-                    }
-
-                    autoTable(doc, {
-                        startY: currentY,
-                        head,
-                        body,
-                        margin: { left: margin, right: margin },
-                        styles: { fontSize: 7.5, cellPadding: 2, lineColor: [220, 220, 220], lineWidth: 0.2 },
-                        headStyles: { fillColor: color, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.5 },
-                        alternateRowStyles: { fillColor: [248, 248, 248] },
-                        columnStyles
-                    });
-                    currentY = doc.lastAutoTable.finalY + 6;
+                    renderSubTable(incomeEntries, 'Income', false);
+                    renderSubTable(expenseEntries, 'Expense', true);
                 } else {
                     doc.setFontSize(8);
                     doc.setTextColor(150, 150, 150);

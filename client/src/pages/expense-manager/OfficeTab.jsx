@@ -4,6 +4,7 @@ import api from '../../services/api';
 import { fmt, fmtDate, today, exportRowsToCsv, OFFICE_EXPENSE_TYPES } from './constants';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import PageContainer from '../../components/ui/PageContainer';
+import offlineDb from '../../services/offlineDb';
 import Loading from '../../components/ui/Loading';
 import { validatePrice, validateDate, validateEnum, validateFields } from '../../utils/validators';
 
@@ -150,6 +151,17 @@ const OfficeTab = ({ onError, onPayment }) => {
     try {
       if (editing) await api.put(`/office-expenses/${editing.id}`, form);
       else await api.post('/office-expenses', form);
+      try {
+        const rec = {
+          category: form.expense_type || 'Office',
+          amount: Number(form.amount) || 0,
+          date: form.expense_date || new Date().toISOString(),
+          notes: form.description || '',
+          syncStatus: 'synced'
+        };
+        const id = await offlineDb.saveExpense(rec);
+        if (id) await offlineDb.updateExpenseStatus(id, 'synced');
+      } catch (ldErr) { console.warn('Failed to write office expense to local DB', ldErr); }
       closeFormModal(true); setEditing(null); setForm(defaultForm);
       fetchDashboard(); fetchExpenses();
     } catch (err) { onError(err.response?.data?.message || 'Failed'); }

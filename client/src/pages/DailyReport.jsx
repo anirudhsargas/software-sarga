@@ -1327,8 +1327,6 @@ const DailyReport = () => {
     };
 
     const EntryTable = ({ entries, type = 'offset' }) => {
-        const PAGE_SIZE = 50;
-        const [page, setPage] = useState(1);
         const [expandedIds, setExpandedIds] = useState(new Set());
         const [groupedIds, setGroupedIds] = useState(new Set());
         const sortedEntries = (entries || []).slice().sort((a, b) => {
@@ -1336,8 +1334,9 @@ const DailyReport = () => {
             const tb = b.time ? new Date(b.time).getTime() : 0;
             return ta - tb; // oldest (first added) first
         });
-        const totalPages = Math.ceil((sortedEntries?.length || 0) / PAGE_SIZE);
-        const pagedEntries = (sortedEntries || []).slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+        const incomeEntries = sortedEntries.filter(e => e.type !== 'expense');
+        const expenseEntries = sortedEntries.filter(e => e.type === 'expense');
 
         const toggleExpand = (id) => {
             setExpandedIds(prev => {
@@ -1373,183 +1372,198 @@ const DailyReport = () => {
         const isLaser = type === 'laser';
         const isOther = type === 'other';
 
-        return (
-            <div className="entry-table-container">
-                {entries.length > PAGE_SIZE && (
-                    <div className="entry-table-pagination">
-                        <span>
-                            {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, entries.length)} of {entries.length}
-                        </span>
-                        <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}><ChevronLeft size={16} /></button>
-                        <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}><ChevronRight size={16} /></button>
-                    </div>
-                )}
-                <table className="data-table entry-table">
-                    <thead>
-                        <tr>
-                            <th style={{ width: '85px' }}>Time</th>
-                            <th>{isLaser ? 'Customer / Work' : 'Description'}</th>
-                            {isLaser && <th style={{ minWidth: '135px' }}>Machine</th>}
-                            {isOther && <th style={{ minWidth: '120px' }}>Category</th>}
-                            {isLaser
-                                ? <th style={{ width: '70px', textAlign: 'right' }}>Copies</th>
-                                : <th style={{ width: '95px' }}>Type</th>
-                            }
-                            {isLaser && <th style={{ width: '90px' }}>Type</th>}
-                            <th style={{ width: '80px' }}>Mode</th>
-                            <th style={{ width: '100px', textAlign: 'right' }}>Cash</th>
-                            <th style={{ width: '100px', textAlign: 'right' }}>UPI</th>
-                            <th style={{ width: '110px', textAlign: 'right' }}>Total</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {pagedEntries.map((entry, i) => {
-                            const isExpense = entry.type === 'expense';
-                            const isInternal = !!entry.is_internal;
-                            const hasLines = entry.order_lines?.length > 1;
-                            const isExpanded = expandedIds.has(entry.id);
-                            const rawCat = entry.category || entry.category_name || (entry.order_lines && entry.order_lines[0]?.category) || '';
-                            const categoryText = (rawCat && isNaN(Number(rawCat)) && rawCat !== 'other category' && rawCat !== 'Other') ? rawCat : 'Other Products';
-                            return (
-                                <React.Fragment key={`${type}-${entry.id}-${i}`}>
-                                    <tr className={hasLines ? 'entry-table tr--clickable' : ''} onClick={hasLines ? () => toggleExpand(entry.id) : undefined} role={hasLines ? "button" : "row"} aria-expanded={hasLines ? expandedIds.has(entry.id) : undefined} tabIndex={hasLines ? 0 : undefined} onKeyDown={hasLines ? (e) => { if(e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleExpand(entry.id); } } : undefined}>
-                                        <td style={{ whiteSpace: 'nowrap' }}>
-                                            <span className="entry-table-time">
-                                                <Clock size={11} /> {formatTime(entry.time)}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <div className="entry-table-description" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: isOther ? '220px' : '260px' }}>
-                                                {hasLines && (
-                                                    <ChevronRight size={14} className={`entry-table-chevron ${isExpanded ? 'entry-table-chevron--expanded' : ''}`} />
-                                                )}
-                                                <span title={entry.description}>{entry.description}</span>
-                                                {entry.transferred_to && (
-                                                    <span className="badge badge--warning entry-table-badge" style={{ padding: '2px 6px', fontSize: 10, marginLeft: 4 }}>→ Transferred to {entry.transferred_to} Book</span>
-                                                )}
-                                                {hasLines && (
-                                                    <span className="badge badge--default entry-table-badge" style={{ padding: '2px 6px', fontSize: 10, marginLeft: 4 }}>{entry.order_lines.length} items</span>
-                                                )}
-                                                {/* If the bill contains items assigned to different books, allow grouping/splitting */}
-                                                {hasLines && (() => {
-                                                    const bookTypes = new Set((entry.order_lines || []).map(l => String(l.book_type || l.bookType || 'Offset')));
-                                                    if (bookTypes.size > 1) {
-                                                        const isGrouped = groupedIds.has(entry.id);
-                                                        return (
-                                                            <button
-                                                                type="button"
-                                                                onClick={(e) => { e.stopPropagation(); toggleGroupView(entry.id); }}
-                                                                className="btn btn-ghost btn-xs"
-                                                                style={{ marginLeft: 8 }}
-                                                                aria-pressed={isGrouped}
-                                                            >
-                                                                {isGrouped ? 'Grouped View' : 'Split by Book'}
-                                                            </button>
-                                                        );
-                                                    }
-                                                    return null;
-                                                })()}
-                                                {entry.is_local_pending && (
-                                                    <span className="badge badge--warning entry-table-badge" style={{ padding: '2px 6px', fontSize: 10, marginLeft: 4 }}>Pending Sync</span>
-                                                )}
-                                            </div>
-                                            {!hasLines && entry.details && <div className="entry-table-details" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '240px' }}>{entry.details}</div>}
-                                            {(entry.waste_prints > 0 || entry.proof_prints > 0) && (
-                                                <div className="entry-table-waste-proof">
-                                                    {entry.waste_prints > 0 && <span className="entry-table-waste">Waste: {entry.waste_prints}</span>}
-                                                    {entry.proof_prints > 0 && <span className="entry-table-proof">Proof: {entry.proof_prints}</span>}
-                                                </div>
-                                            )}
-                                            {entry.discount_amount > 0 && (
-                                                <div className="entry-table-discount">
-                                                    Discount: {entry.discount_percent > 0 ? `${entry.discount_percent}%` : ''} (-{formatCurrency(entry.discount_amount)})
-                                                </div>
-                                            )}
-                                        </td>
-                                        {isLaser && (
-                                            <td style={{ minWidth: '135px', maxWidth: '180px' }}>
-                                                <div className="entry-table-machine">
-                                                    {entry.machine_name || '—'}
-                                                </div>
-                                            </td>
-                                        )}
-                                        {isOther && (
-                                            <td style={{ whiteSpace: 'nowrap' }}>
-                                                <span className="badge badge--info entry-table-category-badge" style={{ fontSize: '11px', padding: '2px 8px', fontWeight: 500, background: 'rgba(99, 102, 241, 0.1)', color: 'var(--primary, #6366f1)', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
-                                                    {categoryText}
-                                                </span>
-                                            </td>
-                                        )}
-                                        {isLaser ? (
-                                            <td className="entry-table-copies" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{entry.copies}</td>
-                                        ) : (
-                                            <td style={{ whiteSpace: 'nowrap' }}>
-                                                <span className={`badge ${isExpense ? 'badge--danger' : 'badge--success'} entry-table-badge`}>
-                                                    {isExpense
-                                                        ? <><ArrowDownRight size={10} /> Expense</>
-                                                        : <><ArrowUpRight size={10} /> Income</>
-                                                    }
-                                                </span>
-                                            </td>
-                                        )}
-                                        {isLaser && (
-                                            <td style={{ whiteSpace: 'nowrap' }}>
-                                                {isInternal ? (
-                                                    <span className="badge entry-table-internal-badge">🏠 Internal</span>
-                                                ) : (
-                                                    <span className="entry-table-line-qty">—</span>
-                                                )}
-                                            </td>
-                                        )}
-                                        <td style={{ whiteSpace: 'nowrap' }}>
-                                            {(() => {
-                                                const m = (entry.payment_method || 'Cash').toLowerCase();
-                                                if (m.includes('upi')) {
-                                                    return <span className="payment-badge payment-badge--upi">UPI</span>;
-                                                } else if (m.includes('cash')) {
-                                                    return <span className="payment-badge payment-badge--cash">Cash</span>;
-                                                } else {
-                                                    return <span className="payment-badge payment-badge--mixed">{entry.payment_method || 'Cash'}</span>;
-                                                }
-                                            })()}
-                                        </td>
-                                        <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }} className={`entry-table-amount ${isExpense ? 'entry-table-amount--expense' : 'entry-table-amount--income'}`}>
-                                            {Number(entry.cash_amount || 0) === 0 ? '' : `${isExpense ? '-' : '+'}${formatCurrency(entry.cash_amount)}`}
-                                        </td>
-                                        <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }} className={`entry-table-amount ${isExpense ? 'entry-table-amount--expense' : 'entry-table-amount--income'}`}>
-                                            {Number(entry.upi_amount || 0) === 0 ? '' : `${isExpense ? '-' : '+'}${formatCurrency(entry.upi_amount)}`}
-                                        </td>
-                                        <td style={{ whiteSpace: 'nowrap', textAlign: 'right', fontWeight: 700 }} className="entry-table-total">
-                                            {isExpense ? '-' : ''}{formatCurrency(entry.total)}
-                                        </td>
+        const renderSectionTable = (sectionEntries, sectionTitle, isExpenseSection) => {
+            return (
+                <div className="cashbook-section">
+                    <h3 className={`cashbook-section-title ${isExpenseSection ? 'cashbook-section-title--expense' : 'cashbook-section-title--income'}`}>
+                        {isExpenseSection ? <ArrowDownRight size={16} /> : <ArrowUpRight size={16} />}
+                        {sectionTitle} <span className="badge">{sectionEntries.length}</span>
+                    </h3>
+                    {sectionEntries.length === 0 ? (
+                        <div className="dr-empty dr-empty--small" style={{ padding: '20px 0', border: '1px dashed var(--border)', borderRadius: 'var(--radius-lg)', textAlign: 'center' }}>
+                            <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>No {sectionTitle.toLowerCase()} yet</p>
+                        </div>
+                    ) : (
+                        <div className="table-responsive">
+                            <table className="data-table entry-table">
+                                <thead>
+                                    <tr>
+                                        <th style={{ width: '85px' }}>Time</th>
+                                        <th>{isLaser ? 'Customer / Work' : 'Description'}</th>
+                                        {isLaser && <th style={{ minWidth: '135px' }}>Machine</th>}
+                                        {isOther && <th style={{ minWidth: '120px' }}>Category</th>}
+                                        {isLaser && <th style={{ width: '70px', textAlign: 'right' }}>Copies</th>}
+                                        {isLaser && <th style={{ width: '90px' }}>Type</th>}
+                                        <th style={{ width: '80px' }}>Mode</th>
+                                        <th style={{ width: '100px', textAlign: 'right' }}>Cash</th>
+                                        <th style={{ width: '100px', textAlign: 'right' }}>UPI</th>
+                                        <th style={{ width: '110px', textAlign: 'right' }}>Total</th>
                                     </tr>
-                                    {hasLines && isExpanded && (() => {
-                                        const lines = entry.order_lines || [];
-                                        if (groupedIds.has(entry.id)) {
-                                            // Group lines by book_type and render group headers + their lines
-                                            const groups = {};
-                                            lines.forEach(l => {
-                                                const bt = String(l.book_type || l.bookType || 'Offset');
-                                                if (!groups[bt]) groups[bt] = [];
-                                                groups[bt].push(l);
-                                            });
-                                            return Object.keys(groups).map((bt, gi) => {
-                                                const groupLines = groups[bt];
-                                                const groupTotal = groupLines.reduce((s, ln) => s + (Number(ln.amount) || 0), 0);
-                                                return (
-                                                    <React.Fragment key={`${entry.id}-group-${gi}`}>
-                                                        <tr className="entry-table-row--expanded entry-table-group-header">
+                                </thead>
+                                <tbody>
+                                    {sectionEntries.map((entry, i) => {
+                                        const isExpense = entry.type === 'expense';
+                                        const isInternal = !!entry.is_internal;
+                                        const hasLines = entry.order_lines?.length > 1;
+                                        const isExpanded = expandedIds.has(entry.id);
+                                        const rawCat = entry.category || entry.category_name || (entry.order_lines && entry.order_lines[0]?.category) || '';
+                                        const categoryText = (rawCat && isNaN(Number(rawCat)) && rawCat !== 'other category' && rawCat !== 'Other') ? rawCat : 'Other Products';
+                                        return (
+                                            <React.Fragment key={`${type}-${entry.id}-${i}`}>
+                                                <tr className={hasLines ? 'entry-table tr--clickable' : ''} onClick={hasLines ? () => toggleExpand(entry.id) : undefined} role={hasLines ? "button" : "row"} aria-expanded={hasLines ? expandedIds.has(entry.id) : undefined} tabIndex={hasLines ? 0 : undefined} onKeyDown={hasLines ? (e) => { if(e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleExpand(entry.id); } } : undefined}>
+                                                    <td style={{ whiteSpace: 'nowrap' }}>
+                                                        <span className="entry-table-time">
+                                                            <Clock size={11} /> {formatTime(entry.time)}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <div className="entry-table-description" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: isOther ? '220px' : '260px' }}>
+                                                            {hasLines && (
+                                                                <ChevronRight size={14} className={`entry-table-chevron ${isExpanded ? 'entry-table-chevron--expanded' : ''}`} />
+                                                            )}
+                                                            <span title={entry.description}>{entry.description}</span>
+                                                            {entry.transferred_to && (
+                                                                <span className="badge badge--warning entry-table-badge" style={{ padding: '2px 6px', fontSize: 10, marginLeft: 4 }}>→ Transferred to {entry.transferred_to} Book</span>
+                                                            )}
+                                                            {hasLines && (
+                                                                <span className="badge badge--default entry-table-badge" style={{ padding: '2px 6px', fontSize: 10, marginLeft: 4 }}>{entry.order_lines.length} items</span>
+                                                            )}
+                                                            {hasLines && (() => {
+                                                                const bookTypes = new Set((entry.order_lines || []).map(l => String(l.book_type || l.bookType || 'Offset')));
+                                                                if (bookTypes.size > 1) {
+                                                                    const isGrouped = groupedIds.has(entry.id);
+                                                                    return (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={(e) => { e.stopPropagation(); toggleGroupView(entry.id); }}
+                                                                            className="btn btn-ghost btn-xs"
+                                                                            style={{ marginLeft: 8 }}
+                                                                            aria-pressed={isGrouped}
+                                                                        >
+                                                                            {isGrouped ? 'Grouped View' : 'Split by Book'}
+                                                                        </button>
+                                                                    );
+                                                                }
+                                                                return null;
+                                                            })()}
+                                                            {entry.is_local_pending && (
+                                                                <span className="badge badge--warning entry-table-badge" style={{ padding: '2px 6px', fontSize: 10, marginLeft: 4 }}>Pending Sync</span>
+                                                            )}
+                                                        </div>
+                                                        {!hasLines && entry.details && <div className="entry-table-details" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '240px' }}>{entry.details}</div>}
+                                                        {(entry.waste_prints > 0 || entry.proof_prints > 0) && (
+                                                            <div className="entry-table-waste-proof">
+                                                                {entry.waste_prints > 0 && <span className="entry-table-waste">Waste: {entry.waste_prints}</span>}
+                                                                {entry.proof_prints > 0 && <span className="entry-table-proof">Proof: {entry.proof_prints}</span>}
+                                                            </div>
+                                                        )}
+                                                        {entry.discount_amount > 0 && (
+                                                            <div className="entry-table-discount">
+                                                                Discount: {entry.discount_percent > 0 ? `${entry.discount_percent}%` : ''} (-{formatCurrency(entry.discount_amount)})
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    {isLaser && (
+                                                        <td style={{ minWidth: '135px', maxWidth: '180px' }}>
+                                                            <div className="entry-table-machine">
+                                                                {entry.machine_name || '—'}
+                                                            </div>
+                                                        </td>
+                                                    )}
+                                                    {isOther && (
+                                                        <td style={{ whiteSpace: 'nowrap' }}>
+                                                            <span className="badge badge--info entry-table-category-badge">
+                                                                {categoryText}
+                                                            </span>
+                                                        </td>
+                                                    )}
+                                                    {isLaser && (
+                                                        <td className="entry-table-copies" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{entry.copies}</td>
+                                                    )}
+                                                    {isLaser && (
+                                                        <td style={{ whiteSpace: 'nowrap' }}>
+                                                            {isInternal ? (
+                                                                <span className="badge entry-table-internal-badge">🏠 Internal</span>
+                                                            ) : (
+                                                                <span className="entry-table-line-qty">—</span>
+                                                            )}
+                                                        </td>
+                                                    )}
+                                                    <td style={{ whiteSpace: 'nowrap' }}>
+                                                        {(() => {
+                                                            const m = (entry.payment_method || 'Cash').toLowerCase();
+                                                            if (m.includes('upi')) {
+                                                                return <span className="payment-badge payment-badge--upi">UPI</span>;
+                                                            } else if (m.includes('cash')) {
+                                                                return <span className="payment-badge payment-badge--cash">Cash</span>;
+                                                            } else {
+                                                                return <span className="payment-badge payment-badge--mixed">{entry.payment_method || 'Cash'}</span>;
+                                                            }
+                                                        })()}
+                                                    </td>
+                                                    <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }} className={`entry-table-amount ${isExpense ? 'entry-table-amount--expense' : 'entry-table-amount--income'}`}>
+                                                        {Number(entry.cash_amount || 0) === 0 ? '' : `${isExpense ? '-' : '+'}${formatCurrency(entry.cash_amount)}`}
+                                                    </td>
+                                                    <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }} className={`entry-table-amount ${isExpense ? 'entry-table-amount--expense' : 'entry-table-amount--income'}`}>
+                                                        {Number(entry.upi_amount || 0) === 0 ? '' : `${isExpense ? '-' : '+'}${formatCurrency(entry.upi_amount)}`}
+                                                    </td>
+                                                    <td style={{ whiteSpace: 'nowrap', textAlign: 'right', fontWeight: 700 }} className="entry-table-total">
+                                                        {isExpense ? '-' : ''}{formatCurrency(entry.total)}
+                                                    </td>
+                                                </tr>
+                                                {hasLines && isExpanded && (() => {
+                                                    const lines = entry.order_lines || [];
+                                                    if (groupedIds.has(entry.id)) {
+                                                        const groups = {};
+                                                        lines.forEach(l => {
+                                                            const bt = String(l.book_type || l.bookType || 'Offset');
+                                                            if (!groups[bt]) groups[bt] = [];
+                                                            groups[bt].push(l);
+                                                        });
+                                                        return Object.keys(groups).map((bt, gi) => {
+                                                            const groupLines = groups[bt];
+                                                            const groupTotal = groupLines.reduce((s, ln) => s + (Number(ln.amount) || 0), 0);
+                                                            return (
+                                                                <React.Fragment key={`${entry.id}-group-${gi}`}>
+                                                                    <tr className="entry-table-row--expanded entry-table-group-header">
+                                                                        <td></td>
+                                                                        <td colSpan={isLaser ? 3 : 2} style={{ fontWeight: 700 }}>{bt} Book — {groupLines.length} items</td>
+                                                                        <td></td>
+                                                                        <td></td>
+                                                                        <td></td>
+                                                                        <td style={{ textAlign: 'right', fontWeight: 700 }}>{formatCurrency(groupTotal)}</td>
+                                                                    </tr>
+                                                                    {groupLines.map((line, li) => (
+                                                                        <tr key={`${entry.id}-group-${gi}-line-${li}`} className="entry-table-row--expanded">
+                                                                            <td></td>
+                                                                            <td colSpan={isLaser ? 3 : 2} className="entry-table-row-expanded-content">
+                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                                                    <span className="entry-table-line-name">{line.name || 'Item'}</span>
+                                                                                    {line.qty > 1 && <span className="entry-table-line-qty">×{line.qty}</span>}
+                                                                                    {(line.waste_prints > 0 || line.proof_prints > 0) && (
+                                                                                        <span className="entry-table-line-waste-proof">
+                                                                                            {line.waste_prints > 0 && <span className="entry-table-line-waste">Waste:{line.waste_prints} </span>}
+                                                                                            {line.proof_prints > 0 && <span className="entry-table-line-proof">Proof:{line.proof_prints}</span>}
+                                                                                        </span>
+                                                                                    )}
+                                                                                </div>
+                                                                            </td>
+                                                                            <td></td>
+                                                                            <td></td>
+                                                                            <td></td>
+                                                                            <td className="entry-table-line-amount">
+                                                                                {formatCurrency(line.amount)}
+                                                                            </td>
+                                                                        </tr>
+                                                                    ))}
+                                                                </React.Fragment>
+                                                            );
+                                                        });
+                                                    }
+                                                    return lines.map((line, li) => (
+                                                        <tr key={`${entry.id}-line-${li}`} className="entry-table-row--expanded">
                                                             <td></td>
-                                                            <td colSpan={isLaser ? 3 : 2} style={{ fontWeight: 700 }}>{bt} Book — {groupLines.length} items</td>
-                                                            <td></td>
-                                                            <td></td>
-                                                            <td></td>
-                                                            <td style={{ textAlign: 'right', fontWeight: 700 }}>{formatCurrency(groupTotal)}</td>
-                                                        </tr>
-                                                        {groupLines.map((line, li) => (
-                                                            <tr key={`${entry.id}-group-${gi}-line-${li}`} className="entry-table-row--expanded">
-                                                                <td></td>
-                                                                <td colSpan={isLaser ? 3 : 2} className="entry-table-row-expanded-content">
+                                                            <td colSpan={isLaser ? 3 : 2} className="entry-table-row-expanded-content">
                                                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                                                         <span className="entry-table-line-name">{line.name || 'Item'}</span>
                                                                         {line.qty > 1 && <span className="entry-table-line-qty">×{line.qty}</span>}
@@ -1560,49 +1574,32 @@ const DailyReport = () => {
                                                                             </span>
                                                                         )}
                                                                     </div>
-                                                                </td>
-                                                                <td></td>
-                                                                <td></td>
-                                                                <td></td>
-                                                                <td className="entry-table-line-amount">
-                                                                    {formatCurrency(line.amount)}
-                                                                </td>
-                                                            </tr>
-                                                        ))}
-                                                    </React.Fragment>
-                                                );
-                                            });
-                                        }
-                                        // Default: single bill view (flat list of lines)
-                                        return lines.map((line, li) => (
-                                            <tr key={`${entry.id}-line-${li}`} className="entry-table-row--expanded">
-                                                <td></td>
-                                                <td colSpan={isLaser ? 3 : 2} className="entry-table-row-expanded-content">
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                        <span className="entry-table-line-name">{line.name || 'Item'}</span>
-                                                        {line.qty > 1 && <span className="entry-table-line-qty">×{line.qty}</span>}
-                                                        {(line.waste_prints > 0 || line.proof_prints > 0) && (
-                                                            <span className="entry-table-line-waste-proof">
-                                                                {line.waste_prints > 0 && <span className="entry-table-line-waste">Waste:{line.waste_prints} </span>}
-                                                                {line.proof_prints > 0 && <span className="entry-table-line-proof">Proof:{line.proof_prints}</span>}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                                <td></td>
-                                                <td></td>
-                                                <td></td>
-                                                <td className="entry-table-line-amount">
-                                                    {formatCurrency(line.amount)}
-                                                </td>
-                                            </tr>
-                                        ));
-                                    })()}
-                                </React.Fragment>
-                            );
-                        })}
-                    </tbody>
-                </table>
+                                                            </td>
+                                                            <td></td>
+                                                            <td></td>
+                                                            <td></td>
+                                                            <td className="entry-table-line-amount">
+                                                                {formatCurrency(line.amount)}
+                                                            </td>
+                                                        </tr>
+                                                    ));
+                                                })()}
+                                            </React.Fragment>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        return (
+            <div className="entry-table-container">
+                {renderSectionTable(incomeEntries, 'Income', false)}
+                <div style={{ margin: '24px 0', borderTop: '1px solid var(--border)' }}></div>
+                {renderSectionTable(expenseEntries, 'Expenses & Withdrawals', true)}
             </div>
         );
     };

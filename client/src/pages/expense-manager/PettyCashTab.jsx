@@ -7,6 +7,7 @@ import api from '../../services/api';
 import { fmt, fmtDate, today, thisMonth, exportRowsToCsv } from './constants';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import PageContainer from '../../components/ui/PageContainer';
+import offlineDb from '../../services/offlineDb';
 import Loading from '../../components/ui/Loading';
 
 const defaultForm = { transaction_date: today(), transaction_type: 'Cash Out', amount: '', description: '', reference_number: '', received_from: '', paid_to: '', category: '', book_type: '' };
@@ -113,6 +114,17 @@ const PettyCashTab = ({ onError, onPayment }) => {
     try {
       if (editing) await api.put(`/petty-cash/${editing.id}`, form);
       else await api.post('/petty-cash', form);
+      try {
+        const rec = {
+          category: form.category || 'Petty Cash',
+          amount: Number(form.amount) || 0,
+          date: form.transaction_date || new Date().toISOString(),
+          notes: form.description || '',
+          syncStatus: 'synced'
+        };
+        const id = await offlineDb.saveExpense(rec);
+        if (id) await offlineDb.updateExpenseStatus(id, 'synced');
+      } catch (ldErr) { console.warn('Failed to write petty cash entry to local DB', ldErr); }
       closeFormModal(true); setEditing(null); setForm(defaultForm);
       fetchDashboard(); fetchLedger();
     } catch (err) { onError(err.response?.data?.message || 'Failed'); }

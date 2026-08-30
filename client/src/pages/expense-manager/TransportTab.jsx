@@ -6,6 +6,7 @@ import { useDebounce } from '../../hooks/useDebounce';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import PageContainer from '../../components/ui/PageContainer';
+import offlineDb from '../../services/offlineDb';
 import { validatePrice, validateDate, validateEnum, validateFields } from '../../utils/validators';
 
 const defaultForm = { transport_type: '', vehicle_number: '', driver_name: '', amount: '', payment_method: 'Cash', reference_number: '', description: '', expense_date: today(), bill_number: '', from_location: '', to_location: '', distance_km: '', book_type: '' };
@@ -115,6 +116,17 @@ const TransportTab = ({ onError }) => {
     try {
       if (editing) await api.put(`/transport-expenses/${editing.id}`, form);
       else await api.post('/transport-expenses', form);
+      try {
+        const rec = {
+          category: form.transport_type || 'Transport',
+          amount: Number(form.amount) || 0,
+          date: form.expense_date || new Date().toISOString(),
+          notes: form.description || '',
+          syncStatus: 'synced'
+        };
+        const id = await offlineDb.saveExpense(rec);
+        if (id) await offlineDb.updateExpenseStatus(id, 'synced');
+      } catch (ldErr) { console.warn('Failed to write transport expense to local DB', ldErr); }
       closeFormModal(true); setEditing(null); setForm(defaultForm);
       fetchDashboard(); fetchExpenses();
     } catch (err) { onError(err.response?.data?.message || 'Failed'); }

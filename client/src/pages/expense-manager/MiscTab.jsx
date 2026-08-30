@@ -4,6 +4,7 @@ import api from '../../services/api';
 import { fmt, fmtDate, today, exportRowsToCsv, MISC_CATEGORIES } from './constants';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import PageContainer from '../../components/ui/PageContainer';
+import offlineDb from '../../services/offlineDb';
 import { validatePrice, validateDate, validateEnum, validateFields } from '../../utils/validators';
 
 const defaultForm = { expense_category: '', vendor_name: '', amount: '', payment_method: 'Cash', reference_number: '', description: '', expense_date: today(), bill_number: '', is_recurring: false, book_type: '' };
@@ -139,6 +140,18 @@ const MiscTab = ({ onError, onPayment }) => {
     try {
       if (editing) await api.put(`/misc-expenses/${editing.id}`, form);
       else await api.post('/misc-expenses', form);
+      try {
+        // Record in local IndexedDB so dashboard (localDb) reflects this expense
+        const rec = {
+          category: form.expense_category || 'Miscellaneous',
+          amount: Number(form.amount) || 0,
+          date: form.expense_date || new Date().toISOString(),
+          notes: form.description || '',
+          syncStatus: 'synced'
+        };
+        const id = await offlineDb.saveExpense(rec);
+        if (id) await offlineDb.updateExpenseStatus(id, 'synced');
+      } catch (ldErr) { console.warn('Failed to write misc expense to local DB', ldErr); }
       closeFormModal(true); setEditing(null); setForm(defaultForm);
       fetchDashboard(); fetchExpenses(page);
     } catch (err) { onError(err.response?.data?.message || 'Failed'); }
