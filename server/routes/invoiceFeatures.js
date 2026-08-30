@@ -78,6 +78,88 @@ router.post('/invoices/:paymentId/send-email', authenticateToken, async (req, re
             <div style="text-align: center; padding: 12px; background: #f5f5f5; border-radius: 0 0 8px 8px; font-size: 12px; color: #999;">
                 ${companyName} ${config.company_phone ? '| ' + config.company_phone : ''} ${config.company_email ? '| ' + config.company_email : ''}
             </div>
+            
+            <!-- Thin divider line above the footer -->
+            <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 30px 0 20px 0;" />
+
+            <!-- Sarga Printing Premium Footer -->
+            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="font-family: Arial, sans-serif; color: #333333; line-height: 1.5; font-size: 13px; margin-top: 10px;">
+                <tr>
+                    <td style="padding-bottom: 15px;">
+                        <table border="0" cellpadding="0" cellspacing="0">
+                            <tr>
+                                <td valign="middle" style="padding-right: 12px;">
+                                    <img src="https://software-sarga.vercel.app/logo.png" width="48" height="48" alt="Sarga Printing Logo" style="display: block; width: 48px; height: 48px; border: 0; border-radius: 6px;" />
+                                </td>
+                                <td valign="middle">
+                                    <div style="font-size: 16px; font-weight: bold; color: #1a1a1a; letter-spacing: 0.5px; text-transform: uppercase;">SARGA PRINTING</div>
+                                    <div style="font-size: 11px; color: #718096; margin-top: 2px; text-transform: uppercase; letter-spacing: 1px;">Printing &bull; Designing &bull; Finishing</div>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <!--[if (gte mso 9)|(IE)]>
+                        <table align="center" border="0" cellspacing="0" cellpadding="0" width="560">
+                        <tr>
+                        <td align="left" valign="top" width="270">
+                        <![endif]-->
+                        <table align="left" border="0" cellpadding="0" cellspacing="0" width="270" style="width: 100%; max-width: 270px; margin-bottom: 15px;">
+                            <tr>
+                                <td style="padding-right: 15px;">
+                                    <div style="font-weight: bold; font-size: 12px; color: #2d3748; letter-spacing: 0.5px; border-left: 2px solid #4a5568; padding-left: 8px; margin-bottom: 6px;">PERAMBRA</div>
+                                    <table border="0" cellpadding="0" cellspacing="0" style="font-size: 13px; color: #4a5568;">
+                                        <tr>
+                                            <td style="padding-bottom: 4px; padding-left: 8px;">
+                                                <span style="margin-right: 4px;">📞</span> 
+                                                <a href="tel:9495177284" style="color: #2b6cb0; text-decoration: none; font-weight: 500;">9495177284</a>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding-left: 8px;">
+                                                <span style="margin-right: 4px;">✉️</span> 
+                                                <a href="mailto:sargapba@gmail.com" style="color: #2b6cb0; text-decoration: none;">sargapba@gmail.com</a>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+                        </table>
+                        <!--[if (gte mso 9)|(IE)]>
+                        </td>
+                        <td align="left" valign="top" width="270">
+                        <![endif]-->
+                        <table align="left" border="0" cellpadding="0" cellspacing="0" width="270" style="width: 100%; max-width: 270px; margin-bottom: 15px;">
+                            <tr>
+                                <td>
+                                    <div style="font-weight: bold; font-size: 12px; color: #2d3748; letter-spacing: 0.5px; border-left: 2px solid #4a5568; padding-left: 8px; margin-bottom: 6px;">MEPPAYUR</div>
+                                    <table border="0" cellpadding="0" cellspacing="0" style="font-size: 13px; color: #4a5568;">
+                                        <tr>
+                                            <td style="padding-bottom: 4px; padding-left: 8px;">
+                                                <span style="margin-right: 4px;">📞</span> 
+                                                <a href="tel:9188331197" style="color: #2b6cb0; text-decoration: none; font-weight: 500;">9188331197</a>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding-left: 8px;">
+                                                <span style="margin-right: 4px;">✉️</span> 
+                                                <a href="mailto:sargaoffssetmpr@gmail.com" style="color: #2b6cb0; text-decoration: none;">sargaoffssetmpr@gmail.com</a>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+                        </table>
+                        <!--[if (gte mso 9)|(IE)]>
+                        </td>
+                        </tr>
+                        </table>
+                        <![endif]-->
+                    </td>
+                </tr>
+            </table>
         </div>`;
 
         await sendEmail({
