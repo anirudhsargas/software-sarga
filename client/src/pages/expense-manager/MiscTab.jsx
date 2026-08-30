@@ -9,7 +9,7 @@ import { validatePrice, validateDate, validateEnum, validateFields } from '../..
 const defaultForm = { expense_category: '', vendor_name: '', amount: '', payment_method: 'Cash', reference_number: '', description: '', expense_date: today(), bill_number: '', is_recurring: false, book_type: '' };
 const PAGE_SIZE = 50;
 
-const MiscTab = ({ onError }) => {
+const MiscTab = ({ onError, onPayment }) => {
   const { confirm } = useConfirm();
   const [dashboard, setDashboard] = useState(null);
   const [expenses, setExpenses] = useState([]);
@@ -208,7 +208,11 @@ const MiscTab = ({ onError }) => {
                 {pagedExpenses.map(r => (
                   <tr key={r.id}>
                     <td>{fmtDate(r.expense_date)}</td><td><span className="em-type-badge em-type-badge--other">{r.expense_category}</span></td><td>{r.vendor_name || '—'}</td><td className="em-amount-cell">₹{fmt(r.amount)}</td><td>{r.is_recurring ? '✓' : ''}</td>
-                    <td><button className="btn btn-ghost btn-icon btn-sm" aria-label="Edit misc expense" onClick={() => openEdit(r)}><Edit2 size={14} /></button> <button className="btn btn-ghost btn-icon btn-sm" aria-label="Delete misc expense" onClick={() => handleDelete(r.id)}><Trash2 size={14} /></button></td>
+                    <td>
+                      <button className="btn btn-ghost btn-icon btn-sm" aria-label="Pay misc expense" onClick={() => onPayment && onPayment({ type: 'Other', payee_name: r.vendor_name || r.description || '', amount: String(r.amount), description: r.description || '', bill_total_amount: r.amount, book_type: r.book_type || '' })}><IndianRupee size={14} /></button>
+                      <button className="btn btn-ghost btn-icon btn-sm" aria-label="Edit misc expense" onClick={() => openEdit(r)}><Edit2 size={14} /></button>
+                      <button className="btn btn-ghost btn-icon btn-sm" aria-label="Delete misc expense" onClick={() => handleDelete(r.id)}><Trash2 size={14} /></button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

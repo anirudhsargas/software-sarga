@@ -137,6 +137,7 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
                   </div>
                 )}
 
+                {/* Category + Daily Book side by side */}
                 <div className="em-form-group">
                   <label htmlFor="type">Category</label>
                   <select id="type" name="type" className="em-input" value={form.type} onChange={e => setForm(p => ({ ...p, type: e.target.value }))}>
@@ -151,25 +152,52 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
                     {(bookOptions || []).map(b => <option key={b} value={b}>{b}</option>)}
                   </select>
                   {assignedBooks.length === 0 && (
-                    <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>No assigned book found — showing all options.</div>
+                    <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>No assigned book — showing all.</div>
                   )}
                 </div>
 
-                <div className="em-form-group em-form-group--full" style={{ paddingTop: 6 }}>
-                  <label style={{ display: 'block', marginBottom: 6 }}>Available Balances</label>
-                  <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-                    {['Offset', 'Laser', 'Other'].map(b => (
-                      <div key={b} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div style={{ fontSize: 13, color: 'var(--muted)' }}>{b}:</div>
-                        <div style={{ fontWeight: 700 }}>{loadingBalances ? '—' : `₹${fmt(bookBalances[b] ?? 0)}`}</div>
-                        {(isAdmin || assignedBooks.length === 0 || assignedBooks.includes(b)) && (
-                          <button type="button" className="btn btn-ghost btn-sm" onClick={() => {
-                            setShowTransfer(true);
-                            setTransferForm({ from_book_type: b, to_book_type: (['Offset','Laser','Other'].find(x => x !== b) || ''), amount: '', note: '' });
-                          }}>Transfer</button>
-                        )}
-                      </div>
-                    ))}
+                {/* Available Balances — clickable chips */}
+                <div className="em-form-group em-form-group--full">
+                  <label style={{ marginBottom: 8, display: 'block' }}>
+                    Available Balances
+                    {loadingBalances && <span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 8, fontWeight: 400 }}>refreshing…</span>}
+                  </label>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                    {['Offset', 'Laser', 'Other'].map(b => {
+                      const bal = bookBalances[b];
+                      const isSelected = form.book_type === b;
+                      const isLow = bal != null && Number(bal) < Number(form.amount || 0) && Number(form.amount || 0) > 0;
+                      const chipBg = isSelected
+                        ? (isLow ? 'var(--error-light, #fee2e2)' : 'var(--primary-light, #eff6ff)')
+                        : 'var(--surface-2, #f4f4f5)';
+                      const chipBorder = isSelected
+                        ? (isLow ? '2px solid var(--error)' : '2px solid var(--primary)')
+                        : '1.5px solid var(--border)';
+                      const balColor = isLow ? 'var(--error)' : isSelected ? 'var(--primary)' : 'var(--text)';
+                      return (
+                        <div key={b} style={{
+                          background: chipBg, border: chipBorder, borderRadius: 10,
+                          padding: '8px 14px', display: 'flex', flexDirection: 'column', gap: 2,
+                          minWidth: 110, cursor: 'pointer', transition: 'all 0.15s'
+                        }} onClick={() => setForm(p => ({ ...p, book_type: b }))}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: isSelected ? balColor : 'var(--muted)' }}>{b}</span>
+                            {isSelected && <span style={{ fontSize: 10, background: isLow ? 'var(--error)' : 'var(--primary)', color: 'var(--color-white, #fff)', borderRadius: 4, padding: '1px 5px', fontWeight: 700 }}>Selected</span>}
+                          </div>
+                          <span style={{ fontSize: 16, fontWeight: 700, color: balColor }}>
+                            {loadingBalances ? '—' : `₹${fmt(bal ?? 0)}`}
+                          </span>
+                          {(isAdmin || assignedBooks.length === 0 || assignedBooks.includes(b)) && (
+                            <button type="button" style={{ fontSize: 11, color: 'var(--primary)', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', marginTop: 2 }}
+                              onClick={ev => {
+                                ev.stopPropagation();
+                                setShowTransfer(true);
+                                setTransferForm({ from_book_type: b, to_book_type: (['Offset','Laser','Other'].find(x => x !== b) || ''), amount: '', note: '' });
+                              }}>⇄ Transfer</button>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -191,18 +219,18 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
                   <input id="payee_name" name="payee_name" className="em-input" value={form.payee_name} onChange={e => setForm(p => ({ ...p, payee_name: e.target.value }))} placeholder="Name" required />
                 </div>
 
-                {/* Partial Payment Toggle (Hidden for Utilities) */}
+                {/* Partial Payment Toggle */}
                 {form.type !== 'Utility' && (
-                  <div className="em-form-group em-form-group--full" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 0' }}>
-                    <label htmlFor="is_partial_payment" style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', margin: 0 }}>
+                  <div className="em-form-group em-form-group--full">
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none', width: 'fit-content' }}>
                       <input id="is_partial_payment" name="is_partial_payment" type="checkbox" checked={form.is_partial_payment || false}
                         onChange={e => setForm(p => ({ ...p, is_partial_payment: e.target.checked }))} />
-                      Partial Payment
+                      <span style={{ fontSize: 13, fontWeight: 500 }}>Partial Payment</span>
                     </label>
                     {form.is_partial_payment && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
-                        <label htmlFor="bill_total_amount" style={{ fontSize: 13, color: 'var(--muted)', whiteSpace: 'nowrap' }}>Bill Total:</label>
-                        <input id="bill_total_amount" name="bill_total_amount" className="em-input" type="number" min="0" step="0.01" style={{ maxWidth: 140 }}
+                      <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <label htmlFor="bill_total_amount" style={{ fontSize: 13, color: 'var(--muted)', whiteSpace: 'nowrap' }}>Bill Total (₹):</label>
+                        <input id="bill_total_amount" name="bill_total_amount" className="em-input" type="number" min="0" step="0.01" style={{ maxWidth: 160 }}
                           value={form.bill_total_amount} placeholder="Full bill amount"
                           onChange={e => setForm(p => ({ ...p, bill_total_amount: e.target.value }))} />
                       </div>
@@ -212,19 +240,11 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
 
                 <div className="em-form-group">
                   <label htmlFor="amount">Amount (₹) *{form.is_partial_payment ? ' (paying now)' : ''}</label>
-                  <input id="amount" name="amount" className="em-input" type="number" min="0" step="0.01" value={form.amount}
+                  <input id="amount" name="amount" className={`em-input${!amountWithinBalance ? ' field-error' : ''}`} type="number" min="0" step="0.01" value={form.amount}
                     onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} required />
                   {isPartial && (
                     <div style={{ fontSize: 12, color: 'var(--warning)', marginTop: 4 }}>
                       Remaining after this: ₹{fmt(billTotal - payAmount)}
-                    </div>
-                  )}
-                  {!amountWithinBalance && (
-                    <div style={{ fontSize: 13, color: 'var(--error)', marginTop: 6 }}>
-                      Amount exceeds available balance for {form.book_type || 'the selected book'}.
-                      {form.book_type && selectedBookBalance != null && (
-                        <span> Available: ₹{fmt(selectedBookBalance)}</span>
-                      )}
                     </div>
                   )}
                 </div>
@@ -262,15 +282,39 @@ const PaymentModal = ({ form, setForm, vendors, branches, onSubmit, onClose }) =
 
                 <div className="em-form-group">
                   <label htmlFor="reference_number">Reference #</label>
-                  <input id="reference_number" name="reference_number" className="em-input" value={form.reference_number} onChange={e => setForm(p => ({ ...p, reference_number: e.target.value }))} placeholder="Bill/cheque/transaction number" />
+                  <input id="reference_number" name="reference_number" className="em-input" value={form.reference_number} onChange={e => setForm(p => ({ ...p, reference_number: e.target.value }))} placeholder="Bill / cheque / transaction number" />
                 </div>
 
                 <div className="em-form-group em-form-group--full">
                   <label htmlFor="description">Description</label>
                   <input id="description" name="description" className="em-input" value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} placeholder="Payment notes" />
                 </div>
+
+                {/* Balance exceeded — prominent alert banner */}
+                {!amountWithinBalance && (
+                  <div className="em-form-group em-form-group--full">
+                    <div style={{
+                      display: 'flex', alignItems: 'flex-start', gap: 10,
+                      background: 'var(--error-light, #fee2e2)', border: '1.5px solid var(--error)',
+                      borderRadius: 8, padding: '10px 14px', color: 'var(--error)'
+                    }}>
+                      <AlertTriangle size={16} style={{ marginTop: 2, flexShrink: 0 }} />
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: 13 }}>
+                          Amount exceeds available balance for <strong>{form.book_type || 'selected book'}</strong>
+                        </div>
+                        {form.book_type && selectedBookBalance != null && (
+                          <div style={{ fontSize: 12, marginTop: 2 }}>
+                            Available: <strong>₹{fmt(selectedBookBalance)}</strong> · Shortfall: <strong>₹{fmt(amountNumber - Number(selectedBookBalance))}</strong>. Use the <strong>⇄ Transfer</strong> button on the balance chip above to move funds first.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
+
             <div className="em-modal__footer">
               <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
               <button type="submit" className="btn btn-primary" disabled={!canSubmit || !bothValid}>Review & Confirm</button>

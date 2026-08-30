@@ -295,9 +295,9 @@ const ExpenseManager = () => {
       {activeTab === 'rent' && <RentTab refreshKey={refreshKey} branches={branches} onPayment={openPayment} onError={setError} />}
       {activeTab === 'utilities' && <UtilitiesTab refreshKey={refreshKey} dashboard={dashboard} onPayment={openPayment} onRefresh={fetchDashboardForUtilities} />}
       {activeTab === 'finance' && <FinanceTab refreshKey={refreshKey} branches={branches} onError={setError} />}
-      {activeTab === 'transport' && <TransportTab refreshKey={refreshKey} onError={setError} />}
-      {activeTab === 'misc' && <MiscTab refreshKey={refreshKey} onError={setError} />}
-      {activeTab === 'office' && <OfficeTab refreshKey={refreshKey} onError={setError} />}
+      {activeTab === 'transport' && <TransportTab refreshKey={refreshKey} onPayment={openPayment} onError={setError} />}
+      {activeTab === 'misc' && <MiscTab refreshKey={refreshKey} onPayment={openPayment} onError={setError} />}
+      {activeTab === 'office' && <OfficeTab refreshKey={refreshKey} onPayment={openPayment} onError={setError} />}
       {activeTab === 'staff-expenses' && <StaffExpensesTab refreshKey={refreshKey} onPayment={openPayment} onError={setError} />}
       {activeTab === 'reports' && <ReportsTab refreshKey={refreshKey} branches={branches} onError={setError} />}
 

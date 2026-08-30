@@ -235,6 +235,7 @@ const TransportTab = ({ onError }) => {
                       <td>{r.from_location || ''}{r.to_location ? ` → ${r.to_location}` : ''}</td>
                       <td className="em-amount-cell">₹{fmt(r.amount)}</td>
                       <td>
+                        <button className="btn btn-ghost btn-icon btn-sm" aria-label="Pay transport expense" onClick={() => onPayment && onPayment({ type: 'Other', payee_name: r.driver_name || r.vehicle_number || '', amount: String(r.amount), description: r.description || '', bill_total_amount: r.amount, book_type: r.book_type || '' })}><IndianRupee size={14} /></button>
                         <button className="btn btn-ghost btn-icon btn-sm" aria-label="Edit transport expense" onClick={() => openEdit(r)}><Edit2 size={14} /></button>
                         <button className="btn btn-ghost btn-icon btn-sm" aria-label="Delete transport expense" onClick={() => handleDelete(r.id)}><Trash2 size={14} /></button>
                       </td>

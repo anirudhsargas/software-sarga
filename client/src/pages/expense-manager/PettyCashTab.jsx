@@ -13,7 +13,7 @@ const defaultForm = { transaction_date: today(), transaction_type: 'Cash Out', a
 const PETTY_CATEGORIES = ['Tea / Snacks', 'Stationery', 'Cleaning', 'Travel', 'Courier', 'Tips', 'Parking', 'Photocopies', 'Misc Purchases', 'Other'];
 const PAGE_SIZE = 50;
 
-const PettyCashTab = ({ onError }) => {
+const PettyCashTab = ({ onError, onPayment }) => {
   const { confirm } = useConfirm();
   const [dashboard, setDashboard] = useState(null);
   const [ledger, setLedger] = useState([]);
@@ -248,6 +248,9 @@ const PettyCashTab = ({ onError }) => {
                     <td>{r.transaction_type === 'Cash Out' ? <span className="em-amount--red">₹{fmt(r.amount)}</span> : ''}</td>
                     <td style={{ fontWeight: 700 }}>₹{fmt(r.balance_after)}</td>
                     <td>
+                      {r.transaction_type === 'Cash Out' && onPayment && (
+                        <button className="btn btn-ghost btn-icon btn-sm" aria-label="Pay petty cash" onClick={() => onPayment({ type: 'Other', payee_name: r.paid_to || r.received_from || '', amount: String(r.amount), description: r.description || '', bill_total_amount: r.amount, book_type: r.book_type || '' })}><IndianRupee size={14} /></button>
+                      )}
                       <button className="btn btn-ghost btn-icon btn-sm" aria-label="Edit daily cash entry" onClick={() => openEdit(r)}><Edit2 size={14} /></button>
                       <button className="btn btn-ghost btn-icon btn-sm" aria-label="Delete daily cash entry" onClick={() => handleDelete(r.id)}><Trash2 size={14} /></button>
                     </td>

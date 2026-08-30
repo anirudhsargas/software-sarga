@@ -18,6 +18,7 @@ const FinanceTab = ({ branches, onError }) => {
 
   const user = auth.getUser();
   const isAdmin = user?.role === 'Admin' || user?.role === 'Accountant';
+  const [assignedBooks, setAssignedBooks] = useState([]);
 
   // EMI state
   const [emis, setEmis] = useState([]);
@@ -59,7 +60,7 @@ const FinanceTab = ({ branches, onError }) => {
   // Payment recording
   const [showPayForm, setShowPayForm] = useState(false);
   const [payType, setPayType] = useState('emi'); // 'emi' or 'kuri'
-  const [payForm, setPayForm] = useState({ master_id: '', amount: '', payment_date: today(), payment_method: 'Cash', reference_number: '', remarks: '' });
+  const [payForm, setPayForm] = useState({ master_id: '', amount: '', payment_date: today(), payment_method: 'Cash', reference_number: '', remarks: '', book_type: '' });
   const [payConfirming, setPayConfirming] = useState(false);
   const [paySubmitting, setPaySubmitting] = useState(false);
 
@@ -114,6 +115,24 @@ const FinanceTab = ({ branches, onError }) => {
   }, [onError]);
 
   useEffect(() => { fetchEmis(emiPage); fetchKuris(kuriPage); fetchEmiDash(); fetchKuriDash(); }, [fetchEmis, fetchKuris, fetchEmiDash, fetchKuriDash, emiPage, kuriPage]);
+
+  // fetch assigned books to populate Daily Book selector for payments
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const r = await api.get('/machines/my-books');
+        if (!mounted) return;
+        const books = r.data || [];
+        setAssignedBooks(books);
+        if ((!payForm.book_type || payForm.book_type === '') && books.length > 0) setPayForm(p => ({ ...p, book_type: books[0] }));
+      } catch (err) {
+        if (!mounted) return;
+        setAssignedBooks([]);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   // Mobile-only parallax for Kuri view
   useEffect(() => {
@@ -251,8 +270,8 @@ const FinanceTab = ({ branches, onError }) => {
     try {
       const endpoint = payType === 'emi' ? '/emi-payments' : '/kuri-payments';
       const body = payType === 'emi'
-        ? { emi_id: payForm.master_id, amount: Number(payForm.amount), payment_date: payForm.payment_date, payment_method: payForm.payment_method, reference_number: payForm.reference_number, remarks: payForm.remarks }
-        : { kuri_id: payForm.master_id, amount: Number(payForm.amount), payment_date: payForm.payment_date, payment_method: payForm.payment_method, reference_number: payForm.reference_number, remarks: payForm.remarks };
+        ? { emi_id: payForm.master_id, amount: Number(payForm.amount), payment_date: payForm.payment_date, payment_method: payForm.payment_method, reference_number: payForm.reference_number, remarks: payForm.remarks, book_type: payForm.book_type || null }
+        : { kuri_id: payForm.master_id, amount: Number(payForm.amount), payment_date: payForm.payment_date, payment_method: payForm.payment_method, reference_number: payForm.reference_number, remarks: payForm.remarks, book_type: payForm.book_type || null };
       await api.post(endpoint, body);
       setShowPayForm(false); setPayConfirming(false);
       setPayForm({ master_id: '', amount: '', payment_date: today(), payment_method: 'Cash', reference_number: '', remarks: '' });
@@ -579,6 +598,13 @@ const FinanceTab = ({ branches, onError }) => {
 
                     <div className="em-form-group"><label>Payment Method</label><select name="payment_method" aria-label="Select option"  className="em-input" value={payForm.payment_method} onChange={e => setPayForm(p => ({ ...p, payment_method: e.target.value }))}><option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>Cheque</option></select></div>
                     <div className="em-form-group"><label>Reference #</label><input name="reference_number" className="em-input" value={payForm.reference_number} onChange={e => setPayForm(p => ({ ...p, reference_number: e.target.value }))} /></div>
+                    <div className="em-form-group">
+                      <label>Daily Book</label>
+                      <select name="payment_book_type" className="em-input" value={payForm.book_type || ''} onChange={e => setPayForm(p => ({ ...p, book_type: e.target.value }))}>
+                        <option value="">Select Book</option>
+                        {((assignedBooks && assignedBooks.length > 0) ? assignedBooks : ['Offset','Laser','Other']).map(b => <option key={b} value={b}>{b}</option>)}
+                      </select>
+                    </div>
                     <div className="em-form-group em-form-group--full"><label>Remarks</label><input name="remarks" className="em-input" value={payForm.remarks} onChange={e => setPayForm(p => ({ ...p, remarks: e.target.value }))} /></div>
                   </div>
                 </div>
@@ -595,6 +621,7 @@ const FinanceTab = ({ branches, onError }) => {
                       <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">Method</span><span className="em-confirm-summary__value">{payForm.payment_method}</span></div>
 
                       {payForm.reference_number && <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">Reference</span><span className="em-confirm-summary__value">{payForm.reference_number}</span></div>}
+                      {payForm.book_type && <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">Daily Book</span><span className="em-confirm-summary__value">{payForm.book_type}</span></div>}
                       {payForm.remarks && <div className="em-confirm-summary__row"><span className="em-confirm-summary__label">Remarks</span><span className="em-confirm-summary__value">{payForm.remarks}</span></div>}
                     </div>
                     <div className="em-confirm-summary__warn"><AlertTriangle size={14} /> Please verify the details above before confirming.</div>
