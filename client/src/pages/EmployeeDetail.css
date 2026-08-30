@@ -1010,3 +1010,30 @@
   color: var(--success) !important;
   flex-shrink: 0;
 }
+
+/* Side-by-side layout grid */
+.employee-detail__main-layout {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 20px;
+  align-items: start;
+  margin-top: 20px;
+}
+
+.employee-detail__main-left {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.employee-detail__main-right {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+@media (max-width: 900px) {
+  .employee-detail__main-layout {
+    grid-template-columns: 1fr;
+  }
+}

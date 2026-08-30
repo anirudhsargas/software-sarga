@@ -1019,296 +1019,303 @@ const EmployeeDetail = () => {
                                             )}
                                         </div>
                                     )}
-
-                                    {/* Calendar Grid */}
-                                    {(() => {
-                                        const [y, m] = currentMonth.split('-').map(Number);
-                                        const firstDay = new Date(y, m - 1, 1).getDay();
-                                        const daysInMonth = new Date(y, m, 0).getDate();
-                                        const today = new Date();
-                                        const attMap = {};
-                                        (attendance || []).forEach(a => { 
-                                            const dateStr = typeof a.attendance_date === 'string' 
-                                                ? a.attendance_date.slice(0, 10) 
-                                                : new Date(a.attendance_date).toISOString().slice(0, 10);
-                                            const day = parseInt(dateStr.split('-')[2], 10);
-                                            attMap[day] = { status: a.status, optimistic: a._optimistic }; 
-                                        });
-                                        const statusCfg = {
-                                            Present: { color: 'var(--success)', bg: 'var(--success)18', label: 'P' },
-                                            Absent: { color: 'var(--error)', bg: 'var(--error)18', label: 'A' },
-                                            'Half Day': { color: 'var(--warning)', bg: 'var(--warning)18', label: '½' },
-                                            Holiday: { color: 'var(--accent)', bg: 'var(--accent)18', label: 'H' },
-                                            Leave: { color: 'var(--error)', bg: 'var(--error)18', label: 'A' },
-                                        };
-                                        const cells = [];
-                                        for (let i = 0; i < firstDay; i++) cells.push(null);
-                                        for (let d = 1; d <= daysInMonth; d++) {
-                                            const date = new Date(y, m - 1, d);
-                                            const entry = attMap[d];
-                                            cells.push({ day: d, status: entry?.status || null, optimistic: entry?.optimistic, isSunday: date.getDay() === 0, isToday: date.toDateString() === today.toDateString(), isFuture: date > today });
-                                        }
-                                        return (
-                                            <div style={{ background: 'var(--surface, #fff)', borderRadius: 12, border: '1px solid var(--border)', padding: 16, marginBottom: 20 }}>
-                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3, marginBottom: 4 }}>
-                                                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
-                                                        <div key={d} style={{ textAlign: 'center', fontSize: 10, fontWeight: 700, color: d === 'Sun' ? 'var(--error)' : 'var(--muted)', padding: '3px 0', textTransform: 'uppercase' }}>{d}</div>
-                                                    ))}
-                                                </div>
-                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3 }}>
-                                                    {cells.map((cell, idx) => {
-                                                        if (!cell) return <div key={`e-${idx}`} />;
-                                                        const cfg = cell.status ? statusCfg[cell.status] : null;
-                                                        return (
-                                                            <div key={cell.day} style={{
-                                                                aspectRatio: '1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                                                                borderRadius: 6, fontSize: 12, fontWeight: cell.isToday ? 800 : 500,
-                                                                background: cell.isToday ? 'linear-gradient(135deg, var(--accent), rgba(var(--accent-rgb), 0.4))' : (cell.optimistic ? 'var(--bg-2, #eeeeee80)' : cfg?.bg || (cell.isSunday ? 'var(--error)10' : 'var(--bg, #ffffff08)')),
-                                                                color: cell.isToday ? 'var(--on-accent)' : cell.isFuture ? 'var(--muted)' : (cell.optimistic ? 'var(--muted)' : cfg?.color || (cell.isSunday ? 'var(--error)' : 'inherit')),
-                                                                border: cell.isToday ? '2px solid var(--accent)' : (cell.optimistic ? '1px dashed var(--accent)' : '1px solid var(--border)'),
-                                                                opacity: cell.isFuture ? 0.4 : 1,
-                                                                position: 'relative'
-                                                            }} title={cell.status ? `${cell.day}: ${cell.status}${cell.optimistic ? ' (Updating...)' : ''}` : `${cell.day}`}>
-                                                                {cell.optimistic && <div style={{ position: 'absolute', top: 2, right: 2, width: 4, height: 4, borderRadius: '50%', background: 'var(--accent)' }} />}
-                                                                <span style={{ fontSize: 13, fontWeight: 600 }}>{cell.day}</span>
-                                                                {cfg && <span style={{ fontSize: 8, fontWeight: 700, marginTop: 1 }}>{cfg.label}</span>}
-                                                                {cell.isSunday && !cfg && !cell.isFuture && <span style={{ fontSize: 7, fontWeight: 600, marginTop: 1, opacity: 0.7 }}>OFF</span>}
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                                <div style={{ display: 'flex', gap: 12, marginTop: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
-                                                    {Object.entries({ Present: 'var(--success)18', Absent: 'var(--error)18', 'Half Day': 'var(--warning)18', Holiday: 'var(--accent)18' }).map(([k, bg]) => (
-                                                        <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10 }}>
-                                                            <div style={{ width: 10, height: 10, borderRadius: 2, background: bg, border: '1px solid var(--border-subtle)' }} />
-                                                            <span style={{ color: 'var(--muted)' }}>{k}</span>
+                                    {/* Main Layout Grid */}
+                                    <div className="employee-detail__main-layout">
+                                        <div className="employee-detail__main-left">
+                                            {/* Calendar Grid */}
+                                            {(() => {
+                                                const [y, m] = currentMonth.split('-').map(Number);
+                                                const firstDay = new Date(y, m - 1, 1).getDay();
+                                                const daysInMonth = new Date(y, m, 0).getDate();
+                                                const today = new Date();
+                                                const attMap = {};
+                                                (attendance || []).forEach(a => { 
+                                                    const dateStr = typeof a.attendance_date === 'string' 
+                                                        ? a.attendance_date.slice(0, 10) 
+                                                        : new Date(a.attendance_date).toISOString().slice(0, 10);
+                                                    const day = parseInt(dateStr.split('-')[2], 10);
+                                                    attMap[day] = { status: a.status, optimistic: a._optimistic }; 
+                                                });
+                                                const statusCfg = {
+                                                    Present: { color: 'var(--success)', bg: 'var(--success-bg)', label: 'P' },
+                                                    Absent: { color: 'var(--error)', bg: 'var(--error-bg)', label: 'A' },
+                                                    'Half Day': { color: 'var(--warning)', bg: 'var(--warning-bg)', label: '½' },
+                                                    Holiday: { color: 'var(--info, var(--accent))', bg: 'var(--info-bg)', label: 'H' },
+                                                    Leave: { color: 'var(--error)', bg: 'var(--error-bg)', label: 'A' },
+                                                };
+                                                const cells = [];
+                                                for (let i = 0; i < firstDay; i++) cells.push(null);
+                                                for (let d = 1; d <= daysInMonth; d++) {
+                                                    const date = new Date(y, m - 1, d);
+                                                    const entry = attMap[d];
+                                                    cells.push({ day: d, status: entry?.status || null, optimistic: entry?.optimistic, isSunday: date.getDay() === 0, isToday: date.toDateString() === today.toDateString(), isFuture: date > today });
+                                                }
+                                                return (
+                                                    <div style={{ background: 'var(--surface, #fff)', borderRadius: 12, border: '1px solid var(--border)', padding: 16 }}>
+                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3, marginBottom: 4 }}>
+                                                            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+                                                                <div key={d} style={{ textAlign: 'center', fontSize: 10, fontWeight: 700, color: d === 'Sun' ? 'var(--error)' : 'var(--muted)', padding: '3px 0', textTransform: 'uppercase' }}>{d}</div>
+                                                            ))}
                                                         </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        );
-                                    })()}
-
-                                    {/* Salary Breakdown */}
-                                    {salaryCalculation.calculation && (
-                                        <div style={{ background: 'var(--surface, #fff)', borderRadius: 12, border: '1px solid var(--border)', padding: 16, marginBottom: 20 }}>
-                                            <h3 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 12px' }}>
-                                                {salaryCalculation.staffType === 'Monthly' ? 'Monthly' : 'Daily'} Salary Breakdown
-                                            </h3>
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                                                {salaryCalculation.staffType === 'Monthly' ? (
-                                                    <>
-                                                        {[
-                                                            ['Base Monthly', `₹${Number(salaryCalculation.calculation.baseMonthly || 0).toLocaleString('en-IN')}`],
-                                                            ['Per Day Rate', `₹${Number(salaryCalculation.calculation.perDayRate || 0).toLocaleString('en-IN')}`],
-                                                            ['Working Days', salaryCalculation.calculation.totalWorkingDays],
-                                                            ['Days Worked', salaryCalculation.calculation.daysWorked],
-                                                            ['Paid Leaves', salaryCalculation.calculation.paidLeaves],
-                                                            ['Unpaid Leaves', salaryCalculation.calculation.unpaidLeaves],
-                                                        ].map(([label, value], i) => (
-                                                            <div key={i} style={{
-                                                                display: 'flex', justifyContent: 'space-between', padding: '7px 10px', borderRadius: 6,
-                                                                background: label === 'Unpaid Leaves' ? 'var(--error)15' : 'var(--bg, #ffffff08)',
-                                                                border: label === 'Unpaid Leaves' ? '1px solid var(--error)30' : '1px solid var(--border)'
-                                                            }}>
-                                                                <span style={{ fontSize: 11, color: 'var(--muted)' }}>{label}</span>
-                                                                <span style={{ fontSize: 13, fontWeight: 600, color: label === 'Unpaid Leaves' ? 'var(--error)' : 'inherit' }}>{value}</span>
-                                                            </div>
-                                                        ))}
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        {[
-                                                            ['Daily Rate', `₹${Number(salaryCalculation.calculation.dailyRate || 0).toLocaleString('en-IN')}`],
-                                                            ['Days Present', salaryCalculation.calculation.presentDays],
-                                                            ['Total Records', salaryCalculation.calculation.totalDays],
-                                                        ].map(([label, value], i) => (
-                                                            <div key={i} style={{
-                                                                display: 'flex', justifyContent: 'space-between', padding: '7px 10px', borderRadius: 6,
-                                                                background: 'var(--bg, #ffffff08)', border: '1px solid var(--border)'
-                                                            }}>
-                                                                <span style={{ fontSize: 11, color: 'var(--muted)' }}>{label}</span>
-                                                                <span style={{ fontSize: 13, fontWeight: 600 }}>{value}</span>
-                                                            </div>
-                                                        ))}
-                                                    </>
-                                                )}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Attendance Log Table */}
-                                    <h3 style={{ fontSize: 14, fontWeight: 700, margin: '8px 0 12px' }}>Attendance Log</h3>
-                                    {attendance && attendance.length === 0 ? (
-                                        <div className="employee-detail__empty">
-                                            <Clock className="employee-detail__empty-icon" />
-                                            <p>No attendance records for {currentMonth}</p>
-                                        </div>
-                                    ) : (
-                                        <div className="table-scroll">
-                                            <table className="table" style={{ fontSize: 13 }}>
-                                                <thead>
-                                                    <tr>
-                                                        <th>Date</th>
-                                                        <th>Day</th>
-                                                        <th>Status</th>
-                                                        <th>In</th>
-                                                        <th>Out</th>
-                                                        <th>Notes</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {attendance && attendance.map(record => {
-                                                        const d = new Date(record.attendance_date);
-                                                        const sCfg = {
-                                                            Present: { bg: 'var(--success)18', color: 'var(--success)' },
-                                                            Absent: { bg: 'var(--error)18', color: 'var(--error)' },
-                                                            'Half Day': { bg: 'var(--warning)18', color: 'var(--warning)' },
-                                                            Holiday: { bg: 'var(--accent)18', color: 'var(--accent)' },
-                                                            Leave: { bg: 'var(--error)18', color: 'var(--error)' },
-                                                        };
-                                                        const sc = sCfg[record.status] || {};
-                                                        return (
-                                                            <tr key={record.id}>
-                                                                <td>{d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
-                                                                <td style={{ color: d.getDay() === 0 ? 'var(--error)' : 'inherit' }}>{d.toLocaleDateString('en-US', { weekday: 'short' })}</td>
-                                                                <td>
-                                                                    <span style={{ padding: '2px 8px', borderRadius: 4, background: sc.bg || 'var(--secondary)', color: sc.color || 'var(--muted-foreground)', fontSize: 11, fontWeight: 600 }}>
-                                                                        {record.status === 'Leave' ? 'Absent' : record.status}
-                                                                    </span>
-                                                                </td>
-                                                                <td style={{ fontSize: 12, color: record.in_time ? 'var(--text)' : 'var(--muted)' }}>{record.in_time ? record.in_time.slice(0, 5) : '—'}</td>
-
-                                                                <td style={{ fontSize: 12, color: getOutTime(record) ? 'var(--text)' : 'var(--muted)' }}>{getOutTime(record) || '—'}</td>
-                                                                <td style={{ color: 'var(--muted)', fontSize: 12 }}>{record.notes || '—'}</td>
-                                                            </tr>
-                                                        );
-                                                    })}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    )}
-
-                                    {/* Historic Salary Records */}
-                                    {(() => {
-                                        const filteredSalaryRecords = (salaryInfo?.salaryRecords || []).filter(record => {
-                                            return record.payment_month && record.payment_month.startsWith(currentMonth);
-                                        });
-
-                                        const filteredPayments = (salaryInfo?.recentPayments || []).filter(payment => {
-                                            return payment.payment_date && payment.payment_date.startsWith(currentMonth);
-                                        });
-
-                                        return (
-                                            <React.Fragment>
-                                                <div style={{ marginTop: 32 }}>
-                                                    <h2 className="employee-detail__section-title">Historic Salary Records</h2>
-                                                    {salaryCalculation?.salaryRecord && (
-                                                        <div className="employee-detail__status-card" style={{ marginBottom: 16 }}>
-                                                            <CheckCircle className="employee-detail__status-icon" />
-                                                            <div>
-                                                                <p>
-                                                                    Selected Month ({currentMonth}) Salary Details: <strong>₹{Number(salaryCalculation.salaryRecord.net_salary || 0).toFixed(2)}</strong>
-                                                                </p>
-                                                                <span>
-                                                                    Status: <strong>{salaryCalculation.salaryRecord.status}</strong>
-                                                                    {salaryCalculation.salaryRecord.paid_date && ` · Paid on ${new Date(salaryCalculation.salaryRecord.paid_date).toLocaleDateString()}`}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                    )}
-
-                                                    {filteredSalaryRecords.length === 0 ? (
-                                                        <div className="employee-detail__empty">
-                                                            <IndianRupee className="employee-detail__empty-icon" />
-                                                            <p>No salary records for {currentMonth}</p>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="employee-detail__table-wrap">
-                                                            <table className="employee-detail__table" style={{ fontSize: 13 }}>
-                                                                <thead>
-                                                                    <tr>
-                                                                        <th>Month</th>
-                                                                        <th className="is-right">Base</th>
-                                                                        <th className="is-right">Bonus</th>
-                                                                        <th className="is-right">Deduction</th>
-                                                                        <th className="is-right">Net</th>
-                                                                        <th>Status</th>
-                                                                        <th>Paid Date</th>
-                                                                    </tr>
-                                                                </thead>
-                                                                <tbody>
-                                                                    {filteredSalaryRecords.map(record => (
-                                                                        <tr key={record.id}>
-                                                                            <td>
-                                                                                {new Date(record.payment_month).toLocaleDateString('en-IN', {
-                                                                                    month: 'short',
-                                                                                    year: 'numeric'
-                                                                                })}
-                                                                            </td>
-                                                                            <td className="is-right">₹{Number(record.base_salary || 0).toFixed(2)}</td>
-                                                                            <td className="is-right is-positive">+₹{Number(record.bonus || 0).toFixed(2)}</td>
-                                                                            <td className="is-right is-negative">-₹{Number(record.deduction || 0).toFixed(2)}</td>
-                                                                            <td className="is-right is-strong">₹{Number(record.net_salary || 0).toFixed(2)}</td>
-                                                                            <td>
-                                                                                <span className={`employee-detail__status ${record.status === 'Paid' ? 'is-complete' : record.status === 'Partial' ? 'is-processing' : 'is-pending'}`}>
-                                                                                    {record.status}
-                                                                                </span>
-                                                                            </td>
-                                                                            <td>
-                                                                                {record.paid_date
-                                                                                    ? new Date(record.paid_date).toLocaleDateString()
-                                                                                    : '-'
-                                                                                }
-                                                                            </td>
-                                                                        </tr>
-                                                                    ))}
-                                                                </tbody>
-                                                            </table>
-                                                        </div>
-                                                    )}
-                                                </div>
-
-                                                {/* Recent Payments Transaction Ledger */}
-                                                {filteredPayments.length > 0 && (
-                                                    <div className="employee-detail__payments-section" style={{ marginTop: 32 }}>
-                                                        <div className="employee-detail__payments-head">
-                                                            <h3 className="employee-detail__payments-title">Payment Transactions for {currentMonth}</h3>
-                                                        </div>
-                                                        <div className="employee-detail__payments-list">
-                                                            {filteredPayments.map(payment => (
-                                                                <div key={payment.id} className="employee-detail__payment-card">
-                                                                    <div className="employee-detail__payment-date">
-                                                                        {new Date(payment.payment_date).toLocaleDateString('en-IN', {
-                                                                            month: 'short',
-                                                                            day: 'numeric',
-                                                                            year: 'numeric'
-                                                                        })}
+                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3 }}>
+                                                            {cells.map((cell, idx) => {
+                                                                if (!cell) return <div key={`e-${idx}`} />;
+                                                                const cfg = cell.status ? statusCfg[cell.status] : null;
+                                                                return (
+                                                                    <div key={cell.day} style={{
+                                                                        aspectRatio: '1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                                                                        borderRadius: 6, fontSize: 12, fontWeight: cell.isToday ? 800 : 500,
+                                                                        background: cell.isToday ? 'linear-gradient(135deg, var(--accent), rgba(var(--accent-rgb), 0.4))' : (cell.optimistic ? 'var(--bg-2, #eeeeee80)' : cfg?.bg || (cell.isSunday ? 'var(--error-bg)' : 'var(--surface-2)')),
+                                                                        color: cell.isToday ? 'var(--on-accent)' : cell.isFuture ? 'var(--muted)' : (cell.optimistic ? 'var(--muted)' : cfg?.color || (cell.isSunday ? 'var(--error)' : 'inherit')),
+                                                                        border: cell.isToday ? '2px solid var(--accent)' : (cell.optimistic ? '1px dashed var(--accent)' : '1px solid var(--border)'),
+                                                                        opacity: cell.isFuture ? 0.4 : 1,
+                                                                        position: 'relative'
+                                                                    }} title={cell.status ? `${cell.day}: ${cell.status}${cell.optimistic ? ' (Updating...)' : ''}` : `${cell.day}`}>
+                                                                        {cell.optimistic && <div style={{ position: 'absolute', top: 2, right: 2, width: 4, height: 4, borderRadius: '50%', background: 'var(--accent)' }} />}
+                                                                        <span style={{ fontSize: 13, fontWeight: 600 }}>{cell.day}</span>
+                                                                        {cfg && <span style={{ fontSize: 8, fontWeight: 700, marginTop: 1 }}>{cfg.label}</span>}
+                                                                        {cell.isSunday && !cfg && !cell.isFuture && <span style={{ fontSize: 7, fontWeight: 600, marginTop: 1, opacity: 0.7 }}>OFF</span>}
                                                                     </div>
-                                                                    <div className="employee-detail__payment-amount">
-                                                                        ₹{Number(payment.payment_amount).toFixed(2)}
-                                                                    </div>
-                                                                    <div className="employee-detail__payment-details">
-                                                                        <div>
-                                                                            <span className="employee-detail__payment-method">
-                                                                                {payment.payment_method}
-                                                                            </span>
-                                                                        </div>
-                                                                        {payment.reference_number && (
-                                                                            <div><small>Ref: {payment.reference_number}</small></div>
-                                                                        )}
-                                                                        {payment.notes && (
-                                                                            <div><small>Note: {payment.notes}</small></div>
-                                                                        )}
-                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                        <div style={{ display: 'flex', gap: 12, marginTop: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
+                                                            {Object.entries({ Present: 'var(--success-bg)', Absent: 'var(--error-bg)', 'Half Day': 'var(--warning-bg)', Holiday: 'var(--info-bg)' }).map(([k, bg]) => (
+                                                                <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10 }}>
+                                                                    <div style={{ width: 10, height: 10, borderRadius: 2, background: bg, border: '1px solid var(--border)' }} />
+                                                                    <span style={{ color: 'var(--muted)' }}>{k}</span>
                                                                 </div>
                                                             ))}
                                                         </div>
                                                     </div>
+                                                );
+                                            })()}
+
+                                            {/* Salary Breakdown */}
+                                            {salaryCalculation.calculation && (
+                                                <div style={{ background: 'var(--surface, #fff)', borderRadius: 12, border: '1px solid var(--border)', padding: 16 }}>
+                                                    <h3 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 12px' }}>
+                                                        {salaryCalculation.staffType === 'Monthly' ? 'Monthly' : 'Daily'} Salary Breakdown
+                                                    </h3>
+                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                                                        {salaryCalculation.staffType === 'Monthly' ? (
+                                                            <>
+                                                                {[
+                                                                    ['Base Salary', `₹${Number(salaryCalculation.calculation.baseSalary || 0).toLocaleString('en-IN')}`],
+                                                                    ['Calculated Days', `${salaryCalculation.calculation.workedDays || 0} / 26`],
+                                                                    ['Attendance Base', `₹${Number(salaryCalculation.calculation.attendanceAdjustedSalary || 0).toLocaleString('en-IN')}`],
+                                                                    ['Late Deduct', `-₹${Number(salaryCalculation.calculation.lateDeduction || 0).toLocaleString('en-IN')}`],
+                                                                    ['Calculated Net', `₹${Number(salaryCalculation.calculation.calculatedSalary || 0).toLocaleString('en-IN')}`],
+                                                                ].map(([label, value], i) => (
+                                                                    <div key={i} style={{
+                                                                        display: 'flex', justifyContent: 'space-between', padding: '7px 10px', borderRadius: 6,
+                                                                        background: 'var(--bg, #ffffff08)', border: '1px solid var(--border)',
+                                                                        gridColumn: i === 4 ? 'span 2' : 'span 1'
+                                                                    }}>
+                                                                        <span style={{ fontSize: 11, color: 'var(--muted)' }}>{label}</span>
+                                                                        <span style={{ fontSize: 13, fontWeight: 600 }}>{value}</span>
+                                                                    </div>
+                                                                ))}
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                {[
+                                                                    ['Daily Rate', `₹${Number(salaryCalculation.calculation.dailyRate || 0).toLocaleString('en-IN')}`],
+                                                                    ['Days Present', salaryCalculation.calculation.presentDays],
+                                                                    ['Total Records', salaryCalculation.calculation.totalDays],
+                                                                ].map(([label, value], i) => (
+                                                                    <div key={i} style={{
+                                                                        display: 'flex', justifyContent: 'space-between', padding: '7px 10px', borderRadius: 6,
+                                                                        background: 'var(--bg, #ffffff08)', border: '1px solid var(--border)'
+                                                                    }}>
+                                                                        <span style={{ fontSize: 11, color: 'var(--muted)' }}>{label}</span>
+                                                                        <span style={{ fontSize: 13, fontWeight: 600 }}>{value}</span>
+                                                                    </div>
+                                                                ))}
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="employee-detail__main-right">
+                                            {/* Attendance Log Table */}
+                                            <div>
+                                                <h3 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 12px' }}>Attendance Log</h3>
+                                                {attendance && attendance.length === 0 ? (
+                                                    <div className="employee-detail__empty">
+                                                        <Clock className="employee-detail__empty-icon" />
+                                                        <p>No attendance records for {currentMonth}</p>
+                                                    </div>
+                                                ) : (
+                                                    <div className="table-scroll">
+                                                        <table className="table" style={{ fontSize: 13 }}>
+                                                            <thead>
+                                                                <tr>
+                                                                    <th>Date</th>
+                                                                    <th>Day</th>
+                                                                    <th>Status</th>
+                                                                    <th>In</th>
+                                                                    <th>Out</th>
+                                                                    <th>Notes</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                {attendance && attendance.map(record => {
+                                                                    const d = new Date(record.attendance_date);
+                                                                    const sCfg = {
+                                                                        Present: { bg: 'var(--success-bg)', color: 'var(--success)' },
+                                                                        Absent: { bg: 'var(--error-bg)', color: 'var(--text-danger, var(--error))' },
+                                                                        'Half Day': { bg: 'var(--warning-bg)', color: 'var(--warning)' },
+                                                                        Holiday: { bg: 'var(--info-bg)', color: 'var(--info, var(--accent))' },
+                                                                        Leave: { bg: 'var(--error-bg)', color: 'var(--text-danger, var(--error))' },
+                                                                    };
+                                                                    const sc = sCfg[record.status] || {};
+                                                                    return (
+                                                                        <tr key={record.id}>
+                                                                            <td>{d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                                                                            <td style={{ color: d.getDay() === 0 ? 'var(--error)' : 'inherit' }}>{d.toLocaleDateString('en-US', { weekday: 'short' })}</td>
+                                                                            <td>
+                                                                                <span style={{ padding: '2px 8px', borderRadius: 4, background: sc.bg || 'var(--secondary)', color: sc.color || 'var(--muted-foreground)', fontSize: 11, fontWeight: 600 }}>
+                                                                                    {record.status === 'Leave' ? 'Absent' : record.status}
+                                                                                </span>
+                                                                            </td>
+                                                                            <td style={{ fontSize: 12, color: record.in_time ? 'var(--text)' : 'var(--muted)' }}>{record.in_time ? record.in_time.slice(0, 5) : '—'}</td>
+
+                                                                            <td style={{ fontSize: 12, color: getOutTime(record) ? 'var(--text)' : 'var(--muted)' }}>{getOutTime(record) || '—'}</td>
+                                                                            <td style={{ color: 'var(--muted)', fontSize: 12 }}>{record.notes || '—'}</td>
+                                                                        </tr>
+                                                                    );
+                                                                })}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
                                                 )}
-                                            </React.Fragment>
-                                        );
-                                    })()}
+                                            </div>
+
+                                            {/* Historic Salary Records */}
+                                            {(() => {
+                                                const filteredSalaryRecords = (salaryInfo?.salaryRecords || []).filter(record => {
+                                                    return record.payment_month && record.payment_month.startsWith(currentMonth);
+                                                });
+
+                                                const filteredPayments = (salaryInfo?.recentPayments || []).filter(payment => {
+                                                    return payment.payment_date && payment.payment_date.startsWith(currentMonth);
+                                                });
+
+                                                return (
+                                                    <React.Fragment>
+                                                        <div>
+                                                            <h3 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 12px' }}>Historic Salary Records</h3>
+                                                            {salaryCalculation?.salaryRecord && (
+                                                                <div className="employee-detail__status-card" style={{ marginBottom: 16 }}>
+                                                                    <CheckCircle className="employee-detail__status-icon" />
+                                                                    <div>
+                                                                        <p>
+                                                                            Selected Month ({currentMonth}) Salary Details: <strong>₹{Number(salaryCalculation.salaryRecord.net_salary || 0).toFixed(2)}</strong>
+                                                                        </p>
+                                                                        <span>
+                                                                            Status: <strong>{salaryCalculation.salaryRecord.status}</strong>
+                                                                            {salaryCalculation.salaryRecord.paid_date && ` · Paid on ${new Date(salaryCalculation.salaryRecord.paid_date).toLocaleDateString()}`}
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+
+                                                            {filteredSalaryRecords.length === 0 ? (
+                                                                <div className="employee-detail__empty">
+                                                                    <IndianRupee className="employee-detail__empty-icon" />
+                                                                    <p>No salary records for {currentMonth}</p>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="employee-detail__table-wrap">
+                                                                    <table className="employee-detail__table" style={{ fontSize: 13 }}>
+                                                                        <thead>
+                                                                            <tr>
+                                                                                <th>Month</th>
+                                                                                <th className="is-right">Base</th>
+                                                                                <th className="is-right">Bonus</th>
+                                                                                <th className="is-right">Deduction</th>
+                                                                                <th className="is-right">Net</th>
+                                                                                <th>Status</th>
+                                                                                <th>Paid Date</th>
+                                                                            </tr>
+                                                                        </thead>
+                                                                        <tbody>
+                                                                            {filteredSalaryRecords.map(record => (
+                                                                                <tr key={record.id}>
+                                                                                    <td>
+                                                                                        {new Date(record.payment_month).toLocaleDateString('en-IN', {
+                                                                                            month: 'short',
+                                                                                            year: 'numeric'
+                                                                                        })}
+                                                                                    </td>
+                                                                                    <td className="is-right">₹{Number(record.base_salary || 0).toFixed(2)}</td>
+                                                                                    <td className="is-right is-positive">+₹{Number(record.bonus || 0).toFixed(2)}</td>
+                                                                                    <td className="is-right is-negative">-₹{Number(record.deduction || 0).toFixed(2)}</td>
+                                                                                    <td className="is-right is-strong">₹{Number(record.net_salary || 0).toFixed(2)}</td>
+                                                                                    <td>
+                                                                                        <span className={`employee-detail__status ${record.status === 'Paid' ? 'is-complete' : record.status === 'Partial' ? 'is-processing' : 'is-pending'}`}>
+                                                                                            {record.status}
+                                                                                        </span>
+                                                                                    </td>
+                                                                                    <td>
+                                                                                        {record.paid_date
+                                                                                            ? new Date(record.paid_date).toLocaleDateString()
+                                                                                            : '-'
+                                                                                        }
+                                                                                    </td>
+                                                                                </tr>
+                                                                            ))}
+                                                                        </tbody>
+                                                                    </table>
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Recent Payments Transaction Ledger */}
+                                                        {filteredPayments.length > 0 && (
+                                                            <div className="employee-detail__payments-section" style={{ marginTop: 12 }}>
+                                                                <div className="employee-detail__payments-head">
+                                                                    <h3 className="employee-detail__payments-title">Payment Transactions for {currentMonth}</h3>
+                                                                </div>
+                                                                <div className="employee-detail__payments-list">
+                                                                    {filteredPayments.map(payment => (
+                                                                        <div key={payment.id} className="employee-detail__payment-card">
+                                                                            <div className="employee-detail__payment-date">
+                                                                                {new Date(payment.payment_date).toLocaleDateString('en-IN', {
+                                                                                    month: 'short',
+                                                                                    day: 'numeric',
+                                                                                    year: 'numeric'
+                                                                                })}
+                                                                            </div>
+                                                                            <div className="employee-detail__payment-amount">
+                                                                                ₹{Number(payment.payment_amount).toFixed(2)}
+                                                                            </div>
+                                                                            <div className="employee-detail__payment-details">
+                                                                                <div>
+                                                                                    <span className="employee-detail__payment-method">
+                                                                                        {payment.payment_method}
+                                                                                    </span>
+                                                                                </div>
+                                                                                {payment.reference_number && (
+                                                                                    <div><small>Ref: {payment.reference_number}</small></div>
+                                                                                )}
+                                                                                {payment.notes && (
+                                                                                    <div><small>Note: {payment.notes}</small></div>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </React.Fragment>
+                                                );
+                                            })()}
+                                        </div>
+                                    </div>
                                 </React.Fragment>
                             )}
                         </div>
