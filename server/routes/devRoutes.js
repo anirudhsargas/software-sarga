@@ -56,7 +56,6 @@ router.get('/token', (req, res) => {
     }
 });
 
-const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { getCacheStats } = require('../services/cacheService');
 
 // Metrics endpoint for infrastructure monitoring

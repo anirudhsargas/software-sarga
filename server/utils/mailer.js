@@ -1,4 +1,16 @@
 const nodemailer = require('nodemailer');
+const dns = require('dns');
+
+// Asynchronously resolve smtp.gmail.com to an IPv4 address at boot time to bypass Render IPv6 routing issues (ENETUNREACH)
+let resolvedSmtpIp = null;
+dns.resolve4('smtp.gmail.com', (err, addresses) => {
+    if (!err && addresses && addresses.length > 0) {
+        resolvedSmtpIp = addresses[0];
+        console.log(`[SMTP DNS] Successfully resolved smtp.gmail.com to IPv4: ${resolvedSmtpIp}`);
+    } else {
+        console.warn('[SMTP DNS] Failed to resolve smtp.gmail.com to IPv4 at boot, will fallback:', err ? err.message : 'no addresses');
+    }
+});
 
 /**
  * Utility function to convert HTML string to clean plain text for MIME multipart/alternative.
@@ -48,8 +60,9 @@ function createMailTransporter(options = {}) {
         throw new Error('No SMTP password found. Set EMAIL_PASS (or GMAIL_APP_PASSWORD) in your environment variables.');
     }
 
+    const isGmail = smtpHost.toLowerCase().includes('gmail.com');
     // Force secure SSL/TLS over port 465 for Gmail to bypass blocked port 587 on Render/cloud hosts
-    if (smtpHost.toLowerCase().includes('gmail.com')) {
+    if (isGmail) {
         smtpPort = '465';
         smtpSecure = true;
     }
@@ -57,15 +70,25 @@ function createMailTransporter(options = {}) {
     const portNum = parseInt(smtpPort || (smtpSecure ? '465' : '587'), 10);
     const secureBool = Boolean(smtpSecure);
 
+    // Resolve smtp.gmail.com to resolved IPv4 if available to prevent IPv6 routing errors
+    let hostToConnect = smtpHost;
+    if (isGmail && resolvedSmtpIp) {
+        hostToConnect = resolvedSmtpIp;
+    }
+
     const transporter = nodemailer.createTransport({
-        host: smtpHost,
+        host: hostToConnect,
         port: portNum,
         secure: secureBool,
         auth: {
             user: smtpUser,
             pass: smtpPass
         },
-        tls: { rejectUnauthorized: false },
+        tls: { 
+            rejectUnauthorized: false,
+            // When connecting via IP, servername must be set to smtp.gmail.com so TLS handshake validates
+            servername: isGmail ? 'smtp.gmail.com' : undefined
+        },
         connectionTimeout: 10000, // 10s connection timeout
         socketTimeout: 12000,     // 12s socket timeout
         // Forces IPv4 - Render's IPv6 egress can't reach Gmail's IPv6 SMTP endpoint
