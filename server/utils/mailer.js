@@ -1,16 +1,23 @@
 const nodemailer = require('nodemailer');
-const dns = require('dns');
 
-// Asynchronously resolve smtp.gmail.com to an IPv4 address at boot time to bypass Render IPv6 routing issues (ENETUNREACH)
-let resolvedSmtpIp = null;
-dns.resolve4('smtp.gmail.com', (err, addresses) => {
-    if (!err && addresses && addresses.length > 0) {
-        resolvedSmtpIp = addresses[0];
-        console.log(`[SMTP DNS] Successfully resolved smtp.gmail.com to IPv4: ${resolvedSmtpIp}`);
-    } else {
-        console.warn('[SMTP DNS] Failed to resolve smtp.gmail.com to IPv4 at boot, will fallback:', err ? err.message : 'no addresses');
+// Disable IPv6 interface detection in Nodemailer's internal resolver module.
+// In cloud environments like Render/Docker, container network interfaces report IPv6 support (fe80:: / ::1),
+// causing Nodemailer's internal resolver (shared.resolveHostname) to query resolve6 and attempt IPv6 connections,
+// which fail with ENETUNREACH due to lack of outbound IPv6 routing.
+try {
+    const nmShared = require('nodemailer/lib/shared');
+    if (nmShared && nmShared.networkInterfaces) {
+        Object.keys(nmShared.networkInterfaces).forEach(key => {
+            if (Array.isArray(nmShared.networkInterfaces[key])) {
+                nmShared.networkInterfaces[key] = nmShared.networkInterfaces[key].filter(
+                    i => i.family !== 'IPv6' && i.family !== 6
+                );
+            }
+        });
     }
-});
+} catch (_err) {
+    // Fallback gracefully if internal module structure changes
+}
 
 /**
  * Utility function to convert HTML string to clean plain text for MIME multipart/alternative.
@@ -70,25 +77,15 @@ function createMailTransporter(options = {}) {
     const portNum = parseInt(smtpPort || (smtpSecure ? '465' : '587'), 10);
     const secureBool = Boolean(smtpSecure);
 
-    // Resolve smtp.gmail.com to resolved IPv4 if available to prevent IPv6 routing errors
-    let hostToConnect = smtpHost;
-    if (isGmail && resolvedSmtpIp) {
-        hostToConnect = resolvedSmtpIp;
-    }
-
     const transporter = nodemailer.createTransport({
-        host: hostToConnect,
+        host: smtpHost,
         port: portNum,
         secure: secureBool,
         auth: {
             user: smtpUser,
             pass: smtpPass
         },
-        tls: { 
-            rejectUnauthorized: false,
-            // When connecting via IP, servername must be set to smtp.gmail.com so TLS handshake validates
-            servername: isGmail ? 'smtp.gmail.com' : undefined
-        },
+        tls: { rejectUnauthorized: false },
         connectionTimeout: 10000, // 10s connection timeout
         socketTimeout: 12000,     // 12s socket timeout
         // Forces IPv4 - Render's IPv6 egress can't reach Gmail's IPv6 SMTP endpoint
