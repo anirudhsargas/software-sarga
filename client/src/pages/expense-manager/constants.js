@@ -14,7 +14,7 @@ export const EXPENSE_CATEGORIES = {
   'Miscellaneous': ['Tips', 'Donations', 'Small Tools', 'Emergency Purchases']
 };
 
-export const OFFICE_EXPENSE_TYPES = ['Tea / Refreshments', 'Tea', 'Stationery', 'Office Supplies', 'Furniture', 'Equipment', 'Software', 'Internet', 'Phone', 'Maintenance', 'Other'];
+export const OFFICE_EXPENSE_TYPES = ['Tea / Refreshments', 'Stationery', 'Office Supplies', 'Furniture', 'Equipment', 'Software', 'Internet', 'Phone', 'Maintenance', 'Other'];
 export const TRANSPORT_EXPENSE_TYPES = ['Delivery', 'Fuel', 'Vehicle Maintenance', 'Vehicle Rent', 'Driver Charges', 'Toll', 'Parking', 'Other'];
 export const MISC_CATEGORIES = ['Tips', 'Donations', 'Small Tools', 'Emergency Purchases', 'Returns / Refunds', 'Festival / Events', 'Government Fees', 'Other'];
 export const DOCUMENT_TYPES = ['Invoice', 'Receipt', 'Bill', 'Quotation', 'Purchase Order', 'Agreement', 'License', 'Tax Document', 'Bank Statement', 'Other'];

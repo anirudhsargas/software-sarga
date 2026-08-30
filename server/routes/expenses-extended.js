@@ -750,13 +750,13 @@ router.get('/office-expenses', authenticateToken, authorizeRoles('Admin', 'Accou
 router.post('/office-expenses', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), validate(officeExpenseSchema), async (req, res) => {
   try {
     const { branch_id, id: created_by } = req.user;
-    const { expense_type, vendor_name, amount, payment_method, reference_number, description, expense_date, bill_number } = req.body;
+    const { expense_type, vendor_name, amount, payment_method, reference_number, description, expense_date, bill_number, book_type } = req.body;
 
     const [result] = await pool.query(
       `INSERT INTO sarga_office_expenses 
-       (branch_id, expense_type, vendor_name, amount, payment_method, reference_number, description, expense_date, bill_number, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [branch_id, expense_type, vendor_name, amount, payment_method, reference_number, description, expense_date, bill_number, created_by]
+       (branch_id, expense_type, vendor_name, amount, payment_method, reference_number, description, expense_date, bill_number, created_by, book_type)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [branch_id, expense_type, vendor_name, amount, payment_method, reference_number, description, expense_date, bill_number, created_by, book_type || null]
     );
 
     // SYNC WITH GLOBAL PAYMENTS TABLE
@@ -791,7 +791,7 @@ router.post('/office-expenses', authenticateToken, authorizeRoles('Admin', 'Acco
 router.put('/office-expenses/:id', authenticateToken, authorizeRoles('Admin', 'Accountant', 'Front Office'), validate(officeExpenseSchema), async (req, res) => {
   try {
     const { id } = req.params;
-    const { expense_type, vendor_name, amount, payment_method, reference_number, description, expense_date, bill_number } = req.body;
+    const { expense_type, vendor_name, amount, payment_method, reference_number, description, expense_date, bill_number, book_type } = req.body;
 
     const [[expense]] = await pool.query('SELECT branch_id FROM sarga_office_expenses WHERE id = ?', [id]);
     if (!expense) return res.status(404).json({ error: 'Expense not found' });
@@ -801,9 +801,9 @@ router.put('/office-expenses/:id', authenticateToken, authorizeRoles('Admin', 'A
 
     await pool.query(
       `UPDATE sarga_office_expenses 
-       SET expense_type=?, vendor_name=?, amount=?, payment_method=?, reference_number=?, description=?, expense_date=?, bill_number=?
+       SET expense_type=?, vendor_name=?, amount=?, payment_method=?, reference_number=?, description=?, expense_date=?, bill_number=?, book_type=?
        WHERE id=?`,
-      [expense_type, vendor_name, amount, payment_method, reference_number, description, expense_date, bill_number, id]
+      [expense_type, vendor_name, amount, payment_method, reference_number, description, expense_date, bill_number, book_type || null, id]
     );
 
     auditLog(req.user.id, 'OFFICE_EXPENSE_UPDATE', `Updated office expense #${id}: ${expense_type} ₹${amount}`, { entity_type: 'office_expense', entity_id: id });
