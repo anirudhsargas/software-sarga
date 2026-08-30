@@ -56,7 +56,8 @@ function createMailTransporter(options = {}) {
 
     const smtpHost = options.host || process.env.SMTP_HOST || 'smtp.gmail.com';
     let smtpPort = options.port || process.env.SMTP_PORT;
-    let smtpSecure = options.secure !== undefined ? options.secure : (process.env.SMTP_SECURE === 'true');
+    const configuredSecure = options.secure !== undefined ? options.secure : process.env.SMTP_SECURE;
+    let smtpSecure = configuredSecure === true || String(configuredSecure).toLowerCase() === 'true';
     // NOTE: Do NOT use EMAIL_FROM as auth user — it's the sender display address, not login credentials.
     // If EMAIL_FROM is set to a different account (e.g. old sargabilldesk), it would cause auth failures.
     const smtpUser = options.user || process.env.SMTP_USER || process.env.GMAIL_USER || process.env.EMAIL_USER || 'sargabilldesk@gmail.com';
@@ -75,7 +76,7 @@ function createMailTransporter(options = {}) {
     }
 
     const portNum = parseInt(smtpPort || (smtpSecure ? '465' : '587'), 10);
-    const secureBool = Boolean(smtpSecure);
+    const secureBool = smtpSecure;
 
     const transporter = nodemailer.createTransport({
         host: smtpHost,
@@ -143,12 +144,17 @@ async function sendEmail({ to, subject, html, text, from, replyTo, attachments }
         const smtpHost = process.env.SMTP_HOST || 'smtp.gmail.com';
         const smtpPort = parseInt(process.env.SMTP_PORT || '465', 10);
 
-        // A few cloud hosts block implicit TLS on 465 but allow STARTTLS on 587.
-        if (!isConnectionFailure || !smtpHost.toLowerCase().includes('gmail.com') || smtpPort !== 465) {
+        // Try the other Gmail transport because cloud hosts may allow only one SMTP port.
+        if (!isConnectionFailure || !smtpHost.toLowerCase().includes('gmail.com') || ![465, 587].includes(smtpPort)) {
             throw err;
         }
 
-        const fallbackTransporter = createMailTransporter({ host: smtpHost, port: 587, secure: false });
+        const fallbackPort = smtpPort === 465 ? 587 : 465;
+        const fallbackTransporter = createMailTransporter({
+            host: smtpHost,
+            port: fallbackPort,
+            secure: fallbackPort === 465
+        });
         info = await fallbackTransporter.sendMail(mailOptions);
     }
     return info;
