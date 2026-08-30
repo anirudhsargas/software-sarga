@@ -2,11 +2,12 @@ const router = require('express').Router();
 const { pool } = require('../database');
 const jwt = require('jsonwebtoken');
 const { asyncHandler } = require('../helpers');
+const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 
 // Development-only routes to aid UI testing without auth.
 // These are only intended for local development and should not be enabled in production.
 
-router.get('/inventory/consumables', async (req, res) => {
+router.get('/inventory/consumables', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
     try {
         const { category, branch, search } = req.query;
         let query = 'SELECT id, name, category, quantity, unit, reorder_level, cost_price, sell_price, branch, created_at, updated_at FROM consumables_inventory WHERE 1=1';

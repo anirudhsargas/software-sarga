@@ -62,7 +62,7 @@ router.post('/auth/forgot-password', resetLimiter, async (req, res) => {
 
         const { sendEmail } = require('../utils/mailer');
         await sendEmail({
-            from: `"Sarga Offset" <${process.env.EMAIL_FROM || 'sargadailyreport@gmail.com'}>`,
+            from: `"Sarga Offset" <${process.env.EMAIL_FROM || 'sargabilldesk@gmail.com'}>`,
             to: user.email,
             subject: 'Password Reset Request',
             html: `

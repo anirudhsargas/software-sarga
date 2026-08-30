@@ -116,7 +116,7 @@ async function executeDailyBookForDate(targetDate, isTest = false, forceRunOrTyp
 
             if (toRecipients && attachments.length > 0) {
                 await transporter.sendMail({
-                    from: process.env.EMAIL_FROM || 'sargadailyreport@gmail.com',
+                    from: process.env.EMAIL_FROM || 'sargabilldesk@gmail.com',
                     to: toRecipients,
                     cc: settings.recipients_cc || '',
                     bcc: settings.recipients_bcc || '',
@@ -162,7 +162,7 @@ async function executeDailyBookForDate(targetDate, isTest = false, forceRunOrTyp
         const toCombined = [...allEmails].filter(e => e).join(', ');
         if (toCombined && combinedAttachments.length > 0) {
             await transporter.sendMail({
-                from: process.env.EMAIL_FROM || 'sargadailyreport@gmail.com',
+                from: process.env.EMAIL_FROM || 'sargabilldesk@gmail.com',
                 to: toCombined,
                 cc: settings.recipients_cc || '',
                 bcc: settings.recipients_bcc || '',
