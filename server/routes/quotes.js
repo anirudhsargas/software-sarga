@@ -232,19 +232,16 @@ router.post('/quotes/:id/send-email', authenticateToken, async (req, res) => {
 
         const { sendEmail } = require('../utils/mailer');
 
-        // Send email in the background (fire-and-forget) to prevent HTTP connection timeouts
-        sendEmail({
+        await sendEmail({
             from: `"${companyName}" <${process.env.EMAIL_FROM || 'sargadailyreport@gmail.com'}>`,
             to: toEmail,
             subject: req.body.subject || `Quotation ${quote.quote_number} from ${companyName}`,
             html
-        }).then(async () => {
-            // Update status to sent
-            await pool.query('UPDATE sarga_quotes SET status = ? WHERE id = ? AND status = ?',
-                ['sent', req.params.id, 'draft']);
-        }).catch((err) => {
-            console.error('Background send quote email error:', err);
         });
+
+        // Update status to sent
+        await pool.query('UPDATE sarga_quotes SET status = ? WHERE id = ? AND status = ?',
+            ['sent', req.params.id, 'draft']);
 
         res.json({ message: 'Quote sent successfully' });
     } catch (err) {

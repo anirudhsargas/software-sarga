@@ -47,7 +47,8 @@ function createMailTransporter(options = {}) {
             auth: { user: smtpUser, pass: smtpPass },
             tls: { rejectUnauthorized: false },
             connectionTimeout: 8000,
-            socketTimeout: 10000
+            socketTimeout: 10000,
+            family: 4
         });
     }
 
@@ -62,7 +63,8 @@ function createMailTransporter(options = {}) {
         },
         tls: { rejectUnauthorized: false },
         connectionTimeout: 8000,
-        socketTimeout: 10000
+        socketTimeout: 10000,
+        family: 4
     });
 }
 
