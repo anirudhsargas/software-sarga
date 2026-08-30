@@ -4884,17 +4884,16 @@ Mounting prefix `/api`:
 
 | Module | Routes |
 |---|---|
-| auth | `/auth/login`, `/auth/logout`, `/auth/change-password`, `/auth/me`, `/auth/switch-branch`, `/auth/refresh` |
+| auth | `/auth/login`, `/auth/logout`, `/auth/change-password`, `/auth/switch-branch` (current user is `GET /api/staff/me`, auth.js:171; there is NO `/auth/me` or `/auth/refresh`) |
 | branches | `/branches` CRUD |
-| staff | `/staff` CRUD, `/staff/:id/salary*`, `/staff/leaves*`, `/staff/attendance*`, `/staff/attendance-requests*`, `/id-requests*` |
-| staffDashboard | `/staff-dashboard/*` (personal & role KPIs) |
+| staff | `/staff` CRUD, `/staff/:id/branches`, `/staff/my-branches`, `/staff/:id/reset-password` (salary/leaves/attendance handlers resolve via staffDashboard's shared mount; attendance-request & id-change handlers live in `requests.js` → `/requests/attendance`, `/requests/id-change`) |
+| staffDashboard | mounted at `/api/staff` (index.js:462) sharing the mount with `staff` — `/staff/:id/work-history`, `/staff/:id/salary-info`, `/staff/:id/pay-salary`, `/staff/:id/salary-slip/:year_month`, `/staff/:id/attendance/:year_month`, `/staff/leaves` (no `/staff-dashboard/*` path) |
 | staffPortal | `/staff-portal/*` (portal-specific) |
 | customers | `/customers` + lookup/search, `/:id/**` |
-| customerPayments | `/customer-payments` (idempotent) |
-| customerDesigns | `/customer-designs*` |
+| customerPayments | `/customer-payments` (idempotent), `POST /customer-payments/refund` |
+| customerDesigns | `/customers/:id/designs`, `/jobs/:jobId/designs` |
 | requests | `/requests*` |
 | coupons | `/coupons*` |
-| refunds | `/refunds*` |
 | jobs | `/jobs*` (full lifecycle) |
 | schedules | `/schedules*` |
 | products | `/products`, `/products/hierarchy`, `/:id` |
@@ -4974,8 +4973,38 @@ GET  /uploads/*        (protected static files)
 - **`customerDesigns`** serves `/customers/:id/designs` and `/jobs/:jobId/designs` (index.js:458) — NOT `/customer-designs*`.
 - **`refunds` IS NOT a module** — there is no `routes/refunds.js` and no `registerRoute('refunds',…)`. Refunds are implemented as `POST /api/customer-payments/refund` inside customerPayments.js:742.
 - **Attribution is loose**: attendance-request and id-change handlers live in `requests.js` (`/requests/attendance`, `/requests/id-change`) and `staffDashboard.js`, not `staff.js`. Most §10 customer sub-APIs live in customerPayments.js / customerDesigns.js / requests.js, not customers.js.
-- **Dev routes**: `devRoutes` mounts at `/api/dev` ONLY when `NODE_ENV !== 'production'` (index.js:471-479). Endpoints: `GET /api/dev/inventory/consumables` (NO auth, LIMIT 200), `GET /api/dev/token` (404 unless `NODE_ENV=development` AND `ENABLE_DEV_TOKEN=1`; mints a 1-hour Admin JWT), `GET /api/dev/metrics` (Admin-only; uptime/memory/cache stats).
+- **Dev routes**: `devRoutes` mounts at `/api/dev` ONLY when `NODE_ENV !== 'production'` (index.js:471-479). Endpoints: `GET /api/dev/inventory/consumables` (Admin-only after 2026-08-30 security fix; LIMIT 200), `GET /api/dev/token` (404 unless `NODE_ENV=development` AND `ENABLE_DEV_TOKEN=1`; mints a 1-hour Admin JWT), `GET /api/dev/metrics` (Admin-only; uptime/memory/cache stats).
 - **Stub scan**: the first 10 modules checked (auth, branches, staff, staffDashboard, staffPortal, customers, customerPayments, customerDesigns, requests, coupons) have NO stubbed/dummy handlers — all real SQL/transactions. The only stub marker in all of `server/routes/` is `sheetsBackup.js:238` (restore disabled).
+
+### Additional route-table mismatches (audited 2026-08-30; documented here, NOT yet corrected in the table above)
+
+Known remaining inaccuracies from a full pass over the other ~61 rows (37 rows OK; 24 mismatch):
+
+- **products**: `/products/hierarchy` doesn't exist — real is `/api/product-hierarchy` (jobs.js:1165).
+- **paperInventory**: mounted `/api/paperInventory` (camelCase, index.js:468), not `/paper-inventory`.
+- **consumablesInventory**: real paths are `/api/inventory/consumables*` (consumablesInventory.js:82), not `/consumables-inventory*`.
+- **cuttingTransfers**: real paths `/api/cutting-jobs`, `/api/stock-transfers` (cuttingTransfers.js:26,110), not `/cutting-transfers*`.
+- **purchaseOrders**: no module/file/HTTP route at all — only DB table `sarga_purchase_orders`.
+- **vendorBills**: only `PUT /api/vendor-bills/:billId` (vendors.js:2435); upload is `/api/vendor-invoices/:id/upload-bill`, lists under `/api/vendors/:id/bills`.
+- **expenses**: real prefixes `/expense-*`, `/rent-locations`, `/vendor-requests`, `/payment-suggestions` — no `/expenses*`.
+- **expenses-extended**: real prefixes `/office-*`, `/transport-*`, `/misc-*`, `/petty-cash*`, `/bills-documents*`, `/utility-*`, `/reports/*` — no `/expenses-extended*`.
+- **finance**: only `/emi-*` and `/kuri-*` (finance.js); no `/finance*`, no rent/cash-bank/ledgers in that file.
+- **utilityEmail**: real `/api/utility-bills/fetch-from-email`, `/api/email/verify`, `/api/email/test` — no `/utility-email*`.
+- **billExtraction**: single `POST /api/bills/extract-data` — no `/bill-extraction/*`.
+- **backup/sheetsBackup**: mounted `/api/backup` (index.js:504) with `/run`, `/status`, `/daily`, `/history` etc. — no `/backup/sheets*`.
+- **ai**: `/ai/search` and `/ai/paper-layout` real, but `/ai/forecast` does NOT exist anywhere.
+- **auditTrail**: real prefix `/api/audit/*` (logs/stats/filters/export/verify-chain) — no `/audit-trail*`.
+- **auditInvoice**: real `/api/audit-logs*` + `/api/invoices*` — no `/audit-invoice*`.
+- **invoiceFeatures**: real `/api/recurring-invoices*`, `/api/invoice-tracking*`, `/api/tax-settings`, etc. — no `/invoice-features*`.
+- **passwordReset**: real `/api/auth/forgot-password`, `/api/auth/reset-password*` — no `/password-reset*`.
+- **premiumFeatures**: real `/api/website/samples*`, `/api/website/consultations*`, `/api/admin/*` — no `/premium-features*`.
+- **artworkUploads**: real `/api/artwork/*` + `/api/website/artwork/*` — no `/artwork-uploads*`.
+- **pickupSlots**: real `/api/pickup/*` + `/api/website/pickup/*` — no `/pickup-slots*`.
+- **deliveryEstimates**: real `/api/delivery/estimate`, `/api/delivery/rules*` — no `/delivery-estimates*`.
+- **whatsappAnalytics**: real `/api/whatsapp/log`, `/api/whatsapp/stats` — no `/whatsapp-analytics*`.
+- **businessHub**: real `/api/business/*` (profile/assets/orders/invoices) — no `/business-hub*`.
+
+Cross-reference notes: `payments`, `designCheck`, and `seo` are registered in index.js but missing from the doc table; doc-only phantom modules are refunds/purchaseOrders/vendorPayments/vendorBills/pettyCash (endpoints for the latter two live inside vendors.js / expenses-extended.js). Unregistered orphan route files: dashboardInit.js, whatsapp.js, quickBilling.js, variableData.js, settingsDailyBook.js.
 
 ---
 
