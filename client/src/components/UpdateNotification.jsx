@@ -65,44 +65,38 @@ export const UpdateNotification = () => {
       {show && (
         <div
           role="alert"
+          onClick={(e) => {
+            if (e.target.closest('.update-dismiss-btn')) return;
+            reload();
+          }}
+          className="update-notification-banner"
           style={{
             position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            zIndex: 'var(--z-toast)',
+            bottom: '24px',
+            right: '24px',
+            zIndex: 9999,
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
             gap: '12px',
-            padding: '12px 20px',
-            background: 'var(--card)',
-            borderBottom: '1px solid var(--border)',
-            boxShadow: 'var(--shadow-md)',
+            padding: '14px 20px',
+            background: 'var(--surface-3, var(--card))',
+            border: '1px solid var(--border)',
+            borderRadius: '12px',
+            boxShadow: 'var(--shadow-lg)',
             fontSize: '14px',
             color: 'var(--text-primary)',
             fontWeight: 500,
+            cursor: 'pointer',
           }}
         >
-          <RefreshCw size={16} style={{ color: 'var(--accent)' }} />
-          <span>A new version is available.</span>
+          <RefreshCw size={16} style={{ color: 'var(--success)' }} className="spin" />
+          <span>A new version of the software is available. Click here to update!</span>
           <button
-            onClick={reload}
-            style={{
-              padding: '6px 16px',
-              borderRadius: 'var(--radius-sm)',
-              border: 'none',
-              background: 'var(--accent)',
-              color: 'var(--on-accent)',
-              fontWeight: 600,
-              fontSize: '13px',
-              cursor: 'pointer',
+            className="update-dismiss-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              dismiss();
             }}
-          >
-            Reload
-          </button>
-          <button
-            onClick={dismiss}
             aria-label="Dismiss"
             style={{
               background: 'none',
@@ -112,6 +106,7 @@ export const UpdateNotification = () => {
               padding: '4px',
               display: 'flex',
               alignItems: 'center',
+              marginLeft: '8px'
             }}
           >
             <X size={18} />

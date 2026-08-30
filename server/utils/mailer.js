@@ -59,7 +59,8 @@ function createMailTransporter(options = {}) {
         tls: { rejectUnauthorized: false },
         connectionTimeout: 10000, // 10s connection timeout
         socketTimeout: 12000,     // 12s socket timeout
-        family: 4                 // Force IPv4
+        // Forces IPv4 - Render's IPv6 egress can't reach Gmail's IPv6 SMTP endpoint
+        family: 4
     });
 }
 

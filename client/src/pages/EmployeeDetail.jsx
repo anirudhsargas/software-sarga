@@ -965,7 +965,7 @@ const EmployeeDetail = () => {
                             {salaryCalculation && (
                                 <React.Fragment>
                                     {/* Row 1: Attendance Metrics (Present, Absent, Holiday, Half Day) */}
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 12 }}>
+                                    <div className="employee-detail__metrics-grid-4">
                                         <div className="employee-detail__summary-card employee-detail__summary-card--present">
                                             <div style={{ fontSize: 10, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Present</div>
                                             <div style={{ fontSize: 22, fontWeight: 800 }}>{salaryCalculation.attendance?.present || 0}</div>
@@ -985,7 +985,7 @@ const EmployeeDetail = () => {
                                     </div>
 
                                     {/* Row 2: Salary Calculation (Calculated Salary, Total Paid, Remaining) */}
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 12 }}>
+                                    <div className="employee-detail__metrics-grid-3">
                                         <div className="employee-detail__salary-card employee-detail__salary-card--calculated">
                                             <div style={{ fontSize: 10, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em', opacity: 0.85 }}>Calculated Salary</div>
                                             <div style={{ fontSize: 22, fontWeight: 800 }}>₹{Number(salaryCalculation.calculation?.calculatedSalary || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>

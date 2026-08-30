@@ -2657,3 +2657,18 @@ body[data-theme="dark"] .sarga-tooltip {
   color: #fff;
   border-color: #374151;
 }
+
+@keyframes slideInUp {
+  from {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.update-notification-banner {
+  animation: slideInUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

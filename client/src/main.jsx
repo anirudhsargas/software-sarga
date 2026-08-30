@@ -57,6 +57,22 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
       console.log('App ready to work offline');
     }
   });
+
+  // Check for service worker updates periodically (every 10 minutes) & on tab focus
+  navigator.serviceWorker.ready.then((registration) => {
+    // Check for updates on mount
+    registration.update().catch(() => {});
+
+    // Check for updates every 10 minutes
+    setInterval(() => {
+      registration.update().catch(() => {});
+    }, 10 * 60 * 1000);
+
+    // Check for updates when tab is focused
+    window.addEventListener('focus', () => {
+      registration.update().catch(() => {});
+    });
+  });
 }
 
 // ── Sentry (Lazy Loaded after startup to optimize Time to Interactive) ──
