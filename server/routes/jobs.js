@@ -10,11 +10,24 @@ const { branchFilter } = require('../middleware/branchFilter');
 const { invalidateDashboardCache, invalidateCustomerCache, invalidatePattern } = require('../services/cacheService');
 const { routeCache } = require('../middleware/cache');
 
-const normalizeBookTypeFromCategory = (value) => {
+const normalizeBookTypeFromCategory = (value, categoryInput = null) => {
     const normalized = String(value || '').trim().toLowerCase();
     if (normalized === 'laser') return 'Laser';
     if (normalized === 'other') return 'Other';
-    return 'Offset';
+    if (normalized === 'offset') return 'Offset';
+
+    // Fallback lookup: Check category input (ID or Name)
+    const cat = String(categoryInput || '').trim().toLowerCase();
+    if (cat === '2' || cat.includes('laser') || cat.includes('digital')) {
+        return 'Laser';
+    }
+    if (cat === '4' || cat.includes('photocopy') || cat.includes('xerox')) {
+        return 'Other';
+    }
+    if (cat === '1' || cat.includes('offset')) {
+        return 'Offset';
+    }
+    return 'Other';
 };
 
 const JOB_LIST_COLUMNS = [
@@ -660,12 +673,13 @@ router.post('/jobs/bulk', authenticateToken, async (req, res) => {
             const line = order_lines[i] || {};
             const jobNumber = jobNumbers[i] || `JOB-${Date.now()}-${i}`;
             const total = Number(line.total_amount) || 0;
+            const lineBookType = normalizeBookTypeFromCategory(line.book_type || line.bookType, line.category || line.category_name);
 
             try {
                 const [result] = await connection.query(
                     `INSERT INTO sarga_jobs
-                (customer_id, product_id, branch_id, job_number, job_name, description, quantity, unit_price, total_amount, advance_paid, balance_amount, payment_status, delivery_date, applied_extras, category, subcategory, machine_id, waste_prints, proof_prints, machine_print_count, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                (customer_id, product_id, branch_id, job_number, job_name, description, quantity, unit_price, total_amount, advance_paid, balance_amount, payment_status, delivery_date, applied_extras, category, subcategory, book_type, machine_id, waste_prints, proof_prints, machine_print_count, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                     [
                         customer_id || null,
                         line.product_id || null,
@@ -683,6 +697,7 @@ router.post('/jobs/bulk', authenticateToken, async (req, res) => {
                         JSON.stringify(line.applied_extras || []),
                         line.category || null,
                         line.subcategory || null,
+                        lineBookType,
                         line.machine_id || null,
                         Number(line.waste_prints) || 0,
                         Number(line.proof_prints) || 0,
@@ -794,11 +809,12 @@ router.post('/jobs', authenticateToken, validate(addJobSchema), async (req, res)
 
         // 1. Insert job (atomic with payment)
         const isWalkin = !customer_id;
+        const jobBookType = normalizeBookTypeFromCategory(req.body.book_type || req.body.bookType, category);
         const [result] = await connection.query(
             `INSERT INTO sarga_jobs 
-            (customer_id, product_id, branch_id, job_number, job_name, description, quantity, unit_price, total_amount, advance_paid, balance_amount, payment_status, delivery_date, applied_extras, category, subcategory, machine_id, status) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-            , [customer_id || null, product_id || null, branch_id || null, job_number, job_name, description, quantity, unit_price, total_amount, advance_paid, balance_amount, payment_status, delivery_date || null, JSON.stringify(applied_extras || []), category || null, subcategory || null, machine_id || null, isWalkin ? 'Delivered' : 'Pending']
+            (customer_id, product_id, branch_id, job_number, job_name, description, quantity, unit_price, total_amount, advance_paid, balance_amount, payment_status, delivery_date, applied_extras, category, subcategory, book_type, machine_id, status) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            , [customer_id || null, product_id || null, branch_id || null, job_number, job_name, description, quantity, unit_price, total_amount, advance_paid, balance_amount, payment_status, delivery_date || null, JSON.stringify(applied_extras || []), category || null, subcategory || null, jobBookType, machine_id || null, isWalkin ? 'Delivered' : 'Pending']
         );
 
         // 2. SYNC WITH CUSTOMER PAYMENTS IF ADVANCE IS PAID (inside same transaction)
@@ -1668,7 +1684,8 @@ router.put('/jobs/:id', authenticateToken, async (req, res) => {
             'status', 'payment_status', 'advance_paid', 'total_amount', 'delivery_date', 
             'branch_id', 'job_name', 'description', 'quantity', 'unit_price', 
             'required_sheets', 'used_sheets', 'paper_size', 'plate_count', 'plate_details',
-            'credit_authorized_by', 'credit_authorized_by_name', 'credit_authorized_at', 'credit_reason'
+            'credit_authorized_by', 'credit_authorized_by_name', 'credit_authorized_at', 'credit_reason',
+            'book_type'
         ];
 
         for (const field of allowedFields) {
@@ -1858,8 +1875,8 @@ router.post('/jobs/:id/repeat', authenticateToken, async (req, res) => {
 
         const [result] = await connection.query(
             `INSERT INTO sarga_jobs 
-            (customer_id, product_id, branch_id, job_number, job_name, description, quantity, unit_price, total_amount, advance_paid, balance_amount, payment_status, status, delivery_date, applied_extras, category, subcategory, machine_id, paper_size, required_sheets)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 'Unpaid', 'Pending', ?, ?, ?, ?, ?, ?, ?)`,
+            (customer_id, product_id, branch_id, job_number, job_name, description, quantity, unit_price, total_amount, advance_paid, balance_amount, payment_status, status, delivery_date, applied_extras, category, subcategory, book_type, machine_id, paper_size, required_sheets)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 'Unpaid', 'Pending', ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 orig.customer_id, orig.product_id, orig.branch_id,
                 job_number,
@@ -1868,7 +1885,7 @@ router.post('/jobs/:id/repeat', authenticateToken, async (req, res) => {
                 quantity, unit_price, total_amount, total_amount,
                 null, // delivery_date — user sets later
                 JSON.stringify(orig.applied_extras || []),
-                orig.category, orig.subcategory, orig.machine_id,
+                orig.category, orig.subcategory, orig.book_type, orig.machine_id,
                 orig.paper_size, orig.required_sheets
             ]
         );
