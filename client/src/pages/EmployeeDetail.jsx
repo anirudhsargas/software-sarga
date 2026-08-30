@@ -966,37 +966,37 @@ const EmployeeDetail = () => {
                                 <React.Fragment>
                                     {/* Row 1: Attendance Metrics (Present, Absent, Holiday, Half Day) */}
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 12 }}>
-                                        <div style={{ padding: 14, borderRadius: 10, background: 'var(--success)18', border: '1px solid var(--success)30' }}>
-                                            <div style={{ fontSize: 10, color: 'var(--success)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Present</div>
-                                            <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--success)' }}>{salaryCalculation.attendance?.present || 0}</div>
+                                        <div className="employee-detail__summary-card employee-detail__summary-card--present">
+                                            <div style={{ fontSize: 10, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Present</div>
+                                            <div style={{ fontSize: 22, fontWeight: 800 }}>{salaryCalculation.attendance?.present || 0}</div>
                                         </div>
-                                        <div style={{ padding: 14, borderRadius: 10, background: 'var(--error)18', border: '1px solid var(--error)30' }}>
-                                            <div style={{ fontSize: 10, color: 'var(--error)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Absent</div>
-                                            <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--error)' }}>{(salaryCalculation.attendance?.absent || 0) + (salaryCalculation.attendance?.leave || 0)}</div>
+                                        <div className="employee-detail__summary-card employee-detail__summary-card--absent">
+                                            <div style={{ fontSize: 10, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Absent</div>
+                                            <div style={{ fontSize: 22, fontWeight: 800 }}>{(salaryCalculation.attendance?.absent || 0) + (salaryCalculation.attendance?.leave || 0)}</div>
                                         </div>
-                                        <div style={{ padding: 14, borderRadius: 10, background: 'var(--accent)18', border: '1px solid var(--accent)30' }}>
-                                            <div style={{ fontSize: 10, color: 'var(--accent)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Holiday</div>
-                                            <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--accent)' }}>{salaryCalculation.attendance?.holiday || 0}</div>
+                                        <div className="employee-detail__summary-card employee-detail__summary-card--holiday">
+                                            <div style={{ fontSize: 10, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Holiday</div>
+                                            <div style={{ fontSize: 22, fontWeight: 800 }}>{salaryCalculation.attendance?.holiday || 0}</div>
                                         </div>
-                                        <div style={{ padding: 14, borderRadius: 10, background: 'var(--warning)18', border: '1px solid var(--warning)30' }}>
-                                            <div style={{ fontSize: 10, color: 'var(--warning)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Half Day</div>
-                                            <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--warning)' }}>{salaryCalculation.attendance?.halfday || 0}</div>
+                                        <div className="employee-detail__summary-card employee-detail__summary-card--halfday">
+                                            <div style={{ fontSize: 10, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Half Day</div>
+                                            <div style={{ fontSize: 22, fontWeight: 800 }}>{salaryCalculation.attendance?.halfday || 0}</div>
                                         </div>
                                     </div>
 
                                     {/* Row 2: Salary Calculation (Calculated Salary, Total Paid, Remaining) */}
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 12 }}>
-                                        <div style={{ padding: 14, borderRadius: 10, background: 'linear-gradient(135deg, var(--success), var(--success))', color: 'var(--on-accent)' }}>
+                                        <div className="employee-detail__salary-card employee-detail__salary-card--calculated">
                                             <div style={{ fontSize: 10, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em', opacity: 0.85 }}>Calculated Salary</div>
                                             <div style={{ fontSize: 22, fontWeight: 800 }}>₹{Number(salaryCalculation.calculation?.calculatedSalary || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
                                         </div>
-                                        <div style={{ padding: 14, borderRadius: 10, background: 'var(--accent)18', border: '1px solid var(--accent)30' }}>
-                                            <div style={{ fontSize: 10, color: 'var(--accent)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Total Paid</div>
-                                            <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--accent)' }}>₹{Number(salaryCalculation.calculation?.totalPaid || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+                                        <div className="employee-detail__salary-card employee-detail__salary-card--paid">
+                                            <div style={{ fontSize: 10, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Total Paid</div>
+                                            <div style={{ fontSize: 22, fontWeight: 800 }}>₹{Number(salaryCalculation.calculation?.totalPaid || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
                                         </div>
-                                        <div style={{ padding: 14, borderRadius: 10, background: 'var(--warning)18', border: '1px solid var(--warning)30' }}>
-                                            <div style={{ fontSize: 10, color: 'var(--warning)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Remaining</div>
-                                            <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--warning)' }}>₹{Number(salaryCalculation.calculation?.remaining || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+                                        <div className="employee-detail__salary-card employee-detail__salary-card--remaining">
+                                            <div style={{ fontSize: 10, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Remaining</div>
+                                            <div style={{ fontSize: 22, fontWeight: 800 }}>₹{Number(salaryCalculation.calculation?.remaining || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
                                         </div>
                                     </div>
 
