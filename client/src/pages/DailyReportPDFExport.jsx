@@ -136,8 +136,8 @@ export default function DailyReportPDFExport({
 
                 currentY = kvRow('Opening Cash Balance', formatCurrency(opening), currentY);
 
-                // Laser Machine Readings Section
-                if (key === 'Laser' && data.machines?.length > 0) {
+                // Machine Readings Section
+                if ((key === 'Laser' || key === 'Other') && data.machines?.length > 0) {
                     const branchMachines = branchId
                         ? data.machines.filter(m => String(m.branch_id) === String(branchId))
                         : data.machines;
@@ -146,7 +146,7 @@ export default function DailyReportPDFExport({
                         currentY += 2;
                         doc.setFontSize(9.5);
                         doc.setFont('helvetica', 'bold');
-                        doc.setTextColor(124, 58, 237);
+                        doc.setTextColor(color[0], color[1], color[2]);
                         doc.text('MACHINE READINGS & COUNTS', margin + 2, currentY);
                         currentY += 4;
 
@@ -176,13 +176,13 @@ export default function DailyReportPDFExport({
                             body: machineBody,
                             margin: { left: margin, right: margin },
                             styles: { fontSize: 8, cellPadding: 2.5, lineColor: [220, 220, 220], lineWidth: 0.2 },
-                            headStyles: { fillColor: [124, 58, 237], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
-                            alternateRowStyles: { fillColor: [248, 245, 255] },
+                            headStyles: { fillColor: color, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
+                            alternateRowStyles: { fillColor: [250, 250, 250] },
                             columnStyles: {
                                 0: { fontStyle: 'bold', cellWidth: 52 },
                                 1: { halign: 'right', cellWidth: 30 },
                                 2: { halign: 'right', cellWidth: 30 },
-                                3: { halign: 'right', fontStyle: 'bold', textColor: [124, 58, 237], cellWidth: 32 },
+                                3: { halign: 'right', fontStyle: 'bold', textColor: color, cellWidth: 32 },
                                 4: { halign: 'center', cellWidth: 38 }
                             }
                         });
@@ -241,6 +241,9 @@ export default function DailyReportPDFExport({
                             let desc = e.description || '';
                             if (e.details && e.details !== e.description) desc += ` (${e.details})`;
                             if (e.transferred_to) desc += ` -> Transferred to ${e.transferred_to} Book`;
+                            if (e.copies > 0) desc += ` [${e.copies} copies]`;
+                            if (e.waste_prints > 0) desc += ` [Waste:${e.waste_prints}]`;
+                            if (e.proof_prints > 0) desc += ` [Proof:${e.proof_prints}]`;
 
                             return [
                                 formatTime(e.time),

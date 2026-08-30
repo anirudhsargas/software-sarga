@@ -257,7 +257,41 @@ const syncJobToMachineWorkEntry = async (jobData, machineId, userId) => {
             return;
         }
 
-        // 2. Check if a work entry already exists for this job_id (if provided)
+        // 2. Fetch full job specifications from DB if ID is provided
+        let dbJobName = jobData.job_name || 'Job';
+        let dbPaperSize = jobData.paper_size || '';
+        let dbDescription = jobData.description || '';
+        let dbQty = parseInt(jobData.quantity) || 0;
+        let dbWaste = parseInt(jobData.waste_prints || jobData.waste_copies) || 0;
+        let dbProof = parseInt(jobData.proof_prints || jobData.proof_copies) || 0;
+
+        if (jobId) {
+            const [[dbJob]] = await pool.query('SELECT job_name, paper_size, description, quantity, waste_prints, proof_prints FROM sarga_jobs WHERE id = ?', [jobId]);
+            if (dbJob) {
+                dbJobName = dbJob.job_name || dbJobName;
+                dbPaperSize = dbJob.paper_size || dbPaperSize;
+                dbDescription = dbJob.description || dbDescription;
+                dbQty = parseInt(dbJob.quantity) || dbQty;
+                dbWaste = parseInt(dbJob.waste_prints) || dbWaste;
+                dbProof = parseInt(dbJob.proof_prints) || dbProof;
+            }
+        }
+
+        // 3. Detect if size is A3 (case-insensitive) and check if already adjusted
+        const jobNameLower = dbJobName.toLowerCase();
+        const paperSizeLower = dbPaperSize.toLowerCase();
+        const descLower = dbDescription.toLowerCase();
+        const isA3 = (jobNameLower.includes('a3') || paperSizeLower.includes('a3') || descLower.includes('a3')) && !jobNameLower.includes('(a3 - 2x)');
+
+        // Log it initially as 1x. If A3, we will verify the count using IP in the background.
+        const multiplier = 1;
+        const copiesAdjusted = dbQty * multiplier;
+        const wasteAdjusted = dbWaste * multiplier;
+        const proofAdjusted = dbProof * multiplier;
+
+        let workDetails = dbJobName;
+
+        // Check if a work entry already exists for this job_id
         let existingEntryId = null;
         if (jobId) {
             const [existingEntries] = await pool.query(
@@ -282,8 +316,99 @@ const syncJobToMachineWorkEntry = async (jobData, machineId, userId) => {
             paymentType = 'Both';
         }
 
-        const wasteAdd = parseInt(jobData.waste_prints) || 0;
-        const proofAdd = parseInt(jobData.proof_prints) || 0;
+        let remarksVal = existingEntryId 
+            ? `Auto-synced from Job #${jobData.job_number} (Updated)` 
+            : `Auto-synced from Job #${jobData.job_number}`;
+
+        if (isA3 && machineRow.ip_address) {
+            // Trigger background printer meter check to see if A3 prints count as 2 clicks
+            setTimeout(async () => {
+                try {
+                    const mprService = require('../services/mprIntegration');
+                    const meterData = await mprService.fetchBizhubMeterCounts(
+                        machineRow.ip_address,
+                        5000,
+                        machineRow.snmp_community || 'public'
+                    );
+                    if (meterData && meterData.total_prints !== null) {
+                        const currentMeter = meterData.total_prints;
+
+                        // Get the machine's opening count for today
+                        const [[readingRow]] = await pool.query(
+                            'SELECT opening_count FROM sarga_daily_report_machine WHERE machine_id = ? AND report_date = ?',
+                            [machineId, reportDate]
+                        );
+                        const opening = readingRow ? (readingRow.opening_count || 0) : 0;
+
+                        // Get total copies from previous entries today (excluding this job)
+                        const [copiesSum] = await pool.query(
+                            'SELECT COALESCE(SUM(copies), 0) as total_copies FROM sarga_machine_work_entries WHERE report_id = ? AND job_id != ?',
+                            [reportId, jobId]
+                        );
+                        const copiesBefore = parseInt(copiesSum[0]?.total_copies) || 0;
+
+                        const expectedIf1x = opening + copiesBefore + dbQty;
+                        const expectedIf2x = opening + copiesBefore + dbQty * 2;
+
+                        // If actual meter is closer to expectedIf2x than expectedIf1x, this machine counts A3 as 2 clicks!
+                        if (Math.abs(currentMeter - expectedIf2x) < Math.abs(currentMeter - expectedIf1x)) {
+                            console.log(`[MachineSync] IP Check: A3 detected as 2x count on printer ${machineRow.ip_address}. Adjusting counts...`);
+                            
+                            const copies2x = dbQty * 2;
+                            const waste2x = dbWaste * 2;
+                            const proof2x = dbProof * 2;
+                            const workDetails2x = `${dbJobName} (A3 - 2x)`;
+                            const remarks2x = `${remarksVal} [A3 Count Adjusted]`;
+
+                            // 1. Update work entry in DB
+                            await pool.query(
+                                `UPDATE sarga_machine_work_entries SET 
+                                    copies = ?, waste_copies = ?, proof_copies = ?, work_details = ?, remarks = ?
+                                 WHERE job_id = ? AND report_id = ?`,
+                                [copies2x, waste2x, proof2x, workDetails2x, remarks2x, jobId, reportId]
+                            );
+
+                            // 2. Update jobs table quantity/waste/proof
+                            await pool.query(
+                                `UPDATE sarga_jobs SET 
+                                    quantity = quantity * 2, 
+                                    waste_prints = waste_prints * 2, 
+                                    proof_prints = proof_prints * 2,
+                                    job_name = CASE WHEN LOWER(job_name) NOT LIKE '%(a3 - 2x)%' THEN CONCAT(job_name, ' (A3 - 2x)') ELSE job_name END
+                                 WHERE id = ?`,
+                                [jobId]
+                            );
+
+                            // 3. Recalculate daily report totals
+                            await pool.query(
+                                `UPDATE sarga_daily_report_machine SET
+                                    total_amount = (SELECT COALESCE(SUM(total_amount), 0) FROM sarga_machine_work_entries WHERE report_id = ?),
+                                    total_cash = (SELECT COALESCE(SUM(cash_amount), 0) FROM sarga_machine_work_entries WHERE report_id = ?),
+                                    total_upi = (SELECT COALESCE(SUM(upi_amount), 0) FROM sarga_machine_work_entries WHERE report_id = ?),
+                                    total_credit = (SELECT COALESCE(SUM(credit_amount), 0) FROM sarga_machine_work_entries WHERE report_id = ?)
+                                 WHERE id = ?`,
+                                [reportId, reportId, reportId, reportId, reportId]
+                            );
+
+                            // 4. Update machine readings table
+                            await pool.query(
+                                `INSERT INTO sarga_machine_readings (machine_id, reading_date, opening_count, closing_count, notes, created_by)
+                                 VALUES (?, ?, ?, ?, ?, ?)
+                                 ON DUPLICATE KEY UPDATE 
+                                    closing_count = opening_count + (SELECT COALESCE(SUM(copies), 0) FROM sarga_machine_work_entries WHERE report_id = ?),
+                                    notes = VALUES(notes),
+                                    updated_by = VALUES(created_by)`,
+                                [machineId, reportDate, opening, opening + copiesBefore + copies2x, '[Auto-Sync] Live Billing', userId, reportId]
+                            );
+                        }
+                    }
+                } catch (bgErr) {
+                    console.error('[MachineSync] Background counter verification failed:', bgErr.message);
+                }
+            }, 6000); // 6s delay is perfect to let printing initiate and register
+        }
+
+        // Remarks are updated to include [A3 Count Adjusted] only after verification in the background task above
 
         if (existingEntryId) {
             await pool.query(
@@ -294,16 +419,16 @@ const syncJobToMachineWorkEntry = async (jobData, machineId, userId) => {
                  WHERE id = ?`,
                 [
                     jobData.customer_name || 'Walk-in',
-                    jobData.job_name || 'Job',
-                    parseInt(jobData.quantity) || 0,
-                    wasteAdd,
-                    proofAdd,
+                    workDetails,
+                    copiesAdjusted,
+                    wasteAdjusted,
+                    proofAdjusted,
                     paymentType,
                     cashAdd,
                     upiAdd,
                     balanceVal,
                     totalAdd,
-                    `Auto-synced from Job #${jobData.job_number} (Updated)`,
+                    remarksVal,
                     existingEntryId
                 ]
             );
@@ -316,16 +441,16 @@ const syncJobToMachineWorkEntry = async (jobData, machineId, userId) => {
                     reportId,
                     jobId,
                     jobData.customer_name || 'Walk-in',
-                    jobData.job_name || 'Job',
-                    parseInt(jobData.quantity) || 0,
-                    wasteAdd,
-                    proofAdd,
+                    workDetails,
+                    copiesAdjusted,
+                    wasteAdjusted,
+                    proofAdjusted,
                     paymentType,
                     cashAdd,
                     upiAdd,
                     balanceVal,
                     totalAdd,
-                    `Auto-synced from Job #${jobData.job_number}`
+                    remarksVal
                 ]
             );
         }
@@ -678,8 +803,8 @@ router.post('/jobs/bulk', authenticateToken, async (req, res) => {
             try {
                 const [result] = await connection.query(
                     `INSERT INTO sarga_jobs
-                (customer_id, product_id, branch_id, job_number, job_name, description, quantity, unit_price, total_amount, advance_paid, balance_amount, payment_status, delivery_date, applied_extras, category, subcategory, book_type, machine_id, waste_prints, proof_prints, machine_print_count, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                (customer_id, product_id, branch_id, job_number, job_name, description, quantity, unit_price, total_amount, advance_paid, balance_amount, payment_status, delivery_date, applied_extras, category, subcategory, book_type, machine_id, waste_prints, proof_prints, machine_print_count, status, paper_size)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                     [
                         customer_id || null,
                         line.product_id || null,
@@ -702,7 +827,8 @@ router.post('/jobs/bulk', authenticateToken, async (req, res) => {
                         Number(line.waste_prints) || 0,
                         Number(line.proof_prints) || 0,
                         line.machine_print_count != null ? (Number(line.machine_print_count) || null) : null,
-                        isWalkin ? 'Delivered' : 'Pending'
+                        isWalkin ? 'Delivered' : 'Pending',
+                        line.paper_size || line.size || null
                     ]
                 );
 

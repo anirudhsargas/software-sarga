@@ -934,6 +934,7 @@ const Billing = () => {
       machine_id: null,
       waste_prints: 0,
       proof_prints: 0,
+      paper_size: product.size || '',
       book_type: derivedBookType,
       colour: '', paper_preference: '', numbering_from: '', numbering_to: '', special_instructions: '',
       matter_text: '', matter_file: null, matter_preview: null,
