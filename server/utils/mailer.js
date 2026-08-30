@@ -45,7 +45,9 @@ function createMailTransporter(options = {}) {
             port: parseInt(smtpPort || (smtpSecure ? '465' : '587'), 10),
             secure: Boolean(smtpSecure),
             auth: { user: smtpUser, pass: smtpPass },
-            tls: { rejectUnauthorized: false }
+            tls: { rejectUnauthorized: false },
+            connectionTimeout: 8000,
+            socketTimeout: 10000
         });
     }
 
@@ -58,7 +60,9 @@ function createMailTransporter(options = {}) {
             user: smtpUser,
             pass: smtpPass
         },
-        tls: { rejectUnauthorized: false }
+        tls: { rejectUnauthorized: false },
+        connectionTimeout: 8000,
+        socketTimeout: 10000
     });
 }
 

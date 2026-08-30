@@ -80,21 +80,24 @@ router.post('/invoices/:paymentId/send-email', authenticateToken, async (req, re
             </div>
         </div>`;
 
-        await sendEmail({
+        // Send email in the background (fire-and-forget) to prevent HTTP connection timeouts
+        sendEmail({
             to: targetEmail,
             from: `"${companyName}" <${process.env.EMAIL_FROM || 'sargadailyreport@gmail.com'}>`,
             subject: invoiceSubject,
             text: invoiceMessage,
             html: htmlBody
+        }).then(async () => {
+            // Track send in invoice_tracking
+            await pool.query(
+                `INSERT INTO sarga_invoice_tracking (payment_id, status, sent_at, sent_to_email)
+                 VALUES (?, 'sent', NOW(), ?)
+                 ON DUPLICATE KEY UPDATE status='sent', sent_at=NOW(), sent_to_email=?`,
+                [paymentId, targetEmail, targetEmail]
+            ).catch(() => {});
+        }).catch((err) => {
+            console.error('Background send invoice email error:', err);
         });
-
-        // Track send in invoice_tracking
-        await pool.query(
-            `INSERT INTO sarga_invoice_tracking (payment_id, status, sent_at, sent_to_email)
-             VALUES (?, 'sent', NOW(), ?)
-             ON DUPLICATE KEY UPDATE status='sent', sent_at=NOW(), sent_to_email=?`,
-            [paymentId, targetEmail, targetEmail]
-        ).catch(() => {});
 
         res.json({ message: 'Invoice sent successfully' });
     } catch (err) {
