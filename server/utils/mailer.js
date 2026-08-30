@@ -52,11 +52,11 @@ function createMailTransporter(options = {}) {
         });
     }
 
-    // Default to Gmail SMTP host directly (port 465 SSL) for robust DKIM signing & delivery
+    // Default to Gmail SMTP host via port 587 (STARTTLS) since port 465 is blocked by default on Render/AWS
     return nodemailer.createTransport({
         host: 'smtp.gmail.com',
-        port: 465,
-        secure: true,
+        port: 587,
+        secure: false,
         auth: {
             user: smtpUser,
             pass: smtpPass
