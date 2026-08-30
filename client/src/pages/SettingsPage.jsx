@@ -1285,6 +1285,8 @@ function SecuritySettingsSection() {
                 </label>
             </div>
 
+            <EmailDiagnostics />
+
             <div className="sp-actions" style={{ marginTop: 32, justifyContent: 'space-between', alignItems: 'center' }}>
                 <button onClick={() => navigate('/dashboard/staff')} className="btn btn-ghost">
                     Manage Staff Accounts & Role Permissions
@@ -1293,6 +1295,65 @@ function SecuritySettingsSection() {
                     {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Save Security Settings
                 </button>
             </div>
+        </div>
+    );
+}
+
+function EmailDiagnostics() {
+    const [checking, setChecking] = useState(false);
+    const [result, setResult] = useState(null);
+
+    const runDiagnostics = async () => {
+        setChecking(true);
+        setResult(null);
+        try {
+            const response = await api.get('/email/diagnose');
+            setResult(response.data);
+        } catch (error) {
+            setResult(error.response?.data || {
+                success: false,
+                diagnosis: error.message || 'Unable to contact the email diagnostic endpoint.'
+            });
+        } finally {
+            setChecking(false);
+        }
+    };
+
+    const stages = result?.stages || {};
+
+    return (
+        <div style={{ marginTop: 28, paddingTop: 24, borderTop: '1px solid var(--border)' }}>
+            <div className="sp-section-header">
+                <AlertTriangle size={20} className="text-accent" />
+                <div>
+                    <h3 className="sp-card-title">Email Diagnostics</h3>
+                    <div className="sp-card-subtitle">Check DNS, SMTP port access, TLS, and authentication without exposing your password</div>
+                </div>
+            </div>
+
+            <button onClick={runDiagnostics} disabled={checking} className="btn btn-secondary">
+                {checking ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+                {checking ? 'Checking email connection...' : 'Run Email Diagnostics'}
+            </button>
+
+            {result && (
+                <div style={{ marginTop: 16, display: 'grid', gap: 8 }}>
+                    {result.config && (
+                        <div className="sp-card-subtitle">
+                            SMTP: {result.config.host}:{result.config.port} ({result.config.secure ? 'TLS' : 'STARTTLS'})
+                        </div>
+                    )}
+                    {['dns', 'tcp', 'smtp'].map(stage => (
+                        <div key={stage} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', color: stages[stage]?.ok ? 'var(--success)' : 'var(--danger)' }}>
+                            {stages[stage]?.ok ? <CheckCircle size={16} /> : <AlertTriangle size={16} />}
+                            <span>
+                                <strong>{stage.toUpperCase()}:</strong> {stages[stage]?.message || (stages[stage]?.ok ? 'Passed' : stages[stage]?.code || 'Failed')}
+                            </span>
+                        </div>
+                    ))}
+                    {result.diagnosis && <div className="sp-card-subtitle" style={{ marginTop: 4 }}>{result.diagnosis}</div>}
+                </div>
+            )}
         </div>
     );
 }
