@@ -68,10 +68,10 @@ function createMailTransporter(options = {}) {
     }
 
     const isGmail = smtpHost.toLowerCase().includes('gmail.com');
-    // Force secure SSL/TLS over port 465 for Gmail to bypass blocked port 587 on Render/cloud hosts
-    if (isGmail) {
-        smtpPort = '465';
-        smtpSecure = true;
+    // Gmail defaults to implicit TLS, but keep the port configurable because some hosts block 465.
+    if (!smtpPort) {
+        smtpPort = isGmail ? '465' : '587';
+        smtpSecure = isGmail;
     }
 
     const portNum = parseInt(smtpPort || (smtpSecure ? '465' : '587'), 10);
@@ -134,7 +134,23 @@ async function sendEmail({ to, subject, html, text, from, replyTo, attachments }
         }
     };
 
-    const info = await transporter.sendMail(mailOptions);
+    let info;
+    try {
+        info = await transporter.sendMail(mailOptions);
+    } catch (err) {
+        const isConnectionFailure = ['ETIMEDOUT', 'ECONNREFUSED', 'ENETUNREACH', 'EHOSTUNREACH'].includes(err?.code)
+            || err?.command === 'CONN';
+        const smtpHost = process.env.SMTP_HOST || 'smtp.gmail.com';
+        const smtpPort = parseInt(process.env.SMTP_PORT || '465', 10);
+
+        // A few cloud hosts block implicit TLS on 465 but allow STARTTLS on 587.
+        if (!isConnectionFailure || !smtpHost.toLowerCase().includes('gmail.com') || smtpPort !== 465) {
+            throw err;
+        }
+
+        const fallbackTransporter = createMailTransporter({ host: smtpHost, port: 587, secure: false });
+        info = await fallbackTransporter.sendMail(mailOptions);
+    }
     return info;
 }
 
