@@ -42,7 +42,8 @@ const NoInternetState = ({
     }
   }, [onRetry]);
 
-  if (isOnline && !children) return null;
+  const isDefaultNoInternet = title === 'No Internet Connection';
+  if (isOnline && !children && isDefaultNoInternet) return null;
 
   if (isOnline && children) return children;
 
