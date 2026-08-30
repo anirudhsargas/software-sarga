@@ -169,7 +169,7 @@ async function sendInvoiceEmail(paymentId, overrideEmail) {
 
         await sendEmail({
             to: email,
-            from: `"${companyName}" <${process.env.EMAIL_FROM || 'sargadailyreport@gmail.com'}>`,
+            from: `"${companyName}" <${process.env.EMAIL_FROM || process.env.SMTP_USER || process.env.GMAIL_USER || process.env.EMAIL_USER || 'sargabilldesk@gmail.com'}>`,
             subject: invoiceSubject,
             text: invoiceMessage,
             html: htmlBody

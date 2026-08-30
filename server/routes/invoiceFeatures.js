@@ -164,7 +164,7 @@ router.post('/invoices/:paymentId/send-email', authenticateToken, async (req, re
 
         await sendEmail({
             to: targetEmail,
-            from: `"${companyName}" <${process.env.EMAIL_FROM || 'sargadailyreport@gmail.com'}>`,
+            from: `"${companyName}" <${process.env.EMAIL_FROM || process.env.SMTP_USER || process.env.GMAIL_USER || process.env.EMAIL_USER || 'sargabilldesk@gmail.com'}>`,
             subject: invoiceSubject,
             text: invoiceMessage,
             html: htmlBody
@@ -181,7 +181,10 @@ router.post('/invoices/:paymentId/send-email', authenticateToken, async (req, re
         res.json({ message: 'Invoice sent successfully' });
     } catch (err) {
         console.error('Send invoice email error:', err);
-        res.status(500).json({ message: err.message || 'Failed to send email. Check email configuration.' });
+        res.status(500).json({
+            message: err.message || 'Failed to send email. Check email configuration.',
+            diagnostic: '/api/email/diagnose'
+        });
     }
 });
 

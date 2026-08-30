@@ -108,7 +108,7 @@ async function sendEmail({ to, subject, html, text, from, replyTo, attachments }
         throw new Error('Recipient email address (to) is required.');
     }
 
-    const emailFrom = process.env.EMAIL_FROM || process.env.GMAIL_USER || process.env.EMAIL_USER || 'sargabilldesk@gmail.com';
+    const emailFrom = process.env.EMAIL_FROM || process.env.SMTP_USER || process.env.GMAIL_USER || process.env.EMAIL_USER || 'sargabilldesk@gmail.com';
     const defaultSenderName = process.env.COMPANY_NAME || 'Sarga Offset';
     
     // Ensure from address matches authenticated user domain to prevent spoofing flags
