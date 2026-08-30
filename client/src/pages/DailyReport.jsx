@@ -303,15 +303,16 @@ const DailyReport = () => {
                 const anyEntered = relevantBooks.some(b => Number(balances[b]) > 0);
                 const anyLocked = relevantBooks.some(b => locked[b]);
 
-                // Fetch assigned machines + their today reading status via laser-live
-                // (authoritative source — has_reading is set per machine for the requested date)
+                // Fetch ALL assigned machines + their today reading status via /machines/my-assigned.
+                // This endpoint returns every active machine assigned to the user (any type —
+                // Offset, Laser, Digital, etc.), unlike laser-live which filters by machine_type.
                 let myMachines = [];
                 let machineHasReading = {}; // { machine_id: true/false }
                 try {
-                    const laserRes = await api.get('/daily-report/laser-live', { params: { date: reportDate, ...branchParam } });
-                    myMachines = laserRes.data.machines || [];
+                    const assignedRes = await api.get('/machines/my-assigned', { params: { date: reportDate } });
+                    myMachines = assignedRes.data || [];
                     myMachines.forEach(m => { machineHasReading[m.id] = !!m.has_reading; });
-                } catch {  }
+                } catch { }
 
                 if (!promptDone) {
                     let prevData = { Offset: 0, Laser: 0, Other: 0, machines: {} };
@@ -369,8 +370,9 @@ const DailyReport = () => {
 
             let myMachines = [];
             try {
-                const laserRes = await api.get('/daily-report/laser-live', { params: { date: reportDate, ...branchParam } });
-                myMachines = laserRes.data.machines || [];
+                // Use /machines/my-assigned to get ALL machine types (not just laser/digital)
+                const assignedRes = await api.get('/machines/my-assigned', { params: { date: reportDate } });
+                myMachines = assignedRes.data || [];
             } catch {}
 
             let prevData = { Offset: 0, Laser: 0, Other: 0, machines: {} };

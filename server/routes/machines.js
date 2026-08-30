@@ -113,6 +113,70 @@ router.get('/my-books', auth.authenticate, auth.authorizeRoles('Admin', 'Account
     }
 });
 
+// GET /machines/my-assigned?date=YYYY-MM-DD
+// Returns ALL active machines assigned to the current user (any machine_type),
+// enriched with has_reading + opening_count for the given date.
+// Used by the Opening Setup prompt so FO staff can enter counter readings
+// for every assigned machine regardless of book type.
+router.get('/my-assigned', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'Front Office'), async (req, res) => {
+    try {
+        const { date } = req.query;
+        const branchId = req.user.branch_id;
+
+        // 1. Fetch machines assigned to this staff member (any type)
+        let machines = [];
+        if (!['Admin', 'Accountant'].includes(req.user.role)) {
+            const [assigned] = await pool.query(
+                `SELECT m.id, m.machine_name, m.machine_type, m.location, m.branch_id
+                 FROM sarga_machines m
+                 JOIN sarga_machine_staff_assignments msa ON msa.machine_id = m.id AND msa.staff_id = ?
+                 WHERE m.branch_id = ? AND m.is_active = 1
+                 ORDER BY m.machine_name ASC`,
+                [req.user.id, branchId]
+            );
+            machines = assigned;
+        }
+
+        // Fallback: if no personal assignments exist, return all active machines for the branch
+        if (!machines || machines.length === 0) {
+            const [all] = await pool.query(
+                `SELECT id, machine_name, machine_type, location, branch_id
+                 FROM sarga_machines
+                 WHERE branch_id = ? AND is_active = 1
+                 ORDER BY machine_name ASC`,
+                [branchId]
+            );
+            machines = all;
+        }
+
+        // 2. If date provided, check which machines already have a reading
+        if (date && machines.length > 0) {
+            const ids = machines.map(m => m.id);
+            const placeholders = ids.map(() => '?').join(',');
+            const [readings] = await pool.query(
+                `SELECT machine_id, opening_count, closing_count
+                 FROM sarga_machine_readings
+                 WHERE reading_date = ? AND machine_id IN (${placeholders})`,
+                [date, ...ids]
+            );
+            const readingMap = {};
+            readings.forEach(r => { readingMap[r.machine_id] = r; });
+
+            machines = machines.map(m => ({
+                ...m,
+                has_reading: !!readingMap[m.id],
+                opening_count: readingMap[m.id]?.opening_count ?? null,
+                closing_count: readingMap[m.id]?.closing_count ?? null,
+            }));
+        }
+
+        res.json(machines);
+    } catch (err) {
+        console.error('Error fetching my-assigned machines:', err);
+        res.status(500).json({ error: 'Failed to fetch assigned machines' });
+    }
+});
+
 // ==================== ASSIGN STAFF TO MACHINE (ADMIN / ACCOUNTANT) ====================
 router.post('/:id/assign-staff', auth.authenticate, auth.requireRole(['Admin', 'Accountant']), async (req, res) => {
     try {
