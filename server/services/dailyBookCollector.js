@@ -144,6 +144,26 @@ async function fetchDailyBookData(startDateStr, endDateStr, branchId = null) {
     ).catch(() => [[]]);
     results.shortcutBilling = shortcutBilling;
 
+    // 14. Machine Readings (Laser / Digital machines for the report date)
+    // Uses the date part of startDateStr (YYYY-MM-DD) as the reading_date.
+    const readingDate = startDateStr.split(' ')[0]; // 'YYYY-MM-DD'
+    const machinebranchFilter = branchId ? 'AND m.branch_id = ?' : '';
+    const machineParams = branchId ? [readingDate, branchId] : [readingDate];
+    const [machineReadings] = await pool.query(
+        `SELECT m.id, m.machine_name, m.machine_type, m.location, m.branch_id,
+                mr.opening_count, mr.closing_count,
+                GREATEST(0, COALESCE(mr.closing_count, 0) - COALESCE(mr.opening_count, 0)) AS total_copies,
+                COALESCE(mr.waste_prints, 0)  AS waste_prints,
+                COALESCE(mr.proof_prints, 0)  AS proof_prints
+         FROM sarga_machines m
+         LEFT JOIN sarga_machine_readings mr
+                ON mr.machine_id = m.id AND mr.reading_date = ?
+         WHERE m.is_active = 1 ${machinebranchFilter}
+         ORDER BY m.machine_name ASC`,
+        machineParams
+    ).catch(() => [[]]);
+    results.machineReadings = machineReadings;
+
     // Aggregate values
     results.summary = {
         totalSales: sales.reduce((sum, s) => sum + Number(s.total_amount), 0),

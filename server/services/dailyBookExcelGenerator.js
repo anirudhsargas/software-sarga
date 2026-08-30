@@ -76,6 +76,22 @@ function generateDailyBookExcel(data, reportDate, branchName) {
         XLSX.utils.book_append_sheet(wb, purchasesWs, 'Purchases');
     }
 
+    // 6. Machine Readings Sheet
+    if (data.machineReadings && data.machineReadings.length > 0) {
+        const machineWs = XLSX.utils.json_to_sheet(data.machineReadings.map(mr => ({
+            'Machine Name': mr.machine_name || '-',
+            'Type': mr.machine_type || '-',
+            'Location': mr.location || '-',
+            'Opening Count': mr.opening_count != null ? Number(mr.opening_count) : '',
+            'Closing Count': mr.closing_count != null ? Number(mr.closing_count) : '',
+            'Copies Printed': Number(mr.total_copies || 0),
+            'Waste Prints': Number(mr.waste_prints || 0),
+            'Proof Prints': Number(mr.proof_prints || 0),
+            'Reading Entered': (mr.opening_count != null || mr.closing_count != null) ? 'Yes' : 'No'
+        })));
+        XLSX.utils.book_append_sheet(wb, machineWs, 'Machine Readings');
+    }
+
     // Generate buffer
     const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
     return buf;

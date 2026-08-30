@@ -114,6 +114,41 @@ function generateDailyBookPdf(data, reportDate, branchName) {
             }
         }
 
+        // MACHINE READINGS SECTION
+        if (data.machineReadings && data.machineReadings.length > 0) {
+            if (y > 620) { doc.addPage(); renderHeader(); y = 85; }
+            const INFO = '#1d4ed8';
+            y = sectionHeader('MACHINE READINGS & COUNTS', INFO, y);
+
+            // Table header
+            doc.fontSize(8).font('Helvetica-Bold').fillColor(DARK);
+            doc.text('Machine', m + 4, y);
+            doc.text('Type', m + 144, y);
+            doc.text('Opening', m + 214, y, { width: 70, align: 'right' });
+            doc.text('Closing', m + 284, y, { width: 70, align: 'right' });
+            doc.text('Copies', m + 354, y, { width: 60, align: 'right' });
+            doc.text('Waste/Proof', m + 414, y, { width: 95, align: 'right' });
+            y += 14;
+            doc.moveTo(m, y).lineTo(pageW - m, y).strokeColor(GRAY).lineWidth(0.5).stroke();
+            doc.strokeColor('#000').lineWidth(1);
+            y += 5;
+
+            data.machineReadings.forEach((mr, idx) => {
+                if (y > 750) { doc.addPage(); renderHeader(); y = 85; }
+                if (idx % 2 === 0) doc.rect(m, y - 2, contentW, 14).fill(LIGHT_BG);
+                const hasReading = mr.opening_count != null || mr.closing_count != null;
+                doc.fillColor(hasReading ? '#1e293b' : GRAY).fontSize(7.5).font('Helvetica')
+                   .text(mr.machine_name || '-', m + 4, y, { width: 135, height: 12, overflow: 'ellipses' })
+                   .text(mr.machine_type || '-', m + 144, y, { width: 65 })
+                   .text(mr.opening_count != null ? String(Number(mr.opening_count).toLocaleString('en-IN')) : '-', m + 214, y, { width: 70, align: 'right' })
+                   .text(mr.closing_count != null ? String(Number(mr.closing_count).toLocaleString('en-IN')) : '-', m + 284, y, { width: 70, align: 'right' })
+                   .text(hasReading ? String(Number(mr.total_copies || 0).toLocaleString('en-IN')) : '-', m + 354, y, { width: 60, align: 'right' })
+                   .text(hasReading ? `${Number(mr.waste_prints || 0)} / ${Number(mr.proof_prints || 0)}` : '-', m + 414, y, { width: 95, align: 'right' });
+                y += 14;
+            });
+            y += 8;
+        }
+
         // END FOOTER
         doc.fontSize(8).fillColor(GRAY).text('Generated automatically. See Excel for complete detailed data.', m, doc.page.height - 30, { align: 'center' });
 
@@ -252,6 +287,39 @@ function generateBackupPdf(data, reportDate, branchName) {
                    .text(e.payment_method || 'Cash', m + 254, y)
                    .text(fmt(e.amount), m + 354, y, { width: 70, align: 'right' })
                    .text(e.description || '—', m + 434, y, { width: 80, height: 12, overflow: 'ellipses' });
+                y += 14;
+            });
+            y += 10;
+        }
+
+        // 4. MACHINE READINGS
+        if (data.machineReadings && data.machineReadings.length > 0) {
+            if (y > 680) { doc.addPage(); renderHeader('Detailed Backup Logs'); y = 85; }
+            y = sectionHeader("TODAY'S MACHINE READINGS", '#1d4ed8', y);
+
+            // Table header
+            doc.fontSize(8).font('Helvetica-Bold').fillColor(DARK);
+            doc.text('Machine Name', m + 4, y);
+            doc.text('Type', m + 154, y);
+            doc.text('Location', m + 224, y);
+            doc.text('Opening', m + 324, y, { width: 65, align: 'right' });
+            doc.text('Closing', m + 389, y, { width: 65, align: 'right' });
+            doc.text('Copies', m + 454, y, { width: 60, align: 'right' });
+            y += 14;
+            doc.line(m, y, pageW - m, y).stroke();
+            y += 6;
+
+            data.machineReadings.forEach((mr, idx) => {
+                if (y > 750) { doc.addPage(); renderHeader('Detailed Backup Logs'); y = 85; }
+                if (idx % 2 === 0) doc.rect(m, y - 2, contentW, 14).fill(LIGHT_BG);
+                const hasReading = mr.opening_count != null || mr.closing_count != null;
+                doc.fillColor(hasReading ? '#374151' : GRAY).fontSize(7.5).font('Helvetica')
+                   .text(mr.machine_name || '-', m + 4, y, { width: 145, height: 12, overflow: 'ellipses' })
+                   .text(mr.machine_type || '-', m + 154, y, { width: 65 })
+                   .text(mr.location || '-', m + 224, y, { width: 95, height: 12, overflow: 'ellipses' })
+                   .text(mr.opening_count != null ? String(Number(mr.opening_count).toLocaleString('en-IN')) : '-', m + 324, y, { width: 65, align: 'right' })
+                   .text(mr.closing_count != null ? String(Number(mr.closing_count).toLocaleString('en-IN')) : '-', m + 389, y, { width: 65, align: 'right' })
+                   .text(hasReading ? String(Number(mr.total_copies || 0).toLocaleString('en-IN')) : '-', m + 454, y, { width: 60, align: 'right' });
                 y += 14;
             });
             y += 10;
