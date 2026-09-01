@@ -835,6 +835,10 @@ const Billing = () => {
     if (priceResult && priceResult.unit_price > 0) return priceResult.unit_price;
     if (product.mrp != null && Number(product.mrp) > 0) return Number(product.mrp);
     if (product.sell_price != null && Number(product.sell_price) > 0) return Number(product.sell_price);
+    if (product.slabs && product.slabs.length > 0) {
+      const validSlab = product.slabs.find(s => Number(s.unit_rate || 0) > 0 || Number(s.base_value || 0) > 0);
+      if (validSlab) return Number(validSlab.unit_rate || 0) > 0 ? Number(validSlab.unit_rate) : Number(validSlab.base_value);
+    }
     return 0;
   }, [form.type]);
 

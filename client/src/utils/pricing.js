@@ -34,7 +34,15 @@ export const calculateProductPrice = ({
     if (isOffset && s.offset_unit_rate !== undefined && s.offset_unit_rate !== null && Number(s.offset_unit_rate) > 0) {
       return Number(s.offset_unit_rate) || 0;
     }
-    return Number(s.unit_rate || s.base_value || s.sell_price || s.mrp) || 0;
+    const unitRate = Number(s.unit_rate || 0);
+    if (unitRate > 0) return unitRate;
+    const baseVal = Number(s.base_value || 0);
+    if (baseVal > 0) return baseVal;
+    const sellPrice = Number(s.sell_price || 0);
+    if (sellPrice > 0) return sellPrice;
+    const mrp = Number(s.mrp || 0);
+    if (mrp > 0) return mrp;
+    return 0;
   };
 
   if (product.calculation_type === 'Normal') {
@@ -55,7 +63,7 @@ export const calculateProductPrice = ({
         isDoubleSide ||
         Number(firstSlab.unit_rate) > 0 ||
         Number(firstSlab.double_side_unit_rate) > 0 ||
-        (Number(firstSlab.min_qty) <= 1 && Number(firstSlab.base_value) > 0 && Number(firstSlab.base_value) < 15);
+        (Number(firstSlab.min_qty) <= 1 && Number(firstSlab.base_value) > 0 && Number(firstSlab.base_value) < 50);
 
       if (isPerUnitSlab) {
         // Find highest slab where qty >= min_qty
