@@ -1,10 +1,12 @@
 import { useSEO } from '../hooks/useSEO';
-import React, {useState, useEffect, useCallback, useMemo} from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { lazyWithRetry } from '../utils/errorUtils';
-import { FileText, Plus, Edit2, Trash2, Send, ArrowRight, Search, X, Loader2, UserSquare, Package, Clock, Camera } from 'lucide-react';
+import { FileText, Plus, Edit2, Trash2, Send, ArrowRight, Search, X, Loader2, UserSquare, Package, Clock, Camera, Eye, Copy, AlertCircle, Zap } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import PageContainer from '../components/ui/PageContainer';
+import SecureImage from '../components/SecureImage';
+import { calculateProductPrice } from '../utils/pricing';
 
 const ScannerModal = lazyWithRetry(() => import('../components/ScannerModal'));
 
@@ -17,10 +19,18 @@ const cardStyle = { background: 'var(--surface)', border: '1px solid var(--borde
 const btnStyle = (bg = 'var(--primary)') => ({ background: bg, color: bg === 'var(--primary)' ? 'var(--on-accent)' : 'var(--card)', border: 'none', borderRadius: 10, padding: '10px 18px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14, minHeight: 42, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' });
 const inputStyle = { width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--input-bg, var(--surface))', color: 'var(--text)', fontSize: 14, minHeight: 42, boxSizing: 'border-box' };
 
+const bookTypeFromCategory = (catName) => {
+    const name = String(catName || '').trim().toLowerCase();
+    if (name === 'offset') return 'Offset';
+    if (name === 'laser') return 'Laser';
+    return 'Other';
+};
+
 const emptyForm = () => ({
     customer_id: '', customer_name: '', customer_mobile: '', customer_email: '',
     customer_address: '', customer_gst: '', date: new Date().toISOString().slice(0, 10),
-    valid_until: '', notes: '', discount_percent: 0, tax_rate: 18, items: [{ item_name: '', description: '', quantity: 1, unit_price: 0 }]
+    valid_until: '', notes: '', discount_percent: 0, tax_rate: 18,
+    items: [{ item_name: '', description: '', quantity: 1, unit_price: 0, total: 0, book_type: 'Offset', customPaperRate: 0, is_double_side: false, applied_extras: [] }]
 });
 
 // Memoized Quote Card Component
@@ -56,8 +66,10 @@ const QuoteCard = React.memo(({ q, onEdit, onSend, onConvert, onDelete }) => {
     );
 });
 
-// Memoized Quote Item Row Component
-const QuoteItemRow = React.memo(({ item, index, onUpdate, onRemove }) => {
+// Memoized Quote Item Row Component with Billing-level features
+const QuoteItemRow = React.memo(({ item, index, onUpdate, onRemove, onDuplicate, onViewDetails }) => {
+    const totalCalc = item.total != null ? Number(item.total) : (Number(item.quantity || 1) * Number(item.unit_price || 0));
+
     return (
         <div className="quote-item-card" style={{ 
             padding: 18, 
@@ -65,56 +77,127 @@ const QuoteItemRow = React.memo(({ item, index, onUpdate, onRemove }) => {
             border: '1px solid var(--border)', 
             background: 'var(--surface)',
             position: 'relative',
-            display: 'grid',
-            gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-            gap: 14
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12
         }}>
-            <div style={{ gridColumn: 'span 4' }}>
-                <input 
-                    id={`item-name-${index}`} 
-                    aria-label={`Item ${index + 1} name`} 
-                    placeholder="Item name *" 
-                    value={item.item_name} 
-                    onChange={e => onUpdate(index, 'item_name', e.target.value)} 
-                    style={{ ...inputStyle, fontWeight: 600 }} 
-                />
-            </div>
-            <div style={{ gridColumn: 'span 4' }}>
-                <input 
-                    id={`item-desc-${index}`} 
-                    aria-label={`Item ${index + 1} description`} 
-                    placeholder="Description (Optional)" 
-                    value={item.description} 
-                    onChange={e => onUpdate(index, 'description', e.target.value)} 
-                    style={{ ...inputStyle, fontSize: 13 }} 
-                />
-            </div>
-            <div style={{ gridColumn: 'span 2' }}>
-                <label htmlFor={`item-qty-${index}`} style={{ fontSize: 11, fontWeight: 600, marginBottom: 4, display: 'block', color: 'var(--text-muted)' }}>Quantity</label>
-                <input 
-                    id={`item-qty-${index}`} 
-                    type="number" 
-                    placeholder="Qty" 
-                    value={item.quantity} 
-                    onChange={e => onUpdate(index, 'quantity', Number(e.target.value))} 
-                    style={inputStyle} 
-                    aria-label={`Item ${index + 1} quantity`} 
-                />
-            </div>
-            <div style={{ gridColumn: 'span 1' }}>
-                <label htmlFor={`item-price-${index}`} style={{ fontSize: 11, fontWeight: 600, marginBottom: 4, display: 'block', color: 'var(--text-muted)' }}>Unit Price</label>
-                <input 
-                    id={`item-price-${index}`} 
-                    type="number" 
-                    placeholder="Price" 
-                    value={item.unit_price} 
-                    onChange={e => onUpdate(index, 'unit_price', Number(e.target.value))} 
-                    style={inputStyle} 
-                    aria-label={`Item ${index + 1} unit price`} 
-                />
-            </div>
-            <div style={{ gridColumn: 'span 1', display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end' }}>
-                <button onClick={() => onRemove(index)} onKeyDown={(e) => { if (e.key === 'Enter') onRemove(index); }} className="touch-target" style={{ background: 'var(--error-bg)', color: 'var(--error)', border: 'none', borderRadius: 8, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} aria-label={`Remove item ${index + 1}`}><Trash2 size={16} /></button>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12 }}>
+                <div style={{ gridColumn: 'span 4' }}>
+                    <input 
+                        id={`item-name-${index}`} 
+                        aria-label={`Item ${index + 1} name`} 
+                        placeholder="Item name *" 
+                        value={item.item_name || ''} 
+                        onChange={e => onUpdate(index, 'item_name', e.target.value)} 
+                        style={{ ...inputStyle, fontWeight: 600 }} 
+                    />
+                </div>
+                <div style={{ gridColumn: 'span 4' }}>
+                    <input 
+                        id={`item-desc-${index}`} 
+                        aria-label={`Item ${index + 1} description`} 
+                        placeholder="Description (Optional)" 
+                        value={item.description || ''} 
+                        onChange={e => onUpdate(index, 'description', e.target.value)} 
+                        style={{ ...inputStyle, fontSize: 13 }} 
+                    />
+                </div>
+
+                {/* Book Type & Paper / Double Side options */}
+                <div style={{ gridColumn: 'span 4', display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', background: 'var(--bg-2, rgba(255,255,255,0.03))', padding: '8px 12px', borderRadius: 10, border: '1px solid var(--border)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>Book Type:</span>
+                        <select
+                            value={item.book_type || 'Offset'}
+                            onChange={e => onUpdate(index, 'book_type', e.target.value)}
+                            style={{
+                                padding: '4px 8px', fontSize: 12, height: 30, borderRadius: 6,
+                                border: '1px solid var(--border)', fontWeight: 600, cursor: 'pointer',
+                                background: (item.book_type || 'Offset') === 'Laser' ? 'rgba(99, 102, 241, 0.12)' : (item.book_type || 'Offset') === 'Offset' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)',
+                                color: (item.book_type || 'Offset') === 'Laser' ? '#4f46e5' : (item.book_type || 'Offset') === 'Offset' ? '#059669' : '#d97706',
+                            }}
+                        >
+                            <option value="Offset">Offset Book</option>
+                            <option value="Laser">Laser Book</option>
+                            <option value="Other">Other Book</option>
+                        </select>
+                    </div>
+
+                    {(item._product?.has_paper_rate || item.customPaperRate > 0) && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>Paper Rate: ₹</span>
+                            <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={item.customPaperRate ?? 0}
+                                onChange={e => onUpdate(index, 'customPaperRate', Number(e.target.value) || 0)}
+                                style={{ ...inputStyle, width: 90, height: 30, padding: '2px 8px', fontSize: 12 }}
+                            />
+                        </div>
+                    )}
+
+                    {(item._product?.has_double_side_rate || item.is_double_side) && (
+                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'pointer', fontWeight: 600, color: 'var(--text-muted)' }}>
+                            <input
+                                type="checkbox"
+                                checked={!!item.is_double_side}
+                                onChange={e => onUpdate(index, 'is_double_side', e.target.checked)}
+                                style={{ cursor: 'pointer', width: 14, height: 14 }}
+                            />
+                            Double Side
+                        </label>
+                    )}
+                </div>
+
+                <div style={{ gridColumn: 'span 2' }}>
+                    <label htmlFor={`item-qty-${index}`} style={{ fontSize: 11, fontWeight: 600, marginBottom: 4, display: 'block', color: 'var(--text-muted)' }}>Quantity</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <button type="button" onClick={() => onUpdate(index, 'quantity', Math.max(1, (Number(item.quantity) || 1) - 1))} style={{ ...btnStyle('var(--bg-3)'), color: 'var(--text)', padding: '4px 10px', minHeight: 38, width: 38, justifyContent: 'center' }}>-</button>
+                        <input 
+                            id={`item-qty-${index}`} 
+                            type="number" 
+                            placeholder="Qty" 
+                            value={item.quantity} 
+                            onChange={e => onUpdate(index, 'quantity', Number(e.target.value))} 
+                            style={{ ...inputStyle, textAlign: 'center' }} 
+                            aria-label={`Item ${index + 1} quantity`} 
+                        />
+                        <button type="button" onClick={() => onUpdate(index, 'quantity', (Number(item.quantity) || 1) + 1)} style={{ ...btnStyle('var(--bg-3)'), color: 'var(--text)', padding: '4px 10px', minHeight: 38, width: 38, justifyContent: 'center' }}>+</button>
+                    </div>
+                </div>
+
+                <div style={{ gridColumn: 'span 1' }}>
+                    <label htmlFor={`item-price-${index}`} style={{ fontSize: 11, fontWeight: 600, marginBottom: 4, display: 'block', color: 'var(--text-muted)' }}>Unit Price (₹)</label>
+                    <input 
+                        id={`item-price-${index}`} 
+                        type="number" 
+                        placeholder="Price" 
+                        value={item.unit_price} 
+                        onChange={e => onUpdate(index, 'unit_price', Number(e.target.value))} 
+                        style={inputStyle} 
+                        aria-label={`Item ${index + 1} unit price`} 
+                    />
+                </div>
+
+                <div style={{ gridColumn: 'span 1', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center' }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>Total</span>
+                    <span style={{ fontSize: 15, fontWeight: 700 }}>₹{totalCalc.toLocaleString('en-IN')}</span>
+                </div>
+
+                <div style={{ gridColumn: 'span 4', display: 'flex', gap: 8, justifyContent: 'flex-end', paddingTop: 6, borderTop: '1px dashed var(--border)' }}>
+                    {item._product && (
+                        <button type="button" onClick={() => onViewDetails(item._product)} className="touch-target" style={{ ...btnStyle('var(--bg-3)'), color: 'var(--text)', padding: '6px 12px', minHeight: 34, fontSize: 12 }} title="View product details & pricing slabs">
+                            <Eye size={14} /> Details
+                        </button>
+                    )}
+                    <button type="button" onClick={() => onDuplicate(index)} className="touch-target" style={{ ...btnStyle('var(--bg-3)'), color: 'var(--text)', padding: '6px 12px', minHeight: 34, fontSize: 12 }} title="Duplicate item">
+                        <Copy size={14} /> Duplicate
+                    </button>
+                    <button type="button" onClick={() => onRemove(index)} className="touch-target" style={{ ...btnStyle('var(--destructive)'), padding: '6px 12px', minHeight: 34, fontSize: 12 }} title="Remove item">
+                        <Trash2 size={14} /> Remove
+                    </button>
+                </div>
             </div>
         </div>
     );
@@ -159,7 +242,6 @@ export default function Quotes() {
     const [showForm, setShowForm] = useState(false);
     const [editing, setEditing] = useState(null);
     
-    // Split search input state and debounced search query state to prevent rerendering on every keystroke
     const [searchVal, setSearchVal] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     
@@ -167,13 +249,18 @@ export default function Quotes() {
     const [customers, setCustomers] = useState([]);
     const [form, setForm] = useState(emptyForm());
 
-    // Product picker (reuse Billing methods)
+    // Product picker & Modals (Billing features)
     const [hierarchy, setHierarchy] = useState([]);
     const [selectedCategoryId, setSelectedCategoryId] = useState('');
     const [selectedSubcategoryId, setSelectedSubcategoryId] = useState('');
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [qrInput, setQrInput] = useState('');
     const [showScanner, setShowScanner] = useState(false);
+
+    const [detailProduct, setDetailProduct] = useState(null);
+    const [duplicateItemModal, setDuplicateItemModal] = useState(null);
+    const [showQuickEntry, setShowQuickEntry] = useState(false);
+    const [quickEntry, setQuickEntry] = useState({ name: '', amount: '', book_type: 'Laser' });
 
     // Debounce searchVal update to searchQuery (250ms)
     useEffect(() => {
@@ -195,7 +282,7 @@ export default function Quotes() {
                     if (subs.length > 0) setSelectedSubcategoryId(subs[0].id);
                 }
             } catch {
-                // ignore silently — product picker is optional for quotes
+                // ignore silently
             }
         };
         fetchHierarchy();
@@ -203,10 +290,7 @@ export default function Quotes() {
 
     const normalizeCode = (value) => {
         let code = String(value || '');
-        code = code.replace(/^\uFEFF/, '');
-        code = code.trim();
-        code = code.replace(/\s+/g, '');
-        code = code.toUpperCase();
+        code = code.replace(/^\uFEFF/, '').trim().replace(/\s+/g, '').toUpperCase();
         return code;
     };
 
@@ -216,7 +300,7 @@ export default function Quotes() {
             (cat.subcategories || []).forEach((sub) => {
                 (sub.products || []).forEach((prod) => {
                     const code = String(prod.product_code || '').replace(/\s+/g, '').toUpperCase();
-                    if (code) map.set(code, { product: prod, catId: cat.id, subId: sub.id });
+                    if (code) map.set(code, { product: prod, catId: cat.id, subId: sub.id, catName: cat.name });
                 });
             });
         });
@@ -239,16 +323,71 @@ export default function Quotes() {
         toast.error('No product found for this code');
     };
 
-    const addSelectedProductItem = () => {
-        if (!selectedProduct) { toast.error('Select a product first'); return; }
-        const item = {
-            item_name: selectedProduct.name || '',
-            description: selectedProduct.description || '',
+    const addSelectedProductItem = (productToAdd = selectedProduct, forceNew = false) => {
+        const product = productToAdd || selectedProduct;
+        if (!product) { toast.error('Select a product first'); return; }
+
+        if (!forceNew) {
+            const existingLine = form.items.find(it => String(it.product_id) === String(product.id));
+            if (existingLine) {
+                setDuplicateItemModal({ product, existingLine });
+                return;
+            }
+        }
+
+        const defaultPaperRate = product.has_paper_rate ? (Number(product.paper_rate) || 0) : 0;
+        const catObj = hierarchy.find(c => String(c.id) === String(selectedCategoryId));
+        const isOffset = bookTypeFromCategory(catObj?.name) === 'Offset';
+
+        const priceResult = calculateProductPrice({
+            product,
             quantity: 1,
-            unit_price: Number(selectedProduct.sell_price || selectedProduct.price || 0)
+            extras: [],
+            currentPaperRate: defaultPaperRate,
+            isOffset,
+            isDoubleSide: false
+        });
+
+        const item = {
+            product_id: product.id,
+            item_name: product.name || '',
+            description: product.description || '',
+            quantity: 1,
+            unit_price: priceResult ? priceResult.unit_price : Number(product.sell_price || product.price || 0),
+            total: priceResult ? priceResult.total_amount : Number(product.sell_price || product.price || 0),
+            book_type: bookTypeFromCategory(catObj?.name) || 'Offset',
+            customPaperRate: defaultPaperRate,
+            is_double_side: false,
+            applied_extras: [],
+            _product: product
         };
+
         setForm(f => ({ ...f, items: [...f.items, item] }));
         setSelectedProduct(null);
+        toast.success(`Added: ${item.item_name}`);
+    };
+
+    const handleAddQuickEntry = () => {
+        if (!quickEntry.name || !quickEntry.amount) {
+            toast.error('Enter item name and amount');
+            return;
+        }
+        const amt = Number(quickEntry.amount) || 0;
+        const item = {
+            product_id: null,
+            item_name: quickEntry.name,
+            description: 'Quick custom item',
+            quantity: 1,
+            unit_price: amt,
+            total: amt,
+            book_type: quickEntry.book_type || 'Laser',
+            customPaperRate: 0,
+            is_double_side: false,
+            applied_extras: []
+        };
+        setForm(f => ({ ...f, items: [...f.items, item] }));
+        setQuickEntry({ name: '', amount: '', book_type: 'Laser' });
+        setShowQuickEntry(false);
         toast.success(`Added: ${item.item_name}`);
     };
 
@@ -293,15 +432,50 @@ export default function Quotes() {
         setForm(f => ({ ...f, customer_id: c.id, customer_name: c.name, customer_mobile: c.mobile, customer_email: c.email || '', customer_address: c.address || '', customer_gst: c.gst || '' }));
     };
 
-    const addItem = () => setForm(f => ({ ...f, items: [...f.items, { item_name: '', description: '', quantity: 1, unit_price: 0 }] }));
+    const addItem = () => setForm(f => ({ ...f, items: [...f.items, { item_name: '', description: '', quantity: 1, unit_price: 0, total: 0, book_type: 'Offset', customPaperRate: 0, is_double_side: false, applied_extras: [] }] }));
     const removeItem = useCallback((i) => setForm(f => ({ ...f, items: f.items.filter((_, idx) => idx !== i) })), []);
+    
+    const duplicateItem = useCallback((i) => {
+        setForm(f => {
+            const items = [...f.items];
+            const copy = { ...items[i], id: undefined };
+            items.splice(i + 1, 0, copy);
+            return { ...f, items };
+        });
+        toast.success('Item duplicated');
+    }, []);
+
     const updateItem = useCallback((i, field, val) => setForm(f => {
         const items = [...f.items];
-        items[i] = { ...items[i], [field]: val };
+        const cur = { ...items[i], [field]: val };
+        const prod = cur._product;
+
+        if (prod && (field === 'quantity' || field === 'customPaperRate' || field === 'is_double_side' || field === 'book_type')) {
+            const isOffset = (cur.book_type || 'Offset') === 'Offset';
+            const priceResult = calculateProductPrice({
+                product: prod,
+                quantity: Number(cur.quantity) || 0,
+                extras: cur.applied_extras || [],
+                paperRateOverride: cur.customPaperRate,
+                currentPaperRate: Number(cur.customPaperRate) || 0,
+                isOffset,
+                isDoubleSide: !!cur.is_double_side
+            });
+            if (priceResult) {
+                cur.unit_price = priceResult.unit_price;
+                cur.total = priceResult.total_amount;
+            }
+        } else if (field === 'unit_price') {
+            cur.total = (Number(val) || 0) * (Number(cur.quantity) || 1);
+        } else if (field === 'quantity' && !prod) {
+            cur.total = (Number(cur.unit_price) || 0) * (Number(val) || 1);
+        }
+
+        items[i] = cur;
         return { ...f, items };
     }), []);
 
-    const subtotal = form.items.reduce((s, it) => s + (it.quantity || 0) * (it.unit_price || 0), 0);
+    const subtotal = form.items.reduce((s, it) => s + (it.total != null ? Number(it.total) : ((it.quantity || 0) * (it.unit_price || 0))), 0);
     const discountAmt = subtotal * ((form.discount_percent || 0) / 100);
     const afterDiscount = subtotal - discountAmt;
     const taxAmt = afterDiscount * ((form.tax_rate || 0) / 100);
@@ -322,7 +496,6 @@ export default function Quotes() {
         } catch (err) { toast.error(err.response?.data?.message || 'Failed to save quote'); }
     };
 
-    // Form submission helper for Enter key
     const handleKeyDownForm = (e) => {
         if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA' && e.target.id !== 'qr-lookup-input') {
             e.preventDefault();
@@ -333,14 +506,21 @@ export default function Quotes() {
     const handleEdit = useCallback(async (id) => {
         try {
             const { data } = await api.get(`/quotes/${id}`);
-            setForm({ ...data, items: data.items || [] });
+            const items = (data.items || []).map(it => ({
+                ...it,
+                customPaperRate: Number(it.custom_paper_rate || it.customPaperRate) || 0,
+                is_double_side: !!it.is_double_side,
+                book_type: it.book_type || 'Offset',
+                total: it.total != null ? Number(it.total) : (Number(it.quantity || 1) * Number(it.unit_price || 0)),
+                applied_extras: typeof it.applied_extras === 'string' ? JSON.parse(it.applied_extras || '[]') : (it.applied_extras || [])
+            }));
+            setForm({ ...data, items });
             setEditing(id); setShowForm(true);
         } catch { toast.error('Failed to load quote'); }
     }, []);
 
     const handleDelete = useCallback(async (id) => {
         if (!confirm('Delete this quote?')) return;
-        // Optimistic UI Update
         setQuotes(prev => prev.filter(q => q.id !== id));
         try {
             await api.delete(`/quotes/${id}`);
@@ -373,28 +553,6 @@ export default function Quotes() {
     return (
         <PageContainer>
             <style>{`
-                .quote-item-card {
-                    display: grid !important;
-                    grid-template-columns: repeat(4, 1fr) !important;
-                    gap: 12px !important;
-                }
-                @media (max-width: 960px) {
-                    .quote-item-card {
-                        grid-template-columns: repeat(2, 1fr) !important;
-                    }
-                    .quote-item-card > div:nth-child(1),
-                    .quote-item-card > div:nth-child(2) {
-                        grid-column: span 2 !important;
-                    }
-                }
-                @media (max-width: 640px) {
-                    .quote-item-card {
-                        grid-template-columns: repeat(1, 1fr) !important;
-                    }
-                    .quote-item-card > div {
-                        grid-column: span 1 !important;
-                    }
-                }
                 /* Accessible focus highlights */
                 input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible {
                     outline: 2px solid var(--accent) !important;
@@ -516,7 +674,7 @@ export default function Quotes() {
                         aria-modal="true"
                         aria-labelledby="modal-title"
                         className="modal" 
-                        style={{ maxWidth: 900, width: '100%', maxHeight: '92vh', overflowX: 'hidden', padding: 0, borderRadius: 18, display: 'flex', flexDirection: 'column', boxShadow: '0 24px 80px rgba(15, 23, 42, 0.18)' }} 
+                        style={{ maxWidth: 940, width: '100%', maxHeight: '92vh', overflowX: 'hidden', padding: 0, borderRadius: 18, display: 'flex', flexDirection: 'column', boxShadow: '0 24px 80px rgba(15, 23, 42, 0.18)' }} 
                         onClick={e => e.stopPropagation()}
                         onKeyDown={handleKeyDownForm}
                     >
@@ -652,19 +810,56 @@ export default function Quotes() {
 
                             {/* Items Section */}
                             <div style={{ marginBottom: 24 }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--primary)' }}>
                                         <Package size={18} />
                                         <span style={{ fontWeight: 600, fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Items & Pricing</span>
                                     </div>
-                                    <button onClick={addItem} className="touch-target" aria-label="Add a new item row" style={{ ...btnStyle('var(--primary)'), padding: '8px 14px', fontSize: 13, minHeight: 'auto' }}><Plus size={14} /> Add Item</button>
+                                    <div style={{ display: 'flex', gap: 8 }}>
+                                        <button onClick={() => setShowQuickEntry(!showQuickEntry)} className="touch-target" aria-label="Toggle Quick Custom Entry" style={{ ...btnStyle('var(--bg-3)'), color: 'var(--text)', border: '1px solid var(--border)', padding: '8px 14px', fontSize: 13, minHeight: 'auto' }}><Zap size={14} /> Quick Entry</button>
+                                        <button onClick={addItem} className="touch-target" aria-label="Add a blank item row" style={{ ...btnStyle('var(--primary)'), padding: '8px 14px', fontSize: 13, minHeight: 'auto' }}><Plus size={14} /> Add Item</button>
+                                    </div>
                                 </div>
+
+                                {/* Quick Custom Entry Box */}
+                                {showQuickEntry && (
+                                    <div style={{ marginBottom: 16, padding: 16, background: 'var(--bg-2)', borderRadius: 12, border: '1px solid var(--accent)' }}>
+                                        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6, color: 'var(--accent)' }}>
+                                            <Zap size={14} /> Quick Custom Item Entry
+                                        </div>
+                                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                                            <input
+                                                placeholder="Custom Item Name *"
+                                                value={quickEntry.name}
+                                                onChange={e => setQuickEntry(q => ({ ...q, name: e.target.value }))}
+                                                style={{ ...inputStyle, flex: 2, minWidth: 180 }}
+                                            />
+                                            <input
+                                                type="number"
+                                                placeholder="Amount (₹) *"
+                                                value={quickEntry.amount}
+                                                onChange={e => setQuickEntry(q => ({ ...q, amount: e.target.value }))}
+                                                style={{ ...inputStyle, flex: 1, minWidth: 120 }}
+                                            />
+                                            <select
+                                                value={quickEntry.book_type}
+                                                onChange={e => setQuickEntry(q => ({ ...q, book_type: e.target.value }))}
+                                                style={{ ...inputStyle, flex: 1, minWidth: 130 }}
+                                            >
+                                                <option value="Offset">Offset Book</option>
+                                                <option value="Laser">Laser Book</option>
+                                                <option value="Other">Other Book</option>
+                                            </select>
+                                            <button onClick={handleAddQuickEntry} style={{ ...btnStyle('var(--accent)'), minWidth: 100 }}>Add Line</button>
+                                        </div>
+                                    </div>
+                                )}
                                 
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                    {/* Product picker (Billing-like) */}
-                                    <div style={{ marginBottom: 8, padding: 12, border: '1px dashed var(--border)', borderRadius: 12 }}>
-                                        <div style={{ marginBottom: 8 }}>
-                                            <label id="qr-lookup-label" htmlFor="qr-lookup-input" style={{ fontSize: 13, fontWeight: 600 }}>Scan / Search Product</label>
+                                    {/* Product picker (Billing-level technology) */}
+                                    <div style={{ marginBottom: 8, padding: 16, border: '1px dashed var(--border)', borderRadius: 14, background: 'var(--surface)' }}>
+                                        <div style={{ marginBottom: 12 }}>
+                                            <label id="qr-lookup-label" htmlFor="qr-lookup-input" style={{ fontSize: 13, fontWeight: 600 }}>Scan Barcode / Search Product Code</label>
                                             <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
                                                 <input
                                                     id="qr-lookup-input"
@@ -673,7 +868,7 @@ export default function Quotes() {
                                                     value={qrInput}
                                                     onChange={e => setQrInput(e.target.value)}
                                                     onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleQrLookup(); } }}
-                                                    placeholder="Scan code or type product code"
+                                                    placeholder="Scan code or type product code (e.g. BC-001)"
                                                     style={{ ...inputStyle }}
                                                 />
                                                 <button onClick={() => setShowScanner(true)} className="touch-target" aria-label="Scan barcode via camera" style={{ ...btnStyle('var(--primary)'), minWidth: '100px' }}><Camera size={14} /> Scan</button>
@@ -681,15 +876,20 @@ export default function Quotes() {
                                             </div>
                                         </div>
 
-                                        <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                                        <div style={{ display: 'flex', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
                                             <div style={{ flex: 1, minWidth: 160 }}>
-                                                <label id="category-select-label" htmlFor="category-select" style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>Category</label>
+                                                <label id="category-select-label" htmlFor="category-select" style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 6 }}>Category</label>
                                                 <select 
                                                     id="category-select"
                                                     aria-labelledby="category-select-label"
                                                     className="input-field" 
                                                     value={selectedCategoryId} 
-                                                    onChange={e => setSelectedCategoryId(e.target.value)} 
+                                                    onChange={e => {
+                                                        setSelectedCategoryId(e.target.value);
+                                                        const subs = hierarchy.find(c => String(c.id) === String(e.target.value))?.subcategories || [];
+                                                        if (subs.length > 0) setSelectedSubcategoryId(subs[0].id);
+                                                        else setSelectedSubcategoryId('');
+                                                    }} 
                                                     style={{ ...inputStyle }}
                                                 >
                                                     <option value="">Select category</option>
@@ -697,7 +897,7 @@ export default function Quotes() {
                                                 </select>
                                             </div>
                                             <div style={{ flex: 1, minWidth: 160 }}>
-                                                <label id="subcategory-select-label" htmlFor="subcategory-select" style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>Sub-category</label>
+                                                <label id="subcategory-select-label" htmlFor="subcategory-select" style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 6 }}>Sub-category</label>
                                                 <select 
                                                     id="subcategory-select"
                                                     aria-labelledby="subcategory-select-label"
@@ -711,7 +911,7 @@ export default function Quotes() {
                                                 </select>
                                             </div>
                                             <div style={{ flex: 1, minWidth: 200 }}>
-                                                <label id="product-select-label" htmlFor="product-select" style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>Product</label>
+                                                <label id="product-select-label" htmlFor="product-select" style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 6 }}>Product</label>
                                                 <select 
                                                     id="product-select"
                                                     aria-labelledby="product-select-label"
@@ -732,17 +932,20 @@ export default function Quotes() {
                                                 </select>
                                             </div>
                                             <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-                                                <button onClick={addSelectedProductItem} className="touch-target" aria-label="Add selected product to quotation" style={{ ...btnStyle('var(--primary)'), minWidth: '130px' }}>Add to Quote</button>
+                                                <button onClick={() => addSelectedProductItem()} className="touch-target" aria-label="Add selected product to quotation" style={{ ...btnStyle('var(--primary)'), minWidth: '130px' }}>Add to Quote</button>
                                             </div>
                                         </div>
                                     </div>
+
                                     {form.items.map((item, i) => (
                                         <QuoteItemRow 
                                             key={i} 
                                             item={item} 
                                             index={i} 
                                             onUpdate={updateItem} 
-                                            onRemove={removeItem} 
+                                            onRemove={removeItem}
+                                            onDuplicate={duplicateItem}
+                                            onViewDetails={setDetailProduct}
                                         />
                                     ))}
                                 </div>
@@ -791,6 +994,119 @@ export default function Quotes() {
                             <React.Suspense fallback={<div style={{ padding: 24, textAlign: 'center' }}><Loader2 className="animate-spin" /> Loading scanner…</div>}>
                                 <ScannerModal isOpen={showScanner} onClose={() => setShowScanner(false)} onScan={(code) => handleQrLookup(code)} />
                             </React.Suspense>
+                        )}
+
+                        {/* Product Detail Modal */}
+                        {detailProduct && (
+                            <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={`Product details: ${detailProduct.name || detailProduct.title}`} onClick={() => setDetailProduct(null)} style={{ zIndex: 1005 }}>
+                                <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 460, width: '100%', borderRadius: 18, padding: 24, background: 'var(--surface)', boxShadow: '0 20px 40px rgba(0,0,0,0.3)' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
+                                        <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>{detailProduct.name || detailProduct.title}</h3>
+                                        <button onClick={() => setDetailProduct(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
+                                    </div>
+                                    <div style={{ padding: '16px 0' }}>
+                                        <div style={{ width: 160, height: 160, margin: '0 auto 16px auto', borderRadius: 12, overflow: 'hidden', background: 'var(--bg-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            {detailProduct.image_url ? (
+                                                <SecureImage src={detailProduct.image_url} alt={detailProduct.name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 6 }} />
+                                            ) : (
+                                                <Package size={48} style={{ opacity: 0.4 }} />
+                                            )}
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px dashed var(--border)', fontSize: 13 }}><span style={{ color: 'var(--text-muted)' }}>Name</span><span style={{ fontWeight: 600 }}>{detailProduct.name || detailProduct.title}</span></div>
+                                        {detailProduct.mrp != null && Number(detailProduct.mrp) > 0 && (
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px dashed var(--border)', fontSize: 13 }}><span style={{ color: 'var(--text-muted)' }}>MRP</span><span>₹{Number(detailProduct.mrp).toLocaleString()}</span></div>
+                                        )}
+                                        {detailProduct.sell_price != null && Number(detailProduct.sell_price) > 0 && (
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px dashed var(--border)', fontSize: 13 }}><span style={{ color: 'var(--text-muted)' }}>Sell Price</span><span>₹{Number(detailProduct.sell_price).toLocaleString()}</span></div>
+                                        )}
+                                        {detailProduct.calculation_type && (
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px dashed var(--border)', fontSize: 13 }}><span style={{ color: 'var(--text-muted)' }}>Pricing Type</span><span style={{ fontWeight: 600, color: 'var(--primary)' }}>{detailProduct.calculation_type}</span></div>
+                                        )}
+                                        {detailProduct.sku && (
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px dashed var(--border)', fontSize: 13 }}><span style={{ color: 'var(--text-muted)' }}>SKU</span><span style={{ fontFamily: 'monospace' }}>{detailProduct.sku}</span></div>
+                                        )}
+                                        {detailProduct.description && (
+                                            <div style={{ padding: '6px 0', fontSize: 13 }}><span style={{ color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Description</span><div>{detailProduct.description}</div></div>
+                                        )}
+                                        {detailProduct.slabs && detailProduct.slabs.length > 0 && (
+                                            <div style={{ marginTop: 12 }}>
+                                                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>Pricing Slabs</span>
+                                                <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)' }}>
+                                                    <thead>
+                                                        <tr style={{ background: 'var(--bg-2)', textAlign: 'left' }}>
+                                                            <th style={{ padding: '6px 8px', borderBottom: '1px solid var(--border)' }}>Min Qty</th>
+                                                            <th style={{ padding: '6px 8px', borderBottom: '1px solid var(--border)' }}>Max Qty</th>
+                                                            <th style={{ padding: '6px 8px', borderBottom: '1px solid var(--border)' }}>Rate</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {detailProduct.slabs.map((s, i) => (
+                                                            <tr key={i}>
+                                                                <td style={{ padding: '6px 8px', borderBottom: '1px solid var(--border)' }}>{s.min_qty}</td>
+                                                                <td style={{ padding: '6px 8px', borderBottom: '1px solid var(--border)' }}>{s.max_qty || '∞'}</td>
+                                                                <td style={{ padding: '6px 8px', borderBottom: '1px solid var(--border)' }}>₹{Number(s.unit_rate || s.rate || 0).toLocaleString()}</td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+                                        <button type="button" onClick={() => { setDetailProduct(null); addSelectedProductItem(detailProduct, true); }} style={{ ...btnStyle('var(--primary)') }}>
+                                            <Plus size={14} /> Add to Quote
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Duplicate Item Prompt Modal */}
+                        {duplicateItemModal && (
+                            <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Item already added options" onClick={() => setDuplicateItemModal(null)} style={{ zIndex: 1006 }}>
+                                <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 420, width: '100%', borderRadius: 18, padding: 24, background: 'var(--surface)', boxShadow: '0 20px 40px rgba(0,0,0,0.3)' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                                        <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(245, 158, 11, 0.12)', color: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                            <AlertCircle size={20} />
+                                        </div>
+                                        <div>
+                                            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Item Already Added</h3>
+                                            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>This item is already in your quotation.</div>
+                                        </div>
+                                    </div>
+                                    <div style={{ padding: '12px 14px', background: 'var(--bg-2)', borderRadius: 10, border: '1px solid var(--border)', marginBottom: 16 }}>
+                                        <div style={{ fontWeight: 600, fontSize: 14 }}>{duplicateItemModal.product?.name}</div>
+                                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Current qty in quote: <strong>{duplicateItemModal.existingLine?.quantity || 1}</strong></div>
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const idx = form.items.findIndex(it => String(it.product_id) === String(duplicateItemModal.product.id));
+                                                if (idx !== -1) {
+                                                    updateItem(idx, 'quantity', (Number(form.items[idx].quantity) || 1) + 1);
+                                                }
+                                                setDuplicateItemModal(null);
+                                                toast.success('Quantity increased by 1');
+                                            }}
+                                            style={{ ...btnStyle('var(--primary)'), justifyContent: 'center' }}
+                                        >
+                                            Increase Quantity (+1)
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                addSelectedProductItem(duplicateItemModal.product, true);
+                                                setDuplicateItemModal(null);
+                                            }}
+                                            style={{ ...btnStyle('var(--bg-3)'), color: 'var(--text)', border: '1px solid var(--border)', justifyContent: 'center' }}
+                                        >
+                                            Add as New Line Item
+                                        </button>
+                                        <button type="button" onClick={() => setDuplicateItemModal(null)} style={{ ...btnStyle('transparent'), color: 'var(--text-muted)', justifyContent: 'center' }}>Cancel</button>
+                                    </div>
+                                </div>
+                            </div>
                         )}
 
                         <div style={{ padding: '20px 24px', background: 'var(--surface-lowest)', borderTop: '1px solid var(--border)', display: 'flex', gap: 12, justifyContent: 'flex-end' }}>

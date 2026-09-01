@@ -32,6 +32,27 @@ import VendorModal from '../components/VendorModal';
 import CatalogueModal from '../components/CatalogueModal';
 import PageContainer from '../components/ui/PageContainer';
 
+const getProductDisplayPrice = (prod) => {
+    if (!prod) return null;
+    const sellPrice = Number(prod.sell_price);
+    if (prod.sell_price != null && !isNaN(sellPrice) && sellPrice > 0) {
+        return sellPrice;
+    }
+    if (prod.slabs && prod.slabs.length > 0) {
+        const validSlab = prod.slabs.find(s => (Number(s.unit_rate || 0) > 0) || (Number(s.base_value || 0) > 0));
+        if (validSlab) {
+            return Number(validSlab.unit_rate || 0) > 0 ? Number(validSlab.unit_rate) : Number(validSlab.base_value);
+        }
+        if (prod.slabs[0]) {
+            const firstUnit = Number(prod.slabs[0].unit_rate || 0);
+            const firstBase = Number(prod.slabs[0].base_value || 0);
+            if (firstUnit > 0) return firstUnit;
+            if (firstBase > 0) return firstBase;
+        }
+    }
+    return !isNaN(sellPrice) && sellPrice > 0 ? sellPrice : null;
+};
+
 const SortableItem = React.memo(({ id, children, className, disabled, _index, ...props }) => {
     const {
         attributes,
@@ -524,8 +545,8 @@ const ProductLibrary = () => {
             let av, bv;
             if (field === 'name') { av = (a.name || '').toLowerCase(); bv = (b.name || '').toLowerCase(); }
             else if (field === 'price') {
-                const aPrice = a.sell_price != null ? a.sell_price : (a.slabs && a.slabs.length > 0 ? a.slabs[0].unit_rate : 0);
-                const bPrice = b.sell_price != null ? b.sell_price : (b.slabs && b.slabs.length > 0 ? b.slabs[0].unit_rate : 0);
+                const aPrice = getProductDisplayPrice(a);
+                const bPrice = getProductDisplayPrice(b);
                 av = Number(aPrice || 0);
                 bv = Number(bPrice || 0);
             }
@@ -2277,13 +2298,11 @@ onClick={() => { setProductSearch(''); setFilterVendor('all'); setFilterCalcType
                                         <div className="product-card__name">{prod.name}</div>
                                         <div className="product-card__meta">
                                             {(() => {
-                                                const displayPrice = prod.sell_price != null 
-                                                    ? prod.sell_price 
-                                                    : (prod.slabs && prod.slabs.length > 0 ? prod.slabs[0].unit_rate : null);
-                                                return displayPrice != null 
-                                                    ? <span className="badge badge--sm badge--price">₹{Number(displayPrice).toLocaleString()}</span> 
-                                                    : <span className="badge badge--sm badge--price">—</span>;
-                                            })()}
+                                                 const displayPrice = getProductDisplayPrice(prod);
+                                                 return displayPrice != null && Number(displayPrice) > 0 
+                                                     ? <span className="badge badge--sm badge--price">₹{Number(displayPrice).toLocaleString()}</span> 
+                                                     : <span className="badge badge--sm badge--price">—</span>;
+                                             })()}
                                         </div>
                                         {prod.description && <p className="text-xs muted mb-8 line-clamp-2">{prod.description}</p>}
                                         {prod.links && prod.links.length > 0 && (

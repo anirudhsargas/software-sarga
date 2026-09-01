@@ -756,9 +756,25 @@ const Inventory = () => {
         return false;
     };
 
+    const getInventoryPool = async () => {
+        if (allPrintItems && allPrintItems.length > 0) {
+            return allPrintItems;
+        }
+        try {
+            const res = await api.get('/inventory', { params: { no_pagination: '1' } });
+            const data = res.data;
+            const fetched = Array.isArray(data) ? data : (data?.data || []);
+            setAllPrintItems(fetched);
+            return fetched;
+        } catch {
+            return items;
+        }
+    };
+
     const applyStockQuantitiesForSelected = () => {
         const next = {};
-        items
+        const pool = allPrintItems.length ? allPrintItems : items;
+        pool
             .filter(i => printItemIds.includes(i.id))
             .forEach((item) => {
                 next[item.id] = getStockBasedPrintQty(item);
@@ -769,10 +785,12 @@ const Inventory = () => {
     const handlePrintLabels = async () => {
         if (selectedIds.length === 0) return;
 
+        const pool = await getInventoryPool();
+
         // Filter out paper items from printable selection (explicit paper categories)
         const printableIds = selectedIds.filter(id => {
-            const item = items.find(it => it.id === id);
-            return item && !isPaperCategory(item.category);
+            const item = pool.find(it => it.id === id) || items.find(it => it.id === id);
+            return item ? !isPaperCategory(item.category) : true;
         });
 
         if (printableIds.length === 0) {
@@ -1371,10 +1389,14 @@ const Inventory = () => {
                                         <input
                                             type="checkbox"
                                             onChange={(e) => {
-                                                if (e.target.checked) setSelectedIds(items.map(i => i.id));
-                                                else setSelectedIds([]);
+                                                if (e.target.checked) {
+                                                    setSelectedIds(prev => Array.from(new Set([...prev, ...items.map(i => i.id)])));
+                                                } else {
+                                                    const pageItemIds = new Set(items.map(i => i.id));
+                                                    setSelectedIds(prev => prev.filter(id => !pageItemIds.has(id)));
+                                                }
                                             }}
-                                            checked={items.length > 0 && selectedIds.length === items.length}
+                                            checked={items.length > 0 && items.every(i => selectedIds.includes(i.id))}
                                         />
                                     </th>
                                     <th>Item</th>
@@ -3052,7 +3074,7 @@ const Inventory = () => {
 
                                 {/* Item rows */}
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
-                                    {items.filter(i => printItemIds.includes(i.id)).map(item => (
+                                    {(allPrintItems.length ? allPrintItems : items).filter(i => printItemIds.includes(i.id)).map(item => (
                                         <div key={item.id}
                                             style={{
                                                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -3364,6 +3386,7 @@ const Inventory = () => {
                                 onClick={() => {
                                     if (selectPrintSelectedIds.length === 0) return;
                                     setSelectedIds(selectPrintSelectedIds);
+                                    setPrintItemIds(selectPrintSelectedIds);
                                     setPrintQuantities(Object.fromEntries(selectPrintSelectedIds.map(id => [id, 1])));
                                     setShowSelectPrintModal(false);
                                     setShowPrintModal(true);

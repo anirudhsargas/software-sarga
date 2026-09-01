@@ -22,9 +22,11 @@ router.get('/', authenticateToken, async (req, res) => {
     }
 
     const [rows] = await pool.query(
-      `SELECT * FROM bill_shortcuts
-       WHERE branch_id = ? AND is_active = 1
-       ORDER BY sort_order ASC, name ASC`,
+      `SELECT bs.*, c.name AS customer_name, c.mobile AS customer_mobile
+       FROM bill_shortcuts bs
+       LEFT JOIN sarga_customers c ON bs.customer_id = c.id
+       WHERE bs.branch_id = ? AND bs.is_active = 1
+       ORDER BY bs.sort_order ASC, bs.name ASC`,
       [branchId]
     );
     res.json(rows);
@@ -51,12 +53,13 @@ router.post('/', authenticateToken, async (req, res) => {
     for (const sc of shortcuts) {
       const [result] = await pool.query(
         `INSERT INTO bill_shortcuts
-         (branch_id, name, product_id, price, unit, customer_type, payment_mode, icon_name, color, sort_order, is_active, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+         (branch_id, name, product_id, customer_id, price, unit, customer_type, payment_mode, icon_name, color, sort_order, is_active, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
         [
           branch_id,
           sc.name,
           sc.product_id || null,
+          sc.customer_id || null,
           sc.price || 0,
           sc.unit || 'page',
           sc.customer_type || 'walk_in',
@@ -179,12 +182,13 @@ router.put('/suggestions/:id/accept', authenticateToken, async (req, res) => {
 
     await pool.query(
       `INSERT INTO bill_shortcuts
-       (branch_id, name, product_id, price, unit, customer_type, payment_mode, icon_name, color, sort_order, is_active, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+       (branch_id, name, product_id, customer_id, price, unit, customer_type, payment_mode, icon_name, color, sort_order, is_active, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
       [
         suggestion.target_branch_id,
         data.name,
         data.product_id || null,
+        data.customer_id || null,
         data.price || 0,
         data.unit || 'page',
         data.customer_type || 'walk_in',
@@ -244,12 +248,13 @@ router.put('/:id', authenticateToken, async (req, res) => {
       return res.status(403).json({ message: 'Access denied for this shortcut' });
     }
 
-    const { name, product_id, price, unit, customer_type, payment_mode, icon_name, color, sort_order } = req.body;
+    const { name, product_id, customer_id, price, unit, customer_type, payment_mode, icon_name, color, sort_order } = req.body;
 
     await pool.query(
       `UPDATE bill_shortcuts SET
         name = COALESCE(?, name),
         product_id = COALESCE(?, product_id),
+        customer_id = ?,
         price = COALESCE(?, price),
         unit = COALESCE(?, unit),
         customer_type = COALESCE(?, customer_type),
@@ -258,7 +263,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
         color = COALESCE(?, color),
         sort_order = COALESCE(?, sort_order)
        WHERE id = ?`,
-      [name, product_id, price, unit, customer_type, payment_mode, icon_name, color, sort_order, id]
+      [name, product_id, customer_id !== undefined ? customer_id : shortcut.customer_id, price, unit, customer_type, payment_mode, icon_name, color, sort_order, id]
     );
 
     res.json({ message: 'Shortcut updated' });

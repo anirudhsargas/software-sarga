@@ -91,9 +91,22 @@ router.post('/quotes', authenticateToken, async (req, res) => {
         for (const it of items) {
             const qty = it.quantity || 1;
             const price = it.unit_price || 0;
+            const totalItem = it.total != null ? it.total : qty * price;
             await conn.query(
-                `INSERT INTO sarga_quote_items (quote_id, item_name, description, quantity, unit_price, total) VALUES (?,?,?,?,?,?)`,
-                [quoteId, it.item_name, it.description || '', qty, price, qty * price]
+                `INSERT INTO sarga_quote_items (quote_id, item_name, description, quantity, unit_price, total, product_id, book_type, custom_paper_rate, is_double_side, applied_extras) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+                [
+                    quoteId,
+                    it.item_name,
+                    it.description || '',
+                    qty,
+                    price,
+                    totalItem,
+                    it.product_id || null,
+                    it.book_type || 'Offset',
+                    it.custom_paper_rate || it.customPaperRate || 0,
+                    it.is_double_side ? 1 : 0,
+                    it.applied_extras ? JSON.stringify(it.applied_extras) : null
+                ]
             );
         }
         await conn.commit();
@@ -141,9 +154,22 @@ router.put('/quotes/:id', authenticateToken, async (req, res) => {
         for (const it of items) {
             const qty = it.quantity || 1;
             const price = it.unit_price || 0;
+            const totalItem = it.total != null ? it.total : qty * price;
             await conn.query(
-                `INSERT INTO sarga_quote_items (quote_id, item_name, description, quantity, unit_price, total) VALUES (?,?,?,?,?,?)`,
-                [req.params.id, it.item_name, it.description || '', qty, price, qty * price]
+                `INSERT INTO sarga_quote_items (quote_id, item_name, description, quantity, unit_price, total, product_id, book_type, custom_paper_rate, is_double_side, applied_extras) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+                [
+                    req.params.id,
+                    it.item_name,
+                    it.description || '',
+                    qty,
+                    price,
+                    totalItem,
+                    it.product_id || null,
+                    it.book_type || 'Offset',
+                    it.custom_paper_rate || it.customPaperRate || 0,
+                    it.is_double_side ? 1 : 0,
+                    it.applied_extras ? JSON.stringify(it.applied_extras) : null
+                ]
             );
         }
         await conn.commit();
@@ -182,6 +208,20 @@ router.post('/quotes/:id/convert', authenticateToken, async (req, res) => {
         if (quote.status === 'converted') { await conn.rollback(); return res.status(400).json({ message: 'Quote already converted' }); }
         const [_items] = await conn.query('SELECT * FROM sarga_quote_items WHERE quote_id = ?', [req.params.id]);
 
+        const orderLines = (_items || []).map(it => ({
+            product_id: it.product_id || null,
+            product_name: it.item_name,
+            item_name: it.item_name,
+            description: it.description || '',
+            quantity: Number(it.quantity) || 1,
+            unit_price: Number(it.unit_price) || 0,
+            total_amount: Number(it.total) || 0,
+            book_type: it.book_type || 'Offset',
+            customPaperRate: Number(it.custom_paper_rate) || 0,
+            is_double_side: !!(it.is_double_side),
+            applied_extras: typeof it.applied_extras === 'string' ? (JSON.parse(it.applied_extras || '[]')) : (it.applied_extras || [])
+        }));
+
         // Find or create customer
         let customerId = quote.customer_id;
         if (!customerId && quote.customer_mobile) {
@@ -194,12 +234,12 @@ router.post('/quotes/:id/convert', authenticateToken, async (req, res) => {
             `INSERT INTO sarga_customer_payments
              (customer_id, customer_name, customer_mobile, bill_amount, total_amount, net_amount,
               sgst_amount, cgst_amount, discount_percent, discount_amount, payment_method, branch_id,
-              description, verification_status, payment_date, converted_from_quote)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+              description, verification_status, payment_date, converted_from_quote, order_lines)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
             [customerId, quote.customer_name, quote.customer_mobile, quote.subtotal, quote.total, quote.total,
                 quote.tax_amount / 2, quote.tax_amount / 2, quote.discount_percent, quote.discount_amount,
                 'pending', quote.branch_id, `Converted from ${quote.quote_number}`, 'pending',
-                new Date().toISOString().slice(0, 10), req.params.id]
+                new Date().toISOString().slice(0, 10), req.params.id, JSON.stringify(orderLines)]
         );
 
         // Mark quote as converted

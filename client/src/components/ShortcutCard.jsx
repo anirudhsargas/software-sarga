@@ -140,7 +140,7 @@ const ShortcutCard = React.memo(({ shortcut, onTap, onEdit, onDelete, editable }
           opacity: 0.8,
         }}
       >
-        {shortcut.customer_type?.replace('_', ' ')} &middot; {shortcut.payment_mode}
+        {shortcut.customer_name ? `👤 ${shortcut.customer_name} · ` : ''}{shortcut.customer_type?.replace('_', ' ')} &middot; {shortcut.payment_mode}
       </div>
 
       <div style={{ fontSize: 14, fontWeight: 600, color: colors.fg, marginTop: 'auto' }}>

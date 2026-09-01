@@ -551,9 +551,26 @@ const Billing = () => {
   useEffect(() => {
     const sc = location.state?.fromShortcut && location.state?.shortcut;
     if (!sc) return;
-    // Prefill customer type
+    // Prefill customer & customer type
     const typeMap = { walk_in: 'Walk-in', regular: 'Retail', credit: 'Retail' };
-    setForm(prev => ({ ...prev, type: typeMap[sc.customer_type] || 'Walk-in' }));
+    const custType = typeMap[sc.customer_type] || 'Walk-in';
+
+    if (sc.customer_id || sc.customer_name || sc.customer_mobile) {
+      setExistingCustomer({
+        id: sc.customer_id || null,
+        name: sc.customer_name || '',
+        mobile: sc.customer_mobile || '',
+        type: custType,
+      });
+      setForm(prev => ({
+        ...prev,
+        type: custType,
+        name: sc.customer_name || prev.name,
+        mobile: sc.customer_mobile || prev.mobile,
+      }));
+    } else {
+      setForm(prev => ({ ...prev, type: custType }));
+    }
     // Prefill order line
     const line = {
       id: `shortcut-${Date.now()}`,

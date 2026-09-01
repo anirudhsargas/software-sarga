@@ -4,6 +4,9 @@ import toast from 'react-hot-toast';
 import { useBranches } from '../contexts/BranchContext';
 import auth from '../services/auth';
 
+import localDb from '../services/localDb';
+import api from '../services/api';
+
 const COLORS = [
   { key: 'purple', bg: '#EEEDFE', fg: '#3C3489' },
   { key: 'teal', bg: '#E1F5EE', fg: '#0F6E56' },
@@ -49,6 +52,7 @@ const defaultForm = () => ({
   icon_name: 'bolt',
   sort_order: 0,
   product_id: null,
+  customer_id: null,
 });
 
 const AddEditShortcutModal = ({ open, onClose, onSave, editingShortcut, targetBranchId, onSuggest }) => {
@@ -59,6 +63,24 @@ const AddEditShortcutModal = ({ open, onClose, onSave, editingShortcut, targetBr
   const [suggestBranchId, setSuggestBranchId] = useState('');
   const [showSuggest, setShowSuggest] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [customers, setCustomers] = useState([]);
+
+  useEffect(() => {
+    if (open) {
+      localDb.getCustomers()
+        .then(custs => {
+          if (Array.isArray(custs) && custs.length > 0) {
+            setCustomers(custs);
+          } else {
+            api.get('/customers?limit=1000').then(res => {
+              const d = res.data?.data || res.data || [];
+              setCustomers(Array.isArray(d) ? d : []);
+            }).catch(() => setCustomers([]));
+          }
+        })
+        .catch(() => setCustomers([]));
+    }
+  }, [open]);
 
   useEffect(() => {
     if (editingShortcut) {
@@ -72,6 +94,7 @@ const AddEditShortcutModal = ({ open, onClose, onSave, editingShortcut, targetBr
         icon_name: editingShortcut.icon_name || 'bolt',
         sort_order: editingShortcut.sort_order || 0,
         product_id: editingShortcut.product_id || null,
+        customer_id: editingShortcut.customer_id || null,
       });
     } else {
       setForm(defaultForm());
@@ -184,6 +207,31 @@ const AddEditShortcutModal = ({ open, onClose, onSave, editingShortcut, targetBr
                 placeholder="page"
               />
             </div>
+          </div>
+
+          {/* Customer Selection */}
+          <div className="shortcut-field">
+            <label htmlFor="shortcut-customer">Associated Customer (Optional)</label>
+            <select
+              id="shortcut-customer"
+              value={form.customer_id || ''}
+              onChange={(e) => {
+                const val = e.target.value ? Number(e.target.value) : null;
+                const cust = customers.find(c => Number(c.id) === val);
+                setForm(prev => ({
+                  ...prev,
+                  customer_id: val,
+                  customer_type: cust?.type === 'credit' ? 'credit' : cust?.type === 'regular' ? 'regular' : prev.customer_type
+                }));
+              }}
+            >
+              <option value="">No Customer Associated (Generic)</option>
+              {customers.map(c => (
+                <option key={c.id} value={c.id}>
+                  {c.name} {c.mobile ? `(${c.mobile})` : ''} {c.company_name ? `- ${c.company_name}` : ''}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Customer Type + Payment Mode row */}

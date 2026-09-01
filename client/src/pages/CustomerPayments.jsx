@@ -1253,7 +1253,7 @@ const CustomerPayments = () => {
                 </div>
               </div>
               <div>
-                <label className="label">Remaining Due After Payment</label>
+                <label className="label">After Payment</label>
                 <div className={`cp-display-field cp-display-field--${balanceStatus === 'Paid' ? 'success' : balanceStatus === 'Partial' ? 'warning' : 'error'}`}>
                   <span>₹{Number(formData.balance_amount).toFixed(2)}</span>
                   <span className="cp-balance-badge">{balanceStatus === 'Paid' ? 'Paid in Full' : balanceStatus}</span>

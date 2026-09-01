@@ -21,6 +21,21 @@ const salaryPaymentLimiter = rateLimit({
     message: { message: 'Too many salary payment attempts. Please wait a few minutes before trying again.' }
 });
 
+function getMonthWorkingDays(yearMonth) {
+    if (!yearMonth || typeof yearMonth !== 'string' || !yearMonth.includes('-')) {
+        return { daysInMonth: 30, sundays: 4, totalWorkingDays: 26 };
+    }
+    const [y, m] = yearMonth.split('-').map(Number);
+    if (!y || !m) return { daysInMonth: 30, sundays: 4, totalWorkingDays: 26 };
+    const daysInMonth = new Date(y, m, 0).getDate();
+    let sundays = 0;
+    for (let d = 1; d <= daysInMonth; d++) {
+        if (new Date(y, m - 1, d).getDay() === 0) sundays++;
+    }
+    const totalWorkingDays = Math.max(1, daysInMonth - sundays);
+    return { daysInMonth, sundays, totalWorkingDays };
+}
+
 async function calculateSalaryForMonth(staffId, staff, yearMonth) {
     const [attendance] = await pool.query(`
         SELECT status FROM sarga_staff_attendance
@@ -34,30 +49,66 @@ async function calculateSalaryForMonth(staffId, staff, yearMonth) {
     `, [staffId, yearMonth]);
 
     const leaves = leaveBalance[0] || { paid_leaves_used: 0, unpaid_leaves_used: 0 };
+    const presentDays = attendance.filter(a => a.status === 'Present').length;
+    const halfDays = attendance.filter(a => a.status === 'Half Day').length;
+    const holidays = attendance.filter(a => a.status === 'Holiday').length;
 
-    if (staff.salary_type === 'Monthly') {
-        const perDayRate = Number(staff.base_salary || 0) / 26;
-        const unpaidLeave = Number(leaves.unpaid_leaves_used || 0);
-        const halfDays = attendance.filter(a => a.status === 'Half Day').length;
-        const daysWorked = Math.max(0, 26 - unpaidLeave - (halfDays * 0.5));
+    const isMonthly = staff.salary_type === 'Monthly';
+    // Monthly salary staff gets 1 paid leave per month included automatically
+    const effectivePaidLeaves = isMonthly
+        ? Math.max(1, Number(leaves.paid_leaves_used || 0))
+        : Number(leaves.paid_leaves_used || 0);
+    const unpaidLeaves = Number(leaves.unpaid_leaves_used || 0);
+
+    const { daysInMonth, sundays, totalWorkingDays } = getMonthWorkingDays(yearMonth);
+
+    if (isMonthly) {
+        const perDayRate = Number(staff.base_salary || 0) / totalWorkingDays;
+        let daysWorked = 0;
+
+        if (attendance.length > 0) {
+            if (presentDays > 0 || halfDays > 0 || holidays > 0) {
+                daysWorked = Math.min(totalWorkingDays, Math.max(0, presentDays + (halfDays * 0.5) + holidays + effectivePaidLeaves));
+            } else {
+                daysWorked = effectivePaidLeaves;
+            }
+        } else if (unpaidLeaves > 0) {
+            daysWorked = Math.max(0, totalWorkingDays - unpaidLeaves);
+        } else {
+            daysWorked = 0;
+        }
+
+        const calculatedSalary = Number((perDayRate * daysWorked).toFixed(2));
         return {
-            calculatedSalary: Number((perDayRate * daysWorked).toFixed(2)),
-            presentDays: attendance.filter(a => a.status === 'Present').length,
+            calculatedSalary,
+            presentDays,
             halfDays,
-            unpaidLeaves: unpaidLeave,
-            paidLeaves: Number(leaves.paid_leaves_used || 0),
+            holidays,
+            unpaidLeaves,
+            paidLeaves: effectivePaidLeaves,
+            daysWorked,
+            daysInMonth,
+            sundays,
+            totalWorkingDays,
             totalEntries: attendance.length
         };
     }
 
-    const presentDays = attendance.filter(a => a.status === 'Present').length;
-    const halfDays = attendance.filter(a => a.status === 'Half Day').length;
+    // Daily staff calculation
+    const daysWorked = presentDays + (halfDays * 0.5);
+    const calculatedSalary = Number((daysWorked * Number(staff.daily_rate || 0)).toFixed(2));
+
     return {
-        calculatedSalary: Number(((presentDays + halfDays * 0.5) * Number(staff.daily_rate || 0)).toFixed(2)),
+        calculatedSalary,
         presentDays,
         halfDays,
-        unpaidLeaves: Number(leaves.unpaid_leaves_used || 0),
+        holidays,
+        unpaidLeaves,
         paidLeaves: Number(leaves.paid_leaves_used || 0),
+        daysWorked,
+        daysInMonth,
+        sundays,
+        totalWorkingDays,
         totalEntries: attendance.length
     };
 }
@@ -207,7 +258,7 @@ router.get('/:id/salary-info', authenticateToken, routeCache(STAFF_TTL, (req) =>
             staff: staff[0],
             salaryRecords,
             currentMonthSalary: currentSalary.length > 0 ? currentSalary[0] : null,
-            totalWorkDays: 26, // Standard working days
+            totalWorkDays: getMonthWorkingDays(getTodayDate().slice(0, 7)).totalWorkingDays,
             recentPayments: payments
         });
     } catch (err) {
@@ -854,45 +905,32 @@ router.get('/:id/salary-calculation/:year_month', authenticateToken, async (req,
 
         const leaves = leaveBalance[0] || { paid_leaves_used: 0, unpaid_leaves_used: 0 };
 
-        // Calculate salary
-        let calculatedSalary = 0;
+        const calc = await calculateSalaryForMonth(id, staff, year_month);
+        const calculatedSalary = calc.calculatedSalary;
         let details = {};
 
         if (staff.salary_type === 'Monthly') {
-            // Monthly staff calculation
-            // Assuming 26 working days per month (excluding Sundays and holidays)
-            const _totalHolidays = attendance.filter(a => a.status === 'Holiday').length;
-            const monthDays = 30; // Average
-            const _workingDaysInMonth = monthDays - Math.ceil(monthDays / 7); // Rough calculation of Sundays
-
-            const paid_leave = leaves.paid_leaves_used || 0;
-            const unpaid_leave = leaves.unpaid_leaves_used || 0;
-
-            const perDayRate = staff.base_salary / 26;
-            const daysWorked = Math.max(0, 26 - unpaid_leave);
-
-            calculatedSalary = perDayRate * daysWorked;
-
             details = {
                 baseMonthly: staff.base_salary,
-                perDayRate: parseFloat(perDayRate.toFixed(2)),
+                perDayRate: parseFloat((Number(staff.base_salary || 0) / 26).toFixed(2)),
                 totalWorkingDays: 26,
-                paidLeaves: paid_leave,
-                unpaidLeaves: unpaid_leave,
-                daysDeducted: unpaid_leave,
-                daysWorked: daysWorked,
-                calculatedSalary: parseFloat(calculatedSalary.toFixed(2))
+                presentDays: calc.presentDays,
+                halfDays: calc.halfDays,
+                holidays: calc.holidays,
+                paidLeaves: calc.paidLeaves,
+                unpaidLeaves: calc.unpaidLeaves,
+                daysDeducted: Math.max(0, 26 - calc.daysWorked),
+                daysWorked: calc.daysWorked,
+                calculatedSalary: calc.calculatedSalary
             };
         } else {
-            // Daily staff calculation
-            const presentDays = attendance.filter(a => a.status === 'Present').length;
-            calculatedSalary = presentDays * staff.daily_rate;
-
             details = {
                 dailyRate: staff.daily_rate,
-                presentDays: presentDays,
-                totalDays: attendance.length,
-                calculatedSalary: parseFloat(calculatedSalary.toFixed(2))
+                presentDays: calc.presentDays,
+                halfDays: calc.halfDays,
+                daysWorked: calc.daysWorked,
+                totalDays: calc.totalEntries,
+                calculatedSalary: calc.calculatedSalary
             };
         }
 

@@ -42,7 +42,7 @@ const AttendanceSalary = () => {
     try {
       const [attData, calcData] = await Promise.all([
         localDb.getStaffAttendance(staffId, selectedMonth),
-        localDb.getStaffSalaryCalculation(staffId, selectedMonth)
+        api.get(`/staff/${staffId}/salary-calculation/${selectedMonth}`).then(r => r.data).catch(() => null)
       ]);
 
       setAttendance(attData || []);
