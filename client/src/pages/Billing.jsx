@@ -416,7 +416,7 @@ const Billing = () => {
   }, []);
 
   // Derived
-  const isWalkIn = form.type === 'Walk-in' || !form.name.trim();
+  const isWalkIn = form.type === 'Walk-in';
   const needsGst = !isWalkIn;
   const _isInternalBill = location.state?.internal || form.type === 'Internal' || form.type === 'Stock Transfer';
   const mobileValid = form.mobile.length === 10;
@@ -671,8 +671,7 @@ const Billing = () => {
 
   const canProceed = useMemo(() => {
     if (!form.type) return false;
-    if (isWalkIn) return orderLines.length > 0;
-    if (form.type === 'Retail') return orderLines.length > 0;
+    if (isWalkIn || form.type === 'Retail' || form.type === 'Offset') return orderLines.length > 0;
     return form.mobile.length === 10 && form.name.trim().length > 0 && orderLines.length > 0;
   }, [form.mobile, form.name, form.gst, form.type, isWalkIn, orderLines.length]);
 
@@ -680,14 +679,14 @@ const Billing = () => {
 
   const stepValid = useMemo(() => {
     const customer = !!form.type && (
-      form.type === 'Walk-in' || form.type === 'Retail' ||
+      form.type === 'Walk-in' || form.type === 'Retail' || form.type === 'Offset' ||
       (form.mobile.length === 10 && form.name.trim().length > 0)
     );
     const products = orderLines.length > 0;
     const paymentValid = isWalkIn ? advancePaid > 0 : true;
     const summary = true;
     return [customer, products, paymentValid, summary];
-  }, [form.type, form.mobile, form.name, orderLines.length, advancePaid]);
+  }, [form.type, form.mobile, form.name, orderLines.length, advancePaid, isWalkIn]);
 
   const canVisitStep = useCallback((idx) => {
     const currentIdx = getStepIndex(activeTab);
@@ -1177,7 +1176,7 @@ const Billing = () => {
       const payMethodLabel = isCashUpiCombo ? 'Both' : (payment.selectedMethods[0] || 'Cash');
       const billPayload = {
         customer_id: customerId || null,
-        customer_name: form.name.trim() || 'Walk-in Customer',
+        customer_name: form.name.trim() || (form.type === 'Offset' ? 'Offset Customer' : (form.type === 'Retail' ? 'Retail Customer' : 'Walk-in Customer')),
         customer_mobile: form.mobile || null,
         customer_email: (form.email || existingCustomer?.email || '').trim(),
         customer_type: isWalkIn ? 'Walk-in' : (form.type || 'Retail'),
