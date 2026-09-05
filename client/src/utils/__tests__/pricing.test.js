@@ -200,4 +200,23 @@ describe('calculateProductPrice', () => {
 
     expect(result.total_amount).toBe(0);
   });
+
+  it('calculates flat batch slab with paper rate correctly (e.g. 750 printing + 500 paper = 1250)', () => {
+    const result = calculateProductPrice({
+      product: {
+        calculation_type: 'Slab',
+        has_paper_rate: true,
+        has_double_side_rate: true,
+        slabs: [
+          { min_qty: 1000, base_value: 750, unit_rate: 0 },
+        ],
+      },
+      quantity: 1000,
+      currentPaperRate: 0.5,
+      isOffset: true,
+    });
+
+    expect(result.unit_price).toBe(1.25);
+    expect(result.total_amount).toBe(1250);
+  });
 });

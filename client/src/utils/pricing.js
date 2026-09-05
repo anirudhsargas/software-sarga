@@ -36,8 +36,6 @@ export const calculateProductPrice = ({
     }
     const unitRate = Number(s.unit_rate || 0);
     if (unitRate > 0) return unitRate;
-    const baseVal = Number(s.base_value || 0);
-    if (baseVal > 0) return baseVal;
     const sellPrice = Number(s.sell_price || 0);
     if (sellPrice > 0) return sellPrice;
     const mrp = Number(s.mrp || 0);
@@ -56,14 +54,11 @@ export const calculateProductPrice = ({
       const sortedSlabs = [...slabs].sort((a, b) => Number(a.min_qty) - Number(b.min_qty));
       slabForDS = sortedSlabs[0];
 
-      // Check if slabs store per-unit rates (like Photocopy/Xerox products) or flat batch values (like Offset printing jobs)
+      // Slabs are per-unit only if an explicit per-unit rate (unit_rate) is provided
       const firstSlab = sortedSlabs[0];
       const isPerUnitSlab =
-        product.has_double_side_rate ||
-        isDoubleSide ||
-        Number(firstSlab.unit_rate) > 0 ||
-        Number(firstSlab.double_side_unit_rate) > 0 ||
-        (Number(firstSlab.min_qty) <= 1 && Number(firstSlab.base_value) > 0 && Number(firstSlab.base_value) < 50);
+        Number(firstSlab?.unit_rate) > 0 ||
+        (Number(firstSlab?.min_qty) <= 1 && Number(firstSlab?.base_value) > 0 && Number(firstSlab?.base_value) < 15 && Number(firstSlab?.unit_rate || 0) > 0);
 
       if (isPerUnitSlab) {
         // Find highest slab where qty >= min_qty
@@ -145,25 +140,21 @@ export const calculateProductPrice = ({
     }
   }
 
-  // Paper rate add-on (Slab type only)
+  // Paper rate add-on (Slab type)
   const effectivePaperRate =
     paperRateOverride !== undefined
       ? Number(paperRateOverride)
       : currentPaperRate || 0;
 
-  if (product.calculation_type === 'Slab' && product.has_paper_rate) {
+  if (product.calculation_type === 'Slab' && (product.has_paper_rate || effectivePaperRate > 0)) {
     total += effectivePaperRate * qty;
     unit_price = qty > 0 ? total / qty : 0;
   }
 
-  // Double side add-on for flat batch slabs (where double_side_unit_rate is a flat surcharge add-on)
-  if (product.calculation_type === 'Slab' && product.has_double_side_rate && isDoubleSide) {
+  // Double side add-on for flat batch slabs
+  if (product.calculation_type === 'Slab' && isDoubleSide) {
     const firstSlab = (product.slabs || [])[0];
-    const isPerUnitSlab =
-      Number(firstSlab?.unit_rate) > 0 ||
-      Number(firstSlab?.double_side_unit_rate) > 0 ||
-      (Number(firstSlab?.min_qty) <= 1 && Number(firstSlab?.base_value) > 0 && Number(firstSlab?.base_value) < 15);
-
+    const isPerUnitSlab = Number(firstSlab?.unit_rate) > 0;
     if (!isPerUnitSlab) {
       const doubleSideRate = Number(slabForDS?.double_side_unit_rate) || 0;
       if (doubleSideRate > 0) {
@@ -171,11 +162,18 @@ export const calculateProductPrice = ({
         unit_price = qty > 0 ? total / qty : 0;
       }
     }
-  } else if (product.calculation_type === 'Slab' && isOffset) {
-    const offsetRate = Number(slabForDS?.offset_unit_rate) || 0;
-    if (offsetRate > 0) {
-      total = offsetRate * qty;
-      unit_price = offsetRate;
+  }
+
+  // Offset unit rate add-on for flat batch slabs
+  if (product.calculation_type === 'Slab' && isOffset) {
+    const firstSlab = (product.slabs || [])[0];
+    const isPerUnitSlab = Number(firstSlab?.unit_rate) > 0;
+    if (!isPerUnitSlab) {
+      const offsetRate = Number(slabForDS?.offset_unit_rate) || 0;
+      if (offsetRate > 0) {
+        total += offsetRate * qty;
+        unit_price = qty > 0 ? total / qty : 0;
+      }
     }
   }
 
