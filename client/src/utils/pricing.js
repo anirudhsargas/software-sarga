@@ -102,6 +102,20 @@ export const calculateProductPrice = ({
       }
     }
   } else if (product.calculation_type === 'Range') {
+    // Range-specific rate resolver: only use unit_rate (and double_side/offset variants).
+    // base_value is a flat batch total for Slab type and must NOT be used as a per-unit rate here.
+    const resolveRangeRate = (slab) => {
+      const s = slab || product;
+      if (!s) return 0;
+      if (isDoubleSide && s.double_side_unit_rate !== undefined && s.double_side_unit_rate !== null && Number(s.double_side_unit_rate) > 0) {
+        return Number(s.double_side_unit_rate) || 0;
+      }
+      if (isOffset && s.offset_unit_rate !== undefined && s.offset_unit_rate !== null && Number(s.offset_unit_rate) > 0) {
+        return Number(s.offset_unit_rate) || 0;
+      }
+      return Number(s.unit_rate || 0);
+    };
+
     const slabs = product.slabs || [];
     if (slabs.length > 0) {
       const sortedSlabs = [...slabs].sort((a, b) => Number(a.min_qty) - Number(b.min_qty));
@@ -113,7 +127,7 @@ export const calculateProductPrice = ({
         return qty >= Number(s.min_qty) && qty <= maxQty;
       });
       if (matched) {
-        const rate = resolveUnitRate(matched);
+        const rate = resolveRangeRate(matched);
         unit_price = rate;
         total = rate * qty;
       } else {
@@ -123,7 +137,7 @@ export const calculateProductPrice = ({
             ? Infinity
             : Number(lastSlab.max_qty);
         if (qty > maxQty) {
-          const rate = resolveUnitRate(lastSlab);
+          const rate = resolveRangeRate(lastSlab);
           unit_price = rate;
           total = rate * qty;
         }

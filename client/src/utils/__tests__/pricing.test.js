@@ -67,6 +67,21 @@ describe('calculateProductPrice', () => {
     expect(result.total_amount).toBe(500);
   });
 
+  it('does not fall back to base_value as unit_rate for Range type', () => {
+    const result = calculateProductPrice({
+      product: {
+        calculation_type: 'Range',
+        slabs: [
+          { min_qty: 1, max_qty: 100, unit_rate: 0, base_value: 500 },
+        ],
+      },
+      quantity: 50,
+    });
+
+    expect(result.unit_price).toBe(0);
+    expect(result.total_amount).toBe(0);
+  });
+
   it('handles double-side add-on for Slab type', () => {
     const result = calculateProductPrice({
       product: {
