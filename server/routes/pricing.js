@@ -229,13 +229,15 @@ router.get('/pricing/calculate', asyncHandler(async (req, res) => {
           if (product.has_double_side_rate && isDoubleSide) {
             const dsRate = Number(effectiveSlabForAddons?.double_side_unit_rate) || 0;
             if (dsRate > 0) {
-              totalFromSlabs += dsRate * qty;
+              const dsCost = (dsRate > 15 && dsRate > (qty / 10)) ? dsRate : (dsRate * qty);
+              totalFromSlabs += dsCost;
               unitPrice = qty > 0 ? totalFromSlabs / qty : 0;
             }
           } else if (isOffset) {
             const offsetRate = Number(effectiveSlabForAddons?.offset_unit_rate) || 0;
             if (offsetRate > 0) {
-              totalFromSlabs += offsetRate * qty;
+              const offsetCost = (offsetRate > 15 && offsetRate > (qty / 10)) ? offsetRate : (offsetRate * qty);
+              totalFromSlabs += offsetCost;
               unitPrice = qty > 0 ? totalFromSlabs / qty : 0;
             }
           }

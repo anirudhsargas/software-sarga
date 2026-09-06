@@ -219,4 +219,23 @@ describe('calculateProductPrice', () => {
     expect(result.unit_price).toBe(1.25);
     expect(result.total_amount).toBe(1250);
   });
+
+  it('calculates flat batch slab with double side flat batch rate correctly (e.g. 1500 double side + 500 paper = 2000)', () => {
+    const result = calculateProductPrice({
+      product: {
+        calculation_type: 'Slab',
+        has_paper_rate: true,
+        has_double_side_rate: true,
+        slabs: [
+          { min_qty: 1000, base_value: 750, double_side_unit_rate: 1500, unit_rate: 0 },
+        ],
+      },
+      quantity: 1000,
+      currentPaperRate: 0.5,
+      isDoubleSide: true,
+    });
+
+    expect(result.unit_price).toBe(2.75);
+    expect(result.total_amount).toBe(2750);
+  });
 });

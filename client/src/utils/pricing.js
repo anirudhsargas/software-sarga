@@ -29,10 +29,12 @@ export const calculateProductPrice = ({
     const s = slab || product;
     if (!s) return 0;
     if (isDoubleSide && s.double_side_unit_rate !== undefined && s.double_side_unit_rate !== null && Number(s.double_side_unit_rate) > 0) {
-      return Number(s.double_side_unit_rate) || 0;
+      const dsRate = Number(s.double_side_unit_rate) || 0;
+      return (dsRate > 15 && qty > 0) ? (dsRate / qty) : dsRate;
     }
     if (isOffset && s.offset_unit_rate !== undefined && s.offset_unit_rate !== null && Number(s.offset_unit_rate) > 0) {
-      return Number(s.offset_unit_rate) || 0;
+      const offRate = Number(s.offset_unit_rate) || 0;
+      return (offRate > 15 && qty > 0) ? (offRate / qty) : offRate;
     }
     const unitRate = Number(s.unit_rate || 0);
     if (unitRate > 0) return unitRate;
@@ -103,10 +105,12 @@ export const calculateProductPrice = ({
       const s = slab || product;
       if (!s) return 0;
       if (isDoubleSide && s.double_side_unit_rate !== undefined && s.double_side_unit_rate !== null && Number(s.double_side_unit_rate) > 0) {
-        return Number(s.double_side_unit_rate) || 0;
+        const dsRate = Number(s.double_side_unit_rate) || 0;
+        return (dsRate > 15 && qty > 0) ? (dsRate / qty) : dsRate;
       }
       if (isOffset && s.offset_unit_rate !== undefined && s.offset_unit_rate !== null && Number(s.offset_unit_rate) > 0) {
-        return Number(s.offset_unit_rate) || 0;
+        const offRate = Number(s.offset_unit_rate) || 0;
+        return (offRate > 15 && qty > 0) ? (offRate / qty) : offRate;
       }
       return Number(s.unit_rate || 0);
     };
@@ -158,7 +162,8 @@ export const calculateProductPrice = ({
     if (!isPerUnitSlab) {
       const doubleSideRate = Number(slabForDS?.double_side_unit_rate) || 0;
       if (doubleSideRate > 0) {
-        total += doubleSideRate * qty;
+        const dsCost = (doubleSideRate > 15 && doubleSideRate > (qty / 10)) ? doubleSideRate : (doubleSideRate * qty);
+        total += dsCost;
         unit_price = qty > 0 ? total / qty : 0;
       }
     }
@@ -171,7 +176,8 @@ export const calculateProductPrice = ({
     if (!isPerUnitSlab) {
       const offsetRate = Number(slabForDS?.offset_unit_rate) || 0;
       if (offsetRate > 0) {
-        total += offsetRate * qty;
+        const offsetCost = (offsetRate > 15 && offsetRate > (qty / 10)) ? offsetRate : (offsetRate * qty);
+        total += offsetCost;
         unit_price = qty > 0 ? total / qty : 0;
       }
     }

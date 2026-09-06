@@ -220,7 +220,8 @@ const _calculateProductPrice = (product, quantity, slabs) => {
     if (product.calculation_type === 'Slab' && product.has_double_side_rate) {
         const doubleSideRate = Number(slabForDS?.double_side_unit_rate) || 0;
         if (doubleSideRate > 0) {
-            result.total += (doubleSideRate * qty);
+            const dsCost = (doubleSideRate > 15 && doubleSideRate > (qty / 10)) ? doubleSideRate : (doubleSideRate * qty);
+            result.total += dsCost;
             result.unit_price = qty > 0 ? result.total / qty : 0;
         }
     }
