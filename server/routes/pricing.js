@@ -224,13 +224,11 @@ router.get('/pricing/calculate', asyncHandler(async (req, res) => {
             unitPrice = qty > 0 ? totalFromSlabs / qty : 0;
           }
 
-          // Bug 1 fix: use effective slab's double_side_unit_rate, not sorted[0]
-          // Bug 3 fix: apply offset_unit_rate as an add-on for Slab-type offset customers
+          // Double side rate replaces single side base value when Double Side is selected
           if (product.has_double_side_rate && isDoubleSide) {
             const dsRate = Number(effectiveSlabForAddons?.double_side_unit_rate) || 0;
             if (dsRate > 0) {
-              const dsCost = (dsRate > 15 && dsRate > (qty / 10)) ? dsRate : (dsRate * qty);
-              totalFromSlabs += dsCost;
+              totalFromSlabs = (dsRate > 15 && dsRate > (qty / 10)) ? dsRate : (dsRate * qty);
               unitPrice = qty > 0 ? totalFromSlabs / qty : 0;
             }
           } else if (isOffset) {

@@ -216,12 +216,11 @@ const _calculateProductPrice = (product, quantity, slabs) => {
         result.unit_price = qty > 0 ? result.total / qty : 0;
     }
 
-    // Bug 1 fix: use effective slab's double_side_unit_rate, not slabs[0]
+    // Double side rate replaces single side base value when Double Side is selected
     if (product.calculation_type === 'Slab' && product.has_double_side_rate) {
         const doubleSideRate = Number(slabForDS?.double_side_unit_rate) || 0;
         if (doubleSideRate > 0) {
-            const dsCost = (doubleSideRate > 15 && doubleSideRate > (qty / 10)) ? doubleSideRate : (doubleSideRate * qty);
-            result.total += dsCost;
+            result.total = (doubleSideRate > 15 && doubleSideRate > (qty / 10)) ? doubleSideRate : (doubleSideRate * qty);
             result.unit_price = qty > 0 ? result.total / qty : 0;
         }
     }

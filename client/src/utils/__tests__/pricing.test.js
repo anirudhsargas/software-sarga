@@ -88,7 +88,7 @@ describe('calculateProductPrice', () => {
         calculation_type: 'Slab',
         has_double_side_rate: true,
         slabs: [
-          { min_qty: 100, base_value: 500, double_side_unit_rate: 2 },
+          { min_qty: 100, base_value: 500, double_side_unit_rate: 7 },
         ],
       },
       quantity: 100,
@@ -235,7 +235,7 @@ describe('calculateProductPrice', () => {
       isDoubleSide: true,
     });
 
-    expect(result.unit_price).toBe(2.75);
-    expect(result.total_amount).toBe(2750);
+    expect(result.unit_price).toBe(2.00);
+    expect(result.total_amount).toBe(2000);
   });
 });

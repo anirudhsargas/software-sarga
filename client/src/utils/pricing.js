@@ -95,6 +95,11 @@ export const calculateProductPrice = ({
             }
           }
         }
+        // If Double Side is selected and the slab provides a double side rate, use ONLY double side rate (replaces single side rate)
+        if (isDoubleSide && slabForDS && Number(slabForDS.double_side_unit_rate) > 0) {
+          const doubleSideRate = Number(slabForDS.double_side_unit_rate);
+          total = (doubleSideRate > 15 && doubleSideRate > (qty / 10)) ? doubleSideRate : (doubleSideRate * qty);
+        }
         unit_price = qty > 0 ? total / qty : 0;
       }
     }
@@ -153,20 +158,6 @@ export const calculateProductPrice = ({
   if (product.calculation_type === 'Slab' && (product.has_paper_rate || effectivePaperRate > 0)) {
     total += effectivePaperRate * qty;
     unit_price = qty > 0 ? total / qty : 0;
-  }
-
-  // Double side add-on for flat batch slabs
-  if (product.calculation_type === 'Slab' && isDoubleSide) {
-    const firstSlab = (product.slabs || [])[0];
-    const isPerUnitSlab = Number(firstSlab?.unit_rate) > 0;
-    if (!isPerUnitSlab) {
-      const doubleSideRate = Number(slabForDS?.double_side_unit_rate) || 0;
-      if (doubleSideRate > 0) {
-        const dsCost = (doubleSideRate > 15 && doubleSideRate > (qty / 10)) ? doubleSideRate : (doubleSideRate * qty);
-        total += dsCost;
-        unit_price = qty > 0 ? total / qty : 0;
-      }
-    }
   }
 
   // Offset unit rate add-on for flat batch slabs
