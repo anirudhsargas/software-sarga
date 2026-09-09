@@ -28,7 +28,7 @@ const bookTypeFromCategory = (catName) => {
 
 const emptyForm = () => ({
     customer_id: '', customer_name: '', customer_mobile: '', customer_email: '',
-    customer_address: '', customer_gst: '', date: new Date().toISOString().slice(0, 10),
+    customer_address: '', customer_gst: '', customer_type: 'Walk-in', date: new Date().toISOString().slice(0, 10),
     valid_until: '', notes: '', discount_percent: 0, tax_rate: 18,
     items: [{ item_name: '', description: '', quantity: 1, unit_price: 0, total: 0, book_type: 'Offset', customPaperRate: 0, is_double_side: false, applied_extras: [] }]
 });
@@ -337,7 +337,7 @@ export default function Quotes() {
 
         const defaultPaperRate = product.has_paper_rate ? (Number(product.paper_rate) || 0) : 0;
         const catObj = hierarchy.find(c => String(c.id) === String(selectedCategoryId));
-        const isOffset = bookTypeFromCategory(catObj?.name) === 'Offset';
+        const isOffset = String(form.customer_type || '').trim().toLowerCase() === 'offset';
 
         const priceResult = calculateProductPrice({
             product,
@@ -429,7 +429,7 @@ export default function Quotes() {
     }, []);
 
     const selectCustomer = (c) => {
-        setForm(f => ({ ...f, customer_id: c.id, customer_name: c.name, customer_mobile: c.mobile, customer_email: c.email || '', customer_address: c.address || '', customer_gst: c.gst || '' }));
+        setForm(f => ({ ...f, customer_id: c.id, customer_name: c.name, customer_mobile: c.mobile, customer_email: c.email || '', customer_address: c.address || '', customer_gst: c.gst || '', customer_type: c.type || 'Walk-in' }));
     };
 
     const addItem = () => setForm(f => ({ ...f, items: [...f.items, { item_name: '', description: '', quantity: 1, unit_price: 0, total: 0, book_type: 'Offset', customPaperRate: 0, is_double_side: false, applied_extras: [] }] }));
@@ -451,7 +451,7 @@ export default function Quotes() {
         const prod = cur._product;
 
         if (prod && (field === 'quantity' || field === 'customPaperRate' || field === 'is_double_side' || field === 'book_type')) {
-            const isOffset = (cur.book_type || 'Offset') === 'Offset';
+            const isOffset = String(form.customer_type || '').trim().toLowerCase() === 'offset';
             const priceResult = calculateProductPrice({
                 product: prod,
                 quantity: Number(cur.quantity) || 0,
@@ -1044,7 +1044,7 @@ export default function Quotes() {
                                                             <tr key={i}>
                                                                 <td style={{ padding: '6px 8px', borderBottom: '1px solid var(--border)' }}>{s.min_qty}</td>
                                                                 <td style={{ padding: '6px 8px', borderBottom: '1px solid var(--border)' }}>{s.max_qty || '∞'}</td>
-                                                                <td style={{ padding: '6px 8px', borderBottom: '1px solid var(--border)' }}>₹{Number(s.unit_rate || s.rate || 0).toLocaleString()}</td>
+                                                                <td style={{ padding: '6px 8px', borderBottom: '1px solid var(--border)' }}>₹{Number(s.base_value || s.unit_rate || s.rate || 0).toLocaleString()}</td>
                                                             </tr>
                                                         ))}
                                                     </tbody>

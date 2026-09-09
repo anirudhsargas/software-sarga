@@ -901,7 +901,7 @@ const Billing = () => {
         const doubleSide = field === 'is_double_side' ? !!value : !!l.is_double_side;
         if (field === 'is_double_side') updated.is_double_side = doubleSide;
 
-        const isOffsetLine = String(form.type || '').trim().toLowerCase() === 'offset' || l.book_type === 'Offset';
+        const isOffsetLine = String(form.type || '').trim().toLowerCase() === 'offset';
 
         if (l._product && (calcType === 'Slab' || calcType === 'Range' || calcType === 'Normal')) {
           const priceResult = calculateProductPrice({
@@ -961,8 +961,22 @@ const Billing = () => {
 
     const derivedBookType = bookTypeFromCategory(resolvedCatName);
     const defaultPaperRate = product.has_paper_rate ? (Number(product.paper_rate) || 0) : 0;
-    const isOffsetLine = String(form.type || '').trim().toLowerCase() === 'offset' || derivedBookType === 'Offset';
+    const isOffsetLine = String(form.type || '').trim().toLowerCase() === 'offset';
 
+    // Check if offset rate is defined for this product when customer is Offset
+    if (isOffsetLine) {
+      const slabs = product.slabs || [];
+      const hasOffsetRate = slabs.some(s =>
+        s.offset_unit_rate !== null && s.offset_unit_rate !== undefined && s.offset_unit_rate !== ''
+      );
+      if (!hasOffsetRate) {
+        toast.error('Offset rate is not defined for this product. Please add the rate in Product Library.', {
+          duration: 5000,
+          icon: '⚠️',
+          id: `offset-rate-missing-${product.id}`
+        });
+      }
+    }
     const priceResult = calculateProductPrice({
       product,
       quantity,
@@ -1023,7 +1037,7 @@ const Billing = () => {
       const updatedLines = prev.map(l => {
         const product = l._product || (l.product_id ? qrLookupMap.get(normalizeCode(l.product_name))?.product : null);
         if (!product) return l;
-        const lineIsOffset = isOffset || l.book_type === 'Offset';
+        const lineIsOffset = isOffset;
         const priceResult = calculateProductPrice({
           product,
           quantity: Number(l.quantity) || 1,
@@ -3239,7 +3253,7 @@ const Billing = () => {
                         <tr key={i}>
                           <td style={{ padding: '4px 8px', border: '1px solid var(--border)' }}>{s.min_qty}</td>
                           <td style={{ padding: '4px 8px', border: '1px solid var(--border)' }}>{s.max_qty}</td>
-                          <td style={{ padding: '4px 8px', border: '1px solid var(--border)' }}>₹{Number(s.unit_rate || s.rate || 0).toLocaleString()}</td>
+                          <td style={{ padding: '4px 8px', border: '1px solid var(--border)' }}>₹{Number(s.base_value || s.unit_rate || s.rate || 0).toLocaleString()}</td>
                         </tr>
                       ))}
                     </tbody>

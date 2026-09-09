@@ -29,12 +29,10 @@ export const calculateProductPrice = ({
     const s = slab || product;
     if (!s) return 0;
     if (isDoubleSide && s.double_side_unit_rate !== undefined && s.double_side_unit_rate !== null && Number(s.double_side_unit_rate) > 0) {
-      const dsRate = Number(s.double_side_unit_rate) || 0;
-      return (dsRate > 15 && qty > 0) ? (dsRate / qty) : dsRate;
+      return Number(s.double_side_unit_rate) || 0;
     }
     if (isOffset && s.offset_unit_rate !== undefined && s.offset_unit_rate !== null && Number(s.offset_unit_rate) > 0) {
-      const offRate = Number(s.offset_unit_rate) || 0;
-      return (offRate > 15 && qty > 0) ? (offRate / qty) : offRate;
+      return Number(s.offset_unit_rate) || 0;
     }
     const unitRate = Number(s.unit_rate || 0);
     if (unitRate > 0) return unitRate;
@@ -81,7 +79,13 @@ export const calculateProductPrice = ({
         } else if (qty > Number(sortedSlabs[sortedSlabs.length - 1].min_qty)) {
           const lastSlab = sortedSlabs[sortedSlabs.length - 1];
           const lastUnit = resolveUnitRate(lastSlab);
-          total = lastUnit > 0 ? lastUnit * qty : Number(lastSlab.base_value);
+          if (lastUnit > 0) {
+            total = lastUnit * qty;
+          } else {
+            // Derive per-unit rate from last slab's base_value / min_qty
+            const lastSlabPerUnit = Number(lastSlab.min_qty) > 0 ? Number(lastSlab.base_value) / Number(lastSlab.min_qty) : 0;
+            total = lastSlabPerUnit > 0 ? lastSlabPerUnit * qty : Number(lastSlab.base_value);
+          }
           slabForDS = lastSlab;
         } else {
           for (let i = 0; i < sortedSlabs.length - 1; i++) {
@@ -95,10 +99,9 @@ export const calculateProductPrice = ({
             }
           }
         }
-        // If Double Side is selected and the slab provides a double side rate, use ONLY double side rate (replaces single side rate)
+        // If Double Side is selected and the slab provides a double side rate, use it as flat batch amount (replaces single side base_value)
         if (isDoubleSide && slabForDS && Number(slabForDS.double_side_unit_rate) > 0) {
-          const doubleSideRate = Number(slabForDS.double_side_unit_rate);
-          total = (doubleSideRate > 15 && doubleSideRate > (qty / 10)) ? doubleSideRate : (doubleSideRate * qty);
+          total = Number(slabForDS.double_side_unit_rate);
         }
         unit_price = qty > 0 ? total / qty : 0;
       }
@@ -110,12 +113,10 @@ export const calculateProductPrice = ({
       const s = slab || product;
       if (!s) return 0;
       if (isDoubleSide && s.double_side_unit_rate !== undefined && s.double_side_unit_rate !== null && Number(s.double_side_unit_rate) > 0) {
-        const dsRate = Number(s.double_side_unit_rate) || 0;
-        return (dsRate > 15 && qty > 0) ? (dsRate / qty) : dsRate;
+        return Number(s.double_side_unit_rate) || 0;
       }
       if (isOffset && s.offset_unit_rate !== undefined && s.offset_unit_rate !== null && Number(s.offset_unit_rate) > 0) {
-        const offRate = Number(s.offset_unit_rate) || 0;
-        return (offRate > 15 && qty > 0) ? (offRate / qty) : offRate;
+        return Number(s.offset_unit_rate) || 0;
       }
       return Number(s.unit_rate || 0);
     };
@@ -135,16 +136,13 @@ export const calculateProductPrice = ({
         unit_price = rate;
         total = rate * qty;
       } else {
-        const lastSlab = sortedSlabs[sortedSlabs.length - 1];
-        const maxQty =
-          lastSlab?.max_qty === null || lastSlab?.max_qty === undefined || lastSlab?.max_qty === ''
-            ? Infinity
-            : Number(lastSlab.max_qty);
-        if (qty > maxQty) {
-          const rate = resolveRangeRate(lastSlab);
-          unit_price = rate;
-          total = rate * qty;
-        }
+        // Qty is outside all defined ranges — use first slab for sub-min, last slab for overflow
+        const fallbackSlab = qty < Number(sortedSlabs[0].min_qty)
+          ? sortedSlabs[0]
+          : sortedSlabs[sortedSlabs.length - 1];
+        const rate = resolveRangeRate(fallbackSlab);
+        unit_price = rate;
+        total = rate * qty;
       }
     }
   }
@@ -160,17 +158,23 @@ export const calculateProductPrice = ({
     unit_price = qty > 0 ? total / qty : 0;
   }
 
-  // Offset unit rate add-on for flat batch slabs
+  // Offset rate for flat batch slabs — REPLACES base total (flat batch amount, same concept as base_value)
   if (product.calculation_type === 'Slab' && isOffset) {
     const firstSlab = (product.slabs || [])[0];
     const isPerUnitSlab = Number(firstSlab?.unit_rate) > 0;
     if (!isPerUnitSlab) {
-      const offsetRate = Number(slabForDS?.offset_unit_rate) || 0;
+      const offsetRate = Number(slabForDS?.offset_unit_rate);
       if (offsetRate > 0) {
-        const offsetCost = (offsetRate > 15 && offsetRate > (qty / 10)) ? offsetRate : (offsetRate * qty);
-        total += offsetCost;
+        // Offset rate is a flat batch amount — replaces the base slab total entirely
+        total = offsetRate;
+        // Re-add paper rate if applicable (paper rate is per-unit)
+        if (product.has_paper_rate || effectivePaperRate > 0) {
+          total += effectivePaperRate * qty;
+        }
         unit_price = qty > 0 ? total / qty : 0;
       }
+      // offsetRate === 0 → keep base total as-is (zero intentional, will be set later)
+      // offsetRate undefined/null → handled in Billing.jsx with popup
     }
   }
 
