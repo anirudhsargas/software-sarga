@@ -199,8 +199,8 @@ const FrontOffice = () => {
 
       let myMachines = [];
       try {
-        const laserRes = await api.get('/daily-report/laser-live', { params: { date: today } });
-        myMachines = laserRes.data.machines || [];
+        const assignedRes = await api.get('/machines/my-assigned', { params: { date: today } });
+        myMachines = assignedRes.data || [];
       } catch {}
 
       let prevData = { Offset: 0, Laser: 0, Other: 0, machines: {} };
@@ -213,7 +213,7 @@ const FrontOffice = () => {
 
       const machines = myMachines.map(m => {
         let count = '';
-        if (m.has_reading) {
+        if (m.has_reading && m.opening_count != null) {
           count = String(m.opening_count);
         } else if (m.opening_count > 0) {
           count = String(m.opening_count);
@@ -223,6 +223,7 @@ const FrontOffice = () => {
         return {
           id: m.id,
           machine_name: m.machine_name,
+          type: m.machine_type || m.type || m.book_type,
           location: m.location,
           opening_count: count,
           error: null
@@ -268,8 +269,8 @@ const FrontOffice = () => {
         let myMachines = [];
         let machineHasReading = {};
         try {
-          const laserRes = await api.get('/daily-report/laser-live', { params: { date: today } });
-          myMachines = laserRes.data.machines || [];
+          const assignedRes = await api.get('/machines/my-assigned', { params: { date: today } });
+          myMachines = assignedRes.data || [];
           myMachines.forEach(m => { machineHasReading[m.id] = !!m.has_reading; });
         } catch { /* ignore */ }
 
@@ -285,9 +286,12 @@ const FrontOffice = () => {
 
         if (needsBalances || needsMachines) {
           setPrevClosing({ Offset: prevData.Offset || 0, Laser: prevData.Laser || 0, Other: prevData.Other || 0 });
-          setPromptMachines(unenteredMachines.map(m => ({
-            id: m.id, machine_name: m.machine_name, location: m.location,
-            opening_count: m.opening_count > 0 ? String(m.opening_count) : (prevData.machines?.[m.id] !== undefined ? String(prevData.machines[m.id]) : ''),
+          const machinesToPrompt = myMachines.length > 0 ? myMachines : unenteredMachines;
+          setPromptMachines(machinesToPrompt.map(m => ({
+            id: m.id, machine_name: m.machine_name, type: m.machine_type || m.type || m.book_type, location: m.location,
+            opening_count: machineHasReading[m.id] && m.opening_count != null
+              ? String(m.opening_count)
+              : (prevData.machines?.[m.id] !== undefined ? String(prevData.machines[m.id]) : ''),
             error: null
           })));
           const newBalances = {};

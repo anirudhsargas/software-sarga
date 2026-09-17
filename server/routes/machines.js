@@ -127,7 +127,7 @@ router.get('/my-assigned', auth.authenticate, auth.authorizeRoles('Admin', 'Acco
         let machines = [];
         if (!['Admin', 'Accountant'].includes(req.user.role)) {
             const [assigned] = await pool.query(
-                `SELECT m.id, m.machine_name, m.machine_type, m.location, m.branch_id
+                `SELECT m.id, m.machine_name, m.machine_type, m.machine_category, m.book_type, m.location, m.branch_id
                  FROM sarga_machines m
                  JOIN sarga_machine_staff_assignments msa ON msa.machine_id = m.id AND msa.staff_id = ?
                  WHERE m.branch_id = ? AND m.is_active = 1
@@ -140,7 +140,7 @@ router.get('/my-assigned', auth.authenticate, auth.authorizeRoles('Admin', 'Acco
         // Fallback: if no personal assignments exist, return all active machines for the branch
         if (!machines || machines.length === 0) {
             const [all] = await pool.query(
-                `SELECT id, machine_name, machine_type, location, branch_id
+                `SELECT id, machine_name, machine_type, machine_category, book_type, location, branch_id
                  FROM sarga_machines
                  WHERE branch_id = ? AND is_active = 1
                  ORDER BY machine_name ASC`,

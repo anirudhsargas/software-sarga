@@ -374,7 +374,7 @@ const DailyReport = () => {
                         // already have a reading with their actual opening_count.
                         const machinesToPrompt = myMachines.length > 0 ? myMachines : unenteredMachines;
                         const machines = machinesToPrompt.map(m => ({
-                            id: m.id, machine_name: m.machine_name, location: m.location,
+                            id: m.id, machine_name: m.machine_name, type: m.machine_type || m.type || m.book_type, location: m.location,
                             opening_count: machineHasReading[m.id] && m.opening_count != null
                                 ? String(m.opening_count)
                                 : (prevData.machines?.[m.id] !== undefined ? String(prevData.machines[m.id]) : '')
@@ -434,6 +434,7 @@ const DailyReport = () => {
                 return {
                     id: m.id,
                     machine_name: m.machine_name,
+                    type: m.machine_type || m.type || m.book_type,
                     location: m.location,
                     opening_count: count
                 };

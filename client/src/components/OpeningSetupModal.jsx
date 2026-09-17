@@ -260,7 +260,7 @@ const OpeningSetupModal = ({ balances, machines, prevClosing, branchName, onSave
                                         <div key={m.id} className={`os-machine-row ${m.error ? 'os-machine-row--error' : ''} ${isInvalid ? 'os-machine-row--invalid' : ''}`}>
                                             <div className="os-machine-row__info">
                                                 <span className="os-machine-row__name">{m.machine_name}</span>
-                                                <span className="os-machine-row__type">{m.type || 'Printer'}</span>
+                                                <span className="os-machine-row__type">{m.type || m.machine_type || m.book_type || 'Printer'}</span>
                                             </div>
                                             
                                             <div className="os-machine-row__prev-col">
