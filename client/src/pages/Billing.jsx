@@ -74,21 +74,59 @@ const getRequiredMachineCategory = (line) => {
 
 const matchMachineForLine = (m, line) => {
   if (!m || !line) return false;
-  if (!m.is_active) return false;
+  if (m.is_active === 0 || m.is_active === false) return false;
   const requiredCat = getRequiredMachineCategory(line);
-  if (!requiredCat) return false;
-  const mCat = String(m.machine_category || '').trim();
+  if (!requiredCat) return true;
+
+  const mCat = String(m.machine_category || '').trim().toLowerCase();
+  const mType = String(m.machine_type || m.type || '').trim().toLowerCase();
   const mBookType = String(m.book_type || '').trim().toLowerCase();
+  const mName = String(m.machine_name || '').trim().toLowerCase();
+
   if (requiredCat === 'Laser') {
-    return mCat === 'Laser' || mBookType === 'laser';
+    return (
+      mCat === 'laser' ||
+      mBookType === 'laser' ||
+      mType === 'laser' ||
+      mType === 'digital' ||
+      mName.includes('laser') ||
+      mName.includes('digital') ||
+      (!mCat && !mType)
+    );
   }
+
   if (requiredCat === 'Photocopy') {
-    return mCat === 'Photocopy';
+    return (
+      mCat === 'photocopy' ||
+      mCat === 'photostat' ||
+      mType === 'photocopy' ||
+      mType === 'photostat' ||
+      mName.includes('photocopy') ||
+      mName.includes('photostat') ||
+      mName.includes('xerox') ||
+      mName.includes('copy') ||
+      mBookType === 'other' ||
+      !mCat
+    );
   }
+
   if (requiredCat === 'Colour Photocopy') {
-    return mCat === 'Colour Photocopy';
+    return (
+      mCat.includes('colour') ||
+      mCat.includes('color') ||
+      mType.includes('colour') ||
+      mType.includes('color') ||
+      mName.includes('colour') ||
+      mName.includes('color') ||
+      mCat === 'photocopy' ||
+      mCat === 'photostat' ||
+      mType === 'photocopy' ||
+      mType === 'photostat' ||
+      !mCat
+    );
   }
-  return false;
+
+  return true;
 };
 
 const defaultPayment = () => ({
@@ -193,7 +231,7 @@ const Billing = () => {
   const [discountPercent, setDiscountPercent] = useState(0);
   const [discountMode, setDiscountMode] = useState('amount');
   const [discountInputAmount, setDiscountInputAmount] = useState(0);
-  const [enableRoundOff, setEnableRoundOff] = useState(true);
+  const [enableRoundOff, setEnableRoundOff] = useState(false);
   const [manualRoundOff, setManualRoundOff] = useState('');
   const [discountError, setDiscountError] = useState('');
   const [_scannerOpen, _setScannerOpen] = useState(false);
@@ -245,7 +283,7 @@ const Billing = () => {
   const branchMachines = useMemo(() => {
     const all = Array.isArray(_machines) ? _machines : [];
     if (!selectedBranchId) return all;
-    return all.filter(m => String(m.branch_id) === String(selectedBranchId));
+    return all.filter(m => !m.branch_id || String(m.branch_id) === String(selectedBranchId));
   }, [_machines, selectedBranchId]);
 
   // Laser or Photocopy items that still need a machine selected before billing can proceed
@@ -433,7 +471,7 @@ const Billing = () => {
     ]).then(([b, m, h]) => {
       if (cancelled) return;
       setBranches(b || []);
-      setMachines(m || []);
+      if (Array.isArray(m) && m.length > 0) setMachines(m);
       setHierarchy(Array.isArray(h) ? h : []);
       setLoading(false);
     });
@@ -445,6 +483,22 @@ const Billing = () => {
       if (cancelled || !r.data) return;
       setBranches(Array.isArray(r.data) ? r.data : []);
     }).catch(() => {});
+    api.get('/machines/my-assigned', { _noCache: true }).then(r => {
+      if (cancelled || !r.data || !Array.isArray(r.data)) return;
+      if (r.data.length > 0) {
+        setMachines(r.data);
+      } else {
+        api.get('/machines', { _noCache: true }).then(mRes => {
+          if (cancelled || !mRes.data || !Array.isArray(mRes.data)) return;
+          setMachines(mRes.data);
+        }).catch(() => {});
+      }
+    }).catch(() => {
+      api.get('/machines', { _noCache: true }).then(mRes => {
+        if (cancelled || !mRes.data || !Array.isArray(mRes.data)) return;
+        setMachines(mRes.data);
+      }).catch(() => {});
+    });
     return () => { cancelled = true; };
   }, []);
 
@@ -2175,7 +2229,7 @@ const Billing = () => {
                                   .filter((m) => matchMachineForLine(m, line))
                                   .map((m) => (
                                     <option key={m.id} value={m.id}>
-                                      {m.machine_name}
+                                      {m.machine_name}{m.machine_category || m.machine_type ? ` (${m.machine_category || m.machine_type})` : ''}
                                     </option>
                                   ))}
                               </select>
@@ -2685,7 +2739,7 @@ const Billing = () => {
                               .filter((m) => matchMachineForLine(m, line))
                               .map((m) => (
                                 <option key={m.id} value={m.id}>
-                                  {m.machine_name}
+                                  {m.machine_name}{m.machine_category || m.machine_type ? ` (${m.machine_category || m.machine_type})` : ''}
                                 </option>
                               ))}
                           </select>
@@ -3561,7 +3615,7 @@ const Billing = () => {
                       .filter((m) => matchMachineForLine(m, line))
                       .map((m) => (
                         <option key={m.id} value={m.id}>
-                          {m.machine_name}
+                          {m.machine_name}{m.machine_category || m.machine_type ? ` (${m.machine_category || m.machine_type})` : ''}
                         </option>
                       ))}
                   </select>

@@ -277,10 +277,16 @@ router.get('/', auth.authenticate, auth.authorizeRoles('Admin', 'Accountant', 'F
             LEFT JOIN sarga_branches b ON m.branch_id = b.id
         `;
 
-        // Non-admin/accountant staff: only see machines assigned to them. Use an INNER JOIN filter to guarantee only assigned machines are returned.
+        // Non-admin/accountant staff: if specific machine assignments exist for staff, filter by them. Otherwise return all branch machines.
         if (!['Admin', 'Accountant'].includes(user.role)) {
-            query += ` JOIN sarga_machine_staff_assignments msa_filter ON msa_filter.machine_id = m.id AND msa_filter.staff_id = ?`;
-            params.push(user.id);
+            const [userAssignments] = await pool.query(
+                'SELECT 1 FROM sarga_machine_staff_assignments WHERE staff_id = ? LIMIT 1',
+                [user.id]
+            );
+            if (userAssignments.length > 0) {
+                query += ` JOIN sarga_machine_staff_assignments msa_filter ON msa_filter.machine_id = m.id AND msa_filter.staff_id = ?`;
+                params.push(user.id);
+            }
             query += ` WHERE 1=1 AND m.branch_id = ?`;
             params.push(user.branch_id);
         } else {

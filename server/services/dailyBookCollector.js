@@ -52,11 +52,12 @@ async function fetchDailyBookData(startDateStr, endDateStr, branchId = null) {
     // 5. Customer Receivables & Outstanding
     // Here we can fetch jobs/invoices with pending balances. For a daily summary, we can aggregate.
     // Simplifying: we'll aggregate total advance_paid vs total_amount from jobs created today
+    const branchFilterJobs = branchId ? 'AND j.branch_id = ?' : '';
     const [jobs] = await pool.query(
         `SELECT j.id, j.job_number, j.job_name, j.category, j.status, j.total_amount, j.advance_paid, j.balance_amount, j.payment_status, j.branch_id, j.created_at, c.name as customer_name
          FROM sarga_jobs j
          LEFT JOIN sarga_customers c ON j.customer_id = c.id
-         WHERE j.created_at BETWEEN ? AND ? ${branchFilter}`,
+         WHERE j.created_at BETWEEN ? AND ? ${branchFilterJobs}`,
         params
     );
     results.jobs = jobs;
