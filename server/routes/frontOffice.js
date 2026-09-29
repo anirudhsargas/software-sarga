@@ -200,9 +200,16 @@ router.get('/front-office/dashboard', authenticateToken, authorizeRoles('Admin',
                 `SELECT COUNT(*) as count FROM sarga_jobs j WHERE j.status = 'Completed' ${branchWhere}`,
                 branchParams
             ),
-            // 4. Total due amount
+            // 4. Total due amount (excluding Walk-in customers)
             pool.query(
-                `SELECT COALESCE(SUM(j.balance_amount), 0) as amount FROM sarga_jobs j WHERE j.status != 'Cancelled' ${branchWhere}`,
+                `SELECT COALESCE(SUM(j.balance_amount), 0) as amount
+                 FROM sarga_jobs j
+                 LEFT JOIN sarga_customers c ON j.customer_id = c.id
+                 WHERE j.status != 'Cancelled'
+                   AND j.customer_id IS NOT NULL
+                   AND COALESCE(c.type, '') NOT IN ('Walk-in', 'walk_in')
+                   AND LOWER(COALESCE(c.name, '')) != 'walk-in'
+                   ${branchWhere}`,
                 branchParams
             ),
             // 5. Today's collections
@@ -245,7 +252,7 @@ router.get('/front-office/dashboard', authenticateToken, authorizeRoles('Admin',
                  LIMIT 20`,
                 [today, ...branchParams]
             ),
-            // 9. Due Collection — customers with outstanding balances (last 6 months)
+            // 9. Due Collection — customers with outstanding balances (last 6 months, excluding Walk-in)
             pool.query(
                 `SELECT c.id, c.name, c.mobile,
                         COUNT(j.id) as job_count,
@@ -254,7 +261,10 @@ router.get('/front-office/dashboard', authenticateToken, authorizeRoles('Admin',
                         SUM(j.balance_amount) as due_amount
                  FROM sarga_customers c
                  INNER JOIN sarga_jobs j ON j.customer_id = c.id AND j.status != 'Cancelled'
-                 WHERE j.created_at > DATE_SUB(NOW(), INTERVAL 6 MONTH) ${custBranchWhere}
+                 WHERE j.created_at > DATE_SUB(NOW(), INTERVAL 6 MONTH)
+                   AND COALESCE(c.type, '') NOT IN ('Walk-in', 'walk_in')
+                   AND LOWER(COALESCE(c.name, '')) != 'walk-in'
+                   ${custBranchWhere}
                  GROUP BY c.id
                  HAVING due_amount >= 1
                  ORDER BY due_amount DESC
@@ -364,7 +374,9 @@ router.get('/front-office/due-customers', authenticateToken, authorizeRoles('Adm
             `SELECT COUNT(*) as total FROM (
                 SELECT c.id FROM sarga_customers c
                 INNER JOIN sarga_jobs j ON j.customer_id = c.id AND j.status != 'Cancelled'
-                WHERE 1=1 ${custBranchWhere}
+                WHERE COALESCE(c.type, '') NOT IN ('Walk-in', 'walk_in')
+                  AND LOWER(COALESCE(c.name, '')) != 'walk-in'
+                  ${custBranchWhere}
                 GROUP BY c.id
                 HAVING SUM(j.balance_amount) >= 1
             ) sub`, branchParams
@@ -377,7 +389,9 @@ router.get('/front-office/due-customers', authenticateToken, authorizeRoles('Adm
                     SUM(j.balance_amount) as due_amount
              FROM sarga_customers c
              INNER JOIN sarga_jobs j ON j.customer_id = c.id AND j.status != 'Cancelled'
-             WHERE 1=1 ${custBranchWhere}
+             WHERE COALESCE(c.type, '') NOT IN ('Walk-in', 'walk_in')
+               AND LOWER(COALESCE(c.name, '')) != 'walk-in'
+               ${custBranchWhere}
              GROUP BY c.id
              HAVING due_amount >= 1
              ORDER BY due_amount DESC
@@ -461,7 +475,10 @@ router.get('/front-office/search', authenticateToken, authorizeRoles('Admin', 'A
         const [customers] = await pool.query(
             `SELECT c.id, c.name, c.mobile, c.type,
                     (SELECT COUNT(*) FROM sarga_jobs j WHERE j.customer_id = c.id) as job_count,
-                    (SELECT COALESCE(SUM(j2.balance_amount), 0)
+                    (SELECT CASE
+                        WHEN COALESCE(c.type, '') IN ('Walk-in', 'walk_in') OR LOWER(COALESCE(c.name, '')) = 'walk-in' THEN 0
+                        ELSE COALESCE(SUM(j2.balance_amount), 0)
+                     END
                      FROM sarga_jobs j2 WHERE j2.customer_id = c.id AND j2.status != 'Cancelled') as due_amount
              FROM sarga_customers c
              WHERE (c.name LIKE ? OR c.mobile LIKE ?) ${branchWhere}

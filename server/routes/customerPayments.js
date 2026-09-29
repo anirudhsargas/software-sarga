@@ -1473,6 +1473,9 @@ router.get('/stats/dashboard/drilldown', authenticateToken, authorizeRoles('Admi
                 WHERE j.status != 'Cancelled'
                   AND j.balance_amount > 0
                   AND (j.payment_status != 'Paid' OR j.payment_status IS NULL)
+                  AND j.customer_id IS NOT NULL
+                  AND COALESCE(c.type, '') NOT IN ('Walk-in', 'walk_in')
+                  AND LOWER(COALESCE(c.name, '')) != 'walk-in'
                 ${branchClause('j')}
                 ORDER BY j.balance_amount DESC
                 LIMIT 50

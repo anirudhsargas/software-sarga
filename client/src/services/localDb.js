@@ -156,7 +156,7 @@ export async function getFrontOfficeDashboard() {
             today_orders: (jobs || []).filter(j => j.created_at && new Date(j.created_at).toDateString() === new Date().toDateString()).length,
             in_progress: (jobs || []).filter(j => j.status === 'Processing').length,
             ready_pickup: (jobs || []).filter(j => j.status === 'Completed').length,
-            total_due: (customers || []).reduce((sum, c) => sum + (Number(c.due_amount) || 0), 0),
+            total_due: (customers || []).filter(c => c && c.type !== 'Walk-in' && c.type !== 'walk_in' && (c.name || '').toLowerCase() !== 'walk-in').reduce((sum, c) => sum + (Number(c.due_amount) || 0), 0),
             today_collections: (payments || []).filter(p => (p.payment_date || p.created_at) && new Date(p.payment_date || p.created_at).toDateString() === new Date().toDateString())
                                        .reduce((sum, p) => sum + (Number(p.amount) || 0), 0),
             delivered_today: (jobs || []).filter(j => j.status === 'Delivered' && j.updated_at && new Date(j.updated_at).toDateString() === new Date().toDateString()).length
@@ -257,7 +257,7 @@ export async function getActiveJobs(page = 1, limit = 50) {
 
 export async function getDueCustomers(page = 1, limit = 50) {
     const customers = await offlineDb.getAll('customers').catch(() => []);
-    const due = customers.filter(c => c && Number(c.due_amount) > 0)
+    const due = customers.filter(c => c && c.type !== 'Walk-in' && c.type !== 'walk_in' && (c.name || '').toLowerCase() !== 'walk-in' && Number(c.due_amount) > 0)
                          .sort((a, b) => (b.due_amount || 0) - (a.due_amount || 0));
     return { data: due.slice((page - 1) * limit, page * limit), total: due.length, totalPages: Math.ceil(due.length / limit) };
 }
