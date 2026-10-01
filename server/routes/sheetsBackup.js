@@ -9,6 +9,11 @@ async function runBackup(triggeredBy) {
   return runBackupImpl(db, triggeredBy);
 }
 
+async function verifyBackup() {
+  const { verifyBackup: verifyBackupImpl } = require('../services/googleSheetsService');
+  return verifyBackupImpl();
+}
+
 // POST /api/backup/run — manual trigger (Admin only)
 router.post('/run', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
   try {
@@ -59,23 +64,8 @@ router.get('/status', authenticateToken, authorizeRoles('Admin'), async (req, re
 
     // Build recent sync thresholds mapping from sarga_backup_jobs
     const syncTimes = {};
-    const tables = [
-      'sarga_bills_documents',
-      'sarga_jobs',
-      'sarga_daily_expenses',
-      'sarga_staff_attendance',
-      'sarga_daily_credit_transactions',
-      'sarga_invoices',
-      'sarga_customer_payments',
-      'sarga_orders',
-      'sarga_customer_designs',
-      'sarga_customers',
-      'sarga_inventory',
-      'sarga_staff',
-      'vendors',
-      'sarga_products',
-      'sarga_machines'
-    ];
+    const { TABLE_CONFIG } = require('../services/googleSheetsService');
+    const tables = TABLE_CONFIG.map(({ table }) => table);
 
     // Initialize with fallback values
     tables.forEach(t => {
@@ -95,8 +85,7 @@ router.get('/status', authenticateToken, authorizeRoles('Admin'), async (req, re
 
     res.json({
       success: true,
-      enabled: true,
-      lockStatus: false,
+      enabled: Boolean(process.env.GOOGLE_SHEET_ID && (process.env.GOOGLE_SA_KEY || process.env.GOOGLE_SERVICE_ACCOUNT || process.env.GOOGLE_SERVICE_ACCOUNT_BASE64)),
       syncTimes,
       sheetId: process.env.GOOGLE_SHEET_ID || '',
       jobs: rows
@@ -130,7 +119,7 @@ router.get('/history', authenticateToken, authorizeRoles('Admin'), async (req, r
 
     const mappedHistory = rows.map(row => ({
       id: row.id,
-      sync_type: row.triggered_by === 'cron' ? 'incremental' : 'full',
+      sync_type: 'snapshot',
       status: row.status === 'completed' ? 'success' : row.status === 'failed' ? 'failed' : 'processing',
       rows_synced: row.rows_written || 0,
       latency_ms: row.completed_at ? (new Date(row.completed_at).getTime() - new Date(row.started_at).getTime()) : 0,
@@ -186,24 +175,21 @@ router.get('/metrics', authenticateToken, authorizeRoles('Admin'), async (req, r
       backup_jobs_running: activeJobs[0].count || 0,
       backup_rows_per_second: avgRowsPerSec,
       backup_duration_seconds: avgDuration,
-      restore_failures_total: 0,
-      sheet_api_latency_ms: 50
+      restore_failures_total: null,
+      sheet_api_latency_ms: null
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// GET /api/backup/verify — mock integrity verification check
+// GET /api/backup/verify — verify published tab rows and SHA-256 checksums against the manifest
 router.get('/verify', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
   try {
-    res.json({
-      success: true,
-      healthy: true,
-      message: 'Database rows match spreadsheet state.'
-    });
+    const result = await verifyBackup();
+    res.status(result.healthy ? 200 : 409).json(result);
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    res.status(500).json({ success: false, healthy: false, error: err.message, message: 'Google Sheets integrity verification failed.' });
   }
 });
 

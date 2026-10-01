@@ -219,7 +219,7 @@ router.get('/front-office/dashboard', authenticateToken, authorizeRoles('Admin',
             ),
             // 6. Delivered today
             pool.query(
-                `SELECT COUNT(*) as count FROM sarga_jobs j WHERE j.status = 'Delivered' AND DATE(j.updated_at) = ? ${branchWhere}`,
+                `SELECT COUNT(*) as count FROM sarga_jobs j WHERE j.status = 'Delivered' AND DATE(COALESCE((SELECT MIN(sh.changed_at) FROM sarga_job_status_history sh WHERE sh.job_id = j.id AND sh.status = 'Delivered'), j.updated_at)) = ? ${branchWhere}`,
                 [today, ...branchParams]
             ),
             // 7. Active Jobs Queue (last 90 days, only needed fields)

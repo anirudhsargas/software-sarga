@@ -86,7 +86,7 @@ router.get('/offset/sync-data', auth.authenticate, auth.authorizeRoles('Admin', 
              FROM sarga_jobs j
              LEFT JOIN sarga_customers c ON j.customer_id = c.id
              WHERE (j.status IN ('Completed', 'Delivered'))
-               AND DATE(j.updated_at) = ?
+               AND DATE(COALESCE((SELECT MIN(sh.changed_at) FROM sarga_job_status_history sh WHERE sh.job_id = j.id AND sh.status = j.status), j.created_at)) = ?
                AND j.branch_id = ?
              ORDER BY j.updated_at ASC`,
             [date, branchId]

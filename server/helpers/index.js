@@ -1,4 +1,5 @@
 const { pool } = require('../database');
+const { enqueueAudit } = require('../services/auditService');
 
 /**
  * Normalize a phone value to E.164 where possible.
@@ -117,24 +118,10 @@ const resolveCustomerByE164 = async (phoneInput, opts = {}) => {
 
 const auditLog = async (userId, action, details, opts = {}) => {
     try {
-        const { entity_type, entity_id, field_name, old_value, new_value, ip_address, connection: conn } = opts;
-        const db = conn || pool;
-        await db.query(
-            `INSERT INTO sarga_audit_logs
-             (user_id_internal, action, details, entity_type, entity_id, field_name, old_value, new_value, ip_address)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-                userId,
-                action,
-                details,
-                entity_type || null,
-                entity_id || null,
-                field_name || null,
-                old_value !== undefined ? String(old_value) : null,
-                new_value !== undefined ? String(new_value) : null,
-                ip_address || null,
-            ]
-        );
+        const { entity_type, entity_id, field_name, old_value, new_value, ip_address } = opts;
+        enqueueAudit({ userId, actionType: action, module: entity_type || 'General', recordType: entity_type,
+            recordId: entity_id, ipAddress: ip_address, legacyAction: action, legacyDetails: details,
+            entityType: entity_type, entityId: entity_id, fieldName: field_name, oldValue: old_value, newValue: new_value });
     } catch (err) {
         console.error("Audit log failed:", err.message);
     }
@@ -158,27 +145,10 @@ const auditFieldChanges = async (userId, action, entityType, entityId, oldData, 
     if (changedFields.length === 0) return;
 
     const details = changedFields.map(f => `${f}: ${oldData[f] ?? '(empty)'} → ${newData[f]}`).join('; ');
-    const db = opts.connection || pool;
-
     // Batch insert for efficiency
-    const values = changedFields.map(f => [
-        userId, action, details, entityType, entityId, f,
-        oldData[f] !== undefined ? String(oldData[f]) : null,
-        String(newData[f]),
-        opts.ip_address || null,
-    ]);
-
-    for (const v of values) {
-        try {
-            await db.query(
-                `INSERT INTO sarga_audit_logs
-                 (user_id_internal, action, details, entity_type, entity_id, field_name, old_value, new_value, ip_address)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, v
-            );
-        } catch (err) {
-            console.error("Audit field log failed:", err.message);
-        }
-    }
+    for (const f of changedFields) enqueueAudit({ userId, actionType: action, module: entityType || 'General', recordType: entityType,
+        recordId: entityId, ipAddress: opts.ip_address, legacyAction: action, legacyDetails: details,
+        entityType, entityId, fieldName: f, oldValue: oldData[f], newValue: newData[f] });
 };
 
 /**

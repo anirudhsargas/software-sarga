@@ -389,7 +389,7 @@ router.get('/vendors/:id/credit-status', authenticateToken, authorizeRoles('Admi
 });
 
 // GET /api/vendors/payment-audit → run SQL audit discrepancy query
-router.get('/vendors/payment-audit', authenticateToken, async (req, res) => {
+router.get('/vendors/payment-audit', authenticateToken, authorizeRoles('Admin'), async (req, res) => {
   try {
     try {
       await pool.query("SET SESSION sql_mode=(SELECT REPLACE(@@sql_mode, 'ONLY_FULL_GROUP_BY', ''))");

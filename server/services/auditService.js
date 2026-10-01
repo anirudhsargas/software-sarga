@@ -1,44 +1,14 @@
-const { pool } = require('../database');
-const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 const logger = require('../helpers/logger');
+const { appendAuditEntries } = require('./googleSheetsAuditService');
 
 const AUDIT_QUEUE_MAX = 500;
-const FLUSH_INTERVAL_MS = 2000;
 const MAX_BATCH_SIZE = 100;
 const QUEUE_PROCESS_INTERVAL = 500;
 
 let auditQueue = [];
 let processing = false;
-let lastHash = null;
-let hashChainInitialized = false;
-
-const getLastHash = async () => {
-    if (lastHash) return lastHash;
-    try {
-        const [rows] = await pool.query(
-            'SELECT current_hash FROM sarga_enterprise_audit ORDER BY id DESC LIMIT 1'
-        );
-        if (rows.length > 0) {
-            lastHash = rows[0].current_hash;
-        } else {
-            lastHash = crypto.createHash('sha256').update('GENESIS_BLOCK_SARGA_2025').digest('hex');
-        }
-        hashChainInitialized = true;
-        return lastHash;
-    } catch (err) {
-        logger.error('[AuditService] Failed to get last hash:', err.message);
-        lastHash = crypto.createHash('sha256').update('GENESIS_BLOCK_SARGA_2025').digest('hex');
-        hashChainInitialized = true;
-        return lastHash;
-    }
-};
-
-const computeHash = (data, previousHash) => {
-    const payload = JSON.stringify(data) + previousHash + (data.timestamp || new Date().toISOString());
-    return crypto.createHash('sha256').update(payload).digest('hex');
-};
-
+let retryAfter = 0;
 const extractUserAgentInfo = (ua) => {
     if (!ua) return { browser: 'Unknown', os: 'Unknown', device: 'Unknown' };
     const result = { browser: 'Unknown', os: 'Unknown', device: 'Desktop' };
@@ -57,85 +27,47 @@ const extractUserAgentInfo = (ua) => {
     return result;
 };
 
-const logAudit = async (entry) => {
-    try {
-        const prevHash = await getLastHash();
-        const auditId = uuidv4();
-        const timestamp = new Date().toISOString().slice(0, 23);
-        const hashData = { ...entry, auditId, timestamp };
-        const currentHash = computeHash(hashData, prevHash);
-
-        const uaInfo = entry.userAgent ? extractUserAgentInfo(entry.userAgent) : {};
-
-        const values = [
-            auditId,
-            timestamp,
-            entry.userId || null,
-            entry.username || null,
-            entry.employeeName || null,
-            entry.userRole || null,
-            entry.branchId || null,
-            entry.branchName || null,
-            entry.department || null,
-            entry.module || 'Unknown',
-            entry.actionType || 'Unknown',
-            entry.recordType || null,
-            entry.recordId ? String(entry.recordId) : null,
-            entry.documentNumber || null,
-            entry.previousValues ? JSON.stringify(entry.previousValues) : null,
-            entry.newValues ? JSON.stringify(entry.newValues) : null,
-            entry.changedFields ? JSON.stringify(entry.changedFields) : null,
-            entry.ipAddress || null,
-            uaInfo.device || entry.deviceName || null,
-            uaInfo.browser || entry.browser || null,
-            uaInfo.os || entry.operatingSystem || null,
-            entry.sessionId || null,
-            entry.apiEndpoint || null,
-            entry.responseStatus || null,
-            entry.success !== undefined ? (entry.success ? 1 : 0) : 1,
-            entry.errorMessage || null,
-            entry.reasonRemarks || null,
-            entry.latitude || null,
-            entry.longitude || null,
-            entry.durationMs || null,
-            prevHash,
-            currentHash,
-        ];
-
-        await pool.query(
-            `INSERT INTO sarga_enterprise_audit
-             (audit_id, timestamp, user_id_internal, username, employee_name, user_role, branch_id, branch_name, department, module, action_type, record_type, record_id, document_number, previous_values, new_values, changed_fields, ip_address, device_name, browser, operating_system, session_id, api_endpoint, response_status, success, error_message, reason_remarks, latitude, longitude, duration_ms, previous_hash, current_hash)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-            values
-        );
-
-        lastHash = currentHash;
-    } catch (err) {
-        logger.error('[AuditService] Log write failed:', err.message);
-    }
+const toSheetEntry = (entry) => {
+    const uaInfo = entry.userAgent ? extractUserAgentInfo(entry.userAgent) : {};
+    return {
+        audit_id: uuidv4(), timestamp: new Date().toISOString(), user_id_internal: entry.userId || '',
+        username: entry.username || '', employee_name: entry.employeeName || '', user_role: entry.userRole || '',
+        branch_id: entry.branchId || '', branch_name: entry.branchName || '', department: entry.department || '',
+        module: entry.module || 'Unknown', action_type: entry.actionType || 'Unknown', record_type: entry.recordType || '',
+        record_id: entry.recordId || '', document_number: entry.documentNumber || '', previous_values: entry.previousValues,
+        new_values: entry.newValues, changed_fields: entry.changedFields, ip_address: entry.ipAddress || '',
+        device_name: uaInfo.device || entry.deviceName || '', browser: uaInfo.browser || entry.browser || '',
+        operating_system: uaInfo.os || entry.operatingSystem || '', session_id: entry.sessionId || '',
+        api_endpoint: entry.apiEndpoint || '', response_status: entry.responseStatus || '',
+        success: entry.success !== undefined ? entry.success : true, error_message: entry.errorMessage || '',
+        reason_remarks: entry.reasonRemarks || '', latitude: entry.latitude || '', longitude: entry.longitude || '',
+        duration_ms: entry.durationMs || '',
+        legacy_action: entry.legacyAction || '', legacy_details: entry.legacyDetails || '',
+        entity_type: entry.entityType || '', entity_id: entry.entityId || '', field_name: entry.fieldName || '',
+        old_value: entry.oldValue, new_value: entry.newValue,
+    };
 };
 
 const enqueueAudit = (entry) => {
-    if (auditQueue.length >= AUDIT_QUEUE_MAX) {
-        processBatch();
-    }
+    if (auditQueue.length >= AUDIT_QUEUE_MAX) logger.warn(`[AuditService] Audit queue has ${auditQueue.length} pending entries.`);
     auditQueue.push(entry);
 };
 
 const processBatch = async () => {
     if (auditQueue.length === 0) return;
     const batch = auditQueue.splice(0, MAX_BATCH_SIZE);
-    for (const entry of batch) {
-        try {
-            await logAudit(entry);
-        } catch (err) {
-            logger.error('[AuditService] Batch item failed:', err.message);
-        }
+    try {
+        await appendAuditEntries(batch.map(toSheetEntry));
+        retryAfter = 0;
+    } catch (err) {
+        logger.error('[AuditService] Sheet batch write failed; retaining entries for retry:', err.message);
+        auditQueue.unshift(...batch);
+        retryAfter = Date.now() + 5000;
     }
 };
 
 const processQueue = async () => {
-    if (processing) return;
+    if (processing || Date.now() < retryAfter) return;
     processing = true;
     try {
         await processBatch();

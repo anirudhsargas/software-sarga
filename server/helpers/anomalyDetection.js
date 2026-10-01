@@ -4,6 +4,7 @@
  * No external ML libraries needed — pure JavaScript.
  */
 const { pool } = require('../database');
+const { readAuditRows } = require('../services/googleSheetsAuditService');
 
 // ─── Statistics Helpers ────────────────────────────────────────
 
@@ -38,15 +39,26 @@ async function computeStaffBaselines() {
         const [staffList] = await conn.query('SELECT id, branch_id FROM sarga_staff');
         if (!staffList.length) return { success: true, profiles: 0 };
 
-        // Aggregate login hours per staff
-        const [loginAgg] = await conn.query(
-            `SELECT user_id_internal AS staff_id,
-                    AVG(HOUR(timestamp)) AS avg_login_hour,
-                    STDDEV_POP(HOUR(timestamp)) AS std_login_hour
-             FROM sarga_audit_logs
-             WHERE action = 'LOGIN' AND timestamp >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-             GROUP BY user_id_internal`
-        );
+        // Aggregate login hours per staff from the Sheets audit store.
+        const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+        const auditRows = (await readAuditRows()).filter(row => new Date(row.timestamp).getTime() >= cutoff);
+        const avgStd = values => {
+            if (!values.length) return { avg: 0, std: 0 };
+            const avg = values.reduce((sum, value) => sum + value, 0) / values.length;
+            const std = Math.sqrt(values.reduce((sum, value) => sum + (value - avg) ** 2, 0) / values.length);
+            return { avg, std };
+        };
+        const loginGroups = new Map();
+        for (const row of auditRows) {
+            if (!/login/i.test(row.action_type || row.legacy_action || '') || !row.user_id_internal) continue;
+            const hours = loginGroups.get(row.user_id_internal) || [];
+            hours.push(new Date(row.timestamp).getHours());
+            loginGroups.set(row.user_id_internal, hours);
+        }
+        const loginAgg = [...loginGroups].map(([staff_id, hours]) => {
+            const stats = avgStd(hours);
+            return { staff_id, avg_login_hour: stats.avg, std_login_hour: stats.std };
+        });
 
         // Aggregate discount requests per staff
         const [discReqAgg] = await conn.query(
@@ -80,19 +92,24 @@ async function computeStaffBaselines() {
              GROUP BY s.id`
         );
 
-        // Average daily actions and stddev per staff
-        const [dailyAgg] = await conn.query(
-            `SELECT t.staff_id,
-                    AVG(t.cnt) AS avg_daily_actions,
-                    STDDEV_POP(t.cnt) AS std_daily_actions
-             FROM (
-               SELECT user_id_internal AS staff_id, DATE(timestamp) AS d, COUNT(*) AS cnt
-               FROM sarga_audit_logs
-               WHERE timestamp >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-               GROUP BY user_id_internal, DATE(timestamp)
-             ) t
-             GROUP BY t.staff_id`
-        );
+        // Average daily actions and standard deviation per staff from Sheets.
+        const dailyGroups = new Map();
+        for (const row of auditRows) {
+            if (!row.user_id_internal) continue;
+            const key = `${row.user_id_internal}|${String(row.timestamp).slice(0, 10)}`;
+            dailyGroups.set(key, (dailyGroups.get(key) || 0) + 1);
+        }
+        const staffDaily = new Map();
+        for (const [key, count] of dailyGroups) {
+            const staffId = key.split('|')[0];
+            const counts = staffDaily.get(staffId) || [];
+            counts.push(count);
+            staffDaily.set(staffId, counts);
+        }
+        const dailyAgg = [...staffDaily].map(([staff_id, counts]) => {
+            const stats = avgStd(counts);
+            return { staff_id, avg_daily_actions: stats.avg, std_daily_actions: stats.std };
+        });
 
         // Known devices per staff
         const [deviceAgg] = await conn.query(
@@ -316,11 +333,10 @@ async function runFullAnalysis() {
     await computeStaffBaselines();
 
     // Check recent logins (last 24h)
-    const [recentLogins] = await pool.query(
-        `SELECT user_id_internal AS staff_id, HOUR(timestamp) AS login_hour
-         FROM sarga_audit_logs
-         WHERE action = 'LOGIN' AND timestamp >= DATE_SUB(NOW(), INTERVAL 24 HOUR)`
-    );
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    const auditRows = (await readAuditRows()).filter(row => new Date(row.timestamp).getTime() >= cutoff);
+    const recentLogins = auditRows.filter(row => /login/i.test(row.action_type || row.legacy_action || '') && row.user_id_internal)
+        .map(row => ({ staff_id: row.user_id_internal, login_hour: new Date(row.timestamp).getHours() }));
 
     for (const login of recentLogins) {
         const alerts = await checkLoginAnomaly(login.staff_id, login.login_hour, null);
@@ -350,13 +366,14 @@ async function runFullAnalysis() {
     }
 
     // Check bulk deletions (from audit logs, last 24h)
-    const [deletionCounts] = await pool.query(
-        `SELECT user_id_internal AS staff_id, action, COUNT(*) AS cnt
-         FROM sarga_audit_logs
-         WHERE action LIKE '%DELETE%' AND timestamp >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
-         GROUP BY user_id_internal, action
-         HAVING cnt >= 3`
-    );
+    const deletionMap = new Map();
+    for (const row of auditRows) {
+        const action = row.legacy_action || row.action_type || '';
+        if (!row.user_id_internal || !/delete/i.test(action)) continue;
+        const key = `${row.user_id_internal}|${action}`;
+        deletionMap.set(key, (deletionMap.get(key) || 0) + 1);
+    }
+    const deletionCounts = [...deletionMap].filter(([,cnt])=>cnt>=3).map(([key,cnt])=>{const [staff_id,action]=key.split('|');return {staff_id,action,cnt};});
 
     for (const del of deletionCounts) {
         const alerts = await checkDeletionAnomaly(del.staff_id, del.action, del.cnt);

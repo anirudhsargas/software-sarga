@@ -403,6 +403,7 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
                 const jobNumber = `J-${Date.now().toString().slice(-8)}-${i + 1}`;
                 const lineBookType = normalizeBookType(line.book_type || line.bookType || targetBook);
 
+                if (isNewJobCreated) {
                 try {
                     const [jobInsert] = await connection.query(
                         `INSERT INTO sarga_jobs
@@ -461,6 +462,7 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
                     } else {
                         throw err;
                     }
+                }
                 }
                 // Reserve inventory for linked product if a new job was created in this request
                 if (isNewJobCreated && line.job_id && line.product_id) {
@@ -565,7 +567,7 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
                 }
 
                 // SYNC TO MACHINE
-                if (job.machine_id) {
+                if (false && job.machine_id) {
                     try {
                         // Import helper on the fly to avoid circular dependencies if any
                         const { syncJobToMachineWorkEntry } = require('./jobs');
@@ -696,18 +698,10 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
         }
         console.timeEnd('[PMT-PERF] 9. Inventory Stock Deductions Loop');
 
-        // ─── Audit log inside transaction ───
-        console.time('[PMT-PERF] 10. Audit Log');
-        await connection.query(
-            `INSERT INTO sarga_audit_logs (user_id_internal, action, details, entity_type, entity_id, ip_address)
-             VALUES (?, ?, ?, ?, ?, ?)`,
-            [req.user.id, 'CUSTOMER_PAYMENT_ADD', `Payment ${paymentId}${invoiceNumber ? ` (${invoiceNumber})` : ''} for ${customer_name}: ₹${total}`, 'payment', paymentId, req.ip]
-        );
-        console.timeEnd('[PMT-PERF] 10. Audit Log');
-
         console.time('[PMT-PERF] 11. Transaction Commit');
         await connection.commit();
         console.timeEnd('[PMT-PERF] 11. Transaction Commit');
+        auditLog(req.user.id, 'CUSTOMER_PAYMENT_ADD', `Payment ${paymentId}${invoiceNumber ? ` (${invoiceNumber})` : ''} for ${customer_name}: ₹${total}`, { entity_type: 'payment', entity_id: paymentId, ip_address: req.ip });
         console.timeEnd('[PMT-PERF] Total Handler Time');
         console.log(`[PMT-PERF] Finished POST /customer-payments in ${Date.now() - startTotalTime}ms`);
 

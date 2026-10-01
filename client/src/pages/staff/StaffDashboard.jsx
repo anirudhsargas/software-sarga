@@ -4,7 +4,7 @@ import api from '../../services/api';
 import auth from '../../services/auth';
 import { useSEO } from '../../hooks/useSEO';
 import {
-  CheckCircle, Clock, CalendarX, User, Activity, ChevronLeft, ChevronRight,
+  CheckCircle, Clock, CalendarX, User, ChevronLeft, ChevronRight,
   IndianRupee, Calendar, Download, AlertCircle, Loader2, ArrowLeft, ArrowRight
 } from 'lucide-react';
 import PageContainer from '../../components/ui/PageContainer';
@@ -49,15 +49,6 @@ const StaffDashboard = () => {
     },
     enabled: !!staffId,
     staleTime: 60000,
-  });
-
-  const { data: timeline, isLoading: tlLoading } = useQuery({
-    queryKey: ['staff_timeline'],
-    queryFn: async () => {
-      const res = await api.get('/staff-portal/timeline');
-      return res.data;
-    },
-    staleTime: 300000,
   });
 
   const { data: tasks, isLoading: tasksLoading } = useQuery({
@@ -394,46 +385,6 @@ const StaffDashboard = () => {
           )}
         </div>
 
-        {/* Recent Activity Timeline */}
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Activity size={16} style={{ color: 'var(--primary)' }} />
-            <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>Recent Activity</h3>
-          </div>
-          {tlLoading ? (
-            <div style={{ padding: 24, textAlign: 'center', color: 'var(--muted)' }}>
-              <Loader2 size={18} className="animate-spin" /> Loading…
-            </div>
-          ) : !timeline || timeline.length === 0 ? (
-            <div style={{ padding: 32, textAlign: 'center', color: 'var(--muted)' }}>
-              <Activity size={24} style={{ opacity: 0.3, marginBottom: 8 }} />
-              <p style={{ margin: 0, fontSize: 13 }}>No recent activity</p>
-            </div>
-          ) : (
-            <div style={{ padding: '16px 20px' }}>
-              {timeline.map((item, idx) => (
-                <div key={idx} style={{
-                  position: 'relative', paddingLeft: 20, paddingBottom: idx < timeline.length - 1 ? 16 : 0,
-                  borderLeft: idx < timeline.length - 1 ? '2px solid var(--border)' : 'none',
-                }}>
-                  <div style={{
-                    position: 'absolute', left: -5, top: 2, width: 8, height: 8, borderRadius: '50%',
-                    background: 'var(--primary)',
-                  }} />
-                  <div style={{ fontSize: 13, fontWeight: 500 }}>{item.action}</div>
-                  {item.details && (
-                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
-                      {typeof item.details === 'object' ? JSON.stringify(item.details) : String(item.details)}
-                    </div>
-                  )}
-                  <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 4 }}>
-                    {new Date(item.timestamp).toLocaleString()}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
     </PageContainer>
   );

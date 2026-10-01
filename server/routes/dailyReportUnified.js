@@ -651,7 +651,7 @@ router.get('/offset-live', auth.authenticate, auth.authorizeRoles('Admin', 'Acco
             [date, branchId]
         );
         const cashOpening = openingRows.length > 0 ? Number(openingRows[0].cash_opening) : 0;
-        const cashClosing = cashOpening + totalCashIn - totalCashOut;
+        const cashClosing = cashOpening + totalCashIn + totalUpiIn - totalCashOut - totalUpiOut;
 
         const allEntries = [...workEntries, ...transferEntries, ...expenseEntries].sort((a, b) => new Date(b.time) - new Date(a.time));
         const entryCount = allEntries.length;
@@ -1055,7 +1055,7 @@ router.get('/laser-live', auth.authenticate, auth.authorizeRoles('Admin', 'Accou
             );
         }
         const cashOpening = openingRows.length > 0 ? Number(openingRows[0].cash_opening) : 0;
-        const cashClosing = cashOpening + totalCashIn + creditIn - totalCashOut - creditOut;
+        const cashClosing = cashOpening + totalCashIn + totalUpiIn + creditIn - totalCashOut - totalUpiOut - creditOut;
 
         const allEntries = [...workEntries, ...billingEntries, ...transferEntries].sort((a, b) => new Date(b.time) - new Date(a.time));
         const entryCount = allEntries.length;
@@ -1486,7 +1486,7 @@ router.get('/other-live', auth.authenticate, auth.authorizeRoles('Admin', 'Accou
             );
         }
         const cashOpening = openingRows.length > 0 ? Number(openingRows[0].cash_opening) : 0;
-        const cashClosing = cashOpening + totalCashIn + creditIn - totalCashOut - creditOut;
+        const cashClosing = cashOpening + totalCashIn + totalUpiIn + creditIn - totalCashOut - totalUpiOut - creditOut;
 
         const allEntries = [...workEntries, ...billingEntries, ...transferEntries].sort((a, b) => new Date(b.time) - new Date(a.time));
 

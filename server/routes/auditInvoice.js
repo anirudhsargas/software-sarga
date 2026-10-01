@@ -3,66 +3,6 @@ const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { getNextInvoiceNumber, asyncHandler, auditLog } = require('../helpers');
 const { paginate } = require('../helpers/pagination');
-
-// ─── Audit Logs (Admin / Accountant only) ───
-
-/**
- * GET /audit-logs?entity_type=job&entity_id=42&action=JOB_UPDATE&startDate=2025-01-01&endDate=2025-12-31
- * Paginated audit log viewer with optional filters.
- */
-router.get('/audit-logs', authenticateToken, authorizeRoles('Admin', 'Accountant'), asyncHandler(async (req, res) => {
-  const { entity_type, entity_id, action, user_id, startDate, endDate } = req.query;
-  const { limit, offset, _page, response } = paginate(req.query, req.query.page, req.query.limit);
-
-  let whereClauses = [];
-  const params = [];
-
-  if (entity_type) { whereClauses.push('a.entity_type = ?'); params.push(entity_type); }
-  if (entity_id) { whereClauses.push('a.entity_id = ?'); params.push(entity_id); }
-  if (action) { whereClauses.push('a.action LIKE ?'); params.push(`%${action}%`); }
-  if (user_id) { whereClauses.push('a.user_id_internal = ?'); params.push(user_id); }
-  if (startDate) { whereClauses.push('a.timestamp >= ?'); params.push(startDate); }
-  if (endDate) { whereClauses.push('a.timestamp <= ?'); params.push(`${endDate} 23:59:59`); }
-
-  const whereSection = whereClauses.length > 0 ? ' WHERE ' + whereClauses.join(' AND ') : ' WHERE 1=1';
-
-  const baseFrom = `
-    FROM sarga_audit_logs a
-    LEFT JOIN sarga_staff s ON a.user_id_internal = s.id
-    ${whereSection}
-  `;
-
-  const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, params);
-  const [rows] = await pool.query(
-    `SELECT a.*, s.name as user_name, s.role as user_role 
-     ${baseFrom}
-     ORDER BY a.timestamp DESC
-     LIMIT ? OFFSET ?`,
-    [...params, limit, offset]
-  );
-
-  res.json(response(rows, total));
-}));
-
-/**
- * GET /audit-logs/entity/:type/:id
- * Full audit trail for a specific entity (e.g., job #42).
- */
-router.get('/audit-logs/entity/:type/:id', authenticateToken, authorizeRoles('Admin', 'Accountant'), asyncHandler(async (req, res) => {
-  const { type, id } = req.params;
-  const [rows] = await pool.query(
-    `SELECT a.*, s.name as user_name, s.role as user_role
-     FROM sarga_audit_logs a
-     LEFT JOIN sarga_staff s ON a.user_id_internal = s.id
-     WHERE a.entity_type = ? AND a.entity_id = ?
-     ORDER BY a.timestamp DESC
-     LIMIT 100`,
-    [type, id]
-  );
-  res.json(rows);
-}));
-
-
 // ─── Invoice Management ───
 
 /**

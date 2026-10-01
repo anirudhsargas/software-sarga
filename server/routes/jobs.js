@@ -986,13 +986,6 @@ router.post('/jobs', authenticateToken, validate(addJobSchema), async (req, res)
             await connection.query('UPDATE sarga_jobs SET payment_id = ? WHERE id = ?', [cpResult.insertId, result.insertId]);
         }
 
-        // 3. Audit log (inside transaction for consistency)
-        await connection.query(
-            `INSERT INTO sarga_audit_logs (user_id_internal, action, details, entity_type, entity_id, ip_address)
-             VALUES (?, ?, ?, ?, ?, ?)`,
-            [req.user.id, 'JOB_CREATE', `Created job ${job_number} for customer ${customer_id || 'walk-in'}`, 'job', result.insertId, req.ip]
-        );
-
         // Reserve inventory for linked product (prevent double-booking of same stock)
         try {
             if (product_id) {
@@ -1017,6 +1010,8 @@ router.post('/jobs', authenticateToken, validate(addJobSchema), async (req, res)
 
         // COMMIT — all-or-nothing
         await connection.commit();
+
+        auditLog(req.user.id, 'JOB_CREATE', `Created job ${job_number} for customer ${customer_id || 'walk-in'}`, { entity_type: 'job', entity_id: result.insertId, ip_address: req.ip });
 
         // Post-commit side effects (non-critical, outside transaction)
         if (product_id) {

@@ -150,8 +150,8 @@ const Vendors = () => {
   };
 
   useEffect(() => {
-    checkPaymentAudit();
-  }, [refreshKey]);
+    if (userRole === 'Admin') checkPaymentAudit();
+  }, [refreshKey, userRole]);
 
   return (
     <PageContainer>
@@ -206,7 +206,7 @@ const Vendors = () => {
       </div>
 
       {/* Payment Audit Warning Banner */}
-      {auditDiscrepancies && auditDiscrepancies.length > 0 && (
+      {userRole === 'Admin' && auditDiscrepancies && auditDiscrepancies.length > 0 && (
         <div style={{
           marginBottom: '16px', padding: '12px 16px',
           background: 'rgba(var(--warning-rgb, 245,158,11), 0.12)',

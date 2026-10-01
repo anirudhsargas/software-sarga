@@ -105,22 +105,5 @@ module.exports = (upload) => {
         }
     });
 
-    // Get timeline (audit logs specific to the user)
-    router.get('/staff-portal/timeline', authenticateToken, async (req, res) => {
-        try {
-            const [logs] = await pool.query(
-                `SELECT action, details, timestamp 
-                 FROM sarga_audit_logs 
-                 WHERE user_id_internal = ? 
-                 ORDER BY timestamp DESC LIMIT 20`,
-                [req.user.id]
-            );
-            res.json(logs);
-        } catch (err) {
-            console.error('Error fetching timeline:', err);
-            res.status(500).json({ message: 'Failed to load timeline' });
-        }
-    });
-
     return router;
 };

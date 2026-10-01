@@ -49,6 +49,7 @@ function AuditTrail() {
     const [showDetailPanel, setShowDetailPanel] = useState(false)
     const [showFilters, setShowFilters] = useState(false)
     const [exporting, setExporting] = useState(false)
+    const [migrating, setMigrating] = useState(false)
     const [copiedId, setCopiedId] = useState(null)
     const [loadError, setLoadError] = useState(null)
     const [exportError, setExportError] = useState(null)
@@ -251,6 +252,19 @@ function AuditTrail() {
         }
     }
 
+    const migrateOldAuditLogs = async () => {
+        setMigrating(true)
+        try {
+            const res = await api.post('/audit/migrate-from-mysql')
+            toast.success(`Copied ${Number(res.data?.migrated || 0).toLocaleString()} historical audit rows to Sheets`)
+            await loadLogs(1, false)
+        } catch (error) {
+            toast.error(error.response?.data?.message || error.response?.data?.error || 'Could not migrate audit history')
+        } finally {
+            setMigrating(false)
+        }
+    }
+
     const dismissExportError = () => setExportError(null)
 
     const copyToClipboard = (text) => {
@@ -321,11 +335,14 @@ function AuditTrail() {
                             <Shield size={24} className="audit-title-icon" />
                             <div>
                                 <h1 className="audit-title">Enterprise Audit Trail</h1>
-                                <p className="audit-subtitle">Immutable record of all system activities • {total.toLocaleString()} total entries</p>
+                                <p className="audit-subtitle">Google Sheets audit history • {total.toLocaleString()} retained entries</p>
                             </div>
                         </div>
                     </div>
                     <div className="audit-header-actions">
+                        <button className="btn btn-secondary btn-sm" onClick={migrateOldAuditLogs} disabled={migrating} title="Copy existing MySQL audit history to Google Sheets">
+                            {migrating ? <Loader2 size={16} className="spin" /> : <FileSpreadsheet size={16} />} Import old logs
+                        </button>
                         <button className="btn btn-secondary btn-sm" onClick={() => setShowFilters(!showFilters)}>
                             <Filter size={16} />
                             Filters{activeFilterCount > 0 && <span className="audit-filter-count">{activeFilterCount}</span>}
@@ -864,46 +881,16 @@ function AuditDetailPanel({ log, onClose, formatTimestamp, copyToClipboard, copi
 
                     {activeTab === 'security' && (
                         <div className="audit-detail-section">
-                            <div className={`audit-security-info ${log.previous_hash ? 'audit-security-info--verified' : ''}`}>
-                                {log.previous_hash ? (
-                                    <div className="audit-security-icon audit-security-icon--verified">
-                                        <CheckCircle size={24} />
-                                    </div>
-                                ) : (
-                                    <div className="audit-security-icon">
-                                        <Shield size={24} />
-                                    </div>
-                                )}
+                            <div className="audit-security-info">
+                                <div className="audit-security-icon"><Shield size={24} /></div>
                                 <div className="audit-security-text">
-                                    <h3>Hash Chain Verification</h3>
-                                    {log.previous_hash ? (
-                                        <p className="audit-security-success">Chain link verified — this record is cryptographically linked to the previous record using SHA-256. Tamper detection is active.</p>
-                                    ) : (
-                                        <p>This record is cryptographically linked to the previous record using SHA-256 hashing, forming an immutable chain. Any tampering with past records will break the chain.</p>
-                                    )}
+                                    <h3>Google Sheets record</h3>
+                                    <p>This audit entry is stored in the configured Google Sheet. Editors of that sheet can change its contents.</p>
                                 </div>
                             </div>
                             <div className="audit-detail-grid">
                                 <div className="audit-detail-field audit-detail-field--wide">
-                                    <label>Current Hash</label>
-                                    <div className="audit-hash-copy">
-                                        <code className="audit-hash">{log.current_hash}</code>
-                                        <button className="btn btn-ghost btn-sm" onClick={() => copyToClipboard(log.current_hash)} title="Copy hash">
-                                            {copiedId === log.current_hash?.slice(0, 8) ? <Check size={14} /> : <Copy size={14} />}
-                                        </button>
-                                    </div>
-                                </div>
-                                <div className="audit-detail-field audit-detail-field--wide">
-                                    <label>Previous Hash</label>
-                                    <div className="audit-hash-copy">
-                                        <code className="audit-hash">{log.previous_hash}</code>
-                                        <button className="btn btn-ghost btn-sm" onClick={() => copyToClipboard(log.previous_hash)} title="Copy previous hash">
-                                            {copiedId === log.previous_hash?.slice(0, 8) ? <Check size={14} /> : <Copy size={14} />}
-                                        </button>
-                                    </div>
-                                </div>
-                                <div className="audit-detail-field audit-detail-field--wide">
-                                    <label>Audit ID (UUID)</label>
+                                    <label>Audit record ID</label>
                                     <code>{log.audit_id}</code>
                                 </div>
                             </div>

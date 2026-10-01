@@ -111,7 +111,7 @@ const mergePendingEntries = (tab, data, pendingEntries) => {
     summary.waste_prints = (Number(summary.waste_prints) || 0) + totalWastePrints;
     summary.proof_prints = (Number(summary.proof_prints) || 0) + totalProofPrints;
     summary.entry_count = (Number(summary.entry_count) || 0) + pendingEntries.length;
-    summary.cash_closing = (Number(summary.cash_closing) || 0) + totalCashIn;
+    summary.cash_closing = (Number(summary.cash_closing) || 0) + totalCashIn + totalUpiIn;
 
     if (tab === 'Offset') {
         summary.income_count = (Number(summary.income_count) || 0) + pendingEntries.length;
@@ -1001,8 +1001,12 @@ const DailyReport = () => {
         const opening = currentValue > 0 ? currentValue : (Number(summary.cash_opening) || 0);
         const totalCashIn = Number(summary.total_cash_in) || 0;
         const totalUpiIn = Number(summary.total_upi_in) || 0;
-        const totalIn = totalCashIn + totalUpiIn;
-        const totalOut = Number(summary.total_cash_out) || 0;
+        const totalCreditIn = Number(summary.total_credit_in) || 0;
+        const totalCashOut = Number(summary.total_cash_out) || 0;
+        const totalUpiOut = Number(summary.total_upi_out) || 0;
+        const totalCreditOut = Number(summary.total_credit_out) || 0;
+        const totalIn = totalCashIn + totalUpiIn + totalCreditIn;
+        const totalOut = totalCashOut + totalUpiOut + totalCreditOut;
         const closing = opening + totalIn - totalOut;
         const netChange = totalIn - totalOut;
         const isLocked = lockedBalances[bookType] && !isAdmin;
@@ -1042,6 +1046,9 @@ const DailyReport = () => {
                     
                     <div className="balance-card-value">
                         {formatCurrency(closing)}
+                    </div>
+                    <div className="balance-card-opening-label">
+                        Opening + Income − Expense · {formatCurrency(opening)} + {formatCurrency(totalIn)} − {formatCurrency(totalOut)}
                     </div>
 
                     {!showEdit ? (
@@ -1134,6 +1141,7 @@ const DailyReport = () => {
                         <div className="premium-stat-card-footer-item">
                             <span>UPI: {formatCurrency(totalUpiIn)}</span>
                         </div>
+                        {totalCreditIn > 0 && <><span>•</span><span>Credits: {formatCurrency(totalCreditIn)}</span></>}
                         {liveCounts && liveCounts.income_count > 0 && (
                             <>
                                 <span>•</span>
@@ -1153,11 +1161,12 @@ const DailyReport = () => {
                             <TrendingDown size={16} />
                         </div>
                     </div>
-                    <div className="premium-stat-card-value">
-                        {formatCurrency(totalOut)}
-                    </div>
+                    <div className="premium-stat-card-value">{formatCurrency(totalOut)}</div>
                     <div className="premium-stat-card-footer">
-                        <span>Expenses & withdrawals</span>
+                        <span>Cash: {formatCurrency(totalCashOut)}</span>
+                        <span>•</span>
+                        <span>UPI: {formatCurrency(totalUpiOut)}</span>
+                        {totalCreditOut > 0 && <><span>•</span><span>Credits: {formatCurrency(totalCreditOut)}</span></>}
                         {liveCounts && liveCounts.expense_count > 0 && (
                             <>
                                 <span>•</span>
@@ -1810,8 +1819,10 @@ const DailyReport = () => {
 
     // ─── Tab Content ────────────────────────────────────────────
     const renderCashbookSummaryStrip = (summary) => {
-        const totalIn = (Number(summary.total_cash_in) || 0) + (Number(summary.total_upi_in) || 0);
-        const totalOut = Number(summary.total_cash_out) || 0;
+        const cashIn = Number(summary.total_cash_in) || 0;
+        const upiIn = Number(summary.total_upi_in) || 0;
+        const totalIn = cashIn + upiIn + (Number(summary.total_credit_in) || 0);
+        const totalOut = (Number(summary.total_cash_out) || 0) + (Number(summary.total_upi_out) || 0) + (Number(summary.total_credit_out) || 0);
         const opening = Number(summary.cash_opening) || 0;
         const closing = opening + totalIn - totalOut;
         return (
@@ -1825,9 +1836,9 @@ const DailyReport = () => {
                     </div>
                     <div className="dr-summary-card__value">{formatCurrency(totalIn)}</div>
                     <div className="dr-summary-card__footer">
-                        <span>Cash: {formatCurrency(summary.total_cash_in || 0)}</span>
+                        <span>Cash: {formatCurrency(cashIn)}</span>
                         <span>•</span>
-                        <span>UPI: {formatCurrency(summary.total_upi_in || 0)}</span>
+                        <span>UPI: {formatCurrency(upiIn)}</span>
                     </div>
                 </div>
                 <div className="dr-summary-card dr-summary-card--expense">
@@ -1839,7 +1850,9 @@ const DailyReport = () => {
                     </div>
                     <div className="dr-summary-card__value">{formatCurrency(totalOut)}</div>
                     <div className="dr-summary-card__footer">
-                        <span>Expenses & withdrawals</span>
+                        <span>Cash: {formatCurrency(summary.total_cash_out || 0)}</span>
+                        <span>•</span>
+                        <span>UPI: {formatCurrency(summary.total_upi_out || 0)}</span>
                     </div>
                 </div>
                 <div className="dr-summary-card dr-summary-card--balance">
@@ -1851,7 +1864,7 @@ const DailyReport = () => {
                     </div>
                     <div className="dr-summary-card__value">{formatCurrency(closing)}</div>
                     <div className="dr-summary-card__footer">
-                        <span>Opening: {formatCurrency(opening)}</span>
+                        <span>{formatCurrency(opening)} + {formatCurrency(totalIn)} − {formatCurrency(totalOut)}</span>
                     </div>
                 </div>
             </div>

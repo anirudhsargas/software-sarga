@@ -1,5 +1,5 @@
 import { useSEO } from '../hooks/useSEO';
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Database, ShieldCheck, RefreshCw, AlertTriangle, Play, FileSpreadsheet, Activity, Server, ArrowRight, CheckCircle2, Info } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
@@ -52,8 +52,6 @@ const BackupSettingsPage = () => {
   // Expanded diff state
   const [expandedRowId, setExpandedRowId] = useState(null);
 
-  const jobPollInterval = useRef(null);
-
   // Fetch Connection Health
   const fetchHealth = useCallback(async () => {
     try {
@@ -74,7 +72,7 @@ const BackupSettingsPage = () => {
       const { data } = await api.get('/backup/status');
       setStatus(data);
     } catch {
-      toast.error('Failed to load sync thresholds');
+      toast.error('Failed to load backup status');
     } finally {
       setLoading(prev => ({ ...prev, status: false }));
     }
@@ -117,75 +115,50 @@ const BackupSettingsPage = () => {
 
   useEffect(() => {
     refreshAll();
-    return () => {
-      if (jobPollInterval.current) clearInterval(jobPollInterval.current);
-    };
   }, [refreshAll]);
 
-  // Poll background job status
-  const pollJobStatus = (jobId) => {
-    if (jobPollInterval.current) clearInterval(jobPollInterval.current);
-    setActiveJobId(jobId);
-    setJobStatus('queued');
-
-    jobPollInterval.current = setInterval(async () => {
-      try {
-        const { data } = await api.get(`/backup/job/${jobId}`);
-        if (data.success && data.job) {
-          const jobState = data.job.status;
-          setJobStatus(jobState);
-          if (jobState === 'completed') {
-            clearInterval(jobPollInterval.current);
-            setActiveJobId(null);
-            toast.success(`Backup job completed successfully! Synced ${data.job.rows_synced} rows.`);
-            refreshAll();
-          } else if (jobState === 'failed' || jobState === 'cancelled') {
-            clearInterval(jobPollInterval.current);
-            setActiveJobId(null);
-            toast.error(`Backup job status: ${jobState.toUpperCase()}. ${data.job.error_message || ''}`);
-            refreshAll();
-          }
-        }
-      } catch (err) {
-        clearInterval(jobPollInterval.current);
-        setActiveJobId(null);
-        toast.error('Failed to get background job status');
-      }
-    }, 2000); // Poll every 2 seconds
-  };
-
-  // Trigger Incremental Sync
-  const handleIncrementalSync = async () => {
+  // Run a complete, verified snapshot. The prior RAW tabs remain in place until publish.
+  const handleRunSnapshot = async () => {
+    setActiveJobId('running');
+    setJobStatus('running');
     try {
       const { data } = await api.post('/backup/run');
       if (data.success && data.jobId) {
-        toast.success('Backup job queued in background');
-        pollJobStatus(data.jobId);
+        setJobStatus('completed');
+        toast.success(`Verified snapshot saved: ${data.tablesBackedUp} tables, ${data.rowsWritten} rows.`);
+        refreshAll();
       }
     } catch (err) {
-      toast.error(err.response?.data?.error || err.response?.data?.message || 'Failed to queue backup');
+      toast.error(err.response?.data?.error || err.response?.data?.message || 'Backup failed');
+    } finally {
+      setActiveJobId(null);
     }
   };
 
   // Trigger Full Snapshot Sync Rebuild
   const handleFullSync = async () => {
     const confirmed = await confirm({
-      title: 'Queue Full Snapshot Rebuild',
-      message: 'This will rebuild all Google Sheets tabs using a complete database snapshot. The sync will process in the background. Proceed?',
-      confirmText: 'Queue Rebuild',
+      title: 'Build Full Sheets Snapshot',
+      message: 'This will stage a full snapshot of the configured tables, verify it, and publish it. The current snapshot remains in place if the new one fails. Proceed?',
+      confirmText: 'Build Snapshot',
       type: 'warning'
     });
 
     if (!confirmed) return;
 
+    setActiveJobId('running');
+    setJobStatus('running');
     try {
       const { data } = await api.post('/backup/full');
       if (data.success && data.jobId) {
-        toast.success('Full snapshot rebuild job queued in background');
-        pollJobStatus(data.jobId);
+        setJobStatus('completed');
+        toast.success(`Verified snapshot saved: ${data.tablesBackedUp} tables, ${data.rowsWritten} rows.`);
+        refreshAll();
       }
     } catch (err) {
-      toast.error(err.response?.data?.error || err.response?.data?.message || 'Failed to queue rebuild snapshot');
+      toast.error(err.response?.data?.error || err.response?.data?.message || 'Snapshot rebuild failed');
+    } finally {
+      setActiveJobId(null);
     }
   };
 
@@ -302,12 +275,13 @@ const BackupSettingsPage = () => {
       if (data.success) {
         setIntegrity(data);
         if (data.healthy) {
-          toast.success(`Integrity check passed! MySQL rows match Google Sheets count.`);
+          toast.success(data.message || 'Google Sheets backup checks passed.');
         } else {
-          toast.error(`Integrity check failed. Mismatch detected between MySQL and Google Sheets.`);
+          toast.error(data.message || 'Google Sheets backup verification found mismatches.');
         }
       }
     } catch (err) {
+      if (err.response?.data) setIntegrity(err.response.data);
       toast.error(err.response?.data?.message || 'Failed to run integrity verification');
     } finally {
       setVerifyingIntegrity(false);
@@ -352,7 +326,7 @@ const BackupSettingsPage = () => {
         {/* Page header title */}
         <div>
           <h1 className="section-title">Google Sheets Backup & Reports</h1>
-          <p className="section-subtitle">Manage service accounts, queue background jobs, review staging recovery previews, and monitor metrics.</p>
+          <p className="section-subtitle">Create complete Google Sheets snapshots, verify them with SHA-256 checksums, and monitor backup runs.</p>
         </div>
 
         {/* Warning banner when backup service is disabled */}
@@ -402,7 +376,7 @@ const BackupSettingsPage = () => {
               </span>
             </div>
             <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
-              {isBackupActive ? `API Latency: ${metrics.sheet_api_latency_ms}ms` : 'Check Server Logs'}
+              {isBackupActive ? `Sheets API Latency: ${health.latency || 0}ms` : 'Check Server Logs'}
             </span>
           </div>
 
@@ -414,7 +388,7 @@ const BackupSettingsPage = () => {
                 {isBackupActive ? `${metrics.backup_jobs_running} running` : 'N/A'}
               </span>
             </div>
-            <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Non-blocking queue</span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Tracked backup runs</span>
           </div>
 
           <div className="backup-card" style={{ padding: '1.25rem', gap: '0.5rem' }}>
@@ -431,23 +405,23 @@ const BackupSettingsPage = () => {
           </div>
 
           <div className="backup-card" style={{ padding: '1.25rem', gap: '0.5rem' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--muted)', fontWeight: 500 }}>Failed/Rolled Restores</span>
+            <span style={{ fontSize: '0.8rem', color: 'var(--muted)', fontWeight: 500 }}>Data Recovery</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <ShieldCheck size={18} style={{ color: metrics.restore_failures_total > 0 ? '#ef4444' : '#10b981' }} />
+              <ShieldCheck size={18} style={{ color: '#f59e0b' }} />
               <span style={{ fontSize: '1.25rem', fontWeight: 700 }}>
-                {isBackupActive ? `${metrics.restore_failures_total} reverted` : 'N/A'}
+                Disabled
               </span>
             </div>
-            <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>DR rollback count</span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Google Sheets restore is unavailable</span>
           </div>
         </div>
 
-        {/* Sync Progress Indicator when a background job is running */}
+        {/* Sync progress indicator while the API request is running */}
         {activeJobId && (
           <div className="health-status-bar" style={{ background: 'rgba(99, 102, 241, 0.08)', borderColor: 'rgba(99, 102, 241, 0.3)' }}>
             <RefreshCw size={18} className="animate-spin text-secondary" style={{ color: '#6366f1' }} />
             <div>
-              <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Sync job #{activeJobId} is running in background...</span>
+              <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Google Sheets snapshot is running...</span>
               <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: '0.1rem' }}>
                 Status: <strong style={{ color: '#6366f1', textTransform: 'uppercase' }}>{jobStatus}</strong>
               </div>
@@ -459,7 +433,7 @@ const BackupSettingsPage = () => {
         <div style={{ display: 'flex', gap: '0.75rem', margin: '0.75rem 0' }}>
           <button
             className="btn btn-primary"
-            onClick={handleIncrementalSync}
+            onClick={handleRunSnapshot}
             disabled={activeJobId !== null || runningRestore}
             style={{ justifyContent: 'center', gap: '8px', flex: 1 }}
           >
@@ -487,7 +461,7 @@ const BackupSettingsPage = () => {
               <h3 className="backup-card-title">Sync Operations</h3>
             </div>
             <p style={{ fontSize: '0.85rem', color: 'var(--muted)', margin: 0 }}>
-              Queue background synchronization worker jobs. These are processed asynchronously without blocking web API latency.
+              Each run copies all configured tables into staging tabs, checks every written page, then publishes the new snapshot. If a run fails, the previous snapshot stays in place.
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: 'auto' }}>
               <button 
@@ -511,6 +485,16 @@ const BackupSettingsPage = () => {
                 <FileSpreadsheet size={16} />
                 Open Google Sheets Panel
               </a>
+            )}
+            {integrity && (
+              <div style={{ fontSize: '0.8rem', color: integrity.healthy ? '#10b981' : '#ef4444', marginTop: '0.5rem' }}>
+                {integrity.message}
+                {Array.isArray(integrity.tables) && (
+                  <div style={{ color: 'var(--muted)', marginTop: '0.35rem' }}>
+                    {integrity.tables.filter(table => table.healthy).length}/{integrity.tables.length} tables verified
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
