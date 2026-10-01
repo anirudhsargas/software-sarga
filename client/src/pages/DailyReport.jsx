@@ -1007,7 +1007,9 @@ const DailyReport = () => {
         const totalCreditOut = Number(summary.total_credit_out) || 0;
         const totalIn = totalCashIn + totalUpiIn + totalCreditIn;
         const totalOut = totalCashOut + totalUpiOut + totalCreditOut;
-        const closing = opening + totalIn - totalOut;
+        const cashBalance = opening + totalCashIn + totalCreditIn - totalCashOut - totalCreditOut;
+        const upiBalance = totalUpiIn - totalUpiOut;
+        const closing = cashBalance + upiBalance;
         const netChange = totalIn - totalOut;
         const isLocked = lockedBalances[bookType] && !isAdmin;
         const [localAmount, setLocalAmount] = useState('');
@@ -1047,8 +1049,17 @@ const DailyReport = () => {
                     <div className="balance-card-value">
                         {formatCurrency(closing)}
                     </div>
-                    <div className="balance-card-opening-label">
-                        Opening + Income − Expense · {formatCurrency(opening)} + {formatCurrency(totalIn)} − {formatCurrency(totalOut)}
+                    <div className="balance-card-method-balances">
+                        <div className="balance-card-method-balance">
+                            <span>Cash Balance</span>
+                            <strong>{formatCurrency(cashBalance)}</strong>
+                            <small>{formatCurrency(opening)} + {formatCurrency(totalCashIn + totalCreditIn)} − {formatCurrency(totalCashOut + totalCreditOut)}</small>
+                        </div>
+                        <div className="balance-card-method-balance">
+                            <span>UPI Balance</span>
+                            <strong>{formatCurrency(upiBalance)}</strong>
+                            <small>{formatCurrency(totalUpiIn)} − {formatCurrency(totalUpiOut)}</small>
+                        </div>
                     </div>
 
                     {!showEdit ? (

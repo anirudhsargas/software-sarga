@@ -50,6 +50,7 @@ const FrontOffice = lazyWithRetry(() => import('./FrontOffice'));
 const ExpenseManager = lazyWithRetry(() => import('./ExpenseManager'));
 const Vendors = lazyWithRetry(() => import('./Vendors'));
 const MachineManagement = lazyWithRetry(() => import('./MachineManagement'));
+const MachineProductionEntry = lazyWithRetry(() => import('./MachineProductionEntry'));
 const DailyReport = lazyWithRetry(() => import('./DailyReport'));
 const AttendanceSalary = lazyWithRetry(() => import('./AttendanceSalary'));
 const AccountantDashboard = lazyWithRetry(() => import('./AccountantDashboard'));
@@ -558,6 +559,7 @@ const Dashboard = () => {
             if (label === 'Paper-layout') label = 'Paper Layout';
             if (label === 'Job-priority') label = 'Job Priority';
             if (label === 'Production-tracker') label = 'Production Tracker';
+            if (label === 'Waste-proof') label = 'Waste & Proof Log';
             
             const isLast = index === paths.length - 1;
             return (
@@ -633,6 +635,7 @@ const Dashboard = () => {
         // Production
         { key: 'operations', name: 'Product Library', icon: Grid, path: '/dashboard/products', roles: ['Admin', 'Front Office', 'Designer', 'Accountant'], group: 'production' },
         { key: 'operations', name: 'Machine Management', icon: Settings, path: '/dashboard/machines', roles: ['Admin', 'Front Office'], group: 'production' },
+        { key: 'operations', name: 'Waste & Proof Log', icon: Layers, path: '/dashboard/production/waste-proof', roles: ['Admin', 'Front Office', 'Accountant', 'Printer', 'Other Staff'], group: 'production' },
         { key: 'operations', name: 'Production Tracker', icon: Layers, path: '/dashboard/production-tracker', roles: ['Admin', 'Front Office'], group: 'production' },
         { key: 'operations', name: 'Paper Layout', icon: Layers, path: '/dashboard/paper-layout', roles: ['Front Office', 'Designer'], group: 'production' },
         { key: 'operations', name: 'Design Check', icon: FileCheck, path: '/dashboard/design-check', roles: ['Designer'], group: 'production' },
@@ -1218,6 +1221,7 @@ const Dashboard = () => {
                             <Route path="utilities/connections/:id" element={<ProtectedSubRoute roles={['Admin', 'Accountant', 'Front Office']}><ConnectionLedger /></ProtectedSubRoute>} />
                             <Route path="vendors/*" element={<ProtectedSubRoute roles={['Admin', 'Accountant', 'Front Office']}><Vendors /></ProtectedSubRoute>} />
                             <Route path="machines" element={<ProtectedSubRoute roles={['Admin', 'Front Office']}><MachineManagement /></ProtectedSubRoute>} />
+                            <Route path="production/waste-proof" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant', 'Printer', 'Other Staff']}><MachineProductionEntry /></ProtectedSubRoute>} />
                             <Route path="daily-report" element={<ProtectedSubRoute roles={['Front Office', 'Admin', 'Accountant']}><DailyReport /></ProtectedSubRoute>} />
                             <Route path="internal-transactions" element={<ProtectedSubRoute roles={['Admin', 'Accountant', 'Front Office']}><InternalTransfers /></ProtectedSubRoute>} />
                             <Route path="stock-transfer" element={<ProtectedSubRoute roles={['Admin', 'Accountant', 'Front Office']}><StockTransfer /></ProtectedSubRoute>} />

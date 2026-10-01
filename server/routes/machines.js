@@ -970,8 +970,8 @@ router.post('/:id/work', auth.authenticate, auth.authorizeRoles('Admin', 'Accoun
             return res.status(400).json({ error: `Waste copies (${wasteCopies}) + proof copies (${proofCopies}) cannot exceed total copies (${goodCopies})` });
         }
 
-        // Non-admin/accountant: check assignment
-        if (!['Admin', 'Accountant'].includes(user.role)) {
+        // Non-admin/accountant/FO: check assignment
+        if (!['Admin', 'Accountant', 'Front Office', 'Printer', 'Other Staff'].includes(user.role)) {
             const [assignment] = await pool.query(
                 'SELECT id FROM sarga_machine_staff_assignments WHERE machine_id = ? AND staff_id = ?',
                 [id, user.id]

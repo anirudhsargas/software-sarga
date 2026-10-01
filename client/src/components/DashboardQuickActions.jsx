@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ScanLine, Wallet, IndianRupee, CalendarCheck, Keyboard } from 'lucide-react';
+import { ScanLine, Wallet, IndianRupee, CalendarCheck, Keyboard, Layers } from 'lucide-react';
 
 const QUICK_ACTIONS = [
   {
@@ -16,6 +16,13 @@ const QUICK_ACTIONS = [
     icon: Wallet,
     route: '/dashboard/sales/payments',
     color: 'var(--success)'
+  },
+  {
+    id: 'waste_proof',
+    label: 'Waste Log',
+    icon: Layers,
+    route: '/dashboard/production/waste-proof',
+    color: '#f59e0b'
   },
   {
     id: 'expense',

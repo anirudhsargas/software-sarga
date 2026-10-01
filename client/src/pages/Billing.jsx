@@ -460,6 +460,11 @@ const Billing = () => {
   const mobileValid = form.mobile.length === 10;
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email);
   const gstValid = form.gst.length === 15;
+  const getCustomerBranchName = (customer) => {
+    if (customer?.branch_name) return customer.branch_name;
+    if (customer?.branch_id === null || customer?.branch_id === undefined || customer?.branch_id === '') return 'Shared / not assigned';
+    return branches.find(branch => String(branch.id) === String(customer.branch_id))?.name || `Branch #${customer.branch_id}`;
+  };
 
   // ── Data loading ──
   useEffect(() => {
@@ -1827,6 +1832,7 @@ const Billing = () => {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                           <span className="font-medium" style={{ fontSize: 13 }}>{c.name}</span>
                           <span className="text-muted" style={{ fontSize: 11, fontFamily: 'monospace' }}>{c.mobile || c.phone || '—'}</span>
+                          <span className="text-muted" style={{ fontSize: 11 }}>Customer branch: {getCustomerBranchName(c)}</span>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           {c.type && <span className="badge badge--sm">{c.type}</span>}
@@ -1862,6 +1868,7 @@ const Billing = () => {
                   <span><Phone size={12} aria-hidden="true" /> {form.mobile}</span>
                   {form.gst && <span><FileText size={12} aria-hidden="true" /> {form.gst}</span>}
                   {form.address && <span><MapPin size={12} aria-hidden="true" /> {form.address}</span>}
+                  <span><Building2 size={12} aria-hidden="true" /> Customer branch: {getCustomerBranchName(existingCustomer)}</span>
                 </div>
               </div>
             ) : (
