@@ -231,19 +231,42 @@ const authenticate = async (req, res, next) => {
             // For GET/DELETE/HEAD requests, override query params
             if (['GET', 'DELETE', 'HEAD'].includes(method)) {
                 if (!req.query) req.query = {};
-                req.query.branch_id = req.user.branch_id;
+                const requestedBranchId = req.query.branch_id;
+                let hasRequestedAssignment = false;
+                if (requestedBranchId && String(requestedBranchId) !== String(req.user.branch_id)) {
+                    const [assignments] = await pool.query(
+                        'SELECT 1 FROM staff_branch_assignments WHERE staff_id = ? AND branch_id = ? LIMIT 1',
+                        [req.user.id, requestedBranchId]
+                    );
+                    hasRequestedAssignment = assignments.length > 0;
+                }
+                if (!requestedBranchId || (String(requestedBranchId) !== String(req.user.branch_id) && !hasRequestedAssignment)) {
+                    req.query.branch_id = req.user.branch_id;
+                } else if (requestedBranchId) {
+                    // Keep handlers that read req.user.branch_id directly in
+                    // sync with handlers that use the selected query branch.
+                    req.user.branch_id = requestedBranchId;
+                }
             } 
             // For POST/PUT/PATCH, enforce body validation
             else if (['POST', 'PUT', 'PATCH'].includes(method)) {
                 if (!req.body) req.body = {};
                 
-                // If they provided a branch_id and it mismatches, reject
+                // Allow an explicitly selected branch only when the staff member
+                // has an assignment for it. Otherwise keep the active branch.
                 if (req.body.branch_id && String(req.body.branch_id) !== String(req.user.branch_id)) {
-                    return res.status(403).json({ error: 'Branch access denied. Your account is restricted to your assigned branch.' });
+                    const [assignments] = await pool.query(
+                        'SELECT 1 FROM staff_branch_assignments WHERE staff_id = ? AND branch_id = ? LIMIT 1',
+                        [req.user.id, req.body.branch_id]
+                    );
+                    if (assignments.length === 0) {
+                        return res.status(403).json({ error: 'Branch access denied. Your account is not assigned to this branch.' });
+                    }
                 }
                 
-                // Always ensure branch_id is correctly set
-                req.body.branch_id = req.user.branch_id;
+                // Keep the requested assigned branch, or default to active branch.
+                req.body.branch_id = req.body.branch_id || req.user.branch_id;
+                req.user.branch_id = req.body.branch_id;
             }
         }
         // -----------------------------------------

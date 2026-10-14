@@ -10,6 +10,19 @@ const { uploadBufferToCloudinary, deleteFromCloudinary } = require('../helpers/c
 module.exports = (upload, removeUploadFile) => {
     const router = require('express').Router();
 
+    const syncPrimaryBranchAssignment = async (staffId, branchId, assignedBy) => {
+        if (!branchId) {
+            await pool.query('UPDATE staff_branch_assignments SET is_primary = 0 WHERE staff_id = ?', [staffId]);
+            return;
+        }
+        await pool.query('UPDATE staff_branch_assignments SET is_primary = 0 WHERE staff_id = ?', [staffId]);
+        await pool.query(`
+            INSERT INTO staff_branch_assignments (staff_id, branch_id, is_primary, assigned_by)
+            VALUES (?, ?, 1, ?)
+            ON DUPLICATE KEY UPDATE is_primary = 1, assigned_by = VALUES(assigned_by)
+        `, [staffId, branchId, assignedBy]);
+    };
+
     // --- STAFF ROUTES (Admin Only) ---
 
     // Add Staff
@@ -34,18 +47,64 @@ module.exports = (upload, removeUploadFile) => {
             return res.status(400).json({ message: 'Invalid mobile number' });
         }
 
+        let connection;
         try {
+            let requestedBranchIds = [];
+            if (req.body.branch_ids) {
+                try {
+                    requestedBranchIds = JSON.parse(req.body.branch_ids);
+                } catch {
+                    return res.status(400).json({ message: 'Invalid branch_ids format' });
+                }
+                if (!Array.isArray(requestedBranchIds)) {
+                    return res.status(400).json({ message: 'branch_ids must be a JSON array' });
+                }
+            }
+            if (branch_id) requestedBranchIds.push(branch_id);
+            requestedBranchIds = [...new Set(requestedBranchIds.map(Number))];
+            if (requestedBranchIds.some(id => !Number.isInteger(id) || id <= 0)) {
+                return res.status(400).json({ message: 'Branch assignments must contain valid branch IDs' });
+            }
+
+            connection = await pool.getConnection();
+            await connection.beginTransaction();
+            if (requestedBranchIds.length) {
+                const [validBranches] = await connection.query(
+                    `SELECT id FROM sarga_branches WHERE id IN (${requestedBranchIds.map(() => '?').join(',')})`,
+                    requestedBranchIds
+                );
+                if (validBranches.length !== requestedBranchIds.length) {
+                    await connection.rollback();
+                    return res.status(400).json({ message: 'One or more selected branches do not exist' });
+                }
+            }
+
+            const primaryBranchId = branch_id ? Number(branch_id) : (requestedBranchIds[0] || null);
+            if (primaryBranchId && !requestedBranchIds.includes(primaryBranchId)) requestedBranchIds.push(primaryBranchId);
             const hashedPassword = await bcrypt.hash(normalizedMobile, 10);
-            const [result] = await pool.query(
+            const [result] = await connection.query(
                 "INSERT INTO sarga_staff (user_id, password, role, name, is_first_login, branch_id, image_url) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                [normalizedMobile, hashedPassword, role, name, 1, branch_id || null, imageUrl]
+                [normalizedMobile, hashedPassword, role, name, 1, primaryBranchId, imageUrl]
             );
 
-            auditLog(req.user.id, 'STAFF_ADD', `Added staff ${normalizedMobile} as ${role} for branch ${branch_id}`);
+            if (requestedBranchIds.length) {
+                const values = requestedBranchIds.map(id => [result.insertId, id, id === primaryBranchId ? 1 : 0, req.user.id]);
+                await connection.query(
+                    `INSERT INTO staff_branch_assignments (staff_id, branch_id, is_primary, assigned_by) VALUES ${values.map(() => '(?, ?, ?, ?)').join(', ')}`,
+                    values.flat()
+                );
+            }
+
+            await connection.commit();
+            auditLog(req.user.id, 'STAFF_ADD', `Added staff ${normalizedMobile} as ${role} for branches ${requestedBranchIds.join(', ')}`);
             res.status(201).json({ id: result.insertId, message: 'Staff added successfully' });
         } catch (err) {
+            if (connection) await connection.rollback().catch(() => {});
             if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'User ID already exists' });
+            console.error('Add staff error:', err);
             res.status(500).json({ message: 'Database error' });
+        } finally {
+            connection?.release();
         }
     });
 
@@ -180,6 +239,7 @@ module.exports = (upload, removeUploadFile) => {
 
                 values.push(id);
                 await pool.query(`UPDATE sarga_staff SET ${updates.join(', ')} WHERE id = ?`, values);
+                if (branch_id !== undefined) await syncPrimaryBranchAssignment(id, branch_id, req.user.id);
 
                 const [rows] = await pool.query("SELECT id, user_id, name, role, branch_id, image_url, salary_type, base_salary, daily_rate, settings FROM sarga_staff WHERE id = ?", [id]);
                 return res.json(rows[0]);
@@ -224,6 +284,7 @@ module.exports = (upload, removeUploadFile) => {
             params.push(id);
 
             await pool.query(query, params);
+            if (branch_id !== undefined) await syncPrimaryBranchAssignment(id, branch_id, req.user.id);
             auditLog(req.user.id, 'STAFF_UPDATE', `Updated staff member ${id}: ${name} (${role})`);
             res.json({ message: 'Staff member updated successfully' });
         } catch (err) {
@@ -332,6 +393,27 @@ module.exports = (upload, removeUploadFile) => {
                 WHERE sba.staff_id = ?
                 ORDER BY sba.is_primary DESC, b.name ASC
             `, [id]);
+            // Older staff accounts may only have sarga_staff.branch_id set. Show
+            // that existing branch as their primary until their assignments are
+            // first saved through the multi-branch controls.
+            if (assignments.length === 0) {
+                const [[staff]] = await pool.query(`
+                    SELECT s.branch_id, b.name as branch_name, b.short_name
+                    FROM sarga_staff s
+                    LEFT JOIN sarga_branches b ON b.id = s.branch_id
+                    WHERE s.id = ?
+                `, [id]);
+                if (staff?.branch_id) {
+                    assignments.push({
+                        id: null,
+                        staff_id: Number(id),
+                        branch_id: staff.branch_id,
+                        is_primary: 1,
+                        branch_name: staff.branch_name,
+                        short_name: staff.short_name,
+                    });
+                }
+            }
             res.json(assignments);
         } catch (err) {
             console.error('Fetch branch assignments error:', err);
@@ -345,6 +427,25 @@ module.exports = (upload, removeUploadFile) => {
         const { branch_id, is_primary, permissions } = req.body;
         if (!branch_id) return res.status(400).json({ message: 'branch_id is required' });
         try {
+            const [[staff]] = await pool.query('SELECT id, branch_id FROM sarga_staff WHERE id = ?', [id]);
+            if (!staff) return res.status(404).json({ message: 'Staff member not found' });
+            const [[branch]] = await pool.query('SELECT id FROM sarga_branches WHERE id = ?', [branch_id]);
+            if (!branch) return res.status(404).json({ message: 'Branch not found' });
+
+            const [existingAssignments] = await pool.query(
+                'SELECT id FROM staff_branch_assignments WHERE staff_id = ? LIMIT 1',
+                [id]
+            );
+            // Preserve the current primary branch when converting a legacy
+            // single-branch account to multi-branch assignments.
+            if (existingAssignments.length === 0 && staff.branch_id) {
+                await pool.query(`
+                    INSERT INTO staff_branch_assignments (staff_id, branch_id, is_primary, assigned_by)
+                    VALUES (?, ?, 1, ?)
+                    ON DUPLICATE KEY UPDATE is_primary = 1
+                `, [id, staff.branch_id, req.user.id]);
+            }
+
             // If setting as primary, unset any existing primary first
             if (is_primary) {
                 await pool.query('UPDATE staff_branch_assignments SET is_primary = 0 WHERE staff_id = ?', [id]);
@@ -353,7 +454,10 @@ module.exports = (upload, removeUploadFile) => {
             await pool.query(`
                 INSERT INTO staff_branch_assignments (staff_id, branch_id, is_primary, permissions, assigned_by)
                 VALUES (?, ?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE is_primary = VALUES(is_primary), permissions = VALUES(permissions), assigned_by = VALUES(assigned_by)
+                ON DUPLICATE KEY UPDATE
+                    is_primary = IF(VALUES(is_primary) = 1, 1, is_primary),
+                    permissions = VALUES(permissions),
+                    assigned_by = VALUES(assigned_by)
             `, [id, branch_id, is_primary ? 1 : 0, permissionsJson, req.user.id]);
             // Also update the primary branch_id on sarga_staff if this is primary
             if (is_primary) {

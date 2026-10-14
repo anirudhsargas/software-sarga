@@ -30,7 +30,7 @@ const roleBadgeClass = (role) => {
   return map[role] || 'staff-role-badge--other';
 };
 
-const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEditModal, setEditStaffImage, setEditStaffPreview, handleDelete, isAdmin, handleResetPassword, handleMarkAttendance, todayAttendance, onOpenSettings, userRole }) => {
+const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEditModal, setEditStaffImage, setEditStaffPreview, handleDelete, isAdmin, handleResetPassword, handleMarkAttendance, todayAttendance, onOpenSettings, userRole, fetchBranchAssignments }) => {
   const att = todayAttendance[s.id];
   const isPresent = att?.in_time && !att?.out_time;
   return (
@@ -71,7 +71,7 @@ const StaffRow = React.memo(({ staff: s, navigate, setSelectedStaff, setShowEdit
               <button className="btn-icon" onClick={() => navigate(`/dashboard/employee/${s.id}`)} title="View Dashboard">
                 <BarChart3 size={15} />
               </button>
-              <button className="btn-icon" onClick={() => { setSelectedStaff({ ...s, countryCode: s.countryCode || '+91' }); setEditStaffImage(null); setEditStaffPreview(''); setShowEditModal(true); if (user?.role === 'Admin') fetchBranchAssignments(s.id); }} title="Edit Staff Member">
+              <button className="btn-icon" onClick={() => { setSelectedStaff({ ...s, countryCode: s.countryCode || '+91' }); setEditStaffImage(null); setEditStaffPreview(''); setShowEditModal(true); if (userRole === 'Admin') fetchBranchAssignments(s.id); }} title="Edit Staff Member">
                 <Edit2 size={15} />
               </button>
               <button className="btn-icon" onClick={() => handleResetPassword(s.id)} title="Reset Password">
@@ -124,7 +124,7 @@ const StaffManagement = () => {
     const [showHolidayModal, setShowHolidayModal] = useState(false);
     const [showSettingsModal, setShowSettingsModal] = useState(false);
     const [settingsStaff, setSettingsStaff] = useState(null);
-    const [newStaff, setNewStaff] = useState({ mobile: '', name: '', role: 'Other Staff', countryCode: '+91', branch_id: '', salary_type: 'Monthly', base_salary: '', daily_rate: '' });
+    const [newStaff, setNewStaff] = useState({ mobile: '', name: '', role: 'Other Staff', countryCode: '+91', branch_id: '', branch_ids: [], salary_type: 'Monthly', base_salary: '', daily_rate: '' });
     const [branches, setBranches] = useState([]);
     const [_error, setError] = useState('');
     const [newStaffImage, setNewStaffImage] = useState(null);
@@ -245,6 +245,7 @@ const StaffManagement = () => {
             formData.append('name', newStaff.name);
             formData.append('role', newStaff.role);
             formData.append('branch_id', newStaff.branch_id);
+            formData.append('branch_ids', JSON.stringify([...new Set([newStaff.branch_id, ...(newStaff.branch_ids || [])].filter(Boolean).map(String))]));
             if (isAdmin) {
                 formData.append('salary_type', newStaff.salary_type || 'Monthly');
                 if (newStaff.salary_type === 'Monthly') {
@@ -261,7 +262,8 @@ const StaffManagement = () => {
                 setStaff(prev => [...prev, response.data]);
             }
             setShowAddModal(false);
-            setNewStaff({ mobile: '', name: '', role: 'Other Staff', countryCode: '+91', branch_id: branches[0]?.id || '', salary_type: 'Monthly', base_salary: '', daily_rate: '' });
+            const defaultBranchId = branches[0]?.id ? String(branches[0].id) : '';
+            setNewStaff({ mobile: '', name: '', role: 'Other Staff', countryCode: '+91', branch_id: defaultBranchId, branch_ids: defaultBranchId ? [defaultBranchId] : [], salary_type: 'Monthly', base_salary: '', daily_rate: '' });
             setNewStaffImage(null);
             fetchStaff();
         } catch (err) {
@@ -269,6 +271,12 @@ const StaffManagement = () => {
         } finally {
             setLoading(false);
         }
+    };
+
+    const openAddStaffForm = () => {
+        const defaultBranchId = branches[0]?.id ? String(branches[0].id) : '';
+        setNewStaff(prev => ({ ...prev, branch_id: prev.branch_id || defaultBranchId, branch_ids: prev.branch_ids?.length ? prev.branch_ids : (defaultBranchId ? [defaultBranchId] : []) }));
+        setShowAddModal(true);
     };
 
     const handleUpdateStaff = async (e) => {
@@ -372,6 +380,7 @@ const StaffManagement = () => {
     };
 
     async function fetchBranchAssignments(staffId) {
+        setBranchAssignments([]);
         try {
             const response = await api.get(`/staff/${staffId}/branches`);
             setBranchAssignments(response.data || []);
@@ -547,7 +556,7 @@ const StaffManagement = () => {
                         {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                     </select>
                     {isAdmin && (
-                        <button onClick={() => setShowAddModal(true)} className="btn btn-primary" style={{ whiteSpace: 'nowrap' }}>
+                        <button onClick={openAddStaffForm} className="btn btn-primary" style={{ whiteSpace: 'nowrap' }}>
                             <Plus size={18} aria-hidden="true" />
                             <span>Add Staff</span>
                         </button>
@@ -596,6 +605,7 @@ const StaffManagement = () => {
                                 handleMarkAttendance={handleMarkAttendance}
                                 todayAttendance={todayAttendance}
                                 onOpenSettings={(s) => { setSettingsStaff(s); setShowSettingsModal(true); }}
+                                fetchBranchAssignments={fetchBranchAssignments}
                             />
                         ))}
                     </tbody>
@@ -686,12 +696,36 @@ const StaffManagement = () => {
                                             name="newStaffBranch" 
                                             className="staff-input" 
                                             value={newStaff.branch_id} 
-                                            onChange={e => setNewStaff({...newStaff, branch_id: e.target.value})} 
+                                            onChange={e => {
+                                                const branchId = e.target.value;
+                                                setNewStaff(prev => ({ ...prev, branch_id: branchId, branch_ids: [...new Set([...(prev.branch_ids || []), branchId].filter(Boolean))] }));
+                                            }}
                                             required
                                         >
                                             <option value="">Select Branch</option>
                                             {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                                         </BranchSelect>
+                                    </div>
+                                    <p className="staff-branch-hint">This is the primary branch. Add any other branches this staff member needs access to.</p>
+                                    <div style={{ display: 'grid', gap: 8, marginTop: 8, maxHeight: 140, overflowY: 'auto' }}>
+                                        {branches.filter(b => String(b.id) !== String(newStaff.branch_id)).map(branch => {
+                                            const checked = (newStaff.branch_ids || []).some(id => String(id) === String(branch.id));
+                                            return (
+                                                <label key={branch.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={checked}
+                                                        onChange={e => setNewStaff(prev => ({
+                                                            ...prev,
+                                                            branch_ids: e.target.checked
+                                                                ? [...new Set([...(prev.branch_ids || []), String(branch.id)])]
+                                                                : (prev.branch_ids || []).filter(id => String(id) !== String(branch.id)),
+                                                        }))}
+                                                    />
+                                                    {branch.name}
+                                                </label>
+                                            );
+                                        })}
                                     </div>
                                 </div>
 
@@ -967,7 +1001,7 @@ const StaffManagement = () => {
                                                             <span className="staff-branch-chip-badge">Primary</span>
                                                         )}
                                                         <span className="staff-branch-chip-actions">
-                                                            {!ba.is_primary && (
+                                                            {ba.id && !ba.is_primary && (
                                                                 <button
                                                                     type="button"
                                                                     className="btn-icon-nano text-accent"
@@ -977,14 +1011,14 @@ const StaffManagement = () => {
                                                                     <Star size={10} />
                                                                 </button>
                                                             )}
-                                                            <button
+                                                            {ba.id && <button
                                                                 type="button"
                                                                 className="btn-icon-nano text-error"
                                                                 onClick={() => handleRemoveBranch(selectedStaff.id, ba.id)}
                                                                 title="Remove branch assignment"
                                                             >
                                                                 <X size={10} />
-                                                            </button>
+                                                            </button>}
                                                         </span>
                                                     </div>
                                                 ))}

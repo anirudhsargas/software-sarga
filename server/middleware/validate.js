@@ -36,7 +36,8 @@ const addStaffSchema = z.object({
     mobile: z.string().min(1, 'Mobile is required').regex(/^\d{10}$/, 'Mobile must be exactly 10 digits'),
     name: requiredString('Name'),
     role: z.enum(['Admin', 'Front Office', 'Designer', 'Printer', 'Accountant', 'Other Staff']),
-    branch_id: z.preprocess(Number, z.number().int().positive()).optional().nullable()
+    branch_id: z.preprocess(Number, z.number().int().positive()).optional().nullable(),
+    branch_ids: z.string().optional()
 });
 
 // ---- Customers ----

@@ -40,13 +40,10 @@ async function branchFilter(req, options = {}) {
                     if (hasAccess) {
                         branchId = requestedBranchId;
                     } else {
-                        // Default to primary branch
-                        const primary = assignments.find(a => a.is_primary);
-                        branchId = primary ? primary.branch_id : assignments[0].branch_id;
+                        branchId = getAssignedDefaultBranch(assignments, req.user.branch_id);
                     }
                 } else {
-                    const primary = assignments.find(a => a.is_primary);
-                    branchId = primary ? primary.branch_id : assignments[0].branch_id;
+                    branchId = getAssignedDefaultBranch(assignments, req.user.branch_id);
                 }
             } else {
                 branchId = await getUserBranchId(req.user.id);
@@ -63,6 +60,13 @@ async function branchFilter(req, options = {}) {
         clause: hasBranch ? ` AND ${column} = ?` : '',
         params: hasBranch ? [branchId] : [],
     };
+}
+
+function getAssignedDefaultBranch(assignments, activeBranchId) {
+    const active = assignments.find(a => String(a.branch_id) === String(activeBranchId));
+    if (active) return active.branch_id;
+    const primary = assignments.find(a => a.is_primary);
+    return primary ? primary.branch_id : assignments[0].branch_id;
 }
 
 module.exports = {
