@@ -55,14 +55,8 @@ router.get('/customers', authenticateToken, authorizeRoles('Admin', 'Accountant'
             where += " AND COALESCE(client_type, '') != 'internal'";
         }
 
-        // Customers are a global entity; we allow cross-branch lookup by default (cross_branch !== '0')
-        // to avoid duplicate mobile conflicts when customers visit different branches.
-        const crossBranch = req.query.cross_branch !== '0';
-        if (!crossBranch) {
-            const branchScope = await branchFilter(req, { column: 'branch_id', allowPrivilegedQuery: false });
-            where += branchScope.clause;
-            params.push(...branchScope.params);
-        }
+        // Customer profiles are shared across branches. Branch filtering is
+        // applied to orders and payments, where the transaction actually occurred.
         if (typeFilter) {
             where += ' AND type = ?';
             params.push(typeFilter);
@@ -170,13 +164,10 @@ router.put('/customers/:id', authenticateToken, authorizeRoles('Admin', 'Account
     }
 
     try {
-        // Branch ownership check: non-admin/accountant users can only update customers in their own branch or global ones
-        const branchScope = await branchFilter(req, { allowPrivilegedQuery: false });
-        if (!branchScope.isPrivileged) {
-            const branchId = branchScope.branchId;
-            const [check] = await pool.query("SELECT id FROM sarga_customers WHERE id = ? AND (branch_id = ? OR branch_id IS NULL)", [id, branchId]);
-            if (!check[0]) return res.status(403).json({ message: 'Access denied. Customer belongs to a different branch.' });
-        }
+        // Customer records are shared across branches. Branch scoping belongs to
+        // each order/payment, not to the customer profile itself.
+        const [customerRows] = await pool.query('SELECT id FROM sarga_customers WHERE id = ?', [id]);
+        if (!customerRows[0]) return res.status(404).json({ message: 'Customer not found' });
 
         await pool.query(
             "UPDATE sarga_customers SET mobile = ?, name = ?, type = ?, email = ?, gst = ?, address = ? WHERE id = ?",

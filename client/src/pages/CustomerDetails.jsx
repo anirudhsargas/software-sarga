@@ -494,6 +494,11 @@ const CustomerDetails = () => {
                       >
                         {job.job_name}
                       </span>
+                      {job.branch_name && (
+                        <span style={{ fontSize: 11, color: 'var(--muted-foreground)', marginLeft: 8 }}>
+                          · {job.branch_name}
+                        </span>
+                      )}
                       {/* Compact Tags for Customer Dashboard */}
                       {job.description && (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>

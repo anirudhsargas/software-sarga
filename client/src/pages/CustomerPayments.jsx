@@ -999,7 +999,7 @@ const CustomerPayments = () => {
                   )}
                   {customerJobs.map((job) => (
                     <option key={job.id} value={job.id}>
-                      {job.job_number || 'Job'} — ₹{getJobBalance(job).toFixed(2)}
+                      {job.job_number || 'Job'}{job.branch_name ? ` · ${job.branch_name}` : ''} — ₹{getJobBalance(job).toFixed(2)}
                     </option>
                   ))}
                 </select>
@@ -1043,7 +1043,7 @@ const CustomerPayments = () => {
               <div className="cp-order-summary-title"><Layers size={13} /> All Jobs ({customerJobs.length})</div>
               {customerJobs.map((job) => (
                 <div key={job.id} className="cp-order-line">
-                  <span className="cp-order-line-name">{job.job_name || job.job_number || 'Job'}</span>
+                  <span className="cp-order-line-name">{job.job_name || job.job_number || 'Job'}{job.branch_name ? ` · ${job.branch_name}` : ''}</span>
                   <span className="cp-order-line-total">₹{getJobBalance(job).toFixed(2)}</span>
                 </div>
               ))}
@@ -1057,7 +1057,7 @@ const CustomerPayments = () => {
                 .filter((job) => String(job.id) === String(selectedJobId))
                 .map((job) => (
                   <div key={job.id} className="cp-order-line">
-                    <span className="cp-order-line-name">{job.job_name || job.job_number || 'Job'}</span>
+                    <span className="cp-order-line-name">{job.job_name || job.job_number || 'Job'}{job.branch_name ? ` · ${job.branch_name}` : ''}</span>
                     <span className="cp-order-line-total">₹{getJobBalance(job).toFixed(2)}</span>
                   </div>
                 ))}

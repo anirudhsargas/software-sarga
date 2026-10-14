@@ -712,7 +712,7 @@ router.get('/customers/:id/jobs', authenticateToken, async (req, res) => {
         const custLimit = Math.min(200, Math.max(1, parseInt(req.query.limit) || 50));
         console.log('Fetching jobs for customer:', customerId, 'search=', search);
 
-        let sql = `SELECT ${JOB_LIST_COLUMNS} FROM sarga_jobs WHERE customer_id = ?`;
+        let sql = `SELECT ${JOB_LIST_COLUMNS}, (SELECT name FROM sarga_branches WHERE id = sarga_jobs.branch_id) as branch_name FROM sarga_jobs WHERE customer_id = ?`;
         const params = [customerId];
 
         if (search) {
