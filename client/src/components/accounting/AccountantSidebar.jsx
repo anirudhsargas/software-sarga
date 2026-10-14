@@ -12,13 +12,18 @@ import './AccountantSidebar.css';
 
 const LINKS = [
   { to: '/accounting/dashboard', icon: LayoutDashboard, label: 'Dashboard', key: 'dashboard' },
+  { section: 'Sales', key: 'sales-section' },
+  { to: '/accounting/sales/customers', icon: Users, label: 'Customers', key: 'customers' },
+  { to: '/accounting/sales/orders', icon: ShoppingCart, label: 'Orders', key: 'sales' },
+  { to: '/accounting/sales/quotes', icon: Receipt, label: 'Quotations', key: 'sales' },
+  { to: '/accounting/sales/invoices', icon: FileText, label: 'Invoices', key: 'sales' },
+  { to: '/accounting/sales/payments', icon: CreditCard, label: 'Payments', key: 'sales' },
+  { section: 'Finance', key: 'finance-section' },
   { to: '/accounting/income', icon: TrendingUp, label: 'Income', key: 'finance' },
   { to: '/accounting/expenses', icon: Receipt, label: 'Expenses', key: 'finance' },
   { to: '/accounting/vendors', icon: Building2, label: 'Vendors', key: 'finance' },
-  { to: '/accounting/customers', icon: Users, label: 'Customers', key: 'customers' },
   { to: '/accounting/products', icon: Grid, label: 'Product Library', key: 'operations' },
   { to: '/accounting/purchases', icon: ShoppingCart, label: 'Purchases', key: 'billing' },
-  { to: '/accounting/payments', icon: CreditCard, label: 'Payments', key: 'billing' },
   { to: '/accounting/ledger', icon: BookOpen, label: 'Ledger', key: 'internal' },
   { to: '/accounting/banks', icon: Landmark, label: 'Bank Accounts', key: 'internal' },
   { to: '/accounting/transactions', icon: Activity, label: 'Transactions', key: 'internal' },
@@ -68,7 +73,11 @@ export default function AccountantSidebar({ isOpen, onClose }) {
       </div>
 
       <nav className="acc-nav">
-        {filteredLinks.map(link => (
+        {filteredLinks.map(link => link.section ? (
+          <div key={link.key} className="acc-nav-section-label">
+            {!collapsed && link.section}
+          </div>
+        ) : (
           <NavLink 
             key={link.to} 
             to={link.to} 

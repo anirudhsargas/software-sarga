@@ -60,6 +60,20 @@
   gap: var(--space-4);
 }
 
+.acc-nav-section-label {
+  padding: var(--space-12) var(--space-20) var(--space-4);
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.acc-sidebar.collapsed .acc-nav-section-label {
+  padding-inline: 0;
+  text-align: center;
+}
+
 .acc-nav-link {
   display: flex;
   align-items: center;

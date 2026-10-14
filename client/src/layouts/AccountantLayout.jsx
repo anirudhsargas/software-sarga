@@ -23,6 +23,12 @@ const RecurringInvoices = lazyWithRetry(() => import('../pages/RecurringInvoices
 const UploadBills = lazyWithRetry(() => import('../pages/UploadBills'));
 const PaymentVerification = lazyWithRetry(() => import('../pages/PaymentVerification'));
 const ProductLibrary = lazyWithRetry(() => import('../pages/ProductLibrary'));
+const SalesLayout = lazyWithRetry(() => import('../pages/SalesLayout'));
+const Jobs = lazyWithRetry(() => import('../pages/Jobs'));
+const Quotes = lazyWithRetry(() => import('../pages/Quotes'));
+const Invoices = lazyWithRetry(() => import('../pages/Invoices'));
+const JobDetail = lazyWithRetry(() => import('../pages/JobDetail'));
+const CustomerDetails = lazyWithRetry(() => import('../pages/CustomerDetails'));
 
 export default function AccountantLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -81,6 +87,16 @@ export default function AccountantLayout() {
           <div className="acc-page-container">
             <Routes>
               <Route path="dashboard" element={<AccountantDashboard />} />
+              <Route path="sales" element={<SalesLayout />}>
+                <Route index element={<Navigate to="orders" replace />} />
+                <Route path="customers" element={<Customers />} />
+                <Route path="customers/:id" element={<CustomerDetails />} />
+                <Route path="orders" element={<Jobs />} />
+                <Route path="orders/:id" element={<JobDetail />} />
+                <Route path="quotes" element={<Quotes />} />
+                <Route path="invoices" element={<Invoices />} />
+                <Route path="payments" element={<CustomerPayments />} />
+              </Route>
               <Route path="customers" element={<Customers />} />
               <Route path="payments" element={<CustomerPayments />} />
               <Route path="expenses" element={<ExpenseManager />} />
