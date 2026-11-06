@@ -160,7 +160,7 @@ const JOB_TYPE_OPTIONS = ['Offset', 'Laser', 'Digital', 'Flex', 'ID Card', 'Bind
 
 // Customer types usable in invoice creation (from constants + Billing compat)
 const BILLING_CUSTOMER_TYPES = [
-  { value: 'Retail', label: 'Retail', description: 'Regular walk-in retail customer' },
+  { value: 'Retail', label: 'Retail', description: 'Regular retail customer' },
   { value: 'Walk-in', label: 'Walk-in', description: 'One-time walk-in with full payment' },
   { value: 'Offset', label: 'Offset', description: 'Offset printing customer' },
 ];
@@ -731,6 +731,7 @@ const Billing = () => {
     payment.selectedMethods.reduce((s, m) => s + (Number(payment.methodAmounts[m]) || 0), 0),
     [payment.selectedMethods, payment.methodAmounts]
   );
+  const customerAdvanceAmount = Math.max(0, Number((advancePaid - totals.gross).toFixed(2)));
 
   const _computeDiscTotal = useCallback((lines, discPct) => {
     const sub = lines.reduce((s, l) => s + (Number(l.total_amount) || 0), 0);
@@ -1829,7 +1830,14 @@ const Billing = () => {
                   type="text"
                   placeholder="Search customer by name or mobile..."
                   value={customerSearchQuery}
-                  onChange={e => { setCustomerSearchQuery(e.target.value); setExistingCustomer(null); setHighlightedCustomerIdx(-1); }}
+                  onChange={e => {
+                    setCustomerSearchQuery(e.target.value);
+                    if (existingCustomer) {
+                      setExistingCustomer(null);
+                      setForm(prev => ({ ...prev, name: '', mobile: '', email: '', address: '', gst: '' }));
+                    }
+                    setHighlightedCustomerIdx(-1);
+                  }}
                   onKeyDown={handleCustomerKeyDown}
                   onBlur={() => setTimeout(() => { setCustomerMatches([]); setCustomerNoResults(false); }, 200)}
                   className="billing-field__input"
@@ -2450,6 +2458,11 @@ const Billing = () => {
           <label className="text-xs muted">Amount Received</label>
           <div className="billing-payment-amount__value">₹{advancePaid.toFixed(2)}</div>
         </div>
+        {customerAdvanceAmount > 0 && (
+          <div role="status" style={{ margin: '0 0 14px', padding: '10px 12px', borderRadius: 8, border: '1px solid color-mix(in srgb, var(--warning) 35%, transparent)', background: 'var(--warning-bg)', color: 'var(--text-warning)', fontSize: 13 }}>
+            ₹{customerAdvanceAmount.toFixed(2)} is above the grand total and will be recorded as customer advance after confirmation.
+          </div>
+        )}
 
         {/* Physical Cash Book selector */}
         <div className="billing-payment-target-book" style={{ marginBottom: '14px', padding: '10px 14px', background: 'var(--card-bg, #f8fafc)', borderRadius: '8px', border: '1px solid var(--border-color, #e2e8f0)' }}>
@@ -2654,6 +2667,12 @@ const Billing = () => {
               <span className="stat-label">Paid / Advance</span>
               <span className="stat-value">₹{advancePaid.toFixed(2)}</span>
             </div>
+            {customerAdvanceAmount > 0 && (
+              <div className="summary-stat-box summary-stat-box--paid-full">
+                <span className="stat-label">Customer Advance</span>
+                <span className="stat-value">₹{customerAdvanceAmount.toFixed(2)}</span>
+              </div>
+            )}
             <div className={`summary-stat-box ${advancePaid >= totals.gross ? 'summary-stat-box--paid-full' : 'summary-stat-box--balance'}`}>
               <span className="stat-label">Balance Due</span>
               <span className="stat-value">

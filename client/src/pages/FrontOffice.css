@@ -7,6 +7,8 @@
 .page-content:has(.fo-dashboard) {
   gap: 0;
   max-width: 1320px;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .fo-dashboard {
@@ -16,6 +18,8 @@
   max-width: 1320px;
   margin: 0 auto;
   width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   padding-bottom: 16px;
 }
 
@@ -107,8 +111,9 @@
 }
 
 .fo-search-bar {
-  flex: 1;
-  min-width: 240px;
+  flex: 1 1 0;
+  min-width: 0;
+  width: 100%;
   position: relative;
 }
 
@@ -128,6 +133,8 @@
 
 .fo-search-input {
   width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   padding: 8px 80px 8px 34px;
   font-size: 13px;
   background: var(--input-bg, var(--surface-2));
@@ -400,9 +407,10 @@
 /* ── KPI Grid ── */
 .fo-kpi-grid {
   display: grid;
-  grid-template-columns: repeat(8, 1fr);
+  grid-template-columns: repeat(8, minmax(0, 1fr));
   gap: 6px;
   width: 100%;
+  min-width: 0;
 }
 
 button.fo-kpi,
@@ -459,6 +467,9 @@ button.fo-kpi,
   font-weight: 700;
   color: var(--text-primary);
   line-height: 1.2;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .fo-kpi__label {
@@ -579,6 +590,7 @@ button.fo-kpi,
   align-items: center;
   gap: 8px;
   flex: 1;
+  min-width: 0;
   justify-content: flex-end;
   flex-wrap: wrap;
 }
@@ -587,6 +599,9 @@ button.fo-kpi,
   display: flex;
   align-items: center;
   gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap;
 }
 
 .fo-panel__total {
@@ -928,9 +943,10 @@ button.fo-kpi,
 /* ── Due Collection Cards ── */
 .fo-due-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
   gap: 8px;
   padding: 12px;
+  min-width: 0;
 }
 
 .fo-due-card {
@@ -941,6 +957,8 @@ button.fo-kpi,
   display: flex;
   flex-direction: column;
   gap: 10px;
+  min-width: 0;
+  box-sizing: border-box;
   transition: border-color 0.15s;
 }
 
@@ -977,7 +995,7 @@ button.fo-kpi,
 
 .fo-due-card__amounts {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
   background: var(--surface-2);
   padding: 8px 10px;
@@ -991,6 +1009,8 @@ button.fo-kpi,
   gap: 1px;
   font-size: 11px;
   color: var(--text-secondary);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .fo-due-card__amounts > div span:last-child {
@@ -1181,19 +1201,19 @@ button.fo-kpi,
 /* ── Responsive ── */
 @media (max-width: 1200px) {
   .fo-kpi-grid {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
   .fo-quick-actions__grid {
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 900px) {
   .fo-kpi-grid {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
   .fo-quick-actions__grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -1205,11 +1225,11 @@ button.fo-kpi,
   .fo-search-bar { width: 100%; }
   .fo-primary-btn { width: 100%; justify-content: center; }
   .fo-kpi-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 6px;
   }
   .fo-quick-actions__grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .fo-panel__header {
     flex-direction: column;
@@ -1220,20 +1240,27 @@ button.fo-kpi,
     justify-content: space-between;
   }
   /* Moved to components/OpeningSetupModal.css */
-  .fo-due-list { grid-template-columns: 1fr; padding: 8px; }
+  .fo-due-list { grid-template-columns: minmax(0, 1fr); padding: 8px; }
 }
 
 @media (max-width: 480px) {
-  .fo-kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 4px; }
-  .fo-quick-actions__grid { grid-template-columns: repeat(2, 1fr); gap: 4px; }
-  .fo-quick-action-card { padding: 8px 6px; min-height: 64px; }
+  .fo-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+  .fo-quick-actions__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+  .fo-quick-action-card { min-width: 0; padding: 8px 6px; min-height: 64px; }
   .fo-quick-action-card__icon { width: 32px; height: 32px; }
+  .fo-quick-action-card__label { max-width: 100%; overflow-wrap: anywhere; }
   .fo-title { font-size: 18px; }
   .fo-due-card { padding: 10px; }
   .fo-due-card__amounts { padding: 6px; }
   .fo-due-card__actions { flex-direction: column; }
   .fo-due-card__actions .btn { width: 100%; }
   /* Moved to components/OpeningSetupModal.css */
+}
+
+@media (max-width: 360px) {
+  .fo-kpi-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 @media (max-width: 768px) {

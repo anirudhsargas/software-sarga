@@ -832,6 +832,8 @@ const Jobs = () => {
                                                                     className="btn btn-ghost"
                                                                     style={{ padding: '2px 4px', minWidth: 0, height: 'auto' }}
                                                                     title={expandedPayments.has(j.payment_id) ? 'Collapse' : 'Expand'}
+                                                                    aria-label={`${expandedPayments.has(j.payment_id) ? 'Collapse' : 'Expand'} jobs for invoice ${j.payment_id}`}
+                                                                    aria-expanded={expandedPayments.has(j.payment_id)}
                                                                     onClick={e => {
                                                                         e.stopPropagation();
                                                                         setExpandedPayments(prev => {

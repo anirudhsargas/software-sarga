@@ -12,7 +12,7 @@ import { validatePrice, validateDate, validateEnum, validateFields } from '../..
 const defaultForm = { transport_type: '', vehicle_number: '', driver_name: '', amount: '', payment_method: 'Cash', reference_number: '', description: '', expense_date: today(), bill_number: '', from_location: '', to_location: '', distance_km: '', book_type: '' };
 const PAGE_SIZE = 50;
 
-const TransportTab = ({ onError }) => {
+const TransportTab = ({ onError, onPayment }) => {
   const { confirm } = useConfirm();
   const [dashboard, setDashboard] = useState(null);
   const [expenses, setExpenses] = useState([]);
@@ -247,7 +247,7 @@ const TransportTab = ({ onError }) => {
                       <td>{r.from_location || ''}{r.to_location ? ` → ${r.to_location}` : ''}</td>
                       <td className="em-amount-cell">₹{fmt(r.amount)}</td>
                       <td>
-                        <button className="btn btn-ghost btn-icon btn-sm" aria-label="Pay transport expense" onClick={() => onPayment && onPayment({ type: 'Other', payee_name: r.driver_name || r.vehicle_number || '', amount: String(r.amount), description: r.description || '', bill_total_amount: r.amount, book_type: r.book_type || '' })}><IndianRupee size={14} /></button>
+                        <button className="btn btn-ghost btn-icon btn-sm" aria-label="Pay transport expense" onClick={() => onPayment?.({ type: 'Other', payee_name: r.driver_name || r.vehicle_number || '', amount: String(r.amount), description: r.description || '', bill_total_amount: r.amount, book_type: r.book_type || '' })}><IndianRupee size={14} /></button>
                         <button className="btn btn-ghost btn-icon btn-sm" aria-label="Edit transport expense" onClick={() => openEdit(r)}><Edit2 size={14} /></button>
                         <button className="btn btn-ghost btn-icon btn-sm" aria-label="Delete transport expense" onClick={() => handleDelete(r.id)}><Trash2 size={14} /></button>
                       </td>

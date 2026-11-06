@@ -8,6 +8,8 @@
   flex-direction: column;
   gap: var(--space-16);
   width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 /* ── Page Header ── */
@@ -196,6 +198,8 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
   padding: var(--space-14) var(--space-16);
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .inv-filters__row {
@@ -203,16 +207,21 @@
   align-items: center;
   gap: var(--space-10);
   flex-wrap: wrap;
+  min-width: 0;
 }
 
 .inv-filters__search {
-  flex: 1;
-  min-width: 200px;
+  flex: 1 1 200px;
+  min-width: min(200px, 100%);
+  max-width: 100%;
   position: relative;
 }
 
 .inv-filters__search .search-input-wrapper {
   margin: 0;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .inv-filters__clear-search {
@@ -247,6 +256,8 @@
   display: flex;
   align-items: center;
   min-width: 140px;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .inv-filters__date-icon {
@@ -260,6 +271,9 @@
 .inv-filters__date .input-field {
   padding-left: 32px;
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 /* ── Table ── */
@@ -267,11 +281,16 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .inv-table {
   width: 100%;
+  min-width: 900px;
   border-collapse: collapse;
   text-align: left;
   font-size: var(--text-sm);
@@ -783,9 +802,22 @@
   }
   .inv-filters__search {
     min-width: 0;
+    width: 100%;
   }
   .inv-filters__date {
     min-width: 0;
+    width: 100%;
+  }
+  .inv-filters__date .input-field {
+    width: 100%;
+  }
+  .inv-filters__clear-search {
+    min-width: 32px;
+  }
+  .inv-filters__row > * {
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
   }
   .inv-header__back-text {
     display: none;
@@ -830,6 +862,9 @@
   .inv-table td:nth-child(2) {
     display: none;
   }
+  .inv-table {
+    min-width: 700px;
+  }
   .inv-header__actions {
     display: grid !important;
     grid-template-columns: repeat(2, 1fr) !important;
@@ -855,5 +890,15 @@
   }
   .inv-empty__actions .btn {
     width: 100%;
+  }
+}
+
+@media (max-width: 360px) {
+  .inv-header__actions {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .inv-header__actions .btn {
+    white-space: normal !important;
   }
 }

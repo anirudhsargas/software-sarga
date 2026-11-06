@@ -1157,6 +1157,7 @@ const Customers = () => {
                                         className="action-icon-btn"
                                         onClick={() => { setSelectedCustomer(c); setEditFormDirty(false); setShowEditModal(true); }}
                                         title={isAdmin ? 'Edit Customer' : 'Request Edit'}
+                                        aria-label={`${isAdmin ? 'Edit' : 'Request edit for'} ${c.name}`}
                                     >
                                         <Edit2 size={14} />
                                     </button>
@@ -1164,6 +1165,7 @@ const Customers = () => {
                                         className="action-icon-btn action-icon-btn--danger"
                                         onClick={() => handleDeleteCustomer(c.id)}
                                         title={isAdmin ? 'Delete Customer' : 'Request Delete'}
+                                        aria-label={`${isAdmin ? 'Delete' : 'Request deletion of'} ${c.name}`}
                                     >
                                         <Trash2 size={14} />
                                     </button>
@@ -1174,13 +1176,16 @@ const Customers = () => {
                                     className={`btn-expand ${isExpanded ? 'btn-expand--rotated' : ''}`}
                                     onClick={(e) => toggleRowExpanded(c.id, e)}
                                     title="View Details"
+                                    aria-label={`${isExpanded ? 'Hide' : 'View'} details for ${c.name}`}
+                                    aria-expanded={isExpanded}
+                                    aria-controls={`customer-details-${c.id}`}
                                 >
                                     <ChevronDown size={16} />
                                 </button>
                             </div>
 
                             {/* Detail Panel */}
-                            <div className={`customer-detail-panel ${isExpanded ? 'customer-detail-panel--expanded' : ''}`}>
+                            <div id={`customer-details-${c.id}`} className={`customer-detail-panel ${isExpanded ? 'customer-detail-panel--expanded' : ''}`}>
                                 <div className="customer-detail-content">
                                     {c.email && (
                                         <div className="customer-detail-item">

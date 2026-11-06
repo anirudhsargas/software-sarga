@@ -96,7 +96,7 @@ const Login = () => {
                 </div>
 
                 {error && (
-                    <div className="alert alert--error mb-16">
+                    <div className="alert alert--error mb-16" role="alert">
                         <AlertCircle size={16} />
                         <span>{error}</span>
                     </div>
@@ -104,7 +104,7 @@ const Login = () => {
 
                 <form onSubmit={handleSubmit} className="stack-lg">
                     <div>
-                        <label className="label">User ID / Mobile Number</label>
+                        <label className="label" htmlFor="user-id">User ID / Mobile Number</label>
                         <div className="input-group">
                             <div className="input-icon">
                                 <User size={18} />
@@ -127,7 +127,7 @@ const Login = () => {
                     </div>
 
                     <div>
-                        <label className="label">Password</label>
+                        <label className="label" htmlFor="password">Password</label>
                         <div className="input-group input-group--password">
                             <div className="input-icon">
                                 <Lock size={18} />

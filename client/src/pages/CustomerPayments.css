@@ -51,12 +51,15 @@
 /* ── TWO-COLUMN GRID ── */
 .cp-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-24);
+  min-width: 0;
 }
 
 /* ── PANEL (card) ── */
 .cp-panel {
+  min-width: 0;
+  box-sizing: border-box;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -277,7 +280,18 @@
 }
 
 .cp-form-grid--3 {
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.cp-form-grid > div,
+.cp-form-grid .cp-search-wrap,
+.cp-form-grid .cp-search-input-wrap {
+  min-width: 0;
+}
+
+.cp-form-grid .input-field {
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .cp-form {
@@ -947,6 +961,20 @@
 
   .cp-filters-row .btn-primary {
     width: 100%;
+  }
+}
+
+@media (max-width: 360px) {
+  .cp-panel {
+    padding: var(--space-12);
+  }
+
+  .cp-panel-header {
+    gap: var(--space-8);
+  }
+
+  .cp-form-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

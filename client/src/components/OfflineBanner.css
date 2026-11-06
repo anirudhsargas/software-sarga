@@ -1,0 +1,142 @@
+.offline-banner {
+  position: relative;
+  z-index: 200;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 24px;
+  color: #fff;
+  background: linear-gradient(135deg, #e11d48, #be123c);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  font-family: system-ui, -apple-system, sans-serif;
+  animation: offline-banner-enter 0.25s ease-out;
+}
+
+.offline-banner__content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  min-width: 0;
+}
+
+.offline-banner__message {
+  display: flex;
+  align-items: center;
+  gap: 8px 10px;
+  flex: 1 1 480px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.offline-banner__message svg {
+  flex: 0 0 auto;
+  color: #ffe4e6;
+}
+
+.offline-banner__title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+
+.offline-banner__detail {
+  min-width: 0;
+  color: #ffe4e6;
+  font-size: 13px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.offline-banner__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.offline-banner__reconnect,
+.offline-banner__dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  cursor: pointer;
+}
+
+.offline-banner__reconnect {
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.15);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.offline-banner__reconnect:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.offline-banner__reconnect:disabled {
+  cursor: wait;
+  opacity: 0.75;
+}
+
+.offline-banner__dismiss {
+  width: 32px;
+  height: 32px;
+  padding: 4px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  opacity: 0.85;
+}
+
+.offline-banner__dismiss:hover {
+  background: rgba(255, 255, 255, 0.14);
+  opacity: 1;
+}
+
+.offline-banner__spin {
+  animation: offline-banner-spin 1s linear infinite;
+}
+
+@keyframes offline-banner-enter {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes offline-banner-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 640px) {
+  .offline-banner {
+    padding: 8px 12px;
+  }
+
+  .offline-banner__content {
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .offline-banner__message {
+    flex-basis: 100%;
+  }
+
+  .offline-banner__actions {
+    margin-left: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .offline-banner,
+  .offline-banner__spin {
+    animation: none;
+  }
+}

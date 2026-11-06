@@ -432,6 +432,7 @@
 .appbar-center {
   flex: 1;
   max-width: 480px;
+  min-width: 0;
   display: flex;
   justify-content: center;
 }
@@ -482,6 +483,7 @@
   gap: var(--space-16);
   flex-shrink: 0; /* don't let right section crush the breadcrumb */
   justify-content: flex-end;
+  min-width: 0;
 }
 
 .appbar-branch-switcher {
@@ -1025,6 +1027,26 @@
 }
 
 /* ── Mobile Responsive ── */
+@media (max-width: 1200px) {
+  .global-appbar {
+    gap: var(--space-8);
+    padding-left: var(--space-16);
+    padding-right: var(--space-16);
+  }
+
+  .appbar-left {
+    gap: var(--space-8);
+  }
+
+  .appbar-center {
+    max-width: 220px;
+  }
+
+  .appbar-right {
+    gap: var(--space-8);
+  }
+}
+
 @media (max-width: 1023px) {
   .sidebar {
     position: fixed;
