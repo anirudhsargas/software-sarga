@@ -27,7 +27,7 @@ module.exports = (upload, removeUploadFile) => {
 
     // Add Staff
     router.post('/', authenticateToken, authorizeRoles('Admin'), upload.single('image'), validate(addStaffSchema), attachNormalizedMobile('mobile', 'countryCode'), async (req, res) => {
-        const { mobile, countryCode, name, role, branch_id } = req.body;
+        const { mobile, countryCode, name, role, branch_id, email } = req.body;
         let imageUrl = null;
 
         // Upload to Cloudinary if file is present
@@ -83,8 +83,8 @@ module.exports = (upload, removeUploadFile) => {
             if (primaryBranchId && !requestedBranchIds.includes(primaryBranchId)) requestedBranchIds.push(primaryBranchId);
             const hashedPassword = await bcrypt.hash(normalizedMobile, 10);
             const [result] = await connection.query(
-                "INSERT INTO sarga_staff (user_id, password, role, name, is_first_login, branch_id, image_url) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                [normalizedMobile, hashedPassword, role, name, 1, primaryBranchId, imageUrl]
+                "INSERT INTO sarga_staff (user_id, password, role, name, email, is_first_login, branch_id, image_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                [normalizedMobile, hashedPassword, role, name, email?.trim() || null, 1, primaryBranchId, imageUrl]
             );
 
             if (requestedBranchIds.length) {
@@ -125,7 +125,7 @@ module.exports = (upload, removeUploadFile) => {
                 params.push(req.query.branch_id);
             }
 
-            const select = `SELECT s.id, s.user_id, s.name, s.role, s.is_first_login, s.created_at, s.branch_id, s.image_url, s.salary_type, s.base_salary, s.daily_rate, s.settings, b.name as branch_name`;
+            const select = `SELECT s.id, s.user_id, s.name, s.email, s.role, s.is_first_login, s.created_at, s.branch_id, s.image_url, s.salary_type, s.base_salary, s.daily_rate, s.settings, b.name as branch_name`;
             const baseFrom = `FROM sarga_staff s LEFT JOIN sarga_branches b ON s.branch_id = b.id ${where}`;
 
             const [[{ total }]] = await pool.query(`SELECT COUNT(*) as total ${baseFrom}`, params);
@@ -148,7 +148,7 @@ module.exports = (upload, removeUploadFile) => {
             return res.status(403).json({ message: 'Access denied. Insufficient permissions.' });
         }
 
-        const { mobile, name, role, branch_id, salary_type, base_salary, daily_rate } = req.body;
+        const { mobile, name, email, role, branch_id, salary_type, base_salary, daily_rate } = req.body;
         let imageUrl = null;
 
         // Upload to Cloudinary if file is present
@@ -193,7 +193,7 @@ module.exports = (upload, removeUploadFile) => {
         // Admin/Accountant can update everything
         // If mobile is NOT provided, it's a partial update (name/image/role/branch/salary only)
         if (!mobile) {
-            if (!name && !imageUrl && !role && !branch_id && !salary_type) {
+            if (!name && !imageUrl && !role && !branch_id && !salary_type && email === undefined) {
                 return res.status(400).json({ message: 'No changes provided' });
             }
             try {
@@ -203,6 +203,10 @@ module.exports = (upload, removeUploadFile) => {
                 if (name) {
                     updates.push("name = ?");
                     values.push(name);
+                }
+                if (email !== undefined) {
+                    updates.push('email = ?');
+                    values.push(email?.trim() || null);
                 }
                 if (imageUrl) {
                     updates.push("image_url = ?");
@@ -241,7 +245,7 @@ module.exports = (upload, removeUploadFile) => {
                 await pool.query(`UPDATE sarga_staff SET ${updates.join(', ')} WHERE id = ?`, values);
                 if (branch_id !== undefined) await syncPrimaryBranchAssignment(id, branch_id, req.user.id);
 
-                const [rows] = await pool.query("SELECT id, user_id, name, role, branch_id, image_url, salary_type, base_salary, daily_rate, settings FROM sarga_staff WHERE id = ?", [id]);
+                const [rows] = await pool.query("SELECT id, user_id, name, email, role, branch_id, image_url, salary_type, base_salary, daily_rate, settings FROM sarga_staff WHERE id = ?", [id]);
                 return res.json(rows[0]);
             } catch (_err) {
                 return res.status(500).json({ message: 'Database error' });
@@ -259,11 +263,11 @@ module.exports = (upload, removeUploadFile) => {
             let query, params;
 
             if (imageUrl) {
-                query = "UPDATE sarga_staff SET user_id = ?, name = ?, role = ?, branch_id = ?, image_url = ?";
-                params = [normalizedMobile, name, role, branch_id || null, imageUrl];
+                query = "UPDATE sarga_staff SET user_id = ?, name = ?, email = ?, role = ?, branch_id = ?, image_url = ?";
+                params = [normalizedMobile, name, email?.trim() || null, role, branch_id || null, imageUrl];
             } else {
-                query = "UPDATE sarga_staff SET user_id = ?, name = ?, role = ?, branch_id = ?";
-                params = [normalizedMobile, name, role, branch_id || null];
+                query = "UPDATE sarga_staff SET user_id = ?, name = ?, email = ?, role = ?, branch_id = ?";
+                params = [normalizedMobile, name, email?.trim() || null, role, branch_id || null];
             }
 
             // Add salary fields if provided

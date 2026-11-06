@@ -1,14 +1,15 @@
 import { useSEO } from '../hooks/useSEO';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Mail, ArrowLeft, Loader2, CheckCircle } from 'lucide-react';
-
-const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+import { Mail, ArrowLeft, Loader2, CheckCircle, Phone } from 'lucide-react';
+import { API_URL } from '../services/api';
 
 export default function ForgotPassword() {
     useSEO('Forgot Password');
 
+    const [userId, setUserId] = useState('');
     const [email, setEmail] = useState('');
+    const [requiresEmail, setRequiresEmail] = useState(false);
     const [loading, setLoading] = useState(false);
     const [sent, setSent] = useState(false);
     const [error, setError] = useState('');
@@ -16,14 +17,21 @@ export default function ForgotPassword() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
-        if (!email) return setError('Please enter your email');
+        if (!userId) return setError('Please enter your staff mobile number');
+        if (requiresEmail && !email) return setError('Please enter your email address');
         setLoading(true);
         try {
-            const res = await fetch(`${API}/auth/forgot-password`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email })
+            const res = await fetch(`${API_URL}auth/forgot-password`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId, ...(requiresEmail ? { email } : {}) })
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.message || 'Request failed');
+            if (data.requires_email) {
+                setRequiresEmail(true);
+                setError('');
+                return;
+            }
             setSent(true);
         } catch (err) {
             setError(err.message);
@@ -57,7 +65,7 @@ export default function ForgotPassword() {
                     <CheckCircle size={48} style={{ color: 'var(--success)', marginBottom: 16 }} />
                     <h2 style={{ margin: '0 0 8px', color: 'var(--foreground)' }}>Check Your Email</h2>
                     <p style={{ color: 'var(--muted-foreground)', lineHeight: 1.6 }}>
-                        If an account exists with <strong>{email}</strong>, we've sent a password reset link.
+                        If the account can be recovered, a password reset link has been sent to its recovery email.
                         Please check your inbox and spam folder.
                     </p>
                     <p style={{ color: 'var(--muted-foreground)', fontSize: 13, marginTop: 20 }}>The link expires in 1 hour.</p>
@@ -73,20 +81,32 @@ export default function ForgotPassword() {
         <div style={containerStyle}>
             <div style={cardStyle}>
                 <h2 style={{ margin: '0 0 8px', color: 'var(--foreground)', textAlign: 'center' }}>Forgot Password?</h2>
-                <p style={{ color: 'var(--muted-foreground)', textAlign: 'center', marginBottom: 24 }}>Enter your email and we'll send you a reset link.</p>
+                <p style={{ color: 'var(--muted-foreground)', textAlign: 'center', marginBottom: 24 }}>
+                    Enter your staff mobile number. If no recovery email is saved, you can enter one for this request.
+                </p>
                 <form onSubmit={handleSubmit}>
                     <div style={{ marginBottom: 16 }}>
-                        <label style={{ fontSize: 14, fontWeight: 600, display: 'block', marginBottom: 6, color: 'var(--muted-foreground)' }}>Email Address</label>
+                        <label style={{ fontSize: 14, fontWeight: 600, display: 'block', marginBottom: 6, color: 'var(--muted-foreground)' }}>Staff Mobile Number</label>
                         <div style={{ position: 'relative' }}>
-                            <Mail size={18} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted-foreground)' }} />
-                            <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-                                placeholder="you@example.com" style={{ ...inputStyle, paddingLeft: 40 }} />
+                            <Phone size={18} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted-foreground)' }} />
+                            <input type="tel" inputMode="numeric" autoComplete="username" value={userId} onChange={e => setUserId(e.target.value.replace(/\D/g, '').slice(-10))}
+                                placeholder="10-digit mobile number" style={{ ...inputStyle, paddingLeft: 40 }} required />
                         </div>
                     </div>
+                    {requiresEmail && (
+                        <div style={{ marginBottom: 16 }}>
+                            <label style={{ fontSize: 14, fontWeight: 600, display: 'block', marginBottom: 6, color: 'var(--muted-foreground)' }}>Email Address</label>
+                            <div style={{ position: 'relative' }}>
+                                <Mail size={18} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted-foreground)' }} />
+                                <input type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)}
+                                    placeholder="you@example.com" style={{ ...inputStyle, paddingLeft: 40 }} required />
+                            </div>
+                        </div>
+                    )}
                     {error && <div style={{ color: 'var(--destructive)', fontSize: 14, marginBottom: 12, textAlign: 'center' }}>{error}</div>}
                     <button type="submit" disabled={loading} aria-busy={loading} style={btnStyle}>
                         {loading ? <Loader2 size={18} className="animate-spin" /> : <Mail size={18} />}
-                        {loading ? 'Sending...' : 'Send Reset Link'}
+                        {loading ? 'Sending...' : (requiresEmail ? 'Send Reset Link' : 'Continue')}
                     </button>
                 </form>
                 <div style={{ textAlign: 'center', marginTop: 20 }}>

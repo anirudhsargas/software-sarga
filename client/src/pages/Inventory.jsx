@@ -3111,7 +3111,7 @@ const Inventory = () => {
                                                     </button>
                                                     <input
                                                         type="number"
-                                                        className="input-field text-center"
+                                                        className="input-field text-center label-quantity-input"
                                                         style={{ width: 52, padding: '4px 2px', fontSize: 'var(--text-sm)', fontWeight: 700, border: 'none', background: 'transparent', outline: 'none' }}
                                                         min={1}
                                                         value={printQuantities[item.id] || 1}

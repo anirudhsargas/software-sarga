@@ -25,19 +25,29 @@ function getTransporter() {
 // ── Request password reset ───────────────────────────────────
 router.post('/auth/forgot-password', resetLimiter, async (req, res) => {
     try {
-        const { user_id } = req.body;
+        const { user_id, email: fallbackEmail } = req.body;
         if (!user_id) return res.status(400).json({ message: 'User ID (mobile number) is required' });
 
-        const normalized = user_id.replace(/\D/g, '').slice(-10);
+        const normalized = String(user_id).replace(/\D/g, '').slice(-10);
+        if (normalized.length !== 10) return res.status(400).json({ message: 'Enter a valid 10-digit staff mobile number' });
         const [[user]] = await pool.query(
             'SELECT id, name, email FROM sarga_staff WHERE RIGHT(user_id, 10) = ?',
             [normalized]
         );
 
         // Always return success for security (don't reveal if user exists)
-        if (!user || !user.email) {
-            return res.json({ message: 'If an account with that ID exists and has an email, a reset link has been sent.' });
+        if (!user) return res.json({ message: 'If the account can be recovered, a reset link has been sent.' });
+        const savedEmail = String(user.email || '').trim();
+        const enteredEmail = String(fallbackEmail || '').trim();
+        if (!savedEmail && !enteredEmail) {
+            return res.json({ requires_email: true, message: 'No recovery email is saved. Enter an email address to receive the reset link.' });
         }
+        if (!savedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(enteredEmail)) {
+            return res.status(400).json({ message: 'Enter a valid email address' });
+        }
+        // Prefer the email already saved by the administrator. An email entered
+        // during recovery is used only for this reset request.
+        const recoveryEmail = savedEmail || enteredEmail;
 
         // Generate secure token
         const token = crypto.randomBytes(32).toString('hex');
@@ -58,12 +68,11 @@ router.post('/auth/forgot-password', resetLimiter, async (req, res) => {
             console.error('[Password Reset] CLIENT_URL is not set. Cannot build reset link.');
             return res.status(500).json({ message: 'Server configuration error. Please contact support.' });
         }
-        const resetUrl = `${baseUrl}/reset-password?token=${token}`;
+        const resetUrl = `${baseUrl.replace(/\/+$/, '')}/reset-password?token=${token}`;
 
-        const { sendEmail } = require('../utils/mailer');
         await sendEmail({
             from: `"Sarga Offset" <${process.env.EMAIL_FROM || 'sargabilldesk@gmail.com'}>`,
-            to: user.email,
+            to: recoveryEmail,
             subject: 'Password Reset Request',
             html: `
             <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px;">
@@ -83,7 +92,7 @@ router.post('/auth/forgot-password', resetLimiter, async (req, res) => {
             </div>`
         });
 
-        res.json({ message: 'If an account with that ID exists and has an email, a reset link has been sent.' });
+        res.json({ message: 'If the account can be recovered, a reset link has been sent.' });
     } catch (err) {
         console.error('Forgot password error:', err);
         res.status(500).json({ message: err.message || 'An error occurred. Please try again.' });

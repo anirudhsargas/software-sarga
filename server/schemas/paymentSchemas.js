@@ -43,10 +43,10 @@ const customerPaymentSchema = z.object({
     is_internal: z.coerce.number().optional().default(0),
     internal_department: z.string().optional().nullable()
 }).refine(data => {
-    if (data.advance_paid > data.total_amount * 1.01) return false;
+    if (data.advance_paid > data.total_amount && !data.customer_id) return false;
     return true;
 }, {
-    message: "Advance paid cannot significantly exceed total amount",
+    message: "An amount above the total requires a linked customer",
     path: ["advance_paid"]
 }).refine(data => {
     if (data.payment_method === 'Both') {

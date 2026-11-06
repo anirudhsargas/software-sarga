@@ -1,7 +1,7 @@
 import { usePageTitle } from '../hooks/usePageTitle';
 import React, { useEffect, useState, useMemo } from 'react';
 import { useDebounce } from '../hooks/useDebounce';
-import { User, Users, Loader2, Plus, X, Edit2, Trash2, Key, BarChart3, Banknote, Calendar, LogIn, LogOut, Settings, Search, Camera, Phone, Briefcase, DollarSign, MapPin, Building2, Star } from 'lucide-react';
+import { User, Users, Loader2, Plus, X, Edit2, Trash2, Key, BarChart3, Banknote, Calendar, LogIn, LogOut, Settings, Search, Camera, Phone, Mail, Briefcase, DollarSign, MapPin, Building2, Star } from 'lucide-react';
 import HolidayCalendar from '../components/HolidayCalendar';
 import SecureImage from '../components/SecureImage';
 import { useNavigate } from 'react-router-dom';
@@ -124,7 +124,7 @@ const StaffManagement = () => {
     const [showHolidayModal, setShowHolidayModal] = useState(false);
     const [showSettingsModal, setShowSettingsModal] = useState(false);
     const [settingsStaff, setSettingsStaff] = useState(null);
-    const [newStaff, setNewStaff] = useState({ mobile: '', name: '', role: 'Other Staff', countryCode: '+91', branch_id: '', branch_ids: [], salary_type: 'Monthly', base_salary: '', daily_rate: '' });
+    const [newStaff, setNewStaff] = useState({ mobile: '', name: '', email: '', role: 'Other Staff', countryCode: '+91', branch_id: '', branch_ids: [], salary_type: 'Monthly', base_salary: '', daily_rate: '' });
     const [branches, setBranches] = useState([]);
     const [_error, setError] = useState('');
     const [newStaffImage, setNewStaffImage] = useState(null);
@@ -243,6 +243,7 @@ const StaffManagement = () => {
             const formData = new FormData();
             formData.append('mobile', newStaff.mobile);
             formData.append('name', newStaff.name);
+            formData.append('email', newStaff.email || '');
             formData.append('role', newStaff.role);
             formData.append('branch_id', newStaff.branch_id);
             formData.append('branch_ids', JSON.stringify([...new Set([newStaff.branch_id, ...(newStaff.branch_ids || [])].filter(Boolean).map(String))]));
@@ -263,7 +264,7 @@ const StaffManagement = () => {
             }
             setShowAddModal(false);
             const defaultBranchId = branches[0]?.id ? String(branches[0].id) : '';
-            setNewStaff({ mobile: '', name: '', role: 'Other Staff', countryCode: '+91', branch_id: defaultBranchId, branch_ids: defaultBranchId ? [defaultBranchId] : [], salary_type: 'Monthly', base_salary: '', daily_rate: '' });
+            setNewStaff({ mobile: '', name: '', email: '', role: 'Other Staff', countryCode: '+91', branch_id: defaultBranchId, branch_ids: defaultBranchId ? [defaultBranchId] : [], salary_type: 'Monthly', base_salary: '', daily_rate: '' });
             setNewStaffImage(null);
             fetchStaff();
         } catch (err) {
@@ -292,6 +293,7 @@ const StaffManagement = () => {
             const formData = new FormData();
             formData.append('mobile', selectedStaff.user_id);
             formData.append('name', selectedStaff.name);
+            formData.append('email', selectedStaff.email || '');
             formData.append('role', selectedStaff.role);
             formData.append('branch_id', selectedStaff.branch_id || '');
 
@@ -730,6 +732,22 @@ const StaffManagement = () => {
                                 </div>
 
                                 <div className="staff-field-group">
+                                    <label htmlFor="newStaffEmail" className="staff-label">Email (Optional)</label>
+                                    <div className="staff-input-container">
+                                        <div className="staff-input-decorator"><Mail size={15} /></div>
+                                        <input
+                                            id="newStaffEmail"
+                                            type="email"
+                                            name="newStaffEmail"
+                                            className="staff-input"
+                                            placeholder="staff@example.com"
+                                            value={newStaff.email || ''}
+                                            onChange={e => setNewStaff({ ...newStaff, email: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="staff-field-group">
                                     <label htmlFor="newStaffRole" className="staff-label">Role</label>
                                     <div className="staff-input-container">
                                         <div className="staff-input-decorator"><Briefcase size={15} /></div>
@@ -894,6 +912,22 @@ const StaffManagement = () => {
                                                 required 
                                             />
                                         </div>
+                                    </div>
+                                </div>
+
+                                <div className="staff-field-group">
+                                    <label htmlFor="editStaffEmail" className="staff-label">Email (Optional)</label>
+                                    <div className="staff-input-container">
+                                        <div className="staff-input-decorator"><Mail size={15} /></div>
+                                        <input
+                                            id="editStaffEmail"
+                                            type="email"
+                                            name="editStaffEmail"
+                                            className="staff-input"
+                                            placeholder="staff@example.com"
+                                            value={selectedStaff.email || ''}
+                                            onChange={e => setSelectedStaff({ ...selectedStaff, email: e.target.value })}
+                                        />
                                     </div>
                                 </div>
 

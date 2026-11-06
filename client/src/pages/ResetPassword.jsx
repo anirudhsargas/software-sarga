@@ -2,8 +2,7 @@ import { useSEO } from '../hooks/useSEO';
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Lock, ArrowLeft, Loader2, CheckCircle, AlertCircle, Eye, EyeOff } from 'lucide-react';
-
-const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+import { API_URL } from '../services/api';
 
 export default function ResetPassword() {
     useSEO('Reset Password');
@@ -22,8 +21,8 @@ export default function ResetPassword() {
 
     useEffect(() => {
         if (!token) { setVerifying(false); return; }
-        fetch(`${API}/auth/reset-password/verify?token=${encodeURIComponent(token)}`)
-            .then(r => { if (r.ok) setValid(true); setVerifying(false); })
+        fetch(`${API_URL}auth/reset-password/verify?token=${encodeURIComponent(token)}`)
+            .then(async r => { const data = await r.json(); setValid(r.ok && data.valid === true); setVerifying(false); })
             .catch(() => setVerifying(false));
     }, [token]);
 
@@ -32,13 +31,13 @@ export default function ResetPassword() {
         setError('');
         if (!password) return setError('Please enter a new password');
         if (!confirm) return setError('Please confirm your new password');
-        if (password.length < 6) return setError('Password must be at least 6 characters');
+        if (password.length < 8) return setError('Password must be at least 8 characters');
         if (password !== confirm) return setError('Passwords do not match');
         setLoading(true);
         try {
-            const res = await fetch(`${API}/auth/reset-password`, {
+            const res = await fetch(`${API_URL}auth/reset-password`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token, password })
+                body: JSON.stringify({ token, new_password: password })
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.message || 'Reset failed');

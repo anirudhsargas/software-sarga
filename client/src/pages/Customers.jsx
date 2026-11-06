@@ -21,8 +21,8 @@ import EmptyState from '../components/EmptyState';
 import './Customers.css';
 import PageContainer from '../components/ui/PageContainer';
 
-const CUSTOMER_TYPES = ['Retail', 'Offset'];
-const ADD_CUSTOMER_TYPES = ['Retail', 'Offset'];
+const CUSTOMER_TYPES = ['Retail', 'Offset', 'Walk-in'];
+const ADD_CUSTOMER_TYPES = ['Retail', 'Offset', 'Walk-in'];
 const ADMIN_ROLES = ['admin', 'super_admin'];
 
 const Customers = () => {
@@ -58,7 +58,7 @@ const Customers = () => {
         mobile: '',
         countryCode: '+91',
         name: '',
-        type: 'Walk-in',
+        type: 'Retail',
         email: '',
         gst: '',
         address: ''
@@ -392,7 +392,7 @@ const Customers = () => {
                 setTotal(prev => prev + 1);
             }
             closeAddModal(true);
-            setNewCustomer({ mobile: '', countryCode: '+91', name: '', type: 'Walk-in', email: '', gst: '', address: '' });
+            setNewCustomer({ mobile: '', countryCode: '+91', name: '', type: 'Retail', email: '', gst: '', address: '' });
             toast.success('Customer added successfully');
             fetchCustomers();
         } catch (err) {

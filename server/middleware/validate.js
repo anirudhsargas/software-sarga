@@ -37,6 +37,7 @@ const addStaffSchema = z.object({
     name: requiredString('Name'),
     role: z.enum(['Admin', 'Front Office', 'Designer', 'Printer', 'Accountant', 'Other Staff']),
     branch_id: z.preprocess(Number, z.number().int().positive()).optional().nullable(),
+    email: z.string().email('Enter a valid email address').optional().or(z.literal('')),
     branch_ids: z.string().optional()
 });
 
@@ -323,7 +324,7 @@ const staffSalaryUpdateSchema = z.object({
     mobile: z.string().optional(),
     role: z.string().optional(),
     branch_id: z.union([z.number(), z.string()]).optional(),
-    email: z.string().optional(),
+    email: z.string().email('Enter a valid email address').optional().or(z.literal('')),
     address: z.string().optional(),
     salary_type: z.enum(['Monthly', 'Daily']).optional(),
     base_salary: positiveDecimal.nullable(),

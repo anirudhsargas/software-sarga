@@ -1430,6 +1430,18 @@ textarea.input-field:disabled {
   opacity: 1;
 }
 
+/* Label quantities already have dedicated + / − controls. */
+.label-quantity-input {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.label-quantity-input::-webkit-inner-spin-button,
+.label-quantity-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 /* ── Search Input ── */
 .search-input-wrapper {
   position: relative;

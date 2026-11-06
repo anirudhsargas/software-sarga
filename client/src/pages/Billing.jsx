@@ -328,8 +328,17 @@ const Billing = () => {
       setMachineModalOpen(true);
       return;
     }
+    setPayment(prev => {
+      const hasAmount = prev.selectedMethods.some(method => Number(prev.methodAmounts[method]) > 0);
+      if (hasAmount || totals.gross <= 0) return prev;
+      const method = prev.selectedMethods[0] || 'Cash';
+      return {
+        ...prev,
+        methodAmounts: { ...prev.methodAmounts, [method]: Number(totals.gross.toFixed(2)) },
+      };
+    });
     setActiveTab('payment');
-  }, [orderLines]);
+  }, [orderLines, totals.gross]);
 
   const [showScanner, setShowScanner] = useState(false);
   const [productSearchQuery, setProductSearchQuery] = useState('');
@@ -1235,17 +1244,33 @@ const Billing = () => {
     if (!canProceed) { setError('Complete customer details and add at least one product.'); return; }
     if (orderLines.length === 0) { setError('Add at least one product.'); return; }
     if (advancePaid < 0) { setError('Invalid payment amount.'); return; }
-    if (advancePaid > totals.gross * 1.01) { setError('Payment amount cannot exceed grand total.'); return; }
+    if (advancePaid > totals.gross && (isWalkIn || (!existingCustomer?.id && !form.name.trim()))) {
+      setError('Select a customer before recording an amount above the grand total.');
+      return;
+    }
     if (discountError) { setError(discountError); return; }
     if (isWalkIn && advancePaid < totals.gross * 0.99) { setError('Walk-in customers must pay in full.'); return; }
+    if (advancePaid > totals.gross) {
+      const extraAmount = advancePaid - totals.gross;
+      const accepted = await confirm({
+        title: 'Extra payment',
+        message: `The customer is paying ₹${extraAmount.toFixed(2)} above the grand total. This extra amount will be added to ${form.name.trim() || existingCustomer?.name || 'the customer'}'s advance. Continue?`,
+        confirmText: 'Add to Customer Advance',
+        cancelText: 'Review Payment',
+      });
+      if (!accepted) return;
+    }
     setError('');
     setSaving(true);
     try {
       let customerId = existingCustomer?.id;
       if (!customerId && form.name) {
-        const custPayload = { name: form.name, mobile: form.mobile || null, type: isWalkIn ? 'Walk-in' : (form.type || 'Retail'), email: form.email || null, address: form.address || null, gstin: form.gst || null };
+        const custPayload = { name: form.name, mobile: form.mobile || null, type: isWalkIn ? 'Walk-in' : (form.type || 'Retail'), email: form.email || null, address: form.address || null, gst: form.gst || null };
         const customer = await localDb.createCustomer(custPayload);
         customerId = customer.id;
+      }
+      if (customerId != null && !Number.isFinite(Number(customerId))) {
+        throw new Error('Customer could not be saved to the server. Check your connection and try creating the invoice again.');
       }
       const cashAmt = payment.selectedMethods.includes('Cash') ? (Number(payment.methodAmounts.Cash) || 0) : 0;
       const upiAmt = payment.selectedMethods.includes('UPI') ? (Number(payment.methodAmounts.UPI) || 0) : 0;
@@ -1273,7 +1298,7 @@ const Billing = () => {
         cheque_amount: chequeAmt,
         account_transfer_amount: transferAmt,
         reference_number: payment.referenceNumber || '',
-        description: payment.description || '',
+        description: [payment.description, advancePaid > totals.gross ? `Customer advance: ₹${(advancePaid - totals.gross).toFixed(2)}` : ''].filter(Boolean).join(' · '),
         payment_date: payment.paymentDate,
         payment_target_book: paymentTargetBook || defaultTargetBook,
         book_type: paymentTargetBook || defaultTargetBook,

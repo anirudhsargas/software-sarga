@@ -1,0 +1,2 @@
+ALTER TABLE sarga_staff
+  ADD COLUMN email VARCHAR(255) NULL AFTER name;

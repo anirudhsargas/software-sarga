@@ -202,18 +202,17 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
     const cheque = Number(cheque_amount) || 0;
     const transfer = Number(account_transfer_amount) || 0;
     const _method = String(payment_method || 'Cash');
-    const balance = total - advance;
+    const balance = Math.max(total - advance, 0);
 
     // C-03: advance cannot exceed total (and values cannot be negative)
     if (total < 0 || advance < 0 || cash < 0 || upi < 0 || cheque < 0 || transfer < 0) {
         recordRouteError('Amounts cannot be negative');
         return res.status(400).json({ message: 'Amounts cannot be negative.' });
     }
-    // C-03: advance cannot exceed total with tolerance for rounding/discount edge cases
-    // Zod refine allows up to 1%; route check matches that plus a flat ₹1 floor for small amounts
-    if (advance > Math.max(total * 1.01, total + 1)) {
-        recordRouteError(`Advance (${advance}) exceeds total (${total})`);
-        return res.status(400).json({ message: `Advance (₹${advance}) cannot exceed total amount (₹${total})` });
+    // Overpayments are allowed only when they can be assigned to a customer account.
+    if (advance > total && !customer_id) {
+        recordRouteError(`Unlinked advance (${advance}) exceeds total (${total})`);
+        return res.status(400).json({ message: 'An amount above the total requires a linked customer.' });
     }
 
     // C-07: Multi-method payment validation
@@ -398,7 +397,8 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
                     }
                 }
 
-                const lineBalance = lineTotal - lineAdvance;
+                lineAdvance = Math.min(lineAdvance, lineTotal);
+                const lineBalance = Math.max(lineTotal - lineAdvance, 0);
                 const paymentStatus = lineAdvance >= lineTotal ? 'Paid' : (lineAdvance > 0 ? 'Partial' : 'Unpaid');
                 const jobNumber = `J-${Date.now().toString().slice(-8)}-${i + 1}`;
                 const lineBookType = normalizeBookType(line.book_type || line.bookType || targetBook);
