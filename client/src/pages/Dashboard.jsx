@@ -3,9 +3,9 @@ import { lazyWithRetry } from '../utils/errorUtils';
 import usePolling from '../hooks/usePolling';
 import { Routes, Route, NavLink, useNavigate, Navigate, useParams, useLocation } from 'react-router-dom';
 import {
-    Users, ClipboardList, Box, ShieldAlert, Shield, Receipt, LogOut, Grid, UserSquare, Building2, ChevronLeft, ChevronRight, Settings, BookOpen, Loader2, Store, BarChart3,
+    Users, ClipboardList, Box, ShieldAlert, Shield, Receipt, LogOut, Grid, UserSquare, Building2, ChevronRight, Settings, BookOpen, Loader2, Store, BarChart3,
     Search, FileCheck, Layers, Zap, TrendingUp, Camera, X, Sparkles, ScanLine, Package, Tag, Clock, FileText, Upload,
-    Layout, Menu, Database, Award, Lock, Monitor, Sun, Moon, Calculator
+    Layout, Menu, Database, FileSpreadsheet, CreditCard, StickyNote, Truck, ClipboardCheck, Library, Trash2, Activity, LayoutTemplate, PackageSearch, ArrowLeftRight, Inbox, UserCheck, Video, Landmark, Warehouse, Factory, Award, Lock, Monitor, Sun, Moon, Calculator
 } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 import SidebarThemeToggle from '../components/SidebarThemeToggle';
@@ -253,7 +253,7 @@ const SidebarNavItem = React.memo(({ item, closeSidebar, pendingRequestsCount, o
     );
 });
 
-const SidebarGroup = React.memo(({ group, isCollapsed, sidebarCollapsed, toggleGroup, closeSidebar, pendingRequestsCount, onAction }) => {
+const SidebarGroup = React.memo(({ group, isCollapsed, sidebarCollapsed, toggleGroup, expandToGroup, closeSidebar, pendingRequestsCount, onAction }) => {
     const location = useLocation();
     const showLabel = group.label && group.items.length > 1;
     const GroupIcon = group.icon;
@@ -273,7 +273,8 @@ const SidebarGroup = React.memo(({ group, isCollapsed, sidebarCollapsed, toggleG
         <div className={`sidebar-group ${sidebarCollapsed ? 'sidebar-group--collapsed' : ''}`}>
             <button
                 className={`sidebar-group-toggle${hasActiveChild ? ' active' : ''}`}
-                onClick={() => !sidebarCollapsed && toggleGroup(group.key)}
+                onClick={() => (sidebarCollapsed ? expandToGroup(group.key) : toggleGroup(group.key))}
+                aria-expanded={!sidebarCollapsed && !isCollapsed}
                 title={group.label}
                 aria-label={group.label}
             >
@@ -316,9 +317,9 @@ const SimpleNavItem = React.memo(({ item, closeSidebar, pendingRequestsCount }) 
 const sidebarGroupDefs = [
     { key: 'main', label: null, icon: Grid },
     { key: 'sales', label: 'Sales', icon: TrendingUp },
-    { key: 'accounts', label: 'Accounts', icon: Receipt },
-    { key: 'inventory', label: 'Inventory', icon: Package },
-    { key: 'production', label: 'Production', icon: Zap },
+    { key: 'accounts', label: 'Accounts', icon: Landmark },
+    { key: 'inventory', label: 'Inventory', icon: Warehouse },
+    { key: 'production', label: 'Production', icon: Factory },
     { key: 'branch-ops', label: 'Branch Operations', icon: Building2 },
     { key: 'admin', label: 'Administration', icon: ShieldAlert },
 ];
@@ -619,44 +620,44 @@ const Dashboard = () => {
         // Sales
         { key: 'sales_customers', name: 'Customers', icon: UserSquare, path: '/dashboard/sales/customers', roles: ['Admin', 'Front Office', 'Accountant'], group: 'sales' },
         { key: 'sales_orders', name: 'Orders', icon: ClipboardList, path: '/dashboard/sales/orders', roles: ['Admin', 'Front Office', 'Accountant'], group: 'sales' },
-        { key: 'sales_quotes', name: 'Quotations', icon: Receipt, path: '/dashboard/sales/quotes', roles: ['Admin', 'Front Office', 'Accountant'], group: 'sales' },
+        { key: 'sales_quotes', name: 'Quotations', icon: FileSpreadsheet, path: '/dashboard/sales/quotes', roles: ['Admin', 'Front Office', 'Accountant'], group: 'sales' },
         { key: 'sales_invoices', name: 'Invoices', icon: FileText, path: '/dashboard/sales/invoices', roles: ['Admin', 'Front Office', 'Accountant'], group: 'sales' },
         { key: 'shortcuts', name: 'Shortcuts', icon: Zap, path: '/dashboard/shortcuts', roles: ['Admin', 'Front Office', 'Accountant', 'Designer', 'Printer'], group: 'sales' },
-        { key: 'sales_payments', name: 'Payments', icon: Receipt, path: '/dashboard/sales/payments', roles: ['Admin', 'Front Office', 'Accountant'], group: 'sales' },
+        { key: 'sales_payments', name: 'Payments', icon: CreditCard, path: '/dashboard/sales/payments', roles: ['Admin', 'Front Office', 'Accountant'], group: 'sales' },
         { key: 'jobs', name: 'Assigned Jobs', icon: ClipboardList, path: '/dashboard/designer-dashboard', roles: ['Designer'], group: 'sales' },
         { key: 'jobs', name: 'Assigned Jobs', icon: ClipboardList, path: '/dashboard/printer-dashboard', roles: ['Printer'], group: 'sales' },
         // Inventory
         { key: 'inventory', name: 'Inventory', icon: Box, path: '/dashboard/inventory', roles: ['Admin', 'Front Office', 'Accountant'], group: 'inventory' },
-        { key: 'inventory', name: 'Paper Inventory', icon: FileText, path: '/dashboard/paper/stock', roles: ['Admin', 'Front Office', 'Accountant'], group: 'inventory' },
+        { key: 'inventory', name: 'Paper Inventory', icon: StickyNote, path: '/dashboard/paper/stock', roles: ['Admin', 'Front Office', 'Accountant'], group: 'inventory' },
         { key: 'inventory', name: 'Consumables', icon: Package, path: '/dashboard/inventory/consumables', roles: ['Admin', 'Front Office', 'Accountant'], group: 'inventory' },
-        { key: 'internal', name: 'Stock Transfer', icon: Package, path: '/dashboard/stock-transfer', roles: ['Admin', 'Accountant', 'Front Office'], group: 'inventory' },
-        { key: 'operations', name: 'Stock Verification', icon: Box, path: '/dashboard/stock-verification', roles: ['Accountant', 'Admin'], group: 'inventory' },
-        { key: 'scanner', name: 'Scan Item', icon: Camera, path: '/dashboard/inventory/scan', roles: ['Admin', 'Front Office', 'Accountant'], group: 'inventory' },
+        { key: 'internal', name: 'Stock Transfer', icon: Truck, path: '/dashboard/stock-transfer', roles: ['Admin', 'Accountant', 'Front Office'], group: 'inventory' },
+        { key: 'operations', name: 'Stock Verification', icon: ClipboardCheck, path: '/dashboard/stock-verification', roles: ['Accountant', 'Admin'], group: 'inventory' },
+        { key: 'scanner', name: 'Scan Item', icon: ScanLine, path: '/dashboard/inventory/scan', roles: ['Admin', 'Front Office', 'Accountant'], group: 'inventory' },
         // Production
-        { key: 'operations', name: 'Product Library', icon: Grid, path: '/dashboard/products', roles: ['Admin', 'Front Office', 'Designer', 'Accountant'], group: 'production' },
+        { key: 'operations', name: 'Product Library', icon: Library, path: '/dashboard/products', roles: ['Admin', 'Front Office', 'Designer', 'Accountant'], group: 'production' },
         { key: 'operations', name: 'Machine Management', icon: Settings, path: '/dashboard/machines', roles: ['Admin', 'Front Office'], group: 'production' },
-        { key: 'operations', name: 'Waste & Proof Log', icon: Layers, path: '/dashboard/production/waste-proof', roles: ['Admin', 'Front Office', 'Accountant', 'Printer', 'Other Staff'], group: 'production' },
-        { key: 'operations', name: 'Production Tracker', icon: Layers, path: '/dashboard/production-tracker', roles: ['Admin', 'Front Office'], group: 'production' },
-        { key: 'operations', name: 'Paper Layout', icon: Layers, path: '/dashboard/paper-layout', roles: ['Front Office', 'Designer'], group: 'production' },
+        { key: 'operations', name: 'Waste & Proof Log', icon: Trash2, path: '/dashboard/production/waste-proof', roles: ['Admin', 'Front Office', 'Accountant', 'Printer', 'Other Staff'], group: 'production' },
+        { key: 'operations', name: 'Production Tracker', icon: Activity, path: '/dashboard/production-tracker', roles: ['Admin', 'Front Office'], group: 'production' },
+        { key: 'operations', name: 'Paper Layout', icon: LayoutTemplate, path: '/dashboard/paper-layout', roles: ['Front Office', 'Designer'], group: 'production' },
         { key: 'operations', name: 'Design Check', icon: FileCheck, path: '/dashboard/design-check', roles: ['Designer'], group: 'production' },
         // Branch Operations
-        { key: 'operations', name: 'Product Requests', icon: ShieldAlert, path: '/dashboard/product-requests', roles: ['Admin', 'Accountant'], group: 'branch-ops' },
-        { key: 'internal', name: 'Internal Transfers', icon: BookOpen, path: '/dashboard/internal-transactions', roles: ['Admin', 'Accountant', 'Front Office'], group: 'branch-ops' },
+        { key: 'operations', name: 'Product Requests', icon: PackageSearch, path: '/dashboard/product-requests', roles: ['Admin', 'Accountant'], group: 'branch-ops' },
+        { key: 'internal', name: 'Internal Transfers', icon: ArrowLeftRight, path: '/dashboard/internal-transactions', roles: ['Admin', 'Accountant', 'Front Office'], group: 'branch-ops' },
         // Accounts
         { key: 'reports', name: 'Daily Cash Book', icon: BookOpen, path: '/dashboard/daily-report', roles: ['Front Office', 'Admin', 'Accountant'], group: 'accounts' },
         { key: 'expenses', name: 'Expense Manager', icon: Receipt, path: '/dashboard/expenses', roles: ['Admin', 'Front Office', 'Accountant'], group: 'accounts' },
         { key: 'expenses', name: 'Upload Bills', icon: Upload, path: '/dashboard/expenses/upload-bills', roles: ['Admin', 'Front Office', 'Accountant'], group: 'accounts' },
         { key: 'expenses', name: 'Vendors', icon: Store, path: '/dashboard/vendors', roles: ['Admin', 'Accountant', 'Front Office'], group: 'accounts' },
         { key: 'expenses', name: 'Payment Verification', icon: FileCheck, path: '/dashboard/payment-verification', roles: ['Accountant', 'Admin'], group: 'accounts' },
-        { key: 'expenses', name: 'Accounts & GST', icon: Receipt, path: '/dashboard/accounts', roles: ['Accountant', 'Admin'], group: 'accounts' },
+        { key: 'expenses', name: 'Accounts & GST', icon: Calculator, path: '/dashboard/accounts', roles: ['Accountant', 'Admin'], group: 'accounts' },
         { key: 'finance', name: 'Recurring Invoices', icon: ClipboardList, path: '/dashboard/recurring-invoices', roles: ['Admin', 'Accountant'], group: 'accounts' },
         // Administration
         { key: 'manage', name: 'Staff Management', icon: Users, path: '/dashboard/staff', roles: ['Admin', 'Accountant', 'Front Office'], group: 'admin' },
         { key: 'manage', name: 'Branches', icon: Building2, path: '/dashboard/branches', roles: ['Admin'], group: 'admin' },
-        { key: 'manage', name: 'Requests', icon: ShieldAlert, path: '/dashboard/requests', roles: ['Admin', 'Accountant'], group: 'admin' },
+        { key: 'manage', name: 'Requests', icon: Inbox, path: '/dashboard/requests', roles: ['Admin', 'Accountant'], group: 'admin' },
         { key: 'manage', name: 'Coupons', icon: Tag, path: '/dashboard/coupons', roles: ['Admin'], group: 'admin' },
-        { key: 'manage', name: 'Attendance', icon: Camera, path: '/dashboard/cctv-attendance', roles: ['Admin'], group: 'admin' },
-        { key: 'manage', name: 'CCTV', icon: Camera, path: '/dashboard/cctv-management', roles: ['Admin'], group: 'admin' },
+        { key: 'manage', name: 'Attendance', icon: UserCheck, path: '/dashboard/cctv-attendance', roles: ['Admin'], group: 'admin' },
+        { key: 'manage', name: 'CCTV', icon: Video, path: '/dashboard/cctv-management', roles: ['Admin'], group: 'admin' },
         { key: 'manage', name: 'Schedule & Time', icon: Clock, path: '/dashboard/schedules', roles: ['Admin', 'Accountant'], group: 'admin' },
         { key: 'manage', name: 'Settings', icon: Settings, path: '/dashboard/settings', roles: ['Admin'], group: 'admin' },
         { key: 'manage', name: 'Audit Trail', icon: Shield, path: '/dashboard/admin/audit-trail', roles: ['Admin'], group: 'admin' },
@@ -739,6 +740,19 @@ const Dashboard = () => {
         });
     }, []);
 
+    // Collapsed rail: clicking a group icon expands the sidebar with that group open
+    const expandToGroup = useCallback((groupKey) => {
+        setSidebarCollapsed(false);
+        try { localStorage.setItem('sargaSidebarCollapsed', 'false'); } catch { /* ignore */ }
+        setCollapsedGroups(prev => {
+            if (!prev.has(groupKey)) return prev;
+            const next = new Set(prev);
+            next.delete(groupKey);
+            try { sessionStorage.setItem('sargaSidebarGroups', JSON.stringify([...next])); } catch { /* ignore */ }
+            return next;
+        });
+    }, []);
+
     const groupedMenu = useMemo(() => {
         if (!['Admin', 'Front Office', 'Accountant'].map(r => r.toLowerCase()).includes(normalizedUserRole.toLowerCase())) return null;
         let defs = sidebarGroupDefs;
@@ -754,9 +768,14 @@ const Dashboard = () => {
     }, [normalizedUserRole, filteredMenu]);
 
     // Auto-expand group containing active route on path changes
+    const lastAutoExpandedPathRef = useRef(null);
     useEffect(() => {
         if (!groupedMenu) return;
-        const activeGroup = groupedMenu.find(group => 
+        // Only auto-expand when the route actually changes, so the user can
+        // still collapse the active group manually afterwards.
+        if (lastAutoExpandedPathRef.current === location.pathname) return;
+        lastAutoExpandedPathRef.current = location.pathname;
+        const activeGroup = groupedMenu.find(group =>
             group.items?.some(item => {
                 const p = item.path;
                 if (!p) return false;
@@ -1040,14 +1059,6 @@ const Dashboard = () => {
                         )}
                         <span className="logo-text">{companyInfo.name}</span>
                     </div>
-                    <button
-                        className="sidebar-toggle"
-                        onClick={toggleSidebarCollapsed}
-                        aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                        title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                    >
-                        {sidebarCollapsed ? <ChevronRight size={18} aria-hidden="true" /> : <ChevronLeft size={18} aria-hidden="true" />}
-                    </button>
                 </div>
 
                 <nav className="sidebar-nav">
@@ -1056,7 +1067,7 @@ const Dashboard = () => {
                             const showLabel = group.label && group.items.length > 1;
                             const isCollapsed = showLabel && collapsedGroups.has(group.key);
                             return (
-                                <SidebarGroup key={group.key} group={group} isCollapsed={isCollapsed} sidebarCollapsed={sidebarCollapsed} toggleGroup={toggleGroup} closeSidebar={closeSidebar} pendingRequestsCount={pendingRequestsCount} onAction={handleNavAction} />
+                                <SidebarGroup key={group.key} group={group} isCollapsed={isCollapsed} sidebarCollapsed={sidebarCollapsed} toggleGroup={toggleGroup} expandToGroup={expandToGroup} closeSidebar={closeSidebar} pendingRequestsCount={pendingRequestsCount} onAction={handleNavAction} />
                             );
                         })
                     ) : (
@@ -1068,22 +1079,6 @@ const Dashboard = () => {
 
                 <div className="sidebar-footer">
                     <SidebarThemeToggle collapsed={sidebarCollapsed} />
-                    <div className="user-profile" onClick={() => setShowProfilePanel(true)} role="button" tabIndex={0} aria-label="User profile" onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowProfilePanel(true); } }}>
-                        <div className="user-avatar">
-                            {user?.image_url ? (
-                                <SecureImage src={user.image_url} alt={user.name} className="avatar-img" width={40} height={40} />
-                            ) : (
-                                user?.name ? user.name[0] : 'U'
-                            )}
-                        </div>
-                        <div className="user-info">
-                            <div className="user-name">{user?.name || 'User'}</div>
-                            <div className="user-role">{user?.role || 'Guest'}</div>
-                        </div>
-                    </div>
-                    <button className="btn btn-ghost btn--full mt-16 btn--danger" onClick={handleLogout}>
-                        <LogOut size={18} className="mr-8" aria-hidden="true" /> <span className="logout-text">Logout</span>
-                    </button>
                 </div>
             </aside>
 
@@ -1096,6 +1091,7 @@ const Dashboard = () => {
                         <button
                             className="appbar-hamburger"
                             aria-label="Toggle navigation menu"
+                            title="Toggle sidebar"
                             onClick={handleHamburgerClick}
                         >
                             <Menu size={20} aria-hidden="true" />
@@ -1373,6 +1369,11 @@ const Dashboard = () => {
                                 </div>
                             </div>
                         )}
+                        <div className="profile-panel-section profile-panel-logout">
+                            <button className="btn btn-ghost btn--full btn--danger" onClick={() => { setShowProfilePanel(false); handleLogout(); }}>
+                                <LogOut size={18} className="mr-8" aria-hidden="true" /> <span className="logout-text">Logout</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

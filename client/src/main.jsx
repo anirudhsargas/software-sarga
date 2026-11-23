@@ -4,6 +4,7 @@ import { registerSW } from 'virtual:pwa-register';
 
 import "./index.css";
 import "./styles/global-fixes.css";
+import "./styles/theme-polish.css";
 import App from "./App.jsx";
 import { API_URL } from "./services/api";
 
