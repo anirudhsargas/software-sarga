@@ -69,7 +69,29 @@ function getAssignedDefaultBranch(assignments, activeBranchId) {
     return primary ? primary.branch_id : assignments[0].branch_id;
 }
 
+/**
+ * Resolve the branch a new record should be written to, honouring a branch the
+ * client explicitly selected (e.g. the branch picker on the billing form).
+ * - Admin/Accountant: the requested branch is used if it exists.
+ * - Other staff: the requested branch is used only if it is one of their
+ *   assigned branches; otherwise they fall back to their own branch.
+ */
+async function resolveWriteBranch(req, requestedBranchId, db = pool) {
+    const requested = Number(requestedBranchId);
+    const hasRequested = Number.isInteger(requested) && requested > 0;
+
+    if (hasRequested && isPrivilegedRole(req?.user?.role)) {
+        const [rows] = await db.query('SELECT 1 FROM sarga_branches WHERE id = ? LIMIT 1', [requested]);
+        if (rows.length > 0) return requested;
+    }
+
+    const scopedReq = hasRequested ? { ...req, query: { ...(req.query || {}), branch_id: String(requested) } } : req;
+    const { branchId } = await branchFilter(scopedReq, { allowPrivilegedQuery: false });
+    return branchId;
+}
+
 module.exports = {
     branchFilter,
     isPrivilegedRole,
+    resolveWriteBranch,
 };

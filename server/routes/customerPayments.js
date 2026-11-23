@@ -3,7 +3,7 @@ const { pool } = require('../database');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { getUserBranchId, _hasPendingCustomerBalance, _bumpUsageForUser, auditLog, _auditFieldChanges, getNextInvoiceNumber, normalizeMobileWithCountry, asyncHandler, getTodayDate } = require('../helpers');
 const { attachNormalizedMobile } = require('../middleware/phone');
-const { branchFilter } = require('../middleware/branchFilter');
+const { branchFilter, resolveWriteBranch } = require('../middleware/branchFilter');
 const { paginate } = require('../helpers/pagination');
 const { validate } = require('../middleware/validate');
 const { customerPaymentSchema } = require('../schemas/paymentSchemas');
@@ -153,7 +153,8 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
         book_type,
         payment_target_book: req_payment_target_book,
         is_internal: req_is_internal,
-        internal_department: req_internal_dept
+        internal_department: req_internal_dept,
+        branch_id: req_branch_id
     } = req.body;
     const idempotencyKey = String(req.headers['idempotency-key'] || '').trim();
 
@@ -250,7 +251,7 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
             });
         }
 
-        const { branchId } = await branchFilter(req, { allowPrivilegedQuery: false });
+        const branchId = await resolveWriteBranch(req, req_branch_id, connection);
         let resolvedCustomerId = customer_id || null;
 
         console.time('[PMT-PERF] 2. Customer Lookup & Email Update');

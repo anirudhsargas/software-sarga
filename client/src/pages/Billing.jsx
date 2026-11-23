@@ -321,25 +321,6 @@ const Billing = () => {
     }
   }, [defaultTargetBook, userSelectedTargetBook]);
 
-  const handleGoToPayment = useCallback(() => {
-    const missing = (Array.isArray(orderLines) ? orderLines : [])
-      .filter(line => isMachineCountLine(line) && !line.machine_id && !line.quick_added);
-    if (missing.length > 0) {
-      setMachineModalOpen(true);
-      return;
-    }
-    setPayment(prev => {
-      const hasAmount = prev.selectedMethods.some(method => Number(prev.methodAmounts[method]) > 0);
-      if (hasAmount || totals.gross <= 0) return prev;
-      const method = prev.selectedMethods[0] || 'Cash';
-      return {
-        ...prev,
-        methodAmounts: { ...prev.methodAmounts, [method]: Number(totals.gross.toFixed(2)) },
-      };
-    });
-    setActiveTab('payment');
-  }, [orderLines, totals.gross]);
-
   const [showScanner, setShowScanner] = useState(false);
   const [productSearchQuery, setProductSearchQuery] = useState('');
   const [customerSearchQuery, setCustomerSearchQuery] = useState('');
@@ -732,6 +713,26 @@ const Billing = () => {
     [payment.selectedMethods, payment.methodAmounts]
   );
   const customerAdvanceAmount = Math.max(0, Number((advancePaid - totals.gross).toFixed(2)));
+
+  // Defined after `totals` — referencing totals earlier throws a TDZ ReferenceError on every render.
+  const handleGoToPayment = useCallback(() => {
+    const missing = (Array.isArray(orderLines) ? orderLines : [])
+      .filter(line => isMachineCountLine(line) && !line.machine_id && !line.quick_added);
+    if (missing.length > 0) {
+      setMachineModalOpen(true);
+      return;
+    }
+    setPayment(prev => {
+      const hasAmount = prev.selectedMethods.some(method => Number(prev.methodAmounts[method]) > 0);
+      if (hasAmount || totals.gross <= 0) return prev;
+      const method = prev.selectedMethods[0] || 'Cash';
+      return {
+        ...prev,
+        methodAmounts: { ...prev.methodAmounts, [method]: Number(totals.gross.toFixed(2)) },
+      };
+    });
+    setActiveTab('payment');
+  }, [orderLines, totals.gross]);
 
   const _computeDiscTotal = useCallback((lines, discPct) => {
     const sub = lines.reduce((s, l) => s + (Number(l.total_amount) || 0), 0);
@@ -1308,7 +1309,8 @@ const Billing = () => {
         auto_deliver: isWalkIn,
         branch_id: selectedBranchId,
       };
-      const matterFiles = orderLines.map(l => l.matter_file).filter(Boolean);
+      // Keep one entry per order line (null when no file) so files stay aligned with the jobs created for each line.
+      const matterFiles = orderLines.map(l => l.matter_file || null);
 
       // Pre-flight stock check
       const stockCheckItems = billPayload.order_lines
@@ -1371,7 +1373,7 @@ const Billing = () => {
       const lastBill = {
         customerId,
         paymentId: result?.payment?.id || result?.id || null,
-        invoiceNumber: result?.bill?.invoice_number || result?.invoice_number || `INV-${result?.bill?.id || result?.id || Date.now()}`,
+        invoiceNumber: result?.payment?.invoice_number || result?.bill?.invoice_number || result?.invoice_number || `INV-${result?.payment?.id || result?.bill?.id || result?.id || Date.now()}`,
         invoiceDate: result?.bill?.created_at || result?.created_at || new Date().toISOString(),
         customer: { name: form.name, mobile: form.mobile, email: form.email, address: form.address, gst: form.gst, type: form.type },
         orderLines, totals, payment: { method: payMethodLabel, cash_amount: cashAmt, upi_amount: upiAmt, cheque_amount: chequeAmt, account_transfer_amount: transferAmt },

@@ -1204,7 +1204,8 @@ export async function createBill(billData, matterFiles = []) {
             const jobRes = await api.post('jobs/bulk', {
                 customer_id: billData.customerId || billData.customer_id || null,
                 order_lines: lines,
-                force: billData.force || false
+                force: billData.force || false,
+                branch_id: billData.branch_id || billData.branchId || null
             });
             createdJobs = jobRes.data?.jobs || [];
         }
@@ -1280,6 +1281,7 @@ export async function createBill(billData, matterFiles = []) {
             auto_deliver: billData.auto_deliver || billData.autoDeliver || false,
             is_internal: billData.is_internal || 0,
             internal_department: billData.internal_department || null,
+            branch_id: billData.branch_id || billData.branchId || null,
         };
         console.log('[localDb] Sending customer-payment payload:', JSON.stringify(paymentPayload, null, 2));
         let payRes;

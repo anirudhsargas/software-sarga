@@ -6,7 +6,7 @@ const { analyzeDesign } = require('../helpers/designAnalyzer');
 const { validate, addJobSchema } = require('../middleware/validate');
 const { fileToBase64 } = require('../utils/base64');
 const { paginate } = require('../helpers/pagination');
-const { branchFilter } = require('../middleware/branchFilter');
+const { branchFilter, resolveWriteBranch } = require('../middleware/branchFilter');
 const { invalidateDashboardCache, invalidateCustomerCache, invalidatePattern } = require('../services/cacheService');
 const { routeCache } = require('../middleware/cache');
 
@@ -732,7 +732,7 @@ router.get('/customers/:id/jobs', authenticateToken, async (req, res) => {
 
 // Bulk create jobs for multiple line items
 router.post('/jobs/bulk', authenticateToken, async (req, res) => {
-    const { customer_id, order_lines, force } = req.body;
+    const { customer_id, order_lines, force, branch_id: req_branch_id } = req.body;
 
     if (!Array.isArray(order_lines) || order_lines.length === 0) {
         return res.status(400).json({ message: 'Order lines are required' });
@@ -764,7 +764,7 @@ router.post('/jobs/bulk', authenticateToken, async (req, res) => {
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
-        const { branchId } = await branchFilter(req, { allowPrivilegedQuery: false });
+        const branchId = await resolveWriteBranch(req, req_branch_id, connection);
         const created = [];
         const machineSyncTasks = [];
 

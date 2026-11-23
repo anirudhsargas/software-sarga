@@ -41,7 +41,8 @@ const customerPaymentSchema = z.object({
     book_type: z.string().optional().nullable(),
     payment_target_book: z.string().optional().nullable(),
     is_internal: z.coerce.number().optional().default(0),
-    internal_department: z.string().optional().nullable()
+    internal_department: z.string().optional().nullable(),
+    branch_id: z.coerce.number().int().positive().optional().nullable()
 }).refine(data => {
     if (data.advance_paid > data.total_amount && !data.customer_id) return false;
     return true;
