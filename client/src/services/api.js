@@ -172,13 +172,14 @@ const requiresPaymentIdempotency = (url = '') => {
 };
 
 // Automatically attach auth token to every request and fix absolute routes
-api.interceptors.request.use((config) => {
+api.interceptors.request.use(async (config) => {
     // Ensure URL is relative to baseURL and avoid duplicate /api segments.
     if (config.url) {
         config.url = normalizeRequestUrl(config.url);
     }
 
-    const token = auth.getToken();
+    // Renew the access token shortly before it expires so requests never go out with a stale one.
+    const token = await auth.getValidToken(60);
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;
     }
@@ -222,8 +223,31 @@ api.interceptors.response.use(
         }
         return response;
     },
-    (error) => {
-        if (error.response?.status === 401) {
+    async (error) => {
+        const status = error.response?.status;
+        const reqUrl = String(error.config?.url || '');
+        // These endpoints answer 401 for a wrong password / code, not for an expired session.
+        const isCredentialCheck = /auth\/(login|change-password)/.test(reqUrl);
+
+        // Expired/revoked access token: renew once via the refresh token and replay the request.
+        if (status === 401 && !isCredentialCheck && error.config && !error.config._retriedAfterRefresh && auth.getRefreshToken()) {
+            const newToken = await auth.refresh();
+            if (newToken) {
+                error.config._retriedAfterRefresh = true;
+                error.config.headers = { ...(error.config.headers || {}), Authorization: `Bearer ${newToken}` };
+                return api.request(error.config);
+            }
+        }
+
+        if (status === 401 && isCredentialCheck) {
+            return Promise.reject(error);
+        }
+
+        if (status === 401) {
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('refreshExpiresAt');
+            sessionStorage.removeItem('refreshToken');
+            sessionStorage.removeItem('refreshExpiresAt');
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             sessionStorage.removeItem('token');

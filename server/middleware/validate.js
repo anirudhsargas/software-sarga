@@ -10,7 +10,8 @@ const optionalPositiveInt = z.preprocess((v) => (v === '' || v === null || v ===
 // ---- Auth ----
 const loginSchema = z.object({
     user_id: z.string().min(1, 'User ID is required'),
-    password: z.string().min(1, 'Password is required')
+    password: z.string().min(1, 'Password is required'),
+    remember_me: z.boolean().optional()
 });
 
 // Password validation regex - min 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special char

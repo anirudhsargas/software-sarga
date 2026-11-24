@@ -17,32 +17,48 @@ const _getApiBase = () => {
 
 const _authHttp = axios.create({ withCredentials: true });
 
+const AUTH_KEYS = ['token', 'user', 'refreshToken', 'refreshExpiresAt'];
+
+// Whichever storage holds the current session ("remember me" → localStorage, else sessionStorage).
+const _activeStore = () => (sessionStorage.getItem('token') || sessionStorage.getItem('refreshToken'))
+    && !localStorage.getItem('token') ? sessionStorage : localStorage;
+
+const _clearAuthStorage = () => {
+    AUTH_KEYS.forEach((k) => { localStorage.removeItem(k); sessionStorage.removeItem(k); });
+};
+
+// Seconds left on a JWT (negative when expired, -Infinity when unreadable).
+const _secondsLeft = (token) => {
+    if (!token) return -Infinity;
+    try { return jwtDecode(token).exp - Date.now() / 1000; } catch { return -Infinity; }
+};
+
+let _refreshInFlight = null;
+
 const auth = {
     login: async (userId, password, rememberMe = true) => {
-        const response = await _authHttp.post(`${_getApiBase()}auth/login`, { user_id: userId, password });
+        const response = await _authHttp.post(`${_getApiBase()}auth/login`, { user_id: userId, password, remember_me: !!rememberMe });
         if (response.data.token) {
-            if (rememberMe) {
-                localStorage.setItem('token', response.data.token);
-                localStorage.setItem('user', JSON.stringify(response.data.user));
-                sessionStorage.removeItem('token');
-                sessionStorage.removeItem('user');
-            } else {
-                sessionStorage.setItem('token', response.data.token);
-                sessionStorage.setItem('user', JSON.stringify(response.data.user));
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
+            _clearAuthStorage();
+            const store = rememberMe ? localStorage : sessionStorage;
+            store.setItem('token', response.data.token);
+            store.setItem('user', JSON.stringify(response.data.user));
+            if (response.data.refreshToken) {
+                store.setItem('refreshToken', response.data.refreshToken);
+                store.setItem('refreshExpiresAt', response.data.refreshExpiresAt || '');
             }
         }
         return response.data;
     },
 
     logout: async () => {
-        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        const token = auth.getToken();
+        const refreshToken = auth.getRefreshToken();
         localStorage.clear();
         sessionStorage.clear();
 
         if (token) {
-            _authHttp.post(`${_getApiBase()}auth/logout`, null, {
+            _authHttp.post(`${_getApiBase()}auth/logout`, { refreshToken }, {
                 headers: { Authorization: `Bearer ${token}` }
             }).catch(() => {});
         }
@@ -51,6 +67,69 @@ const auth = {
     },
 
     getToken: () => localStorage.getItem('token') || sessionStorage.getItem('token'),
+
+    getRefreshToken: () => localStorage.getItem('refreshToken') || sessionStorage.getItem('refreshToken'),
+
+    /** True while a refresh token exists and has not passed its expiry. */
+    hasUsableRefreshToken: () => {
+        const rt = auth.getRefreshToken();
+        if (!rt) return false;
+        const exp = localStorage.getItem('refreshExpiresAt') || sessionStorage.getItem('refreshExpiresAt');
+        if (!exp) return true;
+        const ts = Date.parse(exp);
+        return Number.isNaN(ts) ? true : ts > Date.now();
+    },
+
+    /** Replace the access token (e.g. after a branch switch) in the active storage. */
+    setAccessToken: (token, user) => {
+        const store = _activeStore();
+        store.setItem('token', token);
+        if (user) store.setItem('user', JSON.stringify(user));
+        try { window.dispatchEvent(new CustomEvent('sarga:token-refreshed', { detail: { token } })); } catch { /* noop */ }
+    },
+
+    /**
+     * Exchange the refresh token for a new access token. Concurrent callers share one request.
+     * Resolves to the new access token, or null when the session can't be renewed.
+     */
+    refresh: () => {
+        if (_refreshInFlight) return _refreshInFlight;
+        const refreshToken = auth.getRefreshToken();
+        if (!refreshToken) return Promise.resolve(null);
+        const store = _activeStore();
+        _refreshInFlight = _authHttp.post(`${_getApiBase()}auth/refresh`, { refreshToken })
+            .then((res) => {
+                const data = res.data || {};
+                if (!data.token) return null;
+                store.setItem('token', data.token);
+                if (data.refreshToken) {
+                    store.setItem('refreshToken', data.refreshToken);
+                    store.setItem('refreshExpiresAt', data.refreshExpiresAt || '');
+                }
+                if (data.user) {
+                    // Keep any client-side fields, take the server's role/branch/settings.
+                    const prev = auth.getUser() || {};
+                    store.setItem('user', JSON.stringify({ ...prev, ...data.user }));
+                }
+                try { window.dispatchEvent(new CustomEvent('sarga:token-refreshed', { detail: { token: data.token } })); } catch { /* noop */ }
+                return data.token;
+            })
+            .catch((err) => {
+                // Only a definitive rejection ends the session; network errors keep it for a retry.
+                if (err?.response?.status === 401) _clearAuthStorage();
+                return null;
+            })
+            .finally(() => { _refreshInFlight = null; });
+        return _refreshInFlight;
+    },
+
+    /** Access token that is valid for at least `minSeconds`, refreshing first if needed. */
+    getValidToken: async (minSeconds = 60) => {
+        const token = auth.getToken();
+        if (_secondsLeft(token) > minSeconds) return token;
+        if (!auth.getRefreshToken()) return token;
+        return (await auth.refresh()) || auth.getToken();
+    },
 
     getUser: () => {
         const user = localStorage.getItem('user') || sessionStorage.getItem('user');
@@ -69,13 +148,9 @@ const auth = {
 
     isAuthenticated: () => {
         const token = auth.getToken();
-        if (!token) return false;
-        try {
-            const decoded = jwtDecode(token);
-            return decoded.exp * 1000 > Date.now();
-        } catch {
-            return false;
-        }
+        if (_secondsLeft(token) > 0) return true;
+        // Access token expired, but the session can still be renewed silently.
+        return !!token && auth.hasUsableRefreshToken();
     },
     normalizeRole: (role) => {
         if (!role) return '';

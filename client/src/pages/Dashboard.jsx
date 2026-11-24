@@ -28,6 +28,8 @@ import useTranslation from '../hooks/useTranslation';
 import { useBranches } from '../contexts/BranchContext';
 import PermissionDeniedState from '../components/PermissionDeniedState';
 import AttendanceReminderBanner from '../components/AttendanceReminderBanner';
+import useRolePermissions from '../hooks/useRolePermissions';
+import { getPathOverride, canRoleAccessPath } from '../config/rolePermissions';
 import '../styles/profile-edit.css';
 import '../styles/dashboard-redesign.css';
 
@@ -102,6 +104,7 @@ const PromotionsManager = lazyWithRetry(() => import('./admin/PromotionsManager'
 const PickupBookings = lazyWithRetry(() => import('./admin/PickupBookings'));
 const DeliveryRulesManager = lazyWithRetry(() => import('./admin/DeliveryRulesManager'));
 const TranslationsManager = lazyWithRetry(() => import('./admin/TranslationsManager'));
+const RolePermissions = lazyWithRetry(() => import('./admin/RolePermissions'));
 const SampleRequestsCMS = lazyWithRetry(() => import('./SampleRequestsCMS'));
 const DesignBookingsCMS = lazyWithRetry(() => import('./DesignBookingsCMS'));
 const AccessRestricted = lazyWithRetry(() => import('./AccessRestricted'));
@@ -336,11 +339,19 @@ const NavigateToCustomerDetails = () => {
 
 const ProtectedSubRoute = ({ children, roles }) => {
     const { user } = useAuth();
+    const location = useLocation();
+    const { overrides: roleOverrides } = useRolePermissions();
     if (!user) {
         return <Navigate to="/login" replace />;
     }
     const normalizedUserRole = user.role;
-    if (roles && !roles.map(r => r.toLowerCase().trim()).includes(normalizedUserRole?.toLowerCase().trim())) {
+    // Admin-configured role permissions (Administration → Permissions) take precedence over the
+    // route's built-in role list: a module can be switched off, or granted to an extra role.
+    const override = getPathOverride(normalizedUserRole, location.pathname, roleOverrides);
+    if (override === false) {
+        return <PermissionDeniedState message="This module has been turned off for your role by the administrator." />;
+    }
+    if (override !== true && !canRoleAccessPath(normalizedUserRole, location.pathname, roles, null)) {
         return <PermissionDeniedState />;
     }
     return children;
@@ -610,6 +621,7 @@ const Dashboard = () => {
     }, []);
 
     const { t } = useTranslation();
+    const { overrides: roleOverrides } = useRolePermissions();
 
     const menuItems = useMemo(() => [
         // Dashboard
@@ -659,6 +671,7 @@ const Dashboard = () => {
         { key: 'manage', name: 'Attendance', icon: UserCheck, path: '/dashboard/cctv-attendance', roles: ['Admin'], group: 'admin' },
         { key: 'manage', name: 'CCTV', icon: Video, path: '/dashboard/cctv-management', roles: ['Admin'], group: 'admin' },
         { key: 'manage', name: 'Schedule & Time', icon: Clock, path: '/dashboard/schedules', roles: ['Admin', 'Accountant'], group: 'admin' },
+        { key: 'manage', name: 'Permissions', icon: Lock, path: '/dashboard/permissions', roles: ['Admin'], group: 'admin' },
         { key: 'manage', name: 'Settings', icon: Settings, path: '/dashboard/settings', roles: ['Admin'], group: 'admin' },
         { key: 'manage', name: 'Audit Trail', icon: Shield, path: '/dashboard/admin/audit-trail', roles: ['Admin'], group: 'admin' },
         { key: 'manage', name: 'Audit Dashboard', icon: BarChart3, path: '/dashboard/admin/audit-dashboard', roles: ['Admin'], group: 'admin' },
@@ -686,6 +699,17 @@ const Dashboard = () => {
             );
         }
         
+        // Admin-configured role permissions (Administration → Permissions):
+        // drop modules switched off for this role, add modules explicitly granted to it.
+        items = items.filter(item => !item.path || getPathOverride(normalizedUserRole, item.path, roleOverrides) !== false);
+        const shownPaths = new Set(items.map(item => item.path));
+        menuItems.forEach(item => {
+            if (item.path && !shownPaths.has(item.path) && getPathOverride(normalizedUserRole, item.path, roleOverrides) === true) {
+                items.push(item);
+                shownPaths.add(item.path);
+            }
+        });
+
         if (user?.settings) {
             try {
                 const settings = typeof user.settings === 'string' ? JSON.parse(user.settings) : user.settings;
@@ -721,7 +745,7 @@ const Dashboard = () => {
             }
         }
         return items;
-    }, [user, menuItems, normalizedUserRole]);
+    }, [user, menuItems, normalizedUserRole, roleOverrides]);
 
     const [collapsedGroups, setCollapsedGroups] = useState(() => {
         try {
@@ -1249,6 +1273,7 @@ const Dashboard = () => {
                             <Route path="inventory/consumables" element={<ProtectedSubRoute roles={['Admin', 'Front Office', 'Accountant']}><ConsumablesManagement /></ProtectedSubRoute>} />
                             <Route path="recurring-invoices" element={<ProtectedSubRoute roles={['Admin', 'Accountant']}><RecurringInvoices /></ProtectedSubRoute>} />
                             <Route path="settings" element={<ProtectedSubRoute roles={['Admin']}><SettingsPage /></ProtectedSubRoute>} />
+                            <Route path="permissions" element={<ProtectedSubRoute roles={['Admin']}><RolePermissions /></ProtectedSubRoute>} />
                             <Route path="backup" element={<ProtectedSubRoute roles={['Admin']}><BackupSettingsPage /></ProtectedSubRoute>} />
                             <Route path="admin/chatbot-training" element={<ProtectedSubRoute roles={['Admin']}><ChatbotTraining /></ProtectedSubRoute>} />
                             <Route path="admin/reviews" element={<ProtectedSubRoute roles={['Admin']}><ReviewsManagement /></ProtectedSubRoute>} />

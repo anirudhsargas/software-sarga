@@ -1,14 +1,19 @@
 const router = require('express').Router();
 const { pool } = require('../database');
-const { authenticateToken, authorizeRoles: _authorizeRoles, JWT_SECRET, revokeSessionInCache } = require('../middleware/auth');
+const { authenticateToken, authorizeRoles: _authorizeRoles, revokeSessionInCache } = require('../middleware/auth');
 const { normalizeMobileWithCountry, auditLog } = require('../helpers');
 const { validate, loginSchema, changePasswordSchema } = require('../middleware/validate');
 const { createAuditEntry } = require('../services/auditService');
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
 const { fileToBase64 } = require('../utils/base64');
 const { uploadBufferToCloudinary } = require('../helpers/cloudinaryUpload');
+const crypto = require('crypto');
+const { sendEmail } = require('../utils/mailer');
+const {
+    issueAccessToken, createRefreshToken, rotateRefreshToken, revokeRefreshToken,
+    revokeAllUserTokens, passwordPolicyError, sha256
+} = require('../helpers/authTokens');
 
 // Rate limiting for auth endpoints
 const authLimiter = rateLimit({
@@ -19,7 +24,168 @@ const authLimiter = rateLimit({
     legacyHeaders: false
 });
 
+const publicUser = (user) => ({
+    id: user.id,
+    user_id: user.user_id,
+    role: user.role,
+    name: user.name,
+    branch_id: user.branch_id || null,
+    branch_short_name: user.branch_short_name || null,
+    image_url: user.image_url || null,
+    settings: user.settings || null,
+    is_first_login: !!user.is_first_login
+});
+
+// OTP requests: 5 per 15 minutes per IP (plus a 60s per-user cooldown below)
+const otpLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    message: { message: 'Too many OTP requests. Please try again later.' },
+    standardHeaders: true,
+    legacyHeaders: false
+});
+
+// Refresh calls are frequent but cheap; still cap abuse.
+const refreshLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 120,
+    message: { message: 'Too many refresh attempts. Please log in again.' },
+    standardHeaders: true,
+    legacyHeaders: false
+});
+
+const OTP_TTL_MINUTES = 10;
+const OTP_MAX_ATTEMPTS = 5;
+const OTP_RESEND_COOLDOWN_SECONDS = 60;
+
+const maskEmail = (email) => {
+    const [name, domain] = String(email).split('@');
+    if (!domain) return email;
+    const visible = name.slice(0, Math.min(2, name.length));
+    return `${visible}${'*'.repeat(Math.max(name.length - visible.length, 3))}@${domain}`;
+};
+
 module.exports = (upload) => {
+
+    // Exchange a refresh token for a fresh access token (refresh token is rotated)
+    router.post('/auth/refresh', refreshLimiter, async (req, res) => {
+        try {
+            const result = await rotateRefreshToken(req.body?.refreshToken, req);
+            res.json({
+                token: result.token,
+                expiresIn: result.expiresIn,
+                refreshToken: result.refreshToken,
+                refreshExpiresAt: result.refreshExpiresAt,
+                user: publicUser(result.user)
+            });
+        } catch (err) {
+            if (err.status === 401) return res.status(401).json({ message: err.message, code: 'REFRESH_INVALID' });
+            console.error('Token refresh error:', err);
+            res.status(500).json({ message: 'Could not refresh session' });
+        }
+    });
+
+    // Change password without the current password: step 1 — email a one-time code
+    router.post('/auth/change-password/otp', otpLimiter, authenticateToken, async (req, res) => {
+        const userId = req.user.id;
+        try {
+            const [[staff]] = await pool.query('SELECT id, name, email FROM sarga_staff WHERE id = ?', [userId]);
+            if (!staff) return res.status(404).json({ message: 'User not found' });
+            const email = String(staff.email || '').trim();
+            if (!email) {
+                return res.status(400).json({ message: 'No email is saved on your account. Ask the Admin to add your email in Staff Management.' });
+            }
+
+            const [[recent]] = await pool.query(
+                `SELECT TIMESTAMPDIFF(SECOND, created_at, NOW()) AS age FROM sarga_password_otps
+                 WHERE staff_id = ? AND purpose = 'change_password' ORDER BY id DESC LIMIT 1`,
+                [userId]
+            );
+            if (recent && recent.age < OTP_RESEND_COOLDOWN_SECONDS) {
+                return res.status(429).json({ message: `Please wait ${OTP_RESEND_COOLDOWN_SECONDS - recent.age}s before requesting another code.` });
+            }
+
+            const otp = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+            await pool.query(
+                "UPDATE sarga_password_otps SET used = 1 WHERE staff_id = ? AND purpose = 'change_password' AND used = 0",
+                [userId]
+            );
+            await pool.query(
+                `INSERT INTO sarga_password_otps (staff_id, otp_hash, purpose, expires_at)
+                 VALUES (?, ?, 'change_password', DATE_ADD(NOW(), INTERVAL ? MINUTE))`,
+                [userId, sha256(`${userId}:${otp}`), OTP_TTL_MINUTES]
+            );
+
+            await sendEmail({
+                from: `"Sarga Offset" <${process.env.EMAIL_FROM || 'sargabilldesk@gmail.com'}>`,
+                to: email,
+                subject: 'Your password change code',
+                html: `
+                <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px;">
+                    <div style="text-align: center; padding: 20px; background: #1a1a2e; color: white; border-radius: 8px 8px 0 0;">
+                        <h2 style="margin: 0;">Password Change Code</h2>
+                    </div>
+                    <div style="padding: 20px; border: 1px solid #eee; border-top: none;">
+                        <p>Hi <strong>${String(staff.name || '').replace(/[<>&"]/g, '')}</strong>,</p>
+                        <p>Use this code to change your password:</p>
+                        <p style="text-align: center; font-size: 32px; letter-spacing: 8px; font-weight: bold; margin: 24px 0;">${otp}</p>
+                        <p style="color: #666; font-size: 13px;">The code expires in ${OTP_TTL_MINUTES} minutes. If you didn't request this, ignore this email and tell your administrator.</p>
+                    </div>
+                </div>`
+            });
+
+            auditLog(userId, 'PASSWORD_OTP_SENT', 'Password change OTP emailed');
+            res.json({ message: `A 6-digit code was sent to ${maskEmail(email)}`, email: maskEmail(email), expiresInMinutes: OTP_TTL_MINUTES });
+        } catch (err) {
+            console.error('Send password OTP error:', err);
+            res.status(500).json({ message: 'Could not send the code. Please try again.' });
+        }
+    });
+
+    // Change password without the current password: step 2 — verify code and set the new password
+    router.post('/auth/change-password/otp/verify', authLimiter, authenticateToken, async (req, res) => {
+        const userId = req.user.id;
+        const otp = String(req.body?.otp || '').trim();
+        const newPassword = req.body?.newPassword;
+        if (!/^\d{6}$/.test(otp)) return res.status(400).json({ message: 'Enter the 6-digit code from your email' });
+        const policyError = passwordPolicyError(newPassword);
+        if (policyError) return res.status(400).json({ message: policyError });
+
+        try {
+            const [[record]] = await pool.query(
+                `SELECT id, otp_hash, attempts, (expires_at > NOW()) AS active FROM sarga_password_otps
+                 WHERE staff_id = ? AND purpose = 'change_password' AND used = 0 ORDER BY id DESC LIMIT 1`,
+                [userId]
+            );
+            if (!record || !record.active) {
+                return res.status(400).json({ message: 'The code has expired. Please request a new one.' });
+            }
+            if (record.attempts >= OTP_MAX_ATTEMPTS) {
+                await pool.query('UPDATE sarga_password_otps SET used = 1 WHERE id = ?', [record.id]);
+                return res.status(400).json({ message: 'Too many wrong attempts. Please request a new code.' });
+            }
+
+            const expected = Buffer.from(record.otp_hash, 'hex');
+            const actual = Buffer.from(sha256(`${userId}:${otp}`), 'hex');
+            if (expected.length !== actual.length || !crypto.timingSafeEqual(expected, actual)) {
+                await pool.query('UPDATE sarga_password_otps SET attempts = attempts + 1 WHERE id = ?', [record.id]);
+                const left = OTP_MAX_ATTEMPTS - record.attempts - 1;
+                return res.status(400).json({ message: left > 0 ? `Incorrect code. ${left} attempt(s) left.` : 'Incorrect code. Please request a new one.' });
+            }
+
+            const hashedPassword = await bcrypt.hash(newPassword, 10);
+            await pool.query('UPDATE sarga_password_otps SET used = 1 WHERE id = ?', [record.id]);
+            await pool.query('UPDATE sarga_staff SET password = ?, is_first_login = 0 WHERE id = ?', [hashedPassword, userId]);
+            await revokeAllUserTokens(userId);
+
+            auditLog(userId, 'PASSWORD_CHANGE', 'User changed password using email OTP');
+            createAuditEntry(req, { module: 'Authentication', actionType: 'Update', recordType: 'Password', recordId: userId, responseStatus: 200, success: true, reasonRemarks: 'Password changed via email OTP' }).catch(() => {});
+            res.json({ message: 'Password updated successfully. All sessions revoked.' });
+        } catch (err) {
+            console.error('Verify password OTP error:', err);
+            res.status(500).json({ message: 'Internal server error' });
+        }
+    });
 
     // Login
     router.post('/auth/login', authLimiter, validate(loginSchema), async (req, res) => {
@@ -53,40 +219,15 @@ module.exports = (upload) => {
 
             const { normalizeRole } = require('../middleware/auth');
             const userRoleNormalized = normalizeRole(user.role);
-            let permissions = [];
-            if (userRoleNormalized === 'Admin') {
-                permissions = ['view_dashboard', 'manage_orders', 'manage_customers', 'manage_inventory', 'manage_staff', 'manage_expenses', 'manage_vendors', 'view_reports', 'manage_designs', 'manage_blog'];
-            } else if (userRoleNormalized === 'Accountant') {
-                permissions = ['view_dashboard', 'manage_orders', 'manage_inventory', 'manage_expenses', 'manage_vendors', 'view_reports'];
-            } else if (userRoleNormalized === 'Front Office') {
-                permissions = ['view_dashboard', 'manage_orders', 'manage_customers', 'manage_inventory'];
-            } else if (userRoleNormalized === 'Designer') {
-                permissions = ['view_dashboard', 'manage_designs', 'manage_blog'];
-            }
 
-            const token = jwt.sign(
-                { 
-                    id: user.id, 
-                    user_id: user.user_id, 
-                    role: userRoleNormalized, 
-                    branch_id: user.branch_id,
-                    sub: String(user.id),
-                    branch: user.branch_id,
-                    permissions: permissions
-                },
-                JWT_SECRET,
-                { expiresIn: '12h' } // Shortened from 8h, but wait let's keep 12h and rely on revocation
-            );
-
-            // Record session (non-fatal — login succeeds even if session recording fails)
+            // Short-lived access token (recorded as a revocable session) + rotating refresh token
+            const { token, expiresIn } = await issueAccessToken(user, req);
+            const rememberMe = req.body.remember_me !== false;
+            let refresh = null;
             try {
-                await pool.query(
-                    `INSERT INTO sarga_user_sessions (user_id_internal, session_token, ip_address, user_agent, expires_at) 
-                     VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 12 HOUR))`,
-                    [user.id, token, req.ip, req.headers['user-agent']]
-                );
-            } catch (sessionErr) {
-                console.error('Session recording failed (non-fatal):', sessionErr.message);
+                refresh = await createRefreshToken(user.id, rememberMe, req);
+            } catch (refreshErr) {
+                console.error('Refresh token creation failed (non-fatal):', refreshErr.message);
             }
 
             auditLog(user.id, 'LOGIN', `User ${user.user_id} logged in`);
@@ -94,17 +235,10 @@ module.exports = (upload) => {
 
             res.json({
                 token,
-                user: {
-                    id: user.id,
-                    user_id: user.user_id,
-                    role: user.role,
-                    name: user.name,
-                    branch_id: user.branch_id || null,
-                    branch_short_name: user.branch_short_name || null,
-                    image_url: user.image_url || null,
-                    settings: user.settings || null,
-                    is_first_login: !!user.is_first_login
-                }
+                expiresIn,
+                refreshToken: refresh?.refreshToken || null,
+                refreshExpiresAt: refresh?.refreshExpiresAt || null,
+                user: publicUser(user)
             });
         } catch (err) {
             console.error('Login error:', err);
@@ -151,12 +285,8 @@ module.exports = (upload) => {
             const hashedPassword = await bcrypt.hash(newPassword, 10);
             await pool.query("UPDATE sarga_staff SET password = ?, is_first_login = 0 WHERE id = ?", [hashedPassword, userId]);
 
-            // Revoke ALL active sessions for this user to force immediate logout
-            try {
-                await pool.query("UPDATE sarga_user_sessions SET is_revoked = 1 WHERE user_id_internal = ?", [userId]);
-            } catch (sessionErr) {
-                console.error('Session revocation failed (non-fatal):', sessionErr.message);
-            }
+            // Revoke ALL active sessions and refresh tokens for this user to force immediate logout
+            await revokeAllUserTokens(userId);
 
             auditLog(userId, 'PASSWORD_CHANGE', 'User changed password with complexity requirements');
             createAuditEntry(req, { module: 'Authentication', actionType: 'Update', recordType: 'Password', recordId: userId, responseStatus: 200, success: true, reasonRemarks: 'Password changed successfully' }).catch(() => {});
@@ -272,6 +402,11 @@ module.exports = (upload) => {
                     console.error('Session revocation failed (non-fatal):', sessionErr.message);
                 }
             }
+            try {
+                await revokeRefreshToken(req.body?.refreshToken);
+            } catch (refreshErr) {
+                console.error('Refresh token revocation failed (non-fatal):', refreshErr.message);
+            }
             res.json({ message: 'Logged out successfully' });
         } catch (err) {
             console.error('Logout error:', err);
@@ -329,35 +464,7 @@ module.exports = (upload) => {
                 return res.status(404).json({ message: 'User not found' });
             }
 
-            // 4. Generate new JWT token with updated branch information
-            const { normalizeRole } = require('../middleware/auth');
-            const userRoleNormalizedDb = normalizeRole(user.role);
-            let permissions = [];
-            if (userRoleNormalizedDb === 'Admin') {
-                permissions = ['view_dashboard', 'manage_orders', 'manage_customers', 'manage_inventory', 'manage_staff', 'manage_expenses', 'manage_vendors', 'view_reports', 'manage_designs', 'manage_blog'];
-            } else if (userRoleNormalizedDb === 'Accountant') {
-                permissions = ['view_dashboard', 'manage_orders', 'manage_inventory', 'manage_expenses', 'manage_vendors', 'view_reports'];
-            } else if (userRoleNormalizedDb === 'Front Office') {
-                permissions = ['view_dashboard', 'manage_orders', 'manage_customers', 'manage_inventory'];
-            } else if (userRoleNormalizedDb === 'Designer') {
-                permissions = ['view_dashboard', 'manage_designs', 'manage_blog'];
-            }
-
-            const token = jwt.sign(
-                { 
-                    id: user.id, 
-                    user_id: user.user_id, 
-                    role: userRoleNormalizedDb, 
-                    branch_id: user.branch_id,
-                    sub: String(user.id),
-                    branch: user.branch_id,
-                    permissions: permissions
-                },
-                JWT_SECRET,
-                { expiresIn: '12h' }
-            );
-
-            // Revoke current session token and record the new one
+            // 4. Revoke current session token and issue a new one with the updated branch
             const authHeader = req.headers['authorization'];
             const oldToken = authHeader && authHeader.split(' ')[1];
             if (oldToken) {
@@ -369,31 +476,14 @@ module.exports = (upload) => {
                 }
             }
 
-            try {
-                await pool.query(
-                    `INSERT INTO sarga_user_sessions (user_id_internal, session_token, ip_address, user_agent, expires_at) 
-                     VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 12 HOUR))`,
-                    [user.id, token, req.ip, req.headers['user-agent']]
-                );
-            } catch (sessionErr) {
-                console.error('Session recording failed (non-fatal):', sessionErr.message);
-            }
+            const { token, expiresIn } = await issueAccessToken(user, req);
 
             auditLog(user.id, 'BRANCH_SWITCH', `User ${user.user_id} switched active branch to ${branch_id}`);
 
             res.json({
                 token,
-                user: {
-                    id: user.id,
-                    user_id: user.user_id,
-                    role: user.role,
-                    name: user.name,
-                    branch_id: user.branch_id || null,
-                    branch_short_name: user.branch_short_name || null,
-                    image_url: user.image_url || null,
-                    settings: user.settings || null,
-                    is_first_login: !!user.is_first_login
-                }
+                expiresIn,
+                user: publicUser(user)
             });
         } catch (err) {
             console.error('Branch switch error:', err);

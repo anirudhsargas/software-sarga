@@ -488,6 +488,7 @@ registerRoute('finance', '/api', () => require('./routes/finance'));
 registerRoute('expenses-extended', '/api', () => require('./routes/expenses-extended'));
 registerRoute('utilityEmail', '/api', () => require('./routes/utilityEmail'));
 registerRoute('coupons', '/api', () => require('./routes/coupons'));
+registerRoute('rolePermissions', '/api', () => require('./routes/rolePermissions'));
 registerRoute('stockVerification', '/api/stock-verification', () => require('./routes/stockVerification'));
 registerRoute('stockRequests', '/api', () => require('./routes/stockRequests'));
 registerRoute('ocr', '/api/ocr', () => require('./routes/ocr'));

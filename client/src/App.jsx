@@ -261,6 +261,13 @@ function App() {
     window.addEventListener('pagehide', handlePageHide);
     window.addEventListener('pageshow', handlePageShow);
 
+    // Keep the background sync worker on the latest access token after a silent refresh.
+    const handleTokenRefreshed = (e) => {
+      const fresh = e?.detail?.token || auth.getToken();
+      if (fresh) syncManager.updateToken(fresh);
+    };
+    window.addEventListener('sarga:token-refreshed', handleTokenRefreshed);
+
     // Periodic health check every 60 seconds (skip update if status unchanged)
     const healthInterval = setInterval(async () => {
       const healthy = await checkHealth();
@@ -278,6 +285,7 @@ function App() {
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('pagehide', handlePageHide);
       window.removeEventListener('pageshow', handlePageShow);
+      window.removeEventListener('sarga:token-refreshed', handleTokenRefreshed);
       clearInterval(healthInterval);
       syncManager.destroy();
     };

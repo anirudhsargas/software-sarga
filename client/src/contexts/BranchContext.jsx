@@ -58,8 +58,7 @@ export const BranchProvider = ({ children }) => {
       try {
         const response = await api.post('/auth/switch-branch', { branch_id: Number(safe) });
         if (response.data?.token) {
-          localStorage.setItem('token', response.data.token);
-          localStorage.setItem('user', JSON.stringify(response.data.user));
+          auth.setAccessToken(response.data.token, response.data.user);
           if (updateUser) {
             updateUser(response.data.user);
           }

@@ -1,0 +1,182 @@
+.rp-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.rp-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.rp-actions .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.rp-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 60px 0;
+    color: var(--text-muted, var(--muted));
+}
+
+/* The table scrolls inside its own box, so the pinned role header / module column stick to
+   this box and never slide over the app's top bar. `isolation` keeps their z-index local. */
+.rp-table-wrap {
+    overflow: auto;
+    max-height: calc(100dvh - 220px);
+    min-height: 320px;
+    isolation: isolate;
+    position: relative;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--card, var(--surface));
+    overscroll-behavior: contain;
+}
+
+/* ── Reset the app-wide table styles (index.css makes every <th> sticky, uppercases it,
+      and stripes/hover-tints rows) so this grid looks uniform. ── */
+.rp-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 14px;
+    min-width: 760px;
+}
+
+.rp-table th,
+.rp-table td {
+    position: static;
+    top: auto;
+    z-index: auto;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    text-align: center;
+    background: var(--card, var(--surface));
+    text-transform: none;
+    letter-spacing: normal;
+    font-size: 14px;
+    color: var(--text-primary, inherit);
+}
+
+.rp-table tbody tr,
+.rp-table tbody tr:nth-child(even),
+.rp-table tbody tr:hover,
+.rp-table tbody tr:nth-child(even):hover {
+    background: transparent;
+}
+
+.rp-table tbody tr:hover td,
+.rp-table tbody tr:hover .rp-module-col {
+    background: var(--hover, rgba(0, 0, 0, 0.04));
+}
+
+/* Role header row: pinned to the top of the scroll box */
+.rp-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    font-weight: 600;
+    vertical-align: bottom;
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 1px 0 var(--border);
+}
+
+/* Module name column: pinned to the left when scrolling sideways */
+.rp-table .rp-module-col {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    text-align: left;
+    font-weight: 500;
+    min-width: 200px;
+}
+
+.rp-table thead .rp-module-col {
+    top: 0;
+    z-index: 3;
+}
+
+/* Group rows (Sales, Inventory, …) scroll normally */
+.rp-table .rp-group-row th {
+    position: static;
+    text-align: left;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted, var(--muted));
+    background: var(--hover, rgba(0, 0, 0, 0.03));
+    padding-top: 8px;
+    padding-bottom: 8px;
+}
+
+.rp-table tbody tr:last-child td,
+.rp-table tbody tr:last-child th {
+    border-bottom: none;
+}
+
+.rp-role-head {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+}
+
+.rp-count {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--text-muted, var(--muted));
+}
+
+.rp-role-bulk {
+    display: inline-flex;
+    gap: 4px;
+}
+
+.rp-role-bulk button {
+    font-size: 11px;
+    padding: 2px 8px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-secondary, inherit);
+    cursor: pointer;
+}
+
+.rp-role-bulk button:hover {
+    background: var(--hover, rgba(0, 0, 0, 0.05));
+}
+
+.rp-check {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--primary);
+    vertical-align: middle;
+}
+
+/* Ticked outside the role's built-in access */
+.rp-table td.rp-cell--extra {
+    background: rgba(245, 158, 11, 0.12);
+}
+
+/* Changed but not saved yet */
+.rp-table td.rp-changed {
+    box-shadow: inset 0 0 0 2px rgba(var(--primary-rgb, 59, 130, 246), 0.45);
+}
+
+@media (max-width: 768px) {
+    .rp-table .rp-module-col {
+        min-width: 140px;
+    }
+}

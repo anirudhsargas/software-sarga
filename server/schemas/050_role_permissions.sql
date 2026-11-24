@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS sarga_role_permissions (
+  role VARCHAR(50) NOT NULL,
+  module_key VARCHAR(100) NOT NULL,
+  enabled TINYINT(1) NOT NULL DEFAULT 1,
+  updated_by INT NULL,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (role, module_key)
+);

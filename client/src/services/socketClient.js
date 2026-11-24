@@ -13,7 +13,8 @@ export function connectSocket() {
     if (!token) return null;
 
     socket = io(SOCKET_URL, {
-        auth: { token },
+        // Callback form so every reconnect sends the latest (refreshed) access token.
+        auth: (cb) => cb({ token: auth.getToken() || token }),
         transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionAttempts: 10,
