@@ -276,14 +276,16 @@ a {
 }
 
 /* ── Gentle page entrance (respects reduced-motion) ── */
+/* Opacity only: a transform (even an animated/filled one) on these wrappers turns them
+   into the containing block for position:fixed modals, pushing popups off-screen. */
 @keyframes sarga-fade-up {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: none; }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 main,
 .page-content,
 .main-content {
-  animation: sarga-fade-up 0.35s ease both;
+  animation: sarga-fade-up 0.3s ease;
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

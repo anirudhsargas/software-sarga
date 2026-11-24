@@ -11,11 +11,14 @@ import { formatCurrency } from '../utils/formatters';
 import PageContainer from '../components/ui/PageContainer';
 const fmt = formatCurrency;
 
+// Translucent version of a CSS color (var(--x) + hex alpha like 'var(--success)18' is invalid CSS)
+const tint = (color, pct) => `color-mix(in srgb, ${color} ${pct}%, transparent)`;
+
 const statusConfig = {
-  Present: { color: 'var(--success)', bg: 'var(--success)18', label: 'P' },
-  Absent: { color: 'var(--error)', bg: 'var(--error)18', label: 'A' },
-  'Half Day': { color: 'var(--warning)', bg: 'var(--warning)18', label: '½' },
-  Holiday: { color: 'var(--accent)', bg: 'var(--accent)18', label: 'H' },
+  Present: { color: 'var(--success)', bg: tint('var(--success)', 12), label: 'P' },
+  Absent: { color: 'var(--error)', bg: tint('var(--error)', 12), label: 'A' },
+  'Half Day': { color: 'var(--warning)', bg: tint('var(--warning)', 12), label: '½' },
+  Holiday: { color: 'var(--accent)', bg: tint('var(--accent)', 12), label: 'H' },
 };
 
 const AttendanceSalary = () => {
@@ -190,13 +193,13 @@ const AttendanceSalary = () => {
           </div>
         </div>
 
-        <div style={{ padding: 14, borderRadius: 12, background: 'var(--success)18', border: '1px solid var(--success)30' }}>
+        <div style={{ padding: 14, borderRadius: 12, background: tint('var(--success)', 10), border: `1px solid ${tint('var(--success)', 25)}` }}>
           <div style={{ fontSize: 11, color: 'var(--success)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em', marginBottom: 4 }}>Days Present</div>
           <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--success)' }}>{summary?.present || 0}</div>
           <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{halfDays > 0 ? `+ ${halfDays} half days` : 'this month'}</div>
         </div>
 
-        <div style={{ padding: 14, borderRadius: 12, background: 'var(--error)18', border: '1px solid var(--error)30' }}>
+        <div style={{ padding: 14, borderRadius: 12, background: tint('var(--error)', 10), border: `1px solid ${tint('var(--error)', 25)}` }}>
           <div style={{ fontSize: 11, color: 'var(--error)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em', marginBottom: 4 }}>Absent</div>
           <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--error)' }}>{(summary?.absent || 0) + (summary?.leave || 0)}</div>
           <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{summary?.holiday > 0 ? `${summary.holiday} holidays` : 'this month'}</div>
@@ -204,7 +207,7 @@ const AttendanceSalary = () => {
       </div>
 
       {/* Month Navigator + Calendar */}
-      <div style={{ background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)', padding: '16px 10px', marginBottom: 24, overflow: 'hidden' }}>
+      <div style={{ background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)', padding: '16px 10px', marginBottom: 24, overflow: 'hidden', flexShrink: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <button className="btn btn-ghost" onClick={() => changeMonth(-1)} style={{ padding: '6px 10px' }}><ChevronLeft size={18} /></button>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -231,7 +234,7 @@ const AttendanceSalary = () => {
                 aspectRatio: '1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                 borderRadius: 6, fontSize: 13, fontWeight: cell.isToday ? 800 : 500,
                 background: cell.isToday ? 'linear-gradient(135deg, var(--accent), rgba(var(--accent-rgb), 0.4))'
-                  : config?.bg || (cell.isSunday ? 'var(--error)10' : 'var(--bg, #ffffff08)'),
+                  : config?.bg || (cell.isSunday ? tint('var(--error)', 6) : 'var(--bg, #ffffff08)'),
                 color: cell.isToday ? 'var(--card)' : cell.isFuture ? 'var(--muted)' : config?.color || (cell.isSunday ? 'var(--error)' : 'inherit'),
                 border: cell.isToday ? '2px solid var(--accent)' : '1px solid var(--border)',
                 opacity: cell.isFuture ? 0.4 : 1,
@@ -249,7 +252,7 @@ const AttendanceSalary = () => {
         <div style={{ display: 'flex', gap: 16, marginTop: 16, flexWrap: 'wrap', justifyContent: 'center' }}>
           {Object.entries(statusConfig).map(([key, val]) => (
             <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11 }}>
-              <div style={{ width: 12, height: 12, borderRadius: 3, background: val.bg, border: `1px solid ${val.color}40` }} />
+              <div style={{ width: 12, height: 12, borderRadius: 3, background: val.color }} />
               <span style={{ color: 'var(--muted)' }}>{key}</span>
             </div>
           ))}
@@ -357,8 +360,8 @@ const InfoRow = React.memo(({ label, value, highlight }) => (
   <div style={{
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
     padding: '8px 12px', borderRadius: 6,
-    background: highlight ? 'var(--error)15' : 'var(--bg, #ffffff08)',
-    border: highlight ? '1px solid var(--error)30' : '1px solid var(--border)'
+    background: highlight ? tint('var(--error)', 8) : 'var(--bg, #ffffff08)',
+    border: highlight ? `1px solid ${tint('var(--error)', 25)}` : '1px solid var(--border)'
   }}>
     <span style={{ fontSize: 12, color: 'var(--muted)' }}>{label}</span>
     <span style={{ fontSize: 14, fontWeight: 600, color: highlight ? 'var(--error)' : 'inherit' }}>{value}</span>

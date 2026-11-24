@@ -11,6 +11,23 @@ const { invalidateDashboardCache, invalidateAnalyticsCache, invalidateCustomerCa
 const { redisCache } = require('../middleware/cache');
 const { customerCache } = require('../middleware/cache');
 
+// Resolve which sarga_inventory row an invoice line consumes.
+// - QR/SKU-scanned lines: is_inventory_item=true and inventory_item_id is the inventory id
+//   (their product_id is also the inventory id, so it must NOT be looked up in sarga_products).
+// - Product-picker lines: only product_id, linked via sarga_products.inventory_item_id.
+async function resolveLineInventoryId(conn, line) {
+    if (!line) return null;
+    if (line.is_inventory_item) return Number(line.inventory_item_id) || null;
+    if (line.inventory_item_id) return Number(line.inventory_item_id) || null;
+    const productId = Number(line.product_id);
+    if (!productId) return null;
+    const [rows] = await conn.query(
+        'SELECT inventory_item_id FROM sarga_products WHERE id = ? AND is_deleted = 0 LIMIT 1',
+        [productId]
+    );
+    return rows[0]?.inventory_item_id || null;
+}
+
 const normalizeBookType = (value) => {
     const normalized = String(value || '').trim().toLowerCase();
     if (normalized === 'laser') return 'Laser';
@@ -466,10 +483,9 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
                 }
                 }
                 // Reserve inventory for linked product if a new job was created in this request
-                if (isNewJobCreated && line.job_id && line.product_id) {
+                if (isNewJobCreated && line.job_id && (line.product_id || line.inventory_item_id)) {
                     try {
-                        const [[prodRow]] = await connection.query('SELECT inventory_item_id FROM sarga_products WHERE id = ? FOR UPDATE', [line.product_id]);
-                        const invId = prodRow ? prodRow.inventory_item_id : null;
+                        const invId = await resolveLineInventoryId(connection, line);
                         const qty = Number(line.quantity) || 1;
                         if (invId) {
                             const [[invRow]] = await connection.query('SELECT quantity, COALESCE(reserved_quantity,0) AS reserved FROM sarga_inventory WHERE id = ? FOR UPDATE', [invId]);
@@ -655,9 +671,11 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
         console.time('[PMT-PERF] 9. Inventory Stock Deductions Loop');
         if (Array.isArray(order_lines)) {
             for (const line of order_lines) {
-                if (line.is_inventory_item && line.inventory_item_id) {
+                // Lines added from the product picker carry only product_id; resolve the
+                // linked inventory item so those sales also reduce stock (not just QR scans).
+                const invId = await resolveLineInventoryId(connection, line);
+                if (invId) {
                     const qty = Number(line.quantity) || 1;
-                    const invId = line.inventory_item_id;
 
                     // Decrement global reserved quantity
                     await connection.query(
@@ -671,6 +689,14 @@ router.post('/customer-payments', authenticateToken, authorizeRoles('Admin', 'Ac
                             'SELECT quantity FROM sarga_branch_stock WHERE inventory_item_id = ? AND branch_id = ?',
                             [invId, branchId]
                         );
+                        if (bsBefore.length === 0) {
+                            // No branch stock row for this branch — fall back to global quantity
+                            await connection.query(
+                                "UPDATE sarga_inventory SET quantity = GREATEST(quantity - ?, 0) WHERE id = ?",
+                                [qty, invId]
+                            );
+                            continue;
+                        }
                         const qtyBefore = Number(bsBefore[0]?.quantity || 0);
                         await connection.query(
                             'UPDATE sarga_branch_stock SET quantity = GREATEST(quantity - ?, 0) WHERE inventory_item_id = ? AND branch_id = ?',

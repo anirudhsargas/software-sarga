@@ -524,7 +524,7 @@ const Billing = () => {
     if (!hierarchy || hierarchy.length === 0 || orderLines.length === 0) return;
     let updated = false;
     const nextLines = orderLines.map(line => {
-      if (line._product) return line;
+      if (line._product || line.is_inventory_item) return line;
       let foundProd = null;
       let foundCatName = null;
       for (const cat of hierarchy) {
@@ -1058,9 +1058,13 @@ const Billing = () => {
     const unitPrice = priceResult && priceResult.unit_price > 0 ? priceResult.unit_price : resolveProductUnitPrice(product, quantity, isOffsetLine);
     const totalAmount = priceResult ? priceResult.total_amount : quantity * unitPrice;
 
+    // Raw inventory entries in the hierarchy have a virtual id ("inv-123"); bill them like
+    // QR-scanned inventory so the server can deduct stock for them.
+    const isInventoryOnly = Boolean(product.is_inventory_only && product.inventory_id);
     const line = {
       id: `${product.id || Date.now()}-${Date.now()}`,
-      product_id: product.id,
+      product_id: isInventoryOnly ? product.inventory_id : product.id,
+      ...(isInventoryOnly ? { inventory_item_id: product.inventory_id } : {}),
       product_name: product.name || product.title || 'Product',
       _product: product,
       quantity,
@@ -1081,7 +1085,7 @@ const Billing = () => {
       book_type: derivedBookType,
       colour: '', paper_preference: '', numbering_from: '', numbering_to: '', special_instructions: '',
       matter_text: '', matter_file: null, matter_preview: null,
-      is_inventory_item: false,
+      is_inventory_item: isInventoryOnly,
     };
     setOrderLines(prev => [...prev, line]);
     setSelectedProduct(null);

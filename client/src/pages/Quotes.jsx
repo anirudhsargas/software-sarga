@@ -497,7 +497,16 @@ export default function Quotes() {
     };
 
     const handleKeyDownForm = (e) => {
-        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA' && e.target.id !== 'qr-lookup-input') {
+        if (e.key !== 'Enter') return;
+        // Enter inside the Quick Entry box adds the line instead of saving the whole quote
+        if (e.target.closest && e.target.closest('[data-quick-entry]')) {
+            e.preventDefault();
+            handleAddQuickEntry();
+            return;
+        }
+        // Let Enter activate buttons/selects normally (e.g. the Quick Entry toggle)
+        if (e.target.tagName === 'BUTTON' || e.target.tagName === 'SELECT') return;
+        if (e.target.tagName !== 'TEXTAREA' && e.target.id !== 'qr-lookup-input') {
             e.preventDefault();
             handleSave();
         }
@@ -823,7 +832,7 @@ export default function Quotes() {
 
                                 {/* Quick Custom Entry Box */}
                                 {showQuickEntry && (
-                                    <div style={{ marginBottom: 16, padding: 16, background: 'var(--bg-2)', borderRadius: 12, border: '1px solid var(--accent)' }}>
+                                    <div data-quick-entry style={{ marginBottom: 16, padding: 16, background: 'var(--bg-2)', borderRadius: 12, border: '1px solid var(--accent)' }}>
                                         <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6, color: 'var(--accent)' }}>
                                             <Zap size={14} /> Quick Custom Item Entry
                                         </div>

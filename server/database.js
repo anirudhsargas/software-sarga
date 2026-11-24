@@ -3,7 +3,18 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
-const CURRENT_SCHEMA_VERSION = '045_enterprise_audit.sql';
+// Derived from the schema files on disk so that adding a new .sql file automatically
+// invalidates the startup fast path. (A hand-maintained constant went stale at 045 and
+// silently skipped 047–049, e.g. bill_shortcuts.customer_id, breaking Shortcuts.)
+const CURRENT_SCHEMA_VERSION = (() => {
+  try {
+    const files = fs.readdirSync(path.join(__dirname, 'schemas')).filter(f => f.endsWith('.sql')).sort();
+    const digest = require('crypto').createHash('sha1').update(files.join('|')).digest('hex').slice(0, 12);
+    return `${files.length}-${digest}`;
+  } catch (_) {
+    return 'unknown';
+  }
+})();
 const BOOTSTRAP_SCHEMA_NAME = 'server_bootstrap';
 
 let poolInstance = null;
