@@ -38,17 +38,20 @@ let _refreshInFlight = null;
 const auth = {
     login: async (userId, password, rememberMe = true) => {
         const response = await _authHttp.post(`${_getApiBase()}auth/login`, { user_id: userId, password, remember_me: !!rememberMe });
-        if (response.data.token) {
-            _clearAuthStorage();
-            const store = rememberMe ? localStorage : sessionStorage;
-            store.setItem('token', response.data.token);
-            store.setItem('user', JSON.stringify(response.data.user));
-            if (response.data.refreshToken) {
-                store.setItem('refreshToken', response.data.refreshToken);
-                store.setItem('refreshExpiresAt', response.data.refreshExpiresAt || '');
-            }
-        }
+        if (response.data.token) auth.storeSession(response.data, rememberMe);
         return response.data;
+    },
+
+    /** Save a login response ({ token, refreshToken, refreshExpiresAt, user }) as the current session. */
+    storeSession: (data, rememberMe = true) => {
+        _clearAuthStorage();
+        const store = rememberMe ? localStorage : sessionStorage;
+        store.setItem('token', data.token);
+        if (data.user) store.setItem('user', JSON.stringify(data.user));
+        if (data.refreshToken) {
+            store.setItem('refreshToken', data.refreshToken);
+            store.setItem('refreshExpiresAt', data.refreshExpiresAt || '');
+        }
     },
 
     logout: async () => {
